@@ -1,0 +1,10 @@
+{
+  "$schema": "https://x.a1st.dev/schemas/v1/ai.json",
+  "skills": {},
+  "mcp": {},
+  "rules": {},
+  "prompts": {
+    "plan": "./examples/custom/prompts/plan.md",
+    "code-review": "./examples/custom/prompts/code-review.md"
+  }
+}

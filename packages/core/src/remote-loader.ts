@@ -1,0 +1,283 @@
+/**
+ * Remote config loading utilities for fetching ai.json from URLs, git repos, and local paths.
+ */
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, dirname } from 'pathe';
+import { downloadTemplate } from 'giget';
+import { parseJsonc } from '@a1st/aix-schema';
+import {
+   convertBlobToRawUrl,
+   parseGitShorthand,
+   parseGitHubRepoUrl,
+   parseGitHubBlobUrl,
+   parseGitLabBlobUrl,
+   parseBitbucketBlobUrl,
+   isLocalPath,
+} from './url-parsing.js';
+import {
+   ConfigNotFoundError,
+   ConfigParseError,
+   RemoteFetchError,
+   UnsupportedUrlError,
+} from './errors.js';
+
+export type RemoteSourceType = 'url' | 'git' | 'local';
+
+export interface RemoteLoadResult {
+   /** Parsed config content */
+   content: Record<string, unknown>;
+   /** Base path/URL for resolving relative extends */
+   baseUrl: string;
+   /** Source type */
+   source: RemoteSourceType;
+   /** Whether the base is a remote URL (for extends resolution) */
+   isRemote: boolean;
+}
+
+const FETCH_TIMEOUT_MS = 30000;
+
+/**
+ * Fetch content from a URL with timeout.
+ */
+async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
+   const controller = new AbortController(),
+         timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+   try {
+      const response = await fetch(url, { signal: controller.signal });
+
+      if (!response.ok) {
+         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.text();
+   } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+         throw new Error(`Request timed out after ${timeoutMs}ms`, { cause: error });
+      }
+      throw error;
+   } finally {
+      clearTimeout(timeout);
+   }
+}
+
+/**
+ * Load config from a remote URL (direct or blob URL).
+ */
+export async function loadFromUrl(url: string): Promise<RemoteLoadResult> {
+   const rawUrl = convertBlobToRawUrl(url);
+
+   let content: string;
+
+   try {
+      content = await fetchWithTimeout(rawUrl);
+   } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new RemoteFetchError(url, message);
+   }
+
+   const result = parseJsonc(content);
+
+   if (result.errors.length > 0) {
+      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, url);
+   }
+
+   // Compute base URL for relative extends (directory containing the file)
+   const baseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
+
+   return {
+      content: result.data as Record<string, unknown>,
+      baseUrl,
+      source: 'url',
+      isRemote: true,
+   };
+}
+
+/**
+ * Load config from git shorthand (github:org/repo, github:org/repo/path#ref, etc.).
+ * If no path is specified, looks for ai.json at repo root.
+ */
+export async function loadFromGitShorthand(input: string): Promise<RemoteLoadResult> {
+   const parsed = parseGitShorthand(input);
+
+   if (!parsed) {
+      throw new ConfigParseError(`Invalid git shorthand: ${input}`, input);
+   }
+
+   // Build the giget template string
+   let template = `${parsed.provider}:${parsed.user}/${parsed.repo}`;
+
+   if (parsed.subpath) {
+      template += `/${parsed.subpath}`;
+   }
+   if (parsed.ref) {
+      template += `#${parsed.ref}`;
+   }
+
+   let dir: string;
+
+   try {
+      const result = await downloadTemplate(template, { force: true, cwd: process.cwd() });
+
+      dir = result.dir;
+   } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new RemoteFetchError(input, message);
+   }
+
+   // Look for ai.json - if subpath ends with .json, use it directly; otherwise look for ai.json in dir
+   let configPath: string;
+
+   if (parsed.subpath?.endsWith('.json')) {
+      // The subpath itself is the config file
+      configPath = resolve(dir, parsed.subpath.split('/').pop()!);
+   } else {
+      configPath = resolve(dir, 'ai.json');
+   }
+
+   if (!existsSync(configPath)) {
+      throw new ConfigNotFoundError(configPath);
+   }
+
+   const content = readFileSync(configPath, 'utf-8'),
+         result = parseJsonc(content);
+
+   if (result.errors.length > 0) {
+      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, configPath);
+   }
+
+   return {
+      content: result.data as Record<string, unknown>,
+      baseUrl: dirname(configPath),
+      source: 'git',
+      isRemote: false, // Local filesystem after download
+   };
+}
+
+/**
+ * Load config from a local file path.
+ */
+export function loadFromLocalPath(path: string, cwd: string = process.cwd()): RemoteLoadResult {
+   const absolutePath = resolve(cwd, path);
+
+   if (!existsSync(absolutePath)) {
+      throw new ConfigNotFoundError(absolutePath);
+   }
+
+   const content = readFileSync(absolutePath, 'utf-8'),
+         result = parseJsonc(content);
+
+   if (result.errors.length > 0) {
+      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, absolutePath);
+   }
+
+   return {
+      content: result.data as Record<string, unknown>,
+      baseUrl: dirname(absolutePath),
+      source: 'local',
+      isRemote: false,
+   };
+}
+
+/**
+ * Check if a URL points directly to a file (blob URL or direct file URL).
+ */
+function isDirectFileUrl(url: string): boolean {
+   // Check for blob URLs
+   if (parseGitHubBlobUrl(url) || parseGitLabBlobUrl(url) || parseBitbucketBlobUrl(url)) {
+      return true;
+   }
+   // Check for direct file URLs (ending in .json)
+   if (url.endsWith('.json')) {
+      return true;
+   }
+   return false;
+}
+
+/**
+ * Load config from a GitHub/GitLab/Bitbucket repo URL (not a blob URL).
+ * Downloads the repo and looks for ai.json at the root.
+ */
+async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
+   // Try to parse as GitHub repo URL
+   const ghRepo = parseGitHubRepoUrl(url);
+
+   if (ghRepo) {
+      return loadFromGitShorthand(`github:${ghRepo.owner}/${ghRepo.repo}`);
+   }
+
+   // For other repo URLs, try using giget directly
+   let dir: string;
+
+   try {
+      const result = await downloadTemplate(url, { force: true, cwd: process.cwd() });
+
+      dir = result.dir;
+   } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new RemoteFetchError(url, message);
+   }
+
+   const configPath = resolve(dir, 'ai.json');
+
+   if (!existsSync(configPath)) {
+      throw new ConfigNotFoundError(configPath);
+   }
+
+   const content = readFileSync(configPath, 'utf-8'),
+         result = parseJsonc(content);
+
+   if (result.errors.length > 0) {
+      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, configPath);
+   }
+
+   return {
+      content: result.data as Record<string, unknown>,
+      baseUrl: dirname(configPath),
+      source: 'git',
+      isRemote: false,
+   };
+}
+
+/**
+ * Classify and load config from any source type.
+ */
+export async function loadFromSource(
+   source: string,
+   cwd: string = process.cwd(),
+): Promise<RemoteLoadResult> {
+   // Git shorthand: github:org/repo, gitlab:org/repo, bitbucket:org/repo
+   if (source.startsWith('github:') || source.startsWith('gitlab:') || source.startsWith('bitbucket:')) {
+      return loadFromGitShorthand(source);
+   }
+
+   // HTTPS URL
+   if (source.startsWith('https://')) {
+      // If it's a direct file URL (blob or .json), fetch it
+      if (isDirectFileUrl(source)) {
+         return loadFromUrl(source);
+      }
+      // Otherwise, treat as repo URL and clone it
+      return loadFromRepoUrl(source);
+   }
+
+   // HTTP URL (reject for security)
+   if (source.startsWith('http://')) {
+      throw new UnsupportedUrlError(source);
+   }
+
+   // Local path (relative or absolute)
+   if (isLocalPath(source)) {
+      return loadFromLocalPath(source, cwd);
+   }
+
+   // If it looks like a file path without ./ prefix, try it as local
+   if (source.includes('/') || source.endsWith('.json')) {
+      return loadFromLocalPath(source, cwd);
+   }
+
+   // Unknown format
+   throw new UnsupportedUrlError(source);
+}

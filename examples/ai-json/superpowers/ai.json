@@ -1,0 +1,39 @@
+{
+   "skills": {
+      "test-driven-development": "github:obra/superpowers#v4.0.3:skills/test-driven-development",
+      "systematic-debugging": "github:obra/superpowers#v4.0.3:skills/systematic-debugging",
+      "verification-before-completion": "github:obra/superpowers#v4.0.3:skills/verification-before-completion",
+      "brainstorming": "github:obra/superpowers#v4.0.3:skills/brainstorming",
+      "writing-plans": "github:obra/superpowers#v4.0.3:skills/writing-plans",
+      "executing-plans": "github:obra/superpowers#v4.0.3:skills/executing-plans",
+      "dispatching-parallel-agents": "github:obra/superpowers#v4.0.3:skills/dispatching-parallel-agents",
+      "requesting-code-review": "github:obra/superpowers#v4.0.3:skills/requesting-code-review",
+      "receiving-code-review": "github:obra/superpowers#v4.0.3:skills/receiving-code-review",
+      "using-git-worktrees": "github:obra/superpowers#v4.0.3:skills/using-git-worktrees",
+      "finishing-a-development-branch": "github:obra/superpowers#v4.0.3:skills/finishing-a-development-branch",
+      "subagent-driven-development": "github:obra/superpowers#v4.0.3:skills/subagent-driven-development",
+      "writing-skills": "github:obra/superpowers#v4.0.3:skills/writing-skills",
+      "using-superpowers": "github:obra/superpowers#v4.0.3:skills/using-superpowers"
+   },
+   "prompts": {
+      "brainstorm": {
+         "description": "Start a collaborative brainstorming session using Socratic dialogue",
+         "content": "Let's brainstorm! Use the brainstorming skill to help me think through this problem using Socratic dialogue. Ask clarifying questions, challenge assumptions, and help me refine my ideas."
+      },
+      "write-plan": {
+         "description": "Create a detailed implementation plan for a feature or task",
+         "content": "Please help me write a detailed implementation plan. Use the writing-plans skill to create a comprehensive plan with clear steps, dependencies, and acceptance criteria."
+      },
+      "execute-plan": {
+         "description": "Execute an existing plan with checkpoints and verification",
+         "content": "Let's execute the plan. Use the executing-plans skill to work through the steps systematically, with checkpoints for verification and opportunities for course correction."
+      }
+   },
+   "rules": {
+      "using-superpowers": {
+         "activation": "always",
+         "description": "Introduction to the superpowers skills system",
+         "content": "# Using Superpowers\n\nThis project uses the superpowers skills system. Skills are structured methodologies for common development tasks.\n\n## Available Skills\n\n### Testing\n- **test-driven-development**: RED-GREEN-REFACTOR cycle for writing tests first\n\n### Debugging\n- **systematic-debugging**: 4-phase root cause analysis process\n- **verification-before-completion**: Ensure bugs are actually fixed before closing\n\n### Collaboration\n- **brainstorming**: Socratic dialogue for design refinement\n- **writing-plans**: Create detailed implementation plans\n- **executing-plans**: Batch execution with checkpoints\n- **dispatching-parallel-agents**: Concurrent subagent workflows\n- **requesting-code-review**: Pre-review checklist\n- **receiving-code-review**: Responding to feedback\n- **using-git-worktrees**: Parallel development branches\n- **finishing-a-development-branch**: Merge/PR decision workflow\n- **subagent-driven-development**: Fast iteration with two-stage review\n\n### Meta\n- **writing-skills**: Create new skills\n- **using-superpowers**: This introduction\n\n## Usage\n\nSkills are activated automatically when relevant. You can also explicitly request a skill by name."
+      }
+   }
+}
