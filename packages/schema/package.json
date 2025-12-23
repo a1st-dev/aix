@@ -1,0 +1,42 @@
+{
+   "name": "@a1st/aix-schema",
+   "version": "0.0.0",
+   "description": "JSON Schema and validation for aix configuration",
+   "files": [
+      "dist",
+      "schema.json"
+   ],
+   "type": "module",
+   "main": "./dist/index.js",
+   "types": "./dist/index.d.ts",
+   "exports": {
+      ".": {
+         "types": "./dist/index.d.ts",
+         "import": "./dist/index.js"
+      }
+   },
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/schema"
+   },
+   "publishConfig": {
+      "access": "public",
+      "registry": "https://registry.npmjs.org/"
+   },
+   "scripts": {
+      "build": "tsc -p tsconfig.build.json && npm run generate-schema",
+      "generate-schema": "node --import=@poppinss/ts-exec scripts/generate-schema.ts",
+      "test": "vitest run",
+      "test:watch": "vitest"
+   },
+   "dependencies": {
+      "compare-versions": "6.1.1",
+      "jsonc-parser": "3.3.1",
+      "zod": "3.24.1",
+      "zod-to-json-schema": "3.24.1"
+   },
+   "devDependencies": {
+      "@poppinss/ts-exec": "1.4.1"
+   }
+}

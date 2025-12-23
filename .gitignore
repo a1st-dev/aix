@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+coverage/
+
+oclif.manifest.json
+
+# AIX and other editor config flies
+.aix/.tmp
+ai.local.json
+
+.windsurf
+.cursor
+
+
+# Markdown plans (output from "examples/custom/prompts/plan.md" prompt)
+plans/

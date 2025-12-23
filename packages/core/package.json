@@ -1,0 +1,41 @@
+{
+   "name": "@a1st/aix-core",
+   "version": "0.0.0",
+   "description": "Core utilities for aix configuration loading and management",
+   "files": [
+      "dist"
+   ],
+   "type": "module",
+   "main": "./dist/index.js",
+   "types": "./dist/index.d.ts",
+   "exports": {
+      ".": {
+         "types": "./dist/index.d.ts",
+         "import": "./dist/index.js"
+      }
+   },
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/core"
+   },
+   "publishConfig": {
+      "access": "public",
+      "registry": "https://registry.npmjs.org/"
+   },
+   "scripts": {
+      "build": "tsc -p tsconfig.build.json",
+      "test": "vitest run",
+      "test:watch": "vitest"
+   },
+   "dependencies": {
+      "@a1st/aix-schema": "*",
+      "c12": "2.0.1",
+      "defu": "6.1.4",
+      "giget": "1.2.3",
+      "nypm": "0.3.12",
+      "p-map": "7.0.4",
+      "pathe": "1.1.2",
+      "yaml": "2.8.2"
+   }
+}

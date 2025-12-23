@@ -1,0 +1,67 @@
+import type { AiJsonConfig } from '@a1st/aix-schema';
+import { BaseEditorAdapter, filterMcpConfig } from './base.js';
+import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
+import {
+   VSCodeRulesStrategy,
+   VSCodeMcpStrategy,
+   VSCodePromptsStrategy,
+} from '../strategies/vscode/index.js';
+import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import type {
+   RulesStrategy,
+   McpStrategy,
+   SkillsStrategy,
+   PromptsStrategy,
+   HooksStrategy,
+} from '../strategies/types.js';
+
+/**
+ * VS Code (GitHub Copilot) editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
+ * MCP config to `.vscode/mcp.json`, and skills to `.github/skills/`. VS Code doesn't support hooks.
+ * Skills are installed to `.aix/skills/{name}/` with symlinks from `.github/skills/` since VS Code
+ * has native Agent Skills support.
+ */
+export class VSCodeAdapter extends BaseEditorAdapter {
+   readonly name = 'vscode' as const;
+   readonly configDir = '.vscode';
+
+   protected readonly rulesStrategy: RulesStrategy = new VSCodeRulesStrategy();
+   protected readonly mcpStrategy: McpStrategy = new VSCodeMcpStrategy();
+   protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
+      editorSkillsDir: '.github/skills',
+   });
+   protected readonly promptsStrategy: PromptsStrategy = new VSCodePromptsStrategy();
+   protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
+
+   private pendingSkillChanges: FileChange[] = [];
+
+   async generateConfig(
+      config: AiJsonConfig,
+      projectRoot: string,
+      options: ApplyOptions = {},
+   ): Promise<EditorConfig> {
+      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+               dryRun: options.dryRun,
+               scopes: options.scopes,
+            }),
+            prompts = await this.loadPrompts(config, projectRoot),
+            mcp = filterMcpConfig(config.mcp);
+
+      this.pendingSkillChanges = skillChanges;
+      return { rules, prompts, mcp };
+   }
+
+   protected override async planChanges(
+      editorConfig: EditorConfig,
+      projectRoot: string,
+      scopes: string[],
+      options: ApplyOptions = {},
+   ): Promise<FileChange[]> {
+      const changes = await super.planChanges(editorConfig, projectRoot, scopes, options);
+
+      changes.unshift(...this.pendingSkillChanges);
+      this.pendingSkillChanges = [];
+
+      return changes;
+   }
+}

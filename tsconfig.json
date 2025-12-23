@@ -1,0 +1,26 @@
+{
+   "compilerOptions": {
+      "target": "ES2023",
+      "module": "ESNext",
+      "lib": ["ES2023"],
+      "moduleResolution": "bundler",
+      "jsx": "react-jsx",
+      "resolveJsonModule": true,
+      "allowJs": false,
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true,
+      "declaration": true,
+      "declarationMap": true,
+      "sourceMap": true,
+      "composite": true,
+      "incremental": true,
+      "noUncheckedIndexedAccess": true,
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noImplicitReturns": true,
+      "noFallthroughCasesInSwitch": true
+   },
+   "exclude": ["node_modules", "dist", "build"]
+}

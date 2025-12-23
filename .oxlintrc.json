@@ -1,0 +1,39 @@
+{
+   "$schema": "./node_modules/oxlint/configuration_schema.json",
+   "jsPlugins": ["@stylistic/eslint-plugin"],
+   "categories": {
+      "correctness": "error",
+      "perf": "error",
+      "suspicious": "error"
+   },
+   "rules": {
+      "curly": "error",
+      "@stylistic/brace-style": ["error", "1tbs", { "allowSingleLine": false }],
+      "@stylistic/indent": ["error", 3, { "VariableDeclarator": "first" }],
+      "@stylistic/padding-line-between-statements": [
+         "error",
+         { "blankLine": "always", "prev": ["const", "let"], "next": "*" },
+         { "blankLine": "any", "prev": ["const", "let"], "next": ["const", "let"] }
+      ],
+      "@stylistic/quotes": ["error", "single", { "avoidEscape": true }],
+      "@stylistic/semi": ["error", "always"],
+      "no-unused-vars": [
+         "error",
+         { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+      ],
+      "max-depth": ["warn", { "max": 4 }],
+      "max-nested-callbacks": ["warn", { "max": 3 }],
+      "max-lines-per-function": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+      "max-params": ["warn", { "max": 4 }]
+   },
+   "overrides": [
+      {
+         "files": ["**/*.test.ts", "**/__tests__/**/*.ts"],
+         "rules": {
+            "max-nested-callbacks": "off",
+            "max-lines-per-function": "off"
+         }
+      }
+   ],
+   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.js", "**/*.cjs", "**/*.mjs", "**/.aix/**"]
+}

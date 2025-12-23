@@ -1,0 +1,15 @@
+{
+   "bin": "cyan",
+   "command": "cyan",
+   "commandSummary": "dim",
+   "dollarSign": "dim",
+   "flag": "yellow",
+   "flagDefaultValue": "dim",
+   "flagOptions": "dim",
+   "flagRequired": "red",
+   "flagSeparator": "dim",
+   "sectionDescription": "white",
+   "sectionHeader": "bold",
+   "topic": "cyan",
+   "version": "dim"
+}

@@ -1,0 +1,41 @@
+{
+   "name": "@a1st/mcp-registry-client",
+   "version": "0.0.0",
+   "description": "TypeScript client for the official MCP Registry API",
+   "keywords": [
+      "api-client",
+      "mcp",
+      "model-context-protocol",
+      "registry"
+   ],
+   "license": "MIT",
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/mcp-registry-client"
+   },
+   "files": [
+      "dist"
+   ],
+   "type": "module",
+   "main": "./dist/index.js",
+   "types": "./dist/index.d.ts",
+   "exports": {
+      ".": {
+         "types": "./dist/index.d.ts",
+         "import": "./dist/index.js"
+      }
+   },
+   "publishConfig": {
+      "access": "public",
+      "registry": "https://registry.npmjs.org/"
+   },
+   "scripts": {
+      "build": "tsc -p tsconfig.build.json",
+      "test": "vitest run --passWithNoTests",
+      "test:watch": "vitest"
+   },
+   "dependencies": {
+      "p-map": "7.0.4"
+   }
+}
