@@ -27,14 +27,14 @@ jobs:
          - name: Install dependencies
            run: npm ci
 
+         - name: Build
+           run: npm run build
+
          - name: Run standards
            run: npm run standards
 
          - name: Run tests
            run: npm test
-
-         - name: Build
-           run: npm run build
 
    publish:
       name: Publish to npm
