@@ -63,7 +63,7 @@ jobs:
            run: npm ci
 
          - name: Update package versions
-           run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version --workspaces --include-workspace-root
+           run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version --workspaces --include-workspace-root
 
          - name: Build all packages
            run: npm run build
