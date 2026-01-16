@@ -47,12 +47,12 @@
    },
    "devDependencies": {
       "@oclif/test": "^4.1.12",
-      "@types/node": "^22.10.2",
+      "@types/node": "^25.0.9",
       "@types/react": "18.2.45",
-      "oclif": "^4.17.8",
+      "oclif": "^4.22.65",
       "ts-node": "^10.9.2",
       "typescript": "^5.7.2",
-      "vitest": "^2.1.9"
+      "vitest": "^4.0.17"
    },
    "oclif": {
       "bin": "aix",

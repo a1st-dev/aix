@@ -33,10 +33,10 @@
       "yoga-layout": "^3.2.1"
    },
    "devDependencies": {
-      "@stylistic/eslint-plugin": "5.6.1",
-      "@types/node": "^22.10.0",
+      "@stylistic/eslint-plugin": "5.7.0",
+      "@types/node": "^25.0.9",
       "eslint": "9.39.2",
-      "oxlint": "1.36.0",
+      "oxlint": "1.39.0",
       "typescript": "^5.7.0",
       "vitest": "4.0.17"
    },
