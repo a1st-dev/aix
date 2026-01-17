@@ -64,24 +64,17 @@ export function getImportedDir(projectRoot: string): string {
 }
 
 /**
- * Get the imported content directory for a specific editor.
+ * Get the imported rules directory.
  */
-export function getImportedEditorDir(projectRoot: string, editor: string): string {
-   return join(projectRoot, '.aix', 'imported', editor);
+export function getImportedRulesDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', 'imported', 'rules');
 }
 
 /**
- * Get the imported rules directory for a specific editor.
+ * Get the imported prompts directory.
  */
-export function getImportedRulesDir(projectRoot: string, editor: string): string {
-   return join(projectRoot, '.aix', 'imported', editor, 'rules');
-}
-
-/**
- * Get the imported prompts directory for a specific editor.
- */
-export function getImportedPromptsDir(projectRoot: string, editor: string): string {
-   return join(projectRoot, '.aix', 'imported', editor, 'prompts');
+export function getImportedPromptsDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', 'imported', 'prompts');
 }
 
 /**

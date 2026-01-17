@@ -49,9 +49,9 @@ export default class Init extends BaseCommand<typeof Init> {
          try {
             config = await this.importFromEditorConfig(editor);
             await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
-            await commitImport(process.cwd(), editor);
+            await commitImport(process.cwd());
          } catch (error) {
-            await rollbackImport(process.cwd(), editor);
+            await rollbackImport(process.cwd());
             throw error;
          }
       } else {
@@ -109,8 +109,8 @@ export default class Init extends BaseCommand<typeof Init> {
          this.output.warn('No configuration found to import');
       }
 
-      // Write imported content to .aix/imported/<editor>/ and get path references
-      const written = await writeImportedContent(process.cwd(), editor, {
+      // Write imported content to .aix/imported/ and get path references
+      const written = await writeImportedContent(process.cwd(), {
          rules: result.rules,
          prompts: result.prompts,
       });

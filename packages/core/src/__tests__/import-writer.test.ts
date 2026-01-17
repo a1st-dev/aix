@@ -23,9 +23,9 @@ describe('import-writer', () => {
             prompts: {},
          };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
-         const stagingRulesDir = join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf', 'rules'),
+         const stagingRulesDir = join(testDir, '.aix', '.tmp', 'import-staging', 'rules'),
                files = await readdir(stagingRulesDir);
 
          expect(files).toHaveLength(2);
@@ -46,9 +46,9 @@ describe('import-writer', () => {
             },
          };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
-         const stagingPromptsDir = join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf', 'prompts'),
+         const stagingPromptsDir = join(testDir, '.aix', '.tmp', 'import-staging', 'prompts'),
                files = await readdir(stagingPromptsDir);
 
          expect(files).toHaveLength(2);
@@ -66,35 +66,35 @@ describe('import-writer', () => {
             prompts: { 'my-prompt': '# Prompt' },
          };
 
-         const result = await writeImportedContent(testDir, 'cursor', content);
+         const result = await writeImportedContent(testDir, content);
 
-         expect(result.rules['imported-rule-1']).toBe('./.aix/imported/cursor/rules/imported-rule-1.md');
-         expect(result.prompts['my-prompt']).toBe('./.aix/imported/cursor/prompts/my-prompt.md');
+         expect(result.rules['imported-rule-1']).toBe('./.aix/imported/rules/imported-rule-1.md');
+         expect(result.prompts['my-prompt']).toBe('./.aix/imported/prompts/my-prompt.md');
       });
 
       it('handles empty import result', async () => {
          const content = { rules: [], prompts: {} };
 
-         const result = await writeImportedContent(testDir, 'windsurf', content);
+         const result = await writeImportedContent(testDir, content);
 
          expect(result.rules).toEqual({});
          expect(result.prompts).toEqual({});
 
          // Directories should still be created
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf', 'rules'))).toBe(true);
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf', 'prompts'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'rules'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'prompts'))).toBe(true);
       });
 
       it('cleans existing staging before writing', async () => {
          // Create existing staging content
-         const stagingDir = join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf', 'rules');
+         const stagingDir = join(testDir, '.aix', '.tmp', 'import-staging', 'rules');
 
          await mkdir(stagingDir, { recursive: true });
          await writeFile(join(stagingDir, 'old-file.md'), 'old content', 'utf-8');
 
          const content = { rules: ['# New Rule'], prompts: {} };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
          const files = await readdir(stagingDir);
 
@@ -108,12 +108,12 @@ describe('import-writer', () => {
       it('moves staging to final location', async () => {
          const content = { rules: ['# Rule'], prompts: { 'test': '# Test' } };
 
-         await writeImportedContent(testDir, 'windsurf', content);
-         await commitImport(testDir, 'windsurf');
+         await writeImportedContent(testDir, content);
+         await commitImport(testDir);
 
          // Final location should have files
-         const finalRulesDir = join(testDir, '.aix', 'imported', 'windsurf', 'rules'),
-               finalPromptsDir = join(testDir, '.aix', 'imported', 'windsurf', 'prompts');
+         const finalRulesDir = join(testDir, '.aix', 'imported', 'rules'),
+               finalPromptsDir = join(testDir, '.aix', 'imported', 'prompts');
 
          expect(existsSync(finalRulesDir)).toBe(true);
          expect(existsSync(finalPromptsDir)).toBe(true);
@@ -123,12 +123,12 @@ describe('import-writer', () => {
          expect(ruleFiles).toContain('imported-rule-1.md');
 
          // Staging should be cleaned up
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
       });
 
       it('backs up and replaces existing import', async () => {
          // Create existing import
-         const existingDir = join(testDir, '.aix', 'imported', 'windsurf', 'rules');
+         const existingDir = join(testDir, '.aix', 'imported', 'rules');
 
          await mkdir(existingDir, { recursive: true });
          await writeFile(join(existingDir, 'old-rule.md'), '# Old Rule', 'utf-8');
@@ -136,8 +136,8 @@ describe('import-writer', () => {
          // Stage new import
          const content = { rules: ['# New Rule'], prompts: {} };
 
-         await writeImportedContent(testDir, 'windsurf', content);
-         await commitImport(testDir, 'windsurf');
+         await writeImportedContent(testDir, content);
+         await commitImport(testDir);
 
          // Final location should have new files only
          const files = await readdir(existingDir);
@@ -147,7 +147,7 @@ describe('import-writer', () => {
          expect(files).not.toContain('old-rule.md');
 
          // Backup should be cleaned up
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-backup', 'windsurf'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-backup'))).toBe(false);
       });
    });
 
@@ -155,20 +155,20 @@ describe('import-writer', () => {
       it('cleans up staging directory', async () => {
          const content = { rules: ['# Rule'], prompts: {} };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
          // Verify staging exists
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(true);
 
-         await rollbackImport(testDir, 'windsurf');
+         await rollbackImport(testDir);
 
          // Staging should be cleaned up
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
       });
 
       it('restores backup if exists', async () => {
          // Create existing import
-         const existingDir = join(testDir, '.aix', 'imported', 'windsurf', 'rules');
+         const existingDir = join(testDir, '.aix', 'imported', 'rules');
 
          await mkdir(existingDir, { recursive: true });
          await writeFile(join(existingDir, 'original-rule.md'), '# Original Rule', 'utf-8');
@@ -176,20 +176,19 @@ describe('import-writer', () => {
          // Stage new import
          const content = { rules: ['# New Rule'], prompts: {} };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
          // Manually move existing to backup (simulating partial commit failure)
-         const backupDir = join(testDir, '.aix', '.tmp', 'import-backup', 'windsurf');
+         const backupDir = join(testDir, '.aix', '.tmp', 'import-backup');
 
-         await mkdir(join(testDir, '.aix', '.tmp', 'import-backup'), { recursive: true });
-         await safeRm(backupDir, { force: true });
+         await mkdir(backupDir, { recursive: true });
 
          const { rename } = await import('node:fs/promises');
 
-         await rename(join(testDir, '.aix', 'imported', 'windsurf'), backupDir);
+         await rename(join(testDir, '.aix', 'imported'), backupDir);
 
          // Rollback should restore backup
-         await rollbackImport(testDir, 'windsurf');
+         await rollbackImport(testDir);
 
          // Original should be restored
          const files = await readdir(existingDir);
@@ -204,14 +203,14 @@ describe('import-writer', () => {
       it('handles rollback when no backup exists', async () => {
          const content = { rules: ['# Rule'], prompts: {} };
 
-         await writeImportedContent(testDir, 'windsurf', content);
+         await writeImportedContent(testDir, content);
 
          // Rollback without any existing import
-         await rollbackImport(testDir, 'windsurf');
+         await rollbackImport(testDir);
 
          // Should not throw, staging should be cleaned
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'windsurf'))).toBe(false);
-         expect(existsSync(join(testDir, '.aix', 'imported', 'windsurf'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', 'imported'))).toBe(false);
       });
    });
 
@@ -226,11 +225,11 @@ describe('import-writer', () => {
             },
          };
 
-         const result = await writeImportedContent(testDir, 'windsurf', content);
+         const result = await writeImportedContent(testDir, content);
 
-         expect(result.prompts['Code Review!!!']).toBe('./.aix/imported/windsurf/prompts/code-review.md');
-         expect(result.prompts['my_prompt_name']).toBe('./.aix/imported/windsurf/prompts/my-prompt-name.md');
-         expect(result.prompts['UPPERCASE']).toBe('./.aix/imported/windsurf/prompts/uppercase.md');
+         expect(result.prompts['Code Review!!!']).toBe('./.aix/imported/prompts/code-review.md');
+         expect(result.prompts['my_prompt_name']).toBe('./.aix/imported/prompts/my-prompt-name.md');
+         expect(result.prompts['UPPERCASE']).toBe('./.aix/imported/prompts/uppercase.md');
       });
    });
 });

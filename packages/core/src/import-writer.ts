@@ -1,11 +1,10 @@
-import { mkdir, writeFile, rm, rename, access, constants } from 'node:fs/promises';
+import { mkdir, writeFile, rename, access, constants } from 'node:fs/promises';
 import { join } from 'pathe';
 import {
-   getImportedEditorDir,
+   getImportedDir,
    getImportStagingDir,
    getImportBackupDir,
 } from './cache/paths.js';
-import type { EditorName } from './editors/types.js';
 import { safeRm } from './fs/safe-rm.js';
 
 export interface WrittenImports {
@@ -43,25 +42,23 @@ async function dirExists(path: string): Promise<boolean> {
 
 /**
  * Write imported content to staging directory and return path references.
- * Files are written to `.aix/.tmp/import-staging/<editor>/` and path references
- * point to the final location `.aix/imported/<editor>/`.
+ * Files are written to `.aix/.tmp/import-staging/` and path references
+ * point to the final location `.aix/imported/`.
  *
  * @param projectRoot - The project root directory
- * @param editor - The source editor name
  * @param content - The imported content (rules and prompts)
  * @returns Path references for rules and prompts (relative to project root)
  */
 export async function writeImportedContent(
    projectRoot: string,
-   editor: EditorName,
    content: ImportContent,
 ): Promise<WrittenImports> {
-   const stagingDir = join(getImportStagingDir(projectRoot), editor),
+   const stagingDir = getImportStagingDir(projectRoot),
          stagingRulesDir = join(stagingDir, 'rules'),
          stagingPromptsDir = join(stagingDir, 'prompts'),
          result: WrittenImports = { rules: {}, prompts: {} };
 
-   // Clean any existing staging for this editor
+   // Clean any existing staging
    await safeRm(stagingDir, { force: true });
 
    // Create staging directories
@@ -73,7 +70,7 @@ export async function writeImportedContent(
       const name = `imported-rule-${i + 1}`,
             fileName = `${sanitizeFileName(name)}.md`,
             stagingPath = join(stagingRulesDir, fileName),
-            relativePath = `./.aix/imported/${editor}/rules/${fileName}`;
+            relativePath = `./.aix/imported/rules/${fileName}`;
 
       result.rules[name] = relativePath;
       return writeFile(stagingPath, ruleContent, 'utf-8');
@@ -83,7 +80,7 @@ export async function writeImportedContent(
    const promptWrites = Object.entries(content.prompts).map(([name, promptContent]) => {
       const fileName = `${sanitizeFileName(name)}.md`,
             stagingPath = join(stagingPromptsDir, fileName),
-            relativePath = `./.aix/imported/${editor}/prompts/${fileName}`;
+            relativePath = `./.aix/imported/prompts/${fileName}`;
 
       result.prompts[name] = relativePath;
       return writeFile(stagingPath, promptContent, 'utf-8');
@@ -100,19 +97,18 @@ export async function writeImportedContent(
  * This should be called after ai.json has been successfully written.
  *
  * @param projectRoot - The project root directory
- * @param editor - The source editor name
  */
-export async function commitImport(projectRoot: string, editor: EditorName): Promise<void> {
-   const stagingDir = join(getImportStagingDir(projectRoot), editor),
-         finalDir = getImportedEditorDir(projectRoot, editor),
-         backupDir = join(getImportBackupDir(projectRoot), editor);
+export async function commitImport(projectRoot: string): Promise<void> {
+   const stagingDir = getImportStagingDir(projectRoot),
+         finalDir = getImportedDir(projectRoot),
+         backupDir = getImportBackupDir(projectRoot);
 
    // If staging directory doesn't exist, nothing was staged - skip commit
    if (!(await dirExists(stagingDir))) {
       return;
    }
 
-   // Clean any existing backup for this editor
+   // Clean any existing backup
    await safeRm(backupDir, { force: true });
 
    // If final directory exists, move it to backup
@@ -122,20 +118,11 @@ export async function commitImport(projectRoot: string, editor: EditorName): Pro
    }
 
    // Move staging to final location
-   await mkdir(join(projectRoot, '.aix', 'imported'), { recursive: true });
+   await mkdir(join(projectRoot, '.aix'), { recursive: true });
    await rename(stagingDir, finalDir);
 
    // Clean up backup (success path)
    await safeRm(backupDir, { force: true });
-
-   // Clean up empty staging parent if no other editors are staged
-   const stagingParent = getImportStagingDir(projectRoot);
-
-   try {
-      await rm(stagingParent, { recursive: false });
-   } catch {
-      // Directory not empty or doesn't exist, that's fine
-   }
 }
 
 /**
@@ -143,12 +130,11 @@ export async function commitImport(projectRoot: string, editor: EditorName): Pro
  * This should be called if ai.json write or any subsequent step fails.
  *
  * @param projectRoot - The project root directory
- * @param editor - The source editor name
  */
-export async function rollbackImport(projectRoot: string, editor: EditorName): Promise<void> {
-   const stagingDir = join(getImportStagingDir(projectRoot), editor),
-         finalDir = getImportedEditorDir(projectRoot, editor),
-         backupDir = join(getImportBackupDir(projectRoot), editor);
+export async function rollbackImport(projectRoot: string): Promise<void> {
+   const stagingDir = getImportStagingDir(projectRoot),
+         finalDir = getImportedDir(projectRoot),
+         backupDir = getImportBackupDir(projectRoot);
 
    // Delete staging directory
    await safeRm(stagingDir, { force: true });
@@ -159,23 +145,5 @@ export async function rollbackImport(projectRoot: string, editor: EditorName): P
       await safeRm(finalDir, { force: true });
       // Restore backup
       await rename(backupDir, finalDir);
-   }
-
-   // Clean up empty staging parent
-   const stagingParent = getImportStagingDir(projectRoot);
-
-   try {
-      await rm(stagingParent, { recursive: false });
-   } catch {
-      // Directory not empty or doesn't exist, that's fine
-   }
-
-   // Clean up empty backup parent
-   const backupParent = getImportBackupDir(projectRoot);
-
-   try {
-      await rm(backupParent, { recursive: false });
-   } catch {
-      // Directory not empty or doesn't exist, that's fine
    }
 }

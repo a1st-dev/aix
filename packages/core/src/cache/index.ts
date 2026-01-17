@@ -8,7 +8,6 @@ export {
    getSkillsDir,
    getNpmCacheDir,
    getImportedDir,
-   getImportedEditorDir,
    getImportedRulesDir,
    getImportedPromptsDir,
    getImportStagingDir,
