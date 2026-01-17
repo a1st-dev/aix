@@ -7,10 +7,14 @@
 
 `aix` is like NPM + package.json for your AI agent editor configuration.
 
-Define your AI agent configuration once in `ai.json`. Share it with your team. Check it
-into version control. Install it instantly with `aix install`.
+```bash
+aix add mcp playwright
+# Install to any supported editor with `aix install`
+aix install --target claude-code --target cursor
+```
 
-Install to any supported editor with `aix install`.
+Define your AI agent configuration once in `ai.json`. Share it with your team. Check it
+into version control. Install it instantly to any supported editor with `aix install`.
 
 ## Why aix?
 
@@ -76,17 +80,12 @@ npm install @a1st/aix-core @a1st/aix-schema
 aix init                              # Create ai.json
 aix install github:org/config         # Install remote config
 aix install --save --scope mcp        # Merge specific sections
-aix add skill https://github.com/obra/superpowers/tree/main/skills/systematic-debugging              # Add a skill
+aix add skill https://github.com/obra/superpowers/tree/main/skills/systematic-debugging # Add a skill
 aix add mcp playwright                # Add MCP server from registry
-aix add mcp github --command "npx @modelcontextprotocol/server-github"  # Manual config
+aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix list skills                       # List configured skills
 aix cache clear                       # Clear cache and backups
 ```
-
-## Documentation
-
-- [Developer Guide](./DEVELOPERS.md) — Contributing, architecture, testing
-- [Specifications](./specs/) — Detailed design documents
 
 ## License
 
