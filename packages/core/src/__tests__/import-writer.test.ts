@@ -510,10 +510,11 @@ describe('import-writer', () => {
 
          const result = convertToGitReferences(config, gitSource);
 
+         // Trailing slash is stripped (giget doesn't handle them well)
          expect(result.config.skills?.['npm-search']).toEqual({
             git: 'github:yokuze/aix-config',
             ref: 'main',
-            path: 'skills/npm-search/',
+            path: 'skills/npm-search',
          });
          expect(result.convertedCount).toBe(1);
       });

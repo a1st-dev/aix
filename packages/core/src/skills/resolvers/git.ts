@@ -14,15 +14,21 @@ export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
          cachePath = join(tmpdir(), 'aix-skills', 'git', cacheKey);
 
    // Build giget source string
-   // giget supports: gh:user/repo, gitlab:user/repo, https://...
+   // giget supports: gh:user/repo, gitlab:user/repo, bitbucket:user/repo, https://...
    let source = ref.url;
 
-   // Convert https URLs to giget format if needed
+   // Convert various URL formats to giget format
    if (source.startsWith('https://github.com/')) {
       source = source.replace('https://github.com/', 'gh:');
    } else if (source.startsWith('https://gitlab.com/')) {
       source = source.replace('https://gitlab.com/', 'gitlab:');
+   } else if (source.startsWith('https://bitbucket.org/')) {
+      source = source.replace('https://bitbucket.org/', 'bitbucket:');
+   } else if (source.startsWith('github:')) {
+      // Convert our shorthand to giget's format
+      source = source.replace('github:', 'gh:');
    }
+   // gitlab: and bitbucket: are already in giget format
 
    // Add subdirectory path if specified
    if (ref.path) {

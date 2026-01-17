@@ -517,7 +517,8 @@ export function convertToGitReferences(
             continue;
          }
 
-         const repoPath = computeRepoRootPath(gitSource.configPath, relativePath),
+         // Strip trailing slash from skill paths (giget doesn't handle them well)
+         const repoPath = computeRepoRootPath(gitSource.configPath, relativePath).replace(/\/$/, ''),
                gitRef = {
                   git: gitUrl,
                   ...(gitSource.ref && { ref: gitSource.ref }),

@@ -129,6 +129,15 @@ export default class Install extends BaseCommand<typeof Install> {
             forceCopy: this.flags.copy,
          });
 
+         // After saving, reload the local config for installation (it now has git refs or local paths)
+         if (!isDryRun) {
+            const localLoaded = await loadConfig(join(projectRoot, 'ai.json'));
+
+            if (localLoaded) {
+               loaded = localLoaded;
+            }
+         }
+
          // If only saving (no editor installation needed), we're done
          if (!this.flags.target && !loaded.config.editors) {
             return;
