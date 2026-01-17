@@ -8,16 +8,39 @@
 `aix` is like NPM + package.json for your AI agent editor configuration.
 
 ```bash
+# Create a local ai.json file for storing your config
+aix init
+# Add config for an MCP server from the official registry
 aix add mcp playwright
-# Install to any supported editor with `aix install`
+# Add a skill from GitHub, local path, or npm package
+aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging
+# Add a rule from GitHub, local path, or npm package
+aix add rule ../rules/typescript-rules.md
+# Add a prompt (also known as a workflow or slash command)
+aix add prompt ../prompts/typescript-prompts.md
+# Install all of the above to any supported editor. Outputs workspace-specific config
 aix install --target claude-code --target cursor
 ```
 
-Define your AI agent configuration once in `ai.json`. Share it with your team. Check it
-into version control. Install it instantly to any supported editor with `aix install`.
+Supported editors:
+
+- `claude-code`
+- `cursor`
+- `vscode`
+- `windsurf`
+- `codex`
+- `zed`
 
 ## Why aix?
 
+Define your AI agent configuration once in `ai.json`.
+
+`aix` gives you one source of truth for your skills, prompts, rules, MCP server config.
+Then, use that config with any supported agent/editor: claude-code, cursor, vscode, etc.
+
+Standardize your AI config. Share it with your team. Check it into version control.
+
+- **Discover new MCP servers and skills** - Use `aix search` to find and add new MCP servers and skills
 - **Stop duplicating config** — Define skills, MCP servers, and rules once instead of per-editor
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
@@ -35,56 +58,17 @@ aix init
 aix init --from <editor>
 ```
 
-## Examples
-
-Once you have an `ai.json` file, you can add MCP servers and skills to it.
-
-```bash
-# Add an MCP server from the official registry
-aix add mcp playwright
-
-# Add a skill. Works with GitHub URLs, local paths, and npm packages.
-aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging
-
-# Or install from a shared config
-aix install github:your-org/shared-ai-config
-```
-
-## Features
-
-| Feature                | Description                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Config Inheritance** | Extend from local files, git repos, or npm packages                                                   |
-| **Skills System**      | Reusable AI behaviors from the Agent Skills ecosystem                                                 |
-| **MCP Servers**        | Declarative MCP config with [official registry](https://registry.modelcontextprotocol.io) integration |
-| **Smart Rules**        | Global, project, and path-specific rules with activation modes                                        |
-| **Editor Sync**        | Auto-generate editor-native configs from `ai.json`                                                    |
-| **Remote Install**     | Pull configs from GitHub/GitLab/Bitbucket with `aix install`                                          |
-| **Atomic Updates**     | Safe config modifications with automatic backup                                                       |
-| **Cache Management**   | Automatic cleanup of stale cache entries                                                              |
-| **Type Safety**        | Zod validation + JSON Schema for IDE autocomplete                                                     |
-
-## Installation
-
-```bash
-# CLI (recommended)
-npm install -g @a1st/aix
-
-# Programmatic usage
-npm install @a1st/aix-core @a1st/aix-schema
-```
-
 ## CLI Commands
 
 ```bash
 aix init                              # Create ai.json
+aix search                            # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install --save --scope mcp        # Merge specific sections
 aix add skill https://github.com/obra/superpowers/tree/main/skills/systematic-debugging # Add a skill
 aix add mcp playwright                # Add MCP server from registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix list skills                       # List configured skills
-aix cache clear                       # Clear cache and backups
 ```
 
 ## License
