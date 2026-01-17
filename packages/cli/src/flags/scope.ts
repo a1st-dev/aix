@@ -1,6 +1,6 @@
 import { Flags } from '@oclif/core';
 
-export const VALID_SCOPES = ['rules', 'mcp', 'skills', 'editors'] as const;
+export const VALID_SCOPES = ['rules', 'prompts', 'mcp', 'skills', 'editors'] as const;
 export type Scope = (typeof VALID_SCOPES)[number];
 
 /**
