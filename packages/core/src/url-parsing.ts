@@ -168,10 +168,26 @@ export function parseGitShorthand(input: string): GitShorthand | undefined {
 }
 
 /**
- * Check if a source string represents a local file path.
+ * Check if a source string represents a local file path. Recognizes:
+ * - Explicit relative paths: `./file`, `../file`
+ * - Absolute paths: `/path/to/file`
+ * - Implicit relative paths with file extensions: `prompts/file.md`, `file.txt`
  */
 export function isLocalPath(source: string): boolean {
-   return source.startsWith('./') || source.startsWith('../') || source.startsWith('/');
+   // Explicit relative or absolute paths
+   if (source.startsWith('./') || source.startsWith('../') || source.startsWith('/')) {
+      return true;
+   }
+
+   // Exclude URLs and git shorthand
+   if (source.includes('://') || /^(github|gitlab|bitbucket):/.test(source)) {
+      return false;
+   }
+
+   // Check for common file extensions that indicate a local file
+   const fileExtensions = /\.(md|txt|json|ya?ml|prompt\.md)$/i;
+
+   return fileExtensions.test(source);
 }
 
 /**

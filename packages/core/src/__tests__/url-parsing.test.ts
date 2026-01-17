@@ -9,6 +9,7 @@ import {
    bitbucketBlobToRaw,
    convertBlobToRawUrl,
    buildProviderUrl,
+   isLocalPath,
 } from '../url-parsing.js';
 
 describe('parseGitHubBlobUrl', () => {
@@ -223,5 +224,48 @@ describe('buildProviderUrl', () => {
       expect(buildProviderUrl('bitbucket', 'workspace', 'repo')).toBe(
          'https://bitbucket.org/workspace/repo',
       );
+   });
+});
+
+describe('isLocalPath', () => {
+   it('recognizes explicit relative paths with ./', () => {
+      expect(isLocalPath('./file.md')).toBe(true);
+      expect(isLocalPath('./prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes parent directory paths with ../', () => {
+      expect(isLocalPath('../file.md')).toBe(true);
+      expect(isLocalPath('../../prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes absolute paths', () => {
+      expect(isLocalPath('/path/to/file.md')).toBe(true);
+      expect(isLocalPath('/Users/me/prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes implicit relative paths with file extensions', () => {
+      expect(isLocalPath('prompts/add-skill.md')).toBe(true);
+      expect(isLocalPath('file.txt')).toBe(true);
+      expect(isLocalPath('path/to/config.json')).toBe(true);
+      expect(isLocalPath('rules.yaml')).toBe(true);
+      expect(isLocalPath('rules.yml')).toBe(true);
+      expect(isLocalPath('custom.prompt.md')).toBe(true);
+   });
+
+   it('rejects URLs', () => {
+      expect(isLocalPath('https://example.com/file.md')).toBe(false);
+      expect(isLocalPath('http://example.com/file.md')).toBe(false);
+      expect(isLocalPath('git://github.com/org/repo')).toBe(false);
+   });
+
+   it('rejects git shorthand', () => {
+      expect(isLocalPath('github:org/repo/file.md')).toBe(false);
+      expect(isLocalPath('gitlab:group/project/file.md')).toBe(false);
+      expect(isLocalPath('bitbucket:workspace/repo/file.md')).toBe(false);
+   });
+
+   it('rejects plain text without file extensions', () => {
+      expect(isLocalPath('some inline content')).toBe(false);
+      expect(isLocalPath('Review code for issues')).toBe(false);
    });
 });
