@@ -6,10 +6,32 @@ import type { AiJsonConfig } from './config.js';
 const LOCAL_PATH_PREFIXES = ['./', '../', '/', 'file:'];
 
 /**
- * Detect if a string is a local path reference.
+ * File extensions that indicate a local file (for implicit relative paths).
+ */
+const LOCAL_FILE_EXTENSIONS = /\.(md|txt|json|ya?ml|prompt\.md)$/i;
+
+/**
+ * Detect if a string is a local path reference. Recognizes:
+ * - Explicit relative paths: `./file`, `../file`
+ * - Absolute paths: `/path/to/file`
+ * - file: protocol: `file:../foo/bar.md`
+ * - Implicit relative paths with file extensions: `prompts/file.md`, `file.txt`
+ *
+ * Excludes URLs and git shorthands even if they have matching extensions.
  */
 export function isLocalPath(value: string): boolean {
-   return LOCAL_PATH_PREFIXES.some((p) => value.startsWith(p));
+   // Explicit prefixes
+   if (LOCAL_PATH_PREFIXES.some((p) => value.startsWith(p))) {
+      return true;
+   }
+
+   // Exclude URLs and git shorthand
+   if (value.includes('://') || /^(github|gitlab|bitbucket):/.test(value)) {
+      return false;
+   }
+
+   // Implicit relative path with file extension (e.g., "prompts/add-skill.md")
+   return LOCAL_FILE_EXTENSIONS.test(value);
 }
 
 /**

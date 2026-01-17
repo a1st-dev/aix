@@ -32,6 +32,18 @@ describe('normalizeSourceRef', () => {
       expect(result).toEqual({ path: '../foo/bar.md' });
    });
 
+   it('normalizes implicit relative path with file extension', () => {
+      const result = normalizeSourceRef('prompts/add-skill.md');
+
+      expect(result).toEqual({ path: 'prompts/add-skill.md' });
+   });
+
+   it('normalizes implicit relative path for various extensions', () => {
+      expect(normalizeSourceRef('rules.yaml')).toEqual({ path: 'rules.yaml' });
+      expect(normalizeSourceRef('config.json')).toEqual({ path: 'config.json' });
+      expect(normalizeSourceRef('notes.txt')).toEqual({ path: 'notes.txt' });
+   });
+
    it('normalizes https URL as git source', () => {
       const result = normalizeSourceRef('https://github.com/user/repo/blob/main/rules.md');
 
