@@ -17,6 +17,9 @@ import {
    mergeConfigs,
    filterConfigByScopes,
    cleanStaleCache,
+   localizeRemoteConfig,
+   commitImport,
+   rollbackImport,
    type EditorName,
    type ApplyResult,
    type LoadedConfig,
@@ -110,12 +113,13 @@ export default class Install extends BaseCommand<typeof Install> {
             this.error('--save requires a remote source argument (URL, git shorthand, or path)');
          }
 
-         await this.saveRemoteConfig(
-            loaded.config,
-            scopes as ConfigScope[],
-            this.flags.overwrite,
-            isDryRun,
-         );
+         await this.saveRemoteConfig({
+            remoteConfig: loaded.config,
+            scopes: scopes as ConfigScope[],
+            overwrite: this.flags.overwrite,
+            dryRun: isDryRun,
+            configBaseDir: loaded.configBaseDir,
+         });
 
          // If only saving (no editor installation needed), we're done
          if (!this.flags.target && !loaded.config.editors) {
@@ -341,18 +345,36 @@ export default class Install extends BaseCommand<typeof Install> {
 
    /**
     * Save remote config to local ai.json (creates, merges, or overwrites).
+    * If configBaseDir is provided, copies referenced files to .aix/imported/.
     */
-   private async saveRemoteConfig(
-      remoteConfig: AiJsonConfig,
-      scopes: ConfigScope[],
-      overwrite: boolean,
-      dryRun: boolean,
-   ): Promise<void> {
+   private async saveRemoteConfig(opts: {
+      remoteConfig: AiJsonConfig;
+      scopes: ConfigScope[];
+      overwrite: boolean;
+      dryRun: boolean;
+      configBaseDir?: string;
+   }): Promise<void> {
+      const { remoteConfig, scopes, overwrite, dryRun, configBaseDir } = opts;
       const localPath = join(process.cwd(), 'ai.json'),
-            localExists = existsSync(localPath);
+            localExists = existsSync(localPath),
+            projectRoot = process.cwd();
 
       // Filter remote config by scopes
-      const filteredRemote = filterConfigByScopes(remoteConfig, scopes);
+      let filteredRemote = filterConfigByScopes(remoteConfig, scopes);
+
+      // If we have a configBaseDir, localize the config by copying referenced files
+      let filesCopied = 0;
+
+      if (configBaseDir) {
+         const localized = await localizeRemoteConfig(filteredRemote, configBaseDir, projectRoot);
+
+         filteredRemote = localized.config;
+         filesCopied = localized.filesCopied;
+
+         for (const warning of localized.warnings) {
+            this.output.warn(warning);
+         }
+      }
 
       let finalConfig: AiJsonConfig;
       let action: 'created' | 'merged' | 'overwrote';
@@ -380,6 +402,9 @@ export default class Install extends BaseCommand<typeof Install> {
       try {
          parseConfig(finalConfig);
       } catch (error) {
+         if (configBaseDir) {
+            await rollbackImport(projectRoot);
+         }
          if (error instanceof Error && 'issues' in error) {
             const zodError = error as {
                issues: Array<{ path: (string | number)[]; message: string }>;
@@ -407,6 +432,10 @@ export default class Install extends BaseCommand<typeof Install> {
          if (action === 'merged') {
             this.output.info('  Sections merged: ' + scopes.join(', '));
          }
+         if (filesCopied > 0) {
+            this.output.info(`  Would copy ${filesCopied} file${filesCopied === 1 ? '' : 's'} to .aix/imported/`);
+         }
+         await rollbackImport(projectRoot);
          return;
       }
 
@@ -416,7 +445,18 @@ export default class Install extends BaseCommand<typeof Install> {
       }
 
       // Write the final config
-      await writeFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n', 'utf-8');
+      try {
+         await writeFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n', 'utf-8');
+         // Commit the imported files
+         if (configBaseDir) {
+            await commitImport(projectRoot);
+         }
+      } catch (error) {
+         if (configBaseDir) {
+            await rollbackImport(projectRoot);
+         }
+         throw error;
+      }
 
       const actionVerb =
          action === 'created' ? 'Created' : action === 'merged' ? 'Merged into' : 'Overwrote';
@@ -424,6 +464,9 @@ export default class Install extends BaseCommand<typeof Install> {
       this.output.success(`${actionVerb} ./ai.json`);
       if (action === 'merged') {
          this.output.info('  Sections merged: ' + scopes.join(', '));
+      }
+      if (filesCopied > 0) {
+         this.output.info(`  Copied ${filesCopied} file${filesCopied === 1 ? '' : 's'} to .aix/imported/`);
       }
    }
 
