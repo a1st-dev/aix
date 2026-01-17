@@ -24,6 +24,20 @@ import {
 
 export type RemoteSourceType = 'url' | 'git' | 'local';
 
+/** Git source metadata for creating git references when saving configs */
+export interface GitSourceInfo {
+   /** Git provider */
+   provider: 'github' | 'gitlab' | 'bitbucket';
+   /** Repository owner/user */
+   owner: string;
+   /** Repository name */
+   repo: string;
+   /** Git ref (branch, tag, commit) */
+   ref?: string;
+   /** Path to the config file within the repo (e.g., "ai.json" or "configs/ai.json") */
+   configPath?: string;
+}
+
 export interface RemoteLoadResult {
    /** Parsed config content */
    content: Record<string, unknown>;
@@ -33,6 +47,8 @@ export interface RemoteLoadResult {
    source: RemoteSourceType;
    /** Whether the base is a remote URL (for extends resolution) */
    isRemote: boolean;
+   /** Git source metadata (present when source is 'git') */
+   gitSource?: GitSourceInfo;
 }
 
 const FETCH_TIMEOUT_MS = 30000;
@@ -108,6 +124,13 @@ async function loadFromGitHubBlobUrl(parsed: {
       baseUrl: dirname(configPath),
       source: 'git',
       isRemote: false, // Local filesystem after download
+      gitSource: {
+         provider: 'github',
+         owner: parsed.owner,
+         repo: parsed.repo,
+         ref: parsed.ref,
+         configPath: parsed.path,
+      },
    };
 }
 
@@ -188,12 +211,15 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
 
    // Look for ai.json - if subpath ends with .json, use it directly; otherwise look for ai.json in dir
    let configPath: string;
+   let configPathInRepo: string;
 
    if (parsed.subpath?.endsWith('.json')) {
       // The subpath itself is the config file
       configPath = resolve(dir, parsed.subpath.split('/').pop()!);
+      configPathInRepo = parsed.subpath;
    } else {
       configPath = resolve(dir, 'ai.json');
+      configPathInRepo = parsed.subpath ? `${parsed.subpath}/ai.json` : 'ai.json';
    }
 
    if (!existsSync(configPath)) {
@@ -212,6 +238,13 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
       baseUrl: dirname(configPath),
       source: 'git',
       isRemote: false, // Local filesystem after download
+      gitSource: {
+         provider: parsed.provider,
+         owner: parsed.user,
+         repo: parsed.repo,
+         ref: parsed.ref,
+         configPath: configPathInRepo,
+      },
    };
 }
 

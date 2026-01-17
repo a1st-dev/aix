@@ -1,6 +1,6 @@
 import { mkdir, writeFile, rename, access, constants, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, basename, resolve } from 'pathe';
+import { join, basename, resolve, dirname } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import {
    getImportedDir,
@@ -8,6 +8,7 @@ import {
    getImportBackupDir,
 } from './cache/paths.js';
 import { safeRm } from './fs/safe-rm.js';
+import type { GitSourceInfo } from './remote-loader.js';
 
 export interface WrittenImports {
    rules: Record<string, string>;
@@ -378,4 +379,167 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
    for (const entry of dirs) {
       await copyDirectory(join(src, entry.name), join(dest, entry.name)); // eslint-disable-line no-await-in-loop -- Recursive
    }
+}
+
+/** Result of converting relative paths to git references */
+export interface GitRefsConversionResult {
+   /** The config with relative paths converted to git references */
+   config: Partial<AiJsonConfig>;
+   /** Number of items converted to git references */
+   convertedCount: number;
+   /** Details of each converted reference for display */
+   converted: Array<{ name: string; type: 'rule' | 'prompt' | 'skill'; gitRef: string }>;
+}
+
+/**
+ * Build a git shorthand URL from GitSourceInfo.
+ * e.g., "github:owner/repo"
+ */
+function buildGitShorthand(gitSource: GitSourceInfo): string {
+   return `${gitSource.provider}:${gitSource.owner}/${gitSource.repo}`;
+}
+
+/**
+ * Compute the full path from repo root for a relative path in the config.
+ * If configPath is "configs/ai.json" and relativePath is "./rules/style.md",
+ * the result is "configs/rules/style.md".
+ */
+function computeRepoRootPath(configPath: string | undefined, relativePath: string): string {
+   // Remove leading ./ from relative path
+   const cleanRelative = relativePath.replace(/^\.\//, '');
+
+   if (!configPath) {
+      return cleanRelative;
+   }
+
+   // Get the directory containing the config file
+   const configDir = dirname(configPath);
+
+   // If config is at root (e.g., "ai.json"), just use the relative path
+   if (configDir === '.' || configDir === '') {
+      return cleanRelative;
+   }
+
+   // Join the config directory with the relative path
+   return join(configDir, cleanRelative);
+}
+
+/**
+ * Convert a config with relative paths to use git references instead.
+ * This is used when saving a remote git config with --save to preserve
+ * the git source rather than copying files locally.
+ *
+ * @param config - The config with relative paths
+ * @param gitSource - Git source metadata from the remote loader
+ * @returns The config with git references and conversion details
+ */
+export function convertToGitReferences(
+   config: Partial<AiJsonConfig>,
+   gitSource: GitSourceInfo,
+): GitRefsConversionResult {
+   // Deep clone to avoid mutating the original
+   const result = JSON.parse(JSON.stringify(config)) as Partial<AiJsonConfig>,
+         converted: GitRefsConversionResult['converted'] = [],
+         gitUrl = buildGitShorthand(gitSource);
+
+   // Process rules
+   if (result.rules && typeof result.rules === 'object') {
+      for (const [name, rule] of Object.entries(result.rules)) {
+         const relativePath = getRelativePath(rule);
+
+         if (!relativePath) {
+            continue;
+         }
+
+         const repoPath = computeRepoRootPath(gitSource.configPath, relativePath),
+               gitRef = {
+                  url: gitUrl,
+                  ...(gitSource.ref && { ref: gitSource.ref }),
+                  path: repoPath,
+               };
+
+         // Preserve other properties from object form (description, activation, globs)
+         if (typeof rule === 'object' && rule !== null) {
+            const { path: _path, content: _content, git: _git, npm: _npm, ...rest } = rule as Record<string, unknown>;
+
+            result.rules[name] = { ...rest, git: gitRef };
+         } else {
+            result.rules[name] = { git: gitRef };
+         }
+
+         converted.push({
+            name,
+            type: 'rule',
+            gitRef: `${gitUrl}${gitSource.ref ? `#${gitSource.ref}` : ''}:${repoPath}`,
+         });
+      }
+   }
+
+   // Process prompts
+   if (result.prompts && typeof result.prompts === 'object') {
+      for (const [name, prompt] of Object.entries(result.prompts)) {
+         const relativePath = getRelativePath(prompt);
+
+         if (!relativePath) {
+            continue;
+         }
+
+         const repoPath = computeRepoRootPath(gitSource.configPath, relativePath),
+               gitRef = {
+                  url: gitUrl,
+                  ...(gitSource.ref && { ref: gitSource.ref }),
+                  path: repoPath,
+               };
+
+         // Preserve other properties from object form (description, argumentHint)
+         if (typeof prompt === 'object' && prompt !== null) {
+            const { path: _path, content: _content, git: _git, npm: _npm, ...rest } = prompt as Record<string, unknown>;
+
+            result.prompts[name] = { ...rest, git: gitRef };
+         } else {
+            result.prompts[name] = { git: gitRef };
+         }
+
+         converted.push({
+            name,
+            type: 'prompt',
+            gitRef: `${gitUrl}${gitSource.ref ? `#${gitSource.ref}` : ''}:${repoPath}`,
+         });
+      }
+   }
+
+   // Process skills
+   if (result.skills && typeof result.skills === 'object') {
+      for (const [name, skill] of Object.entries(result.skills)) {
+         const relativePath = getRelativePath(skill);
+
+         if (!relativePath) {
+            continue;
+         }
+
+         const repoPath = computeRepoRootPath(gitSource.configPath, relativePath),
+               gitRef = {
+                  git: gitUrl,
+                  ...(gitSource.ref && { ref: gitSource.ref }),
+                  path: repoPath,
+               };
+
+         // Skills use a different schema - check if it's the extended form with enabled/config
+         if (typeof skill === 'object' && skill !== null && ('enabled' in skill || 'config' in skill)) {
+            const { path: _path, source: _source, git: _git, ...rest } = skill as Record<string, unknown>;
+
+            result.skills[name] = { ...rest, ...gitRef };
+         } else {
+            result.skills[name] = gitRef;
+         }
+
+         converted.push({
+            name,
+            type: 'skill',
+            gitRef: `${gitUrl}${gitSource.ref ? `#${gitSource.ref}` : ''}:${repoPath}`,
+         });
+      }
+   }
+
+   return { config: result, convertedCount: converted.length, converted };
 }

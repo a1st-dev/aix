@@ -20,6 +20,7 @@ import {
    localizeRemoteConfig,
    commitImport,
    rollbackImport,
+   convertToGitReferences,
    type EditorName,
    type ApplyResult,
    type LoadedConfig,
@@ -27,6 +28,7 @@ import {
    type UnsupportedFeatures,
    type FileChange,
    type FileChangeCategory,
+   type GitSourceInfo,
 } from '@a1st/aix-core';
 
 const VALID_EDITORS = getAvailableEditors();
@@ -83,6 +85,10 @@ export default class Install extends BaseCommand<typeof Install> {
          description: 'Remove .aix folder before installing to ensure exact match with ai.json',
          default: false,
       }),
+      copy: Flags.boolean({
+         description: 'Copy files to .aix/imported/ instead of using git references (with --save)',
+         default: false,
+      }),
    };
 
    async run(): Promise<void> {
@@ -119,6 +125,8 @@ export default class Install extends BaseCommand<typeof Install> {
             overwrite: this.flags.overwrite,
             dryRun: isDryRun,
             configBaseDir: loaded.configBaseDir,
+            gitSource: loaded.gitSource,
+            forceCopy: this.flags.copy,
          });
 
          // If only saving (no editor installation needed), we're done
@@ -345,7 +353,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
    /**
     * Save remote config to local ai.json (creates, merges, or overwrites).
-    * If configBaseDir is provided, copies referenced files to .aix/imported/.
+    * For git sources, creates git references by default. Use forceCopy to copy files instead.
     */
    private async saveRemoteConfig(opts: {
       remoteConfig: AiJsonConfig;
@@ -353,8 +361,10 @@ export default class Install extends BaseCommand<typeof Install> {
       overwrite: boolean;
       dryRun: boolean;
       configBaseDir?: string;
+      gitSource?: GitSourceInfo;
+      forceCopy?: boolean;
    }): Promise<void> {
-      const { remoteConfig, scopes, overwrite, dryRun, configBaseDir } = opts;
+      const { remoteConfig, scopes, overwrite, dryRun, configBaseDir, gitSource, forceCopy } = opts;
       const localPath = join(process.cwd(), 'ai.json'),
             localExists = existsSync(localPath),
             projectRoot = process.cwd();
@@ -362,10 +372,21 @@ export default class Install extends BaseCommand<typeof Install> {
       // Filter remote config by scopes
       let filteredRemote = filterConfigByScopes(remoteConfig, scopes);
 
-      // If we have a configBaseDir, localize the config by copying referenced files
+      // Track what we did for output
       let filesCopied = 0;
+      let gitRefsCreated: Array<{ name: string; type: string; gitRef: string }> = [];
 
-      if (configBaseDir) {
+      // Decide whether to use git references or copy files
+      const useGitRefs = gitSource && !forceCopy;
+
+      if (useGitRefs) {
+         // Convert relative paths to git references
+         const conversion = convertToGitReferences(filteredRemote, gitSource);
+
+         filteredRemote = conversion.config;
+         gitRefsCreated = conversion.converted;
+      } else if (configBaseDir) {
+         // Copy files to .aix/imported/
          const localized = await localizeRemoteConfig(filteredRemote, configBaseDir, projectRoot);
 
          filteredRemote = localized.config;
@@ -402,7 +423,7 @@ export default class Install extends BaseCommand<typeof Install> {
       try {
          parseConfig(finalConfig);
       } catch (error) {
-         if (configBaseDir) {
+         if (configBaseDir && !useGitRefs) {
             await rollbackImport(projectRoot);
          }
          if (error instanceof Error && 'issues' in error) {
@@ -432,10 +453,18 @@ export default class Install extends BaseCommand<typeof Install> {
          if (action === 'merged') {
             this.output.info('  Sections merged: ' + scopes.join(', '));
          }
+         if (gitRefsCreated.length > 0) {
+            this.output.info(`  Would create ${gitRefsCreated.length} git reference${gitRefsCreated.length === 1 ? '' : 's'}`);
+            for (const ref of gitRefsCreated) {
+               this.output.info(`    ${ref.type}/${ref.name} → ${ref.gitRef}`);
+            }
+         }
          if (filesCopied > 0) {
             this.output.info(`  Would copy ${filesCopied} file${filesCopied === 1 ? '' : 's'} to .aix/imported/`);
          }
-         await rollbackImport(projectRoot);
+         if (configBaseDir && !useGitRefs) {
+            await rollbackImport(projectRoot);
+         }
          return;
       }
 
@@ -447,12 +476,12 @@ export default class Install extends BaseCommand<typeof Install> {
       // Write the final config
       try {
          await writeFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n', 'utf-8');
-         // Commit the imported files
-         if (configBaseDir) {
+         // Commit the imported files (only if we copied files, not for git refs)
+         if (configBaseDir && !useGitRefs) {
             await commitImport(projectRoot);
          }
       } catch (error) {
-         if (configBaseDir) {
+         if (configBaseDir && !useGitRefs) {
             await rollbackImport(projectRoot);
          }
          throw error;
@@ -464,6 +493,12 @@ export default class Install extends BaseCommand<typeof Install> {
       this.output.success(`${actionVerb} ./ai.json`);
       if (action === 'merged') {
          this.output.info('  Sections merged: ' + scopes.join(', '));
+      }
+      if (gitRefsCreated.length > 0) {
+         this.output.info(`  Created ${gitRefsCreated.length} git reference${gitRefsCreated.length === 1 ? '' : 's'}:`);
+         for (const ref of gitRefsCreated) {
+            this.output.info(`    ${ref.type}/${ref.name} → ${ref.gitRef}`);
+         }
       }
       if (filesCopied > 0) {
          this.output.info(`  Copied ${filesCopied} file${filesCopied === 1 ? '' : 's'} to .aix/imported/`);

@@ -5,7 +5,7 @@ import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
 import { ConfigNotFoundError, ConfigParseError } from './errors.js';
 import { extractValidationIssues, toConfigValidationError } from './format-error.js';
-import { loadFromSource } from './remote-loader.js';
+import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
 
 export interface LoadedConfig {
@@ -25,6 +25,11 @@ export interface LoadedConfig {
     * repo was downloaded.
     */
    configBaseDir?: string;
+   /**
+    * Git source metadata when the config was loaded from a git source. Used for creating git
+    * references when saving configs with --save.
+    */
+   gitSource?: GitSourceInfo;
 }
 
 export interface LoadConfigOptions {
@@ -106,6 +111,7 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
       config: validated,
       source: sourceType,
       configBaseDir: remote.baseUrl,
+      gitSource: remote.gitSource,
    };
 }
 

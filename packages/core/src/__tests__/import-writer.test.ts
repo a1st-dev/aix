@@ -7,7 +7,9 @@ import {
    commitImport,
    rollbackImport,
    localizeRemoteConfig,
+   convertToGitReferences,
 } from '../import-writer.js';
+import type { GitSourceInfo } from '../remote-loader.js';
 import { safeRm } from '../fs/safe-rm.js';
 
 const testDir = join(process.cwd(), 'test-fixtures', 'import-writer');
@@ -420,6 +422,263 @@ describe('import-writer', () => {
 
          // Staging should be cleaned up
          expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
+      });
+   });
+
+   describe('convertToGitReferences', () => {
+      const gitSource: GitSourceInfo = {
+         provider: 'github',
+         owner: 'yokuze',
+         repo: 'aix-config',
+         ref: 'main',
+         configPath: 'ai.json',
+      };
+
+      it('converts rules with relative paths to git references', () => {
+         const config = {
+            rules: {
+               style: './rules/style.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.rules?.style).toEqual({
+            git: {
+               url: 'github:yokuze/aix-config',
+               ref: 'main',
+               path: 'rules/style.md',
+            },
+         });
+         expect(result.convertedCount).toBe(1);
+         expect(result.converted[0]).toEqual({
+            name: 'style',
+            type: 'rule',
+            gitRef: 'github:yokuze/aix-config#main:rules/style.md',
+         });
+      });
+
+      it('converts rules in object form and preserves metadata', () => {
+         const config = {
+            rules: {
+               style: {
+                  path: './rules/style.md',
+                  description: 'Code style rules',
+                  activation: 'auto' as const,
+               },
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.rules?.style).toEqual({
+            description: 'Code style rules',
+            activation: 'auto',
+            git: {
+               url: 'github:yokuze/aix-config',
+               ref: 'main',
+               path: 'rules/style.md',
+            },
+         });
+      });
+
+      it('converts prompts with relative paths to git references', () => {
+         const config = {
+            prompts: {
+               'code-review': './prompts/review.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.prompts?.['code-review']).toEqual({
+            git: {
+               url: 'github:yokuze/aix-config',
+               ref: 'main',
+               path: 'prompts/review.md',
+            },
+         });
+         expect(result.convertedCount).toBe(1);
+      });
+
+      it('converts skills with relative paths to git references', () => {
+         const config = {
+            skills: {
+               'npm-search': { path: './skills/npm-search/' },
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.skills?.['npm-search']).toEqual({
+            git: 'github:yokuze/aix-config',
+            ref: 'main',
+            path: 'skills/npm-search/',
+         });
+         expect(result.convertedCount).toBe(1);
+      });
+
+      it('preserves inline content (does not convert)', () => {
+         const config = {
+            rules: {
+               inline: { content: '# Inline Rule\nBe nice.' },
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.rules?.inline).toEqual({ content: '# Inline Rule\nBe nice.' });
+         expect(result.convertedCount).toBe(0);
+      });
+
+      it('preserves existing git references', () => {
+         const config = {
+            rules: {
+               existing: {
+                  git: {
+                     url: 'github:other/repo',
+                     ref: 'v1.0.0',
+                     path: 'rules/other.md',
+                  },
+               },
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.rules?.existing).toEqual({
+            git: {
+               url: 'github:other/repo',
+               ref: 'v1.0.0',
+               path: 'rules/other.md',
+            },
+         });
+         expect(result.convertedCount).toBe(0);
+      });
+
+      it('preserves existing npm references', () => {
+         const config = {
+            rules: {
+               'npm-rule': {
+                  npm: {
+                     npm: '@company/rules',
+                     path: 'rules/style.md',
+                  },
+               },
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         expect(result.config.rules?.['npm-rule']).toEqual({
+            npm: {
+               npm: '@company/rules',
+               path: 'rules/style.md',
+            },
+         });
+         expect(result.convertedCount).toBe(0);
+      });
+
+      it('computes correct path when config is in subdirectory', () => {
+         const nestedGitSource: GitSourceInfo = {
+            provider: 'github',
+            owner: 'org',
+            repo: 'repo',
+            ref: 'main',
+            configPath: 'configs/team/ai.json',
+         };
+
+         const config = {
+            rules: {
+               style: './rules/style.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, nestedGitSource);
+
+         expect(result.config.rules?.style).toEqual({
+            git: {
+               url: 'github:org/repo',
+               ref: 'main',
+               path: 'configs/team/rules/style.md',
+            },
+         });
+      });
+
+      it('handles mixed sources correctly', () => {
+         const config = {
+            rules: {
+               local: './rules/local.md',
+               inline: { content: '# Inline' },
+               remote: { git: { url: 'github:other/repo', path: 'r.md' } },
+            },
+            prompts: {
+               'local-prompt': './prompts/local.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, gitSource);
+
+         // Only local paths should be converted
+         expect(result.convertedCount).toBe(2);
+         expect(result.config.rules?.local).toHaveProperty('git');
+         expect(result.config.rules?.inline).toEqual({ content: '# Inline' });
+         expect(result.config.rules?.remote).toEqual({ git: { url: 'github:other/repo', path: 'r.md' } });
+         expect(result.config.prompts?.['local-prompt']).toHaveProperty('git');
+      });
+
+      it('omits ref when not provided in git source', () => {
+         const noRefGitSource: GitSourceInfo = {
+            provider: 'gitlab',
+            owner: 'group',
+            repo: 'project',
+            configPath: 'ai.json',
+         };
+
+         const config = {
+            rules: {
+               style: './rules/style.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, noRefGitSource);
+
+         expect(result.config.rules?.style).toEqual({
+            git: {
+               url: 'gitlab:group/project',
+               path: 'rules/style.md',
+            },
+         });
+         // No ref property should be present
+         const styleRule = result.config.rules?.style as { git: { ref?: string } } | undefined;
+
+         expect(styleRule?.git.ref).toBeUndefined();
+      });
+
+      it('handles bitbucket provider', () => {
+         const bbGitSource: GitSourceInfo = {
+            provider: 'bitbucket',
+            owner: 'workspace',
+            repo: 'repo',
+            ref: 'develop',
+            configPath: 'ai.json',
+         };
+
+         const config = {
+            rules: {
+               style: './rules/style.md',
+            },
+         };
+
+         const result = convertToGitReferences(config, bbGitSource);
+
+         expect(result.config.rules?.style).toEqual({
+            git: {
+               url: 'bitbucket:workspace/repo',
+               ref: 'develop',
+               path: 'rules/style.md',
+            },
+         });
       });
    });
 });
