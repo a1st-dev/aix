@@ -2,6 +2,7 @@
  * Remote config loading utilities for fetching ai.json from URLs, git repos, and local paths.
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'pathe';
 import { downloadTemplate } from 'giget';
 import { parseJsonc } from '@a1st/aix-schema';
@@ -61,9 +62,68 @@ async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Prom
 }
 
 /**
- * Load config from a remote URL (direct or blob URL).
+ * Load config from a GitHub blob URL by downloading the repo. This ensures relative paths (skills,
+ * rules, etc.) can be resolved from the downloaded repo.
+ */
+async function loadFromGitHubBlobUrl(parsed: {
+   owner: string;
+   repo: string;
+   ref: string;
+   path: string;
+}): Promise<RemoteLoadResult> {
+   // Download the repo using giget to a temp directory
+   const template = `github:${parsed.owner}/${parsed.repo}#${parsed.ref}`;
+
+   let dir: string;
+
+   try {
+      const result = await downloadTemplate(template, { force: true, cwd: tmpdir() });
+
+      dir = result.dir;
+   } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new RemoteFetchError(
+         `https://github.com/${parsed.owner}/${parsed.repo}/blob/${parsed.ref}/${parsed.path}`,
+         message,
+      );
+   }
+
+   // Read the config file from the downloaded repo
+   const configPath = resolve(dir, parsed.path);
+
+   if (!existsSync(configPath)) {
+      throw new ConfigNotFoundError(configPath);
+   }
+
+   const content = readFileSync(configPath, 'utf-8'),
+         result = parseJsonc(content);
+
+   if (result.errors.length > 0) {
+      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, configPath);
+   }
+
+   return {
+      content: result.data as Record<string, unknown>,
+      baseUrl: dirname(configPath),
+      source: 'git',
+      isRemote: false, // Local filesystem after download
+   };
+}
+
+/**
+ * Load config from a remote URL (direct or blob URL). For blob URLs from GitHub/GitLab/Bitbucket,
+ * downloads the entire repo so relative paths can be resolved.
  */
 export async function loadFromUrl(url: string): Promise<RemoteLoadResult> {
+   // For GitHub blob URLs, download the repo so relative paths work
+   const ghBlob = parseGitHubBlobUrl(url);
+
+   if (ghBlob) {
+      return loadFromGitHubBlobUrl(ghBlob);
+   }
+
+   // For other URLs, fetch the raw content directly
    const rawUrl = convertBlobToRawUrl(url);
 
    let content: string;
@@ -117,7 +177,7 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { force: true, cwd: process.cwd() });
+      const result = await downloadTemplate(template, { force: true, cwd: tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -211,7 +271,7 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(url, { force: true, cwd: process.cwd() });
+      const result = await downloadTemplate(url, { force: true, cwd: tmpdir() });
 
       dir = result.dir;
    } catch (error) {

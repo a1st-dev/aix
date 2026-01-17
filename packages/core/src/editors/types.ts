@@ -92,6 +92,13 @@ export interface ApplyOptions {
     * This ensures the folder contents exactly match what ai.json declares.
     */
    clean?: boolean;
+   /**
+    * Base directory/URL for resolving relative paths in the config (skills, rules, etc.). When
+    * installing from a remote URL, this is the remote URL directory. When installing from a local
+    * config, this defaults to the directory containing the config file. If not provided, falls back
+    * to projectRoot.
+    */
+   configBaseDir?: string;
 }
 
 /**

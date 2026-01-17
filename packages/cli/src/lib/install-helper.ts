@@ -76,7 +76,10 @@ export async function installAfterAdd(options: InstallAfterAddOptions): Promise<
    const projectRoot = dirname(options.configPath),
          results = await pMap(
             editors,
-            (editor) => installToEditor(editor, loaded.config, projectRoot, { scopes: options.scopes }),
+            (editor) => installToEditor(editor, loaded.config, projectRoot, {
+               scopes: options.scopes,
+               configBaseDir: loaded.configBaseDir,
+            }),
             { concurrency: 2 },
          );
 

@@ -142,6 +142,7 @@ export default class Install extends BaseCommand<typeof Install> {
             isDryRun,
             scopes,
             clean: this.flags.clean,
+            configBaseDir: loaded.configBaseDir,
          });
 
          results.push(result);
@@ -256,9 +257,9 @@ export default class Install extends BaseCommand<typeof Install> {
       editor: EditorName,
       config: AiJsonConfig,
       projectRoot: string,
-      options: { isDryRun: boolean; scopes: ConfigScope[]; clean?: boolean },
+      options: { isDryRun: boolean; scopes: ConfigScope[]; clean?: boolean; configBaseDir?: string },
    ): Promise<ApplyResult> {
-      const { isDryRun, scopes, clean } = options;
+      const { isDryRun, scopes, clean, configBaseDir } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
@@ -268,6 +269,7 @@ export default class Install extends BaseCommand<typeof Install> {
             scopes,
             overwrite: this.flags.overwrite,
             clean,
+            configBaseDir,
          });
 
          this.handleInstallResult(editor, result, projectRoot, isDryRun);

@@ -228,9 +228,11 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    protected async loadRules(
       config: AiJsonConfig,
       projectRoot: string,
-      options: { dryRun?: boolean; scopes?: string[] } = {},
+      options: { dryRun?: boolean; scopes?: string[]; configBaseDir?: string } = {},
    ): Promise<{ rules: EditorRule[]; skillChanges: FileChange[] }> {
-      const basePath = join(projectRoot, 'ai.json'),
+      // Use configBaseDir for resolving relative paths (important for remote configs)
+      const configBaseDir = options.configBaseDir ?? projectRoot,
+            basePath = join(configBaseDir, 'ai.json'),
             scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
       let skillChanges: FileChange[] = [],
           skillRules: EditorRule[] = [];
@@ -238,7 +240,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       // Resolve skills and use the skills strategy to install them (only if skills scope is included)
       if (scopes.includes('skills') && config.skills && Object.keys(config.skills).length > 0) {
          const resolvedSkills = await resolveAllSkills(config.skills, {
-            baseDir: projectRoot,
+            baseDir: configBaseDir,
             projectRoot,
          });
 
@@ -493,12 +495,18 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    /**
     * Load prompts from config. Resolves content from inline, path, or git sources.
     */
-   protected async loadPrompts(config: AiJsonConfig, projectRoot: string): Promise<EditorPrompt[]> {
+   protected async loadPrompts(
+      config: AiJsonConfig,
+      projectRoot: string,
+      options: { configBaseDir?: string } = {},
+   ): Promise<EditorPrompt[]> {
       if (!config.prompts || Object.keys(config.prompts).length === 0) {
          return [];
       }
 
-      const basePath = join(projectRoot, 'ai.json');
+      // Use configBaseDir for resolving relative paths (important for remote configs)
+      const configBaseDir = options.configBaseDir ?? projectRoot,
+            basePath = join(configBaseDir, 'ai.json');
       const loaded = await loadPromptsFromConfig(config.prompts, basePath);
 
       return Object.values(loaded).map((p: LoadedPrompt) => ({

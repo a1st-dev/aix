@@ -177,20 +177,16 @@ describe('loadFromSource with mocked fetch', () => {
       expect(global.fetch).toHaveBeenCalledWith('https://example.com/ai.json', expect.any(Object));
    });
 
-   it('converts GitHub blob URL to raw URL', async () => {
-      const config = { skills: {} };
-
-      global.fetch = vi.fn().mockResolvedValue({
-         ok: true,
-         text: () => Promise.resolve(JSON.stringify(config)),
-      });
-
-      await loadFromSource('https://github.com/org/repo/blob/main/ai.json');
-
-      expect(global.fetch).toHaveBeenCalledWith(
-         'https://raw.githubusercontent.com/org/repo/main/ai.json',
-         expect.any(Object),
-      );
+   it('downloads repo for GitHub blob URL to support relative paths', async () => {
+      // GitHub blob URLs now download the entire repo via giget so that relative paths (skills,
+      // rules, etc.) can be resolved. This test verifies the behavior change - we no longer just
+      // fetch the raw file content.
+      //
+      // The actual download is handled by giget which we can't easily mock here, so we just verify
+      // that the function attempts to download (which will fail with a 404 for fake repos).
+      await expect(
+         loadFromSource('https://github.com/org/repo/blob/main/ai.json'),
+      ).rejects.toThrow(/Failed to fetch remote config/);
    });
 
    it('converts GitLab blob URL to raw URL', async () => {

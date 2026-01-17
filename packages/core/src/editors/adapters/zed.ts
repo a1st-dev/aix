@@ -37,8 +37,9 @@ export class ZedAdapter extends BaseEditorAdapter {
       const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
+               configBaseDir: options.configBaseDir,
             }),
-            prompts = await this.loadPrompts(config, projectRoot),
+            prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp);
 
       this.pendingSkillChanges = skillChanges;

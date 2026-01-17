@@ -18,6 +18,13 @@ export interface LoadedConfig {
    localPath?: string;
    /** Whether local overrides were applied */
    hasLocalOverrides?: boolean;
+   /**
+    * Base directory/URL for resolving relative paths in the config (skills, rules, etc.). For local
+    * configs, this is the directory containing the config file. For remote URL configs, this is the
+    * remote URL directory. For git shorthand configs, this is the local temp directory where the
+    * repo was downloaded.
+    */
+   configBaseDir?: string;
 }
 
 export interface LoadConfigOptions {
@@ -98,6 +105,7 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
       path: source,
       config: validated,
       source: sourceType,
+      configBaseDir: remote.baseUrl,
    };
 }
 
@@ -176,6 +184,7 @@ async function loadFromDiscovered(discovered: {
          path: discovered.path,
          config: validated,
          source: discovered.source,
+         configBaseDir: baseDir,
          ...(warnings.length > 0 && { warnings }),
          ...(localPath && { localPath }),
          ...(hasLocalOverrides && { hasLocalOverrides }),
