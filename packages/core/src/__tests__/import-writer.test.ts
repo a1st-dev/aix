@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
-import { join } from 'pathe';
+import { join, dirname } from 'pathe';
 import { existsSync } from 'node:fs';
 import {
    writeImportedContent,
@@ -188,7 +188,7 @@ describe('import-writer', () => {
          // Manually move existing to backup (simulating partial commit failure)
          const backupDir = join(testDir, '.aix', '.tmp', 'import-backup');
 
-         await mkdir(backupDir, { recursive: true });
+         await mkdir(dirname(backupDir), { recursive: true });
 
          const { rename } = await import('node:fs/promises');
 

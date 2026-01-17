@@ -125,7 +125,7 @@ export async function commitImport(projectRoot: string): Promise<void> {
 
    // If final directory exists, move it to backup
    if (await dirExists(finalDir)) {
-      await mkdir(getImportBackupDir(projectRoot), { recursive: true });
+      await mkdir(dirname(backupDir), { recursive: true });
       await rename(finalDir, backupDir);
    }
 
