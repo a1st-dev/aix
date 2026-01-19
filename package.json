@@ -18,26 +18,13 @@
       "qa:sandbox": "./scripts/qa-sandbox.sh",
       "qa:clean": "./scripts/qa-sandbox.sh --clean"
    },
-   "dependencies": {
-      "@a1st/aix": "^0.0.0",
-      "@oclif/table": "0.5.1",
-      "confbox": "0.2.2",
-      "detect-indent": "7.0.2",
-      "es-toolkit": "^1.43.0",
-      "ink": "6.6.0",
-      "ink-spinner": "5.0.0",
-      "ink-text-input": "6.0.0",
-      "ink-use-stdout-dimensions": "1.0.5",
-      "is-in-ci": "2.0.0",
-      "react": "19.2.3",
-      "yoga-layout": "^3.2.1"
-   },
    "devDependencies": {
-      "@stylistic/eslint-plugin": "5.6.1",
-      "@types/node": "^22.10.0",
+      "@stylistic/eslint-plugin": "5.7.0",
+      "@types/node": "24.10.9",
       "eslint": "9.39.2",
-      "oxlint": "1.36.0",
-      "typescript": "^5.7.0",
+      "oxlint": "1.40.0",
+      "tslib": "2.8.1",
+      "typescript": "5.9.3",
       "vitest": "4.0.17"
    },
    "engines": {

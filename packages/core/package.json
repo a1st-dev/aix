@@ -31,8 +31,11 @@
    "dependencies": {
       "@a1st/aix-schema": "*",
       "c12": "2.0.1",
+      "confbox": "0.2.2",
       "defu": "6.1.4",
+      "detect-indent": "7.0.2",
       "giget": "1.2.3",
+      "is-in-ci": "2.0.0",
       "nypm": "0.3.12",
       "p-map": "7.0.4",
       "pathe": "1.1.2",
