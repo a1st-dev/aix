@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix-core",
-   "version": "0.0.0",
+   "version": "0.0.4",
    "description": "Core utilities for aix configuration loading and management",
    "files": [
       "dist"

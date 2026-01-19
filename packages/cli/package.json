@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix",
-   "version": "0.0.0",
+   "version": "0.0.4",
    "description": "CLI for aix - unified AI agent configuration",
    "bin": {
       "aix": "./bin/run.js"
