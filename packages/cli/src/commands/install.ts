@@ -113,6 +113,19 @@ export default class Install extends BaseCommand<typeof Install> {
             isSaveMode = this.flags.save,
             isDryRun = this.flags['dry-run'];
 
+      // When installing from a remote source, check local ai.json for editor preferences
+      let localEditors: AiJsonConfig['editors'] | undefined;
+
+      if (args.source) {
+         const localConfigPath = join(projectRoot, 'ai.json');
+
+         if (existsSync(localConfigPath)) {
+            const localLoaded = await loadConfig(localConfigPath);
+
+            localEditors = localLoaded?.config.editors;
+         }
+      }
+
       // Handle --save flag: save remote config to local ai.json
       if (isSaveMode) {
          if (!args.source) {
@@ -144,8 +157,8 @@ export default class Install extends BaseCommand<typeof Install> {
          }
       }
 
-      // Resolve which editors to install to
-      const resolved = await this.resolveEditors(loaded.config, projectRoot);
+      // Resolve which editors to install to (prefer local editors config over remote)
+      const resolved = await this.resolveEditors(loaded.config, projectRoot, localEditors);
 
       if (!resolved) {
          return;
@@ -232,10 +245,14 @@ export default class Install extends BaseCommand<typeof Install> {
 
    /**
     * Resolve which editors to install to based on flags, config, and detection.
+    * @param config - The config being installed (may be remote)
+    * @param projectRoot - The project root directory
+    * @param localEditors - Optional local ai.json editors config (takes precedence over remote)
     */
    private async resolveEditors(
       config: AiJsonConfig,
       projectRoot: string,
+      localEditors?: AiJsonConfig['editors'],
    ): Promise<{ editors: EditorName[]; shouldPromptToSave: boolean } | null> {
       let editors: EditorName[] = [];
       let shouldPromptToSave = false;
@@ -248,7 +265,8 @@ export default class Install extends BaseCommand<typeof Install> {
             }
          }
       } else {
-         const configEditors = config.editors;
+         // Prefer local editors config over remote config's editors
+         const configEditors = localEditors ?? config.editors;
 
          if (configEditors) {
             const normalized = normalizeEditors(configEditors);
