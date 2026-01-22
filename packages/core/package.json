@@ -2,6 +2,13 @@
    "name": "@a1st/aix-core",
    "version": "0.0.4",
    "description": "Core utilities for aix configuration loading and management",
+   "keywords": [
+      "ai-agent",
+      "ai-config",
+      "config-loader",
+      "mcp",
+      "model-context-protocol"
+   ],
    "files": [
       "dist"
    ],

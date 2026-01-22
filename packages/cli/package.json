@@ -2,6 +2,21 @@
    "name": "@a1st/aix",
    "version": "0.0.4",
    "description": "CLI for aix - unified AI agent configuration",
+   "keywords": [
+      "ai-config",
+      "claude",
+      "claude-code",
+      "codex",
+      "cursor",
+      "windsurf",
+      "vscode",
+      "zed",
+      "cli",
+      "skills",
+      "agents",
+      "ai",
+      "mcp"
+   ],
    "bin": {
       "aix": "./bin/run.js"
    },

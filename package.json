@@ -1,6 +1,13 @@
 {
    "name": "@a1st/aix-monorepo",
    "version": "0.0.4",
+   "keywords": [
+      "ai",
+      "ai-agent",
+      "ai-configuration",
+      "mcp",
+      "model-context-protocol"
+   ],
    "private": true,
    "workspaces": [
       "packages/*"
