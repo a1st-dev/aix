@@ -1,22 +1,23 @@
 ---
-import logoIcon from '../assets/logo-icon.svg';
-import { Image } from 'astro:assets';
+import 'asciinema-player/dist/bundle/asciinema-player.css';
+
+const terminalCastPath = '/casts/aix-demo.cast';
 ---
 
 <section class="hero relative overflow-hidden py-24 md:py-32 lg:py-40">
    <div class="hero__gradient absolute inset-0 -z-10 bg-radial-[at_50%_0%] from-accent-950/50 via-transparent to-transparent"></div>
 
    <div class="mx-auto max-w-5xl px-6 text-center">
-      <p class="hero__eyebrow mb-4 inline-block rounded-full border border-accent-500/30 bg-accent-500/10 px-4 py-1.5 text-sm font-medium text-accent-400">
+      <p class="hero__eyebrow mb-4 inline-block rounded-full border border-accent-500/30 bg-accent-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-accent-300">
          Now supporting Zed
       </p>
 
-      <h1 class="hero__headline mb-6 text-4xl font-bold tracking-tight text-gray-50 md:text-5xl lg:text-6xl">
+      <h1 class="hero__headline mb-6 text-balance text-4xl font-bold tracking-tight text-gray-50 md:text-5xl lg:text-6xl">
          One config file.<br class="hidden sm:inline" />
          <span class="text-accent-400">Every AI editor.</span>
       </h1>
 
-      <p class="hero__subheadline mx-auto mb-10 max-w-2xl text-lg text-gray-400 md:text-xl">
+      <p class="hero__subheadline mx-auto mb-10 max-w-2xl text-pretty text-lg text-gray-300 md:text-xl">
          Define your AI agent configuration once in <code class="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-accent-300">ai.json</code>.
          Install to Claude Code, Cursor, VS Code, Windsurf, and more.
       </p>
@@ -46,27 +47,48 @@ import { Image } from 'astro:assets';
             <span class="size-3 rounded-full bg-gray-700"></span>
             <span class="ml-2 text-sm text-gray-500">Terminal</span>
          </div>
-         <div class="p-4 font-mono text-sm leading-relaxed text-gray-300">
-            <div class="mb-2">
-               <span class="text-accent-400">$</span>
-               <span class="ml-2">npm install -g @a1st/aix</span>
-            </div>
-            <div class="mb-2">
-               <span class="text-accent-400">$</span>
-               <span class="ml-2">aix init</span>
-            </div>
-            <div class="mb-2 text-gray-500">Created ai.json</div>
-            <div class="mb-2">
-               <span class="text-accent-400">$</span>
-               <span class="ml-2">aix add mcp playwright</span>
-            </div>
-            <div class="mb-2 text-gray-500">Added MCP server: playwright</div>
-            <div class="mb-2">
-               <span class="text-accent-400">$</span>
-               <span class="ml-2">aix install --target cursor</span>
-            </div>
-            <div class="text-success-500">Installed to Cursor</div>
+         <div class="bg-gray-950/70 p-3 sm:p-4">
+            <div
+               class="hero__terminal-player"
+               data-hero-terminal-player
+               data-cast-src={terminalCastPath}
+               aria-label="aix terminal demo"
+            ></div>
          </div>
       </div>
    </div>
 </section>
+
+<script>
+   import { create } from 'asciinema-player';
+
+   const heroTerminalSelector = '[data-hero-terminal-player]',
+      terminalColumns = 80,
+      terminalRows = 20;
+
+   function initHeroTerminalPlayer() {
+      const container = document.querySelector(heroTerminalSelector);
+      if (!(container instanceof HTMLElement)) {
+         return;
+      }
+
+      const { castSrc } = container.dataset;
+      if (!castSrc) {
+         return;
+      }
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      create(castSrc, container, {
+         autoPlay: !prefersReducedMotion,
+         loop: !prefersReducedMotion,
+         preload: true,
+         controls: prefersReducedMotion,
+         fit: 'width',
+         cols: terminalColumns,
+         rows: terminalRows
+      });
+   }
+
+   initHeroTerminalPlayer();
+</script>

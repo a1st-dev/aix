@@ -21,19 +21,19 @@ const features = [
 ];
 ---
 
-<section class="feature-block py-24">
+<section class="feature-block py-24 md:py-28">
    <div class="mx-auto max-w-5xl px-6">
-      <h2 class="mb-4 text-center text-3xl font-bold text-gray-50 md:text-4xl">
+      <h2 class="mb-4 text-balance text-center text-3xl font-bold text-gray-50 md:text-4xl">
          Stop fighting your tools
       </h2>
-      <p class="mx-auto mb-16 max-w-2xl text-center text-lg text-gray-400">
+      <p class="mx-auto mb-16 max-w-2xl text-pretty text-center text-lg text-gray-300 md:text-xl">
          aix handles the configuration so you can focus on building.
       </p>
 
       <div class="grid gap-8 md:grid-cols-3">
          {features.map((feature) => (
-            <div class="feature-block__card group rounded-xl border border-gray-800 bg-gray-900/50 p-6 transition-all hover:border-gray-700 hover:bg-gray-900">
-               <div class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-500/10 text-accent-400">
+            <div class="feature-block__card group rounded-2xl border border-gray-800/70 bg-gray-900/40 p-6 transition-all duration-300 hover:-translate-y-1 hover:border-gray-700 hover:bg-gray-900/70">
+               <div class="mb-4 flex size-11 items-center justify-center rounded-xl bg-accent-500/10 text-accent-300 ring-1 ring-accent-500/20">
                   {feature.icon === 'copy' && (
                      <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -58,7 +58,7 @@ const features = [
                   {feature.solution}
                </p>
 
-               <div class="overflow-hidden rounded-lg bg-gray-950 p-3 font-mono text-sm text-gray-400">
+               <div class="overflow-hidden rounded-lg border border-gray-800/70 bg-gray-950/80 p-3 font-mono text-sm text-gray-300">
                   <span class="text-accent-400">$</span>
                   <span class="ml-2">{feature.snippet}</span>
                </div>

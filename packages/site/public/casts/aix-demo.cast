@@ -1,0 +1,10 @@
+{"version":3,"term":{"cols":80,"rows":20,"type":"xterm-256color","theme":{"fg":"#d1d5da","bg":"#1f2428","palette":"#586069:#ea4a5a:#34d058:#ffea7f:#2188ff:#b392f0:#39c5cf:#d1d5da:#959da5:#f97583:#85e89d:#ffea7f:#79b8ff:#b392f0:#56d4dd:#fafbfc"}},"timestamp":1769094242,"idle_time_limit":1.0,"command":"bash -lc \"printf '%s\\n' '$ npm install -g @a1st/aix'; sleep 0.6; printf '%s\\n\\n' 'Installed @a1st/aix'; sleep 0.4; printf '%s\\n' '$ aix init'; sleep 0.6; printf '%s\\n\\n' 'Created ai.json'; sleep 0.4; printf '%s\\n' '$ aix add mcp playwright'; sleep 0.6; printf '%s\\n\\n' 'Added MCP server: playwright'; sleep 0.4; printf '%s\\n' '$ aix install --target cursor'; sleep 0.6; printf '%s\\n' 'Installed to Cursor'; sleep 0.4\"","env":{"SHELL":"/opt/homebrew/bin/bash"}}
+[1.557, "o", "$ npm install -g @a1st/aix\r\n"]
+[0.612, "o", "Installed @a1st/aix\r\n\r\n"]
+[0.406, "o", "$ aix init\r\n"]
+[0.610, "o", "Created ai.json\r\n\r\n"]
+[0.406, "o", "$ aix add mcp playwright\r\n"]
+[0.607, "o", "Added MCP server: playwright\r\n\r\n"]
+[0.404, "o", "$ aix install --target cursor\r\n"]
+[0.606, "o", "Installed to Cursor\r\n"]
+[0.407, "x", "0"]

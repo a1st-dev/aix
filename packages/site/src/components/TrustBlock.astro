@@ -11,13 +11,13 @@ const editors = [
 
 <section class="trust-block border-y border-gray-800/50 bg-gray-900/30 py-16">
    <div class="mx-auto max-w-5xl px-6">
-      <p class="mb-8 text-center text-sm font-medium uppercase tracking-wider text-gray-500">
+      <p class="mb-8 text-center text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
          Works with your editor
       </p>
       <div class="grid grid-cols-3 gap-8 md:grid-cols-6">
          {editors.map((editor) => (
             <div class="trust-block__editor group flex flex-col items-center gap-2">
-               <div class="flex size-12 items-center justify-center rounded-lg bg-gray-800/50 text-gray-400 transition-colors group-hover:bg-gray-800 group-hover:text-gray-200">
+               <div class="flex size-12 items-center justify-center rounded-xl border border-gray-800/70 bg-gray-900/50 text-gray-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-gray-700 group-hover:bg-gray-900 group-hover:text-gray-100">
                   {editor.logo === 'claude' && (
                      <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M4.709 15.955l4.72-2.647.08-.08-.08-.08-2.086-1.2a.79.79 0 01-.37-.63c-.01-.25.1-.49.29-.66l6.96-5.87c.21-.18.49-.27.77-.25.28.02.54.14.73.34l5.63 6.01c.18.19.28.44.28.7 0 .26-.1.51-.28.7l-5.63 6.01c-.19.2-.45.32-.73.34-.28.02-.56-.07-.77-.25l-6.96-5.87a.79.79 0 01-.29-.66c.01-.25.15-.48.37-.63l2.086-1.2.08-.08-.08-.08-4.72-2.647"/>
@@ -49,7 +49,7 @@ const editors = [
                      </svg>
                   )}
                </div>
-               <span class="text-xs text-gray-500 transition-colors group-hover:text-gray-400">
+               <span class="text-xs font-medium text-gray-500 transition-colors group-hover:text-gray-300">
                   {editor.name}
                </span>
             </div>
