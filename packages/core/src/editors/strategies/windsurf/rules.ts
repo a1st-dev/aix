@@ -1,5 +1,7 @@
-import type { RulesStrategy } from '../types.js';
+import type { ActivationMode } from '@a1st/aix-schema';
+import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
+import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
  * Windsurf rules strategy. Uses markdown files with YAML frontmatter containing a `trigger` field
@@ -44,14 +46,6 @@ export class WindsurfRulesStrategy implements RulesStrategy {
       }
 
       lines.push('---', '');
-
-      // Include rule name as heading for context, but only if content doesn't already start with one
-      const contentStartsWithHeading = /^#\s/.test(rule.content.trim());
-
-      if (rule.name && !contentStartsWithHeading) {
-         lines.push(`# ${rule.name}`, '');
-      }
-
       lines.push(rule.content);
       return lines.join('\n');
    }
@@ -63,5 +57,61 @@ export class WindsurfRulesStrategy implements RulesStrategy {
          rules.push(content.trim());
       }
       return { rules, warnings: [] };
+   }
+
+   /**
+    * Detect if content appears to be in Windsurf's frontmatter format.
+    * Windsurf uses `trigger:` field in frontmatter.
+    */
+   detectFormat(content: string): boolean {
+      const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
+
+      if (!hasFrontmatter) {
+         return false;
+      }
+
+      const lines = frontmatter.split('\n');
+
+      return parseYamlValue(lines, 'trigger') !== undefined;
+   }
+
+   /**
+    * Parse Windsurf-specific frontmatter into unified format.
+    * - `trigger: always_on` → `activation: 'always'`
+    * - `trigger: model_decision` → `activation: 'auto'`
+    * - `trigger: glob` → `activation: 'glob'`
+    * - `trigger: manual` → `activation: 'manual'`
+    */
+   parseFrontmatter(rawContent: string): ParsedRuleFrontmatter {
+      const { frontmatter, content, hasFrontmatter } = extractFrontmatter(rawContent);
+
+      if (!hasFrontmatter) {
+         return { content: rawContent, metadata: {} };
+      }
+
+      const lines = frontmatter.split('\n'),
+            trigger = parseYamlValue(lines, 'trigger') as string | undefined,
+            description = parseYamlValue(lines, 'description') as string | undefined,
+            globs = parseYamlValue(lines, 'globs');
+
+      // Map Windsurf trigger values to unified activation modes
+      const triggerToActivation: Record<string, ActivationMode> = {
+         always_on: 'always',
+         model_decision: 'auto',
+         glob: 'glob',
+         manual: 'manual',
+      };
+
+      const activation = trigger ? triggerToActivation[trigger] : undefined,
+            globsArray = typeof globs === 'string' ? globs.split(',').map((g) => g.trim()) : (globs as string[] | undefined);
+
+      return {
+         content,
+         metadata: {
+            activation,
+            description,
+            globs: globsArray,
+         },
+      };
    }
 }

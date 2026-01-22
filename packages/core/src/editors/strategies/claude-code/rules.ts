@@ -1,5 +1,7 @@
-import type { RulesStrategy } from '../types.js';
+import type { ActivationMode } from '@a1st/aix-schema';
+import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
+import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
  * Claude Code rules strategy. Uses markdown files with optional YAML frontmatter. Only adds
@@ -60,14 +62,67 @@ export class ClaudeCodeRulesStrategy implements RulesStrategy {
          lines.push('---', '');
       }
 
-      // Include rule name as heading for context, but only if content doesn't already start with one
-      const contentStartsWithHeading = /^#\s/.test(rule.content.trim());
-
-      if (rule.name && !contentStartsWithHeading) {
-         lines.push(`# ${rule.name}`, '');
-      }
-
       lines.push(rule.content);
       return lines.join('\n');
+   }
+
+   /**
+    * Detect if content appears to be in Claude Code's frontmatter format.
+    * Claude Code uses `paths:` field in frontmatter for rules.
+    */
+   detectFormat(content: string): boolean {
+      const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
+
+      if (!hasFrontmatter) {
+         return false;
+      }
+
+      const lines = frontmatter.split('\n');
+
+      return parseYamlValue(lines, 'paths') !== undefined;
+   }
+
+   /**
+    * Parse Claude Code-specific frontmatter into unified format.
+    * - `paths:` array → `globs[]`, `activation: 'glob'`
+    * - No paths → `activation: 'always'`
+    */
+   parseFrontmatter(rawContent: string): ParsedRuleFrontmatter {
+      const { frontmatter, content, hasFrontmatter } = extractFrontmatter(rawContent);
+
+      if (!hasFrontmatter) {
+         return { content: rawContent, metadata: {} };
+      }
+
+      const lines = frontmatter.split('\n'),
+            description = parseYamlValue(lines, 'description') as string | undefined,
+            paths = parseYamlValue(lines, 'paths');
+
+      // Parse paths (can be array or comma-separated string)
+      let globsArray: string[] | undefined;
+
+      if (Array.isArray(paths)) {
+         globsArray = paths;
+      } else if (typeof paths === 'string') {
+         globsArray = paths.split(',').map((g) => g.trim());
+      }
+
+      // Determine activation mode
+      let activation: ActivationMode | undefined;
+
+      if (globsArray && globsArray.length > 0) {
+         activation = 'glob';
+      } else {
+         activation = 'always';
+      }
+
+      return {
+         content,
+         metadata: {
+            activation,
+            description,
+            globs: globsArray,
+         },
+      };
    }
 }

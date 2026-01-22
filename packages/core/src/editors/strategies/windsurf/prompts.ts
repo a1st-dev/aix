@@ -1,5 +1,6 @@
 import type { EditorPrompt } from '../../types.js';
-import type { PromptsStrategy } from '../types.js';
+import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
+import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
  * Windsurf prompts strategy. Uses markdown files with YAML frontmatter in `.windsurf/workflows/`.
@@ -90,5 +91,44 @@ export class WindsurfPromptsStrategy implements PromptsStrategy {
       }
 
       return { prompts, warnings };
+   }
+
+   /**
+    * Detect if content appears to be in Windsurf's workflow frontmatter format.
+    * Windsurf workflows use `description:` in frontmatter (but not rules-specific fields like `trigger`).
+    */
+   detectFormat(content: string): boolean {
+      const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
+
+      if (!hasFrontmatter) {
+         return false;
+      }
+
+      const lines = frontmatter.split('\n'),
+            hasDescription = parseYamlValue(lines, 'description') !== undefined,
+            hasTrigger = parseYamlValue(lines, 'trigger') !== undefined;
+
+      // Windsurf prompts have description but NOT trigger (trigger is rules-specific)
+      return hasDescription && !hasTrigger;
+   }
+
+   /**
+    * Parse Windsurf-specific frontmatter into unified format.
+    * Only extracts `description` field.
+    */
+   parseFrontmatter(rawContent: string): ParsedPromptFrontmatter {
+      const { frontmatter, content, hasFrontmatter } = extractFrontmatter(rawContent);
+
+      if (!hasFrontmatter) {
+         return { content: rawContent };
+      }
+
+      const lines = frontmatter.split('\n'),
+            description = parseYamlValue(lines, 'description') as string | undefined;
+
+      return {
+         content,
+         description,
+      };
    }
 }

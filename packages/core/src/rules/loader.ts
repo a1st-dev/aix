@@ -6,6 +6,7 @@ import { normalizeSourceRef } from '@a1st/aix-schema';
 import { getRulesCacheDir } from '../cache/paths.js';
 import { loadFromGit } from '../git-loader.js';
 import { resolveNpmPath } from '../npm/resolve.js';
+import { parseRuleFrontmatter } from '../frontmatter-parser.js';
 
 export interface LoadedRule {
    name: string;
@@ -46,52 +47,67 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
 
    // Local file
    if (ruleObj.path) {
-      const fullPath = resolve(dirname(basePath), ruleObj.path);
-      const content = await readFile(fullPath, 'utf-8');
+      const fullPath = resolve(dirname(basePath), ruleObj.path),
+            rawContent = await readFile(fullPath, 'utf-8'),
+            parsed = parseRuleFrontmatter(rawContent.trim());
 
       return {
          name,
-         content: content.trim(),
+         content: parsed.content,
          source: 'file',
          sourcePath: fullPath,
-         metadata,
+         metadata: {
+            description: metadata.description ?? parsed.metadata.description,
+            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
+            globs: metadata.globs ?? parsed.metadata.globs,
+         },
       };
    }
 
    // Git repository
    if (ruleObj.git) {
-      const baseDir = dirname(basePath) || tmpdir();
-      const result = await loadFromGit({
-         git: ruleObj.git,
-         cacheDir: getRulesCacheDir(baseDir),
-         defaultFilePath: 'RULES.md',
-      });
+      const baseDir = dirname(basePath) || tmpdir(),
+            result = await loadFromGit({
+               git: ruleObj.git,
+               cacheDir: getRulesCacheDir(baseDir),
+               defaultFilePath: 'RULES.md',
+            }),
+            parsed = parseRuleFrontmatter(result.content);
 
       return {
          name,
-         content: result.content,
+         content: parsed.content,
          source: 'git',
          sourcePath: result.sourcePath,
-         metadata,
+         metadata: {
+            description: metadata.description ?? parsed.metadata.description,
+            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
+            globs: metadata.globs ?? parsed.metadata.globs,
+         },
       };
    }
 
    // NPM package
    if (ruleObj.npm) {
       const filePath = await resolveNpmPath({
-         packageName: ruleObj.npm.npm,
-         subpath: ruleObj.npm.path,
-         version: ruleObj.npm.version,
-         projectRoot: dirname(basePath),
-      });
-      const content = await readFile(filePath, 'utf-8');
+               packageName: ruleObj.npm.npm,
+               subpath: ruleObj.npm.path,
+               version: ruleObj.npm.version,
+               projectRoot: dirname(basePath),
+            }),
+            rawContent = await readFile(filePath, 'utf-8'),
+            parsed = parseRuleFrontmatter(rawContent.trim());
 
       return {
          name,
-         content: content.trim(),
+         content: parsed.content,
          source: 'npm',
          sourcePath: filePath,
-         metadata,
+         metadata: {
+            description: metadata.description ?? parsed.metadata.description,
+            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
+            globs: metadata.globs ?? parsed.metadata.globs,
+         },
       };
    }
 

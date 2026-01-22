@@ -1,5 +1,35 @@
-import type { McpServerConfig, ParsedSkill, HooksConfig } from '@a1st/aix-schema';
+import type { McpServerConfig, ParsedSkill, HooksConfig, ActivationMode } from '@a1st/aix-schema';
 import type { EditorPrompt, EditorRule, FileChange } from '../types.js';
+
+/**
+ * Result of parsing editor-specific frontmatter for rules.
+ */
+export interface ParsedRuleFrontmatter {
+   /** Content without front-matter */
+   content: string;
+   /** Extracted metadata from front-matter */
+   metadata: {
+      activation?: ActivationMode;
+      description?: string;
+      globs?: string[];
+   };
+   /** Raw frontmatter fields for round-tripping unknown fields */
+   rawFrontmatter?: Record<string, unknown>;
+}
+
+/**
+ * Result of parsing editor-specific frontmatter for prompts.
+ */
+export interface ParsedPromptFrontmatter {
+   /** Content without front-matter */
+   content: string;
+   /** Description extracted from frontmatter */
+   description?: string;
+   /** Argument hint extracted from frontmatter */
+   argumentHint?: string;
+   /** Raw frontmatter fields for round-tripping unknown fields */
+   rawFrontmatter?: Record<string, unknown>;
+}
 
 /**
  * Strategy for formatting and writing rules to an editor. Each editor has different rule file
@@ -20,6 +50,12 @@ export interface RulesStrategy {
 
    /** Parse rules from file content. Returns array of rule strings. */
    parseGlobalRules(content: string): { rules: string[]; warnings: string[] };
+
+   /** Detect if raw content appears to be in this editor's frontmatter format */
+   detectFormat?(content: string): boolean;
+
+   /** Parse editor-specific frontmatter into unified LoadedRule metadata */
+   parseFrontmatter?(content: string): ParsedRuleFrontmatter;
 }
 
 /**
@@ -124,6 +160,12 @@ export interface PromptsStrategy {
       files: string[],
       readFile: (filename: string) => Promise<string>,
    ): Promise<{ prompts: Record<string, string>; warnings: string[] }>;
+
+   /** Detect if raw content appears to be in this editor's frontmatter format */
+   detectFormat?(content: string): boolean;
+
+   /** Parse editor-specific frontmatter into unified LoadedPrompt fields */
+   parseFrontmatter?(content: string): ParsedPromptFrontmatter;
 }
 
 /**

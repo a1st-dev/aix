@@ -1,7 +1,8 @@
 import pMap from 'p-map';
 import { platform } from 'node:os';
 import type { EditorPrompt } from '../../types.js';
-import type { PromptsStrategy } from '../types.js';
+import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
+import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
  * VS Code prompts strategy. Uses markdown files with YAML frontmatter in `.github/prompts/`.
@@ -106,5 +107,45 @@ export class VSCodePromptsStrategy implements PromptsStrategy {
       }
 
       return { prompts, warnings };
+   }
+
+   /**
+    * Detect if content appears to be in VS Code's prompt frontmatter format.
+    * VS Code prompts use `mode:` or `tools:` fields.
+    */
+   detectFormat(content: string): boolean {
+      const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
+
+      if (!hasFrontmatter) {
+         return false;
+      }
+
+      const lines = frontmatter.split('\n'),
+            hasMode = parseYamlValue(lines, 'mode') !== undefined,
+            hasTools = parseYamlValue(lines, 'tools') !== undefined;
+
+      return hasMode || hasTools;
+   }
+
+   /**
+    * Parse VS Code-specific frontmatter into unified format.
+    * Extracts `description` and `argument-hint` fields.
+    */
+   parseFrontmatter(rawContent: string): ParsedPromptFrontmatter {
+      const { frontmatter, content, hasFrontmatter } = extractFrontmatter(rawContent);
+
+      if (!hasFrontmatter) {
+         return { content: rawContent };
+      }
+
+      const lines = frontmatter.split('\n'),
+            description = parseYamlValue(lines, 'description') as string | undefined,
+            argumentHint = parseYamlValue(lines, 'argument-hint') as string | undefined;
+
+      return {
+         content,
+         description,
+         argumentHint,
+      };
    }
 }

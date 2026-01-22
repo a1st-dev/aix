@@ -134,7 +134,7 @@ describe('Editor Adapters', () => {
 
          const ruleContent = await readFile(join(testDir, '.windsurf/rules/my-rule.md'), 'utf-8');
 
-         expect(ruleContent).toContain('my-rule');
+         expect(ruleContent).toContain('trigger: always_on');
          expect(ruleContent).toContain('Rule content here');
       });
 
