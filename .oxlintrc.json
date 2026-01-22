@@ -35,5 +35,5 @@
          }
       }
    ],
-   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.js", "**/*.cjs", "**/*.mjs", "**/.aix/**"]
+   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.js", "**/*.cjs", "**/*.mjs", "**/.aix/**", "**/*.astro"]
 }

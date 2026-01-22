@@ -1,5 +1,10 @@
 ---
 import Hero from '../components/Hero.astro';
+import TrustBlock from '../components/TrustBlock.astro';
+import FeatureBlock from '../components/FeatureBlock.astro';
+import FAQ from '../components/FAQ.astro';
+import FinalCTA from '../components/FinalCTA.astro';
+import Footer from '../components/Footer.astro';
 import '../styles/global.css';
 
 const title = 'aix - One config file. Every AI editor.';
@@ -50,12 +55,12 @@ const description = 'Define your AI agent configuration once in ai.json. Install
 
       <main class="pt-16">
          <Hero />
+         <TrustBlock />
+         <FeatureBlock />
+         <FAQ />
+         <FinalCTA />
       </main>
 
-      <footer class="border-t border-gray-800 py-8">
-         <div class="mx-auto max-w-5xl px-6 text-center text-sm text-gray-500">
-            <p>MIT License. Built with Astro.</p>
-         </div>
-      </footer>
+      <Footer />
    </body>
 </html>

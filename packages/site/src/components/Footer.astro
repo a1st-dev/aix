@@ -1,0 +1,78 @@
+---
+const currentYear = new Date().getFullYear();
+
+const links = {
+   docs: [
+      { label: 'Getting Started', href: '/getting-started/installation/' },
+      { label: 'Commands', href: '/commands/overview/' },
+      { label: 'Concepts', href: '/concepts/ai-json/' },
+   ],
+   resources: [
+      { label: 'GitHub', href: 'https://github.com/a1st-dev/aix' },
+      { label: 'npm', href: 'https://www.npmjs.com/package/@a1st/aix' },
+      { label: 'Changelog', href: 'https://github.com/a1st-dev/aix/releases' },
+   ],
+};
+---
+
+<footer class="footer border-t border-gray-800 bg-gray-950 py-12">
+   <div class="mx-auto max-w-5xl px-6">
+      <div class="grid gap-8 md:grid-cols-4">
+         <div class="md:col-span-2">
+            <a href="/" class="mb-4 flex items-center gap-2 text-xl font-bold text-gray-50">
+               <svg class="size-6 text-accent-500" viewBox="0 0 128 128" fill="currentColor">
+                  <path fill-rule="evenodd" d="M81 36 64 0 47 36l-1 2-9-10a6 6 0 0 0-9 9l10 10h-2L0 64l36 17h2L28 91a6 6 0 1 0 9 9l9-10 1 2 17 36 17-36v-2l9 10a6 6 0 1 0 9-9l-9-9 2-1 36-17-36-17-2-1 9-9a6 6 0 1 0-9-9l-9 10v-2Zm-17 2-2 5c-4 8-11 15-19 19l-5 2 5 2c8 4 15 11 19 19l2 5 2-5c4-8 11-15 19-19l5-2-5-2c-8-4-15-11-19-19l-2-5Z" clip-rule="evenodd"/>
+                  <path d="M118 19a6 6 0 0 0-9-9l-3 3a6 6 0 1 0 9 9l3-3Zm-96 4c-2 2-6 2-9 0l-3-3a6 6 0 1 1 9-9l3 3c3 2 3 6 0 9Zm0 82c-2-2-6-2-9 0l-3 3a6 6 0 1 0 9 9l3-3c3-2 3-6 0-9Zm96 4a6 6 0 0 1-9 9l-3-3a6 6 0 1 1 9-9l3 3Z"/>
+               </svg>
+               aix
+            </a>
+            <p class="max-w-xs text-sm text-gray-500">
+               One config file for every AI editor. Define once, install everywhere.
+            </p>
+         </div>
+
+         <div>
+            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+               Documentation
+            </h3>
+            <ul class="space-y-2">
+               {links.docs.map((link) => (
+                  <li>
+                     <a
+                        href={link.href}
+                        class="text-sm text-gray-500 transition-colors hover:text-gray-300"
+                     >
+                        {link.label}
+                     </a>
+                  </li>
+               ))}
+            </ul>
+         </div>
+
+         <div>
+            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+               Resources
+            </h3>
+            <ul class="space-y-2">
+               {links.resources.map((link) => (
+                  <li>
+                     <a
+                        href={link.href}
+                        class="text-sm text-gray-500 transition-colors hover:text-gray-300"
+                     >
+                        {link.label}
+                     </a>
+                  </li>
+               ))}
+            </ul>
+         </div>
+      </div>
+
+      <div class="mt-12 border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
+         <p>
+            MIT License © {currentYear} a1st.dev. Built with
+            <a href="https://astro.build" class="text-gray-400 hover:text-gray-300">Astro</a>.
+         </p>
+      </div>
+   </div>
+</footer>

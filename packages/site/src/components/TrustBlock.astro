@@ -1,0 +1,59 @@
+---
+const editors = [
+   { name: 'Claude Code', logo: 'claude' },
+   { name: 'Cursor', logo: 'cursor' },
+   { name: 'VS Code', logo: 'vscode' },
+   { name: 'Windsurf', logo: 'windsurf' },
+   { name: 'Codex', logo: 'codex' },
+   { name: 'Zed', logo: 'zed' },
+];
+---
+
+<section class="trust-block border-y border-gray-800/50 bg-gray-900/30 py-16">
+   <div class="mx-auto max-w-5xl px-6">
+      <p class="mb-8 text-center text-sm font-medium uppercase tracking-wider text-gray-500">
+         Works with your editor
+      </p>
+      <div class="grid grid-cols-3 gap-8 md:grid-cols-6">
+         {editors.map((editor) => (
+            <div class="trust-block__editor group flex flex-col items-center gap-2">
+               <div class="flex size-12 items-center justify-center rounded-lg bg-gray-800/50 text-gray-400 transition-colors group-hover:bg-gray-800 group-hover:text-gray-200">
+                  {editor.logo === 'claude' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M4.709 15.955l4.72-2.647.08-.08-.08-.08-2.086-1.2a.79.79 0 01-.37-.63c-.01-.25.1-.49.29-.66l6.96-5.87c.21-.18.49-.27.77-.25.28.02.54.14.73.34l5.63 6.01c.18.19.28.44.28.7 0 .26-.1.51-.28.7l-5.63 6.01c-.19.2-.45.32-.73.34-.28.02-.56-.07-.77-.25l-6.96-5.87a.79.79 0 01-.29-.66c.01-.25.15-.48.37-.63l2.086-1.2.08-.08-.08-.08-4.72-2.647"/>
+                     </svg>
+                  )}
+                  {editor.logo === 'cursor' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5.5 3L19 12l-13.5 9V3z"/>
+                     </svg>
+                  )}
+                  {editor.logo === 'vscode' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.583 2.333L7.5 10.5 3.417 7.417l-1.75 1.166L5.5 12l-3.833 3.417 1.75 1.166L7.5 13.5l10.083 8.167L21.667 19V5l-4.084-2.667zM17.5 16.5l-6-4.5 6-4.5v9z"/>
+                     </svg>
+                  )}
+                  {editor.logo === 'windsurf' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L2 19h20L12 2zm0 4l6.5 11h-13L12 6z"/>
+                     </svg>
+                  )}
+                  {editor.logo === 'codex' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                     </svg>
+                  )}
+                  {editor.logo === 'zed' && (
+                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 5h18v2H7.5L18 17H3v2h18v-2h-4.5L6 7h12V5H3z"/>
+                     </svg>
+                  )}
+               </div>
+               <span class="text-xs text-gray-500 transition-colors group-hover:text-gray-400">
+                  {editor.name}
+               </span>
+            </div>
+         ))}
+      </div>
+   </div>
+</section>
