@@ -25,6 +25,14 @@ export class CursorAdapter extends BaseEditorAdapter {
    readonly name = 'cursor' as const;
    readonly configDir = '.cursor';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['Library/Application Support/Cursor'],
+         linux: ['.config/Cursor'],
+         win32: ['AppData/Roaming/Cursor'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new CursorRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new StandardMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({

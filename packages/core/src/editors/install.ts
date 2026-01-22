@@ -27,42 +27,6 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
 };
 
 /**
- * Known global config/data paths for each editor by platform.
- */
-const EDITOR_GLOBAL_PATHS: Record<EditorName, Record<string, string[]>> = {
-   windsurf: {
-      darwin: ['Library/Application Support/Windsurf'],
-      linux: ['.config/Windsurf'],
-      win32: ['AppData/Roaming/Windsurf'],
-   },
-   cursor: {
-      darwin: ['Library/Application Support/Cursor'],
-      linux: ['.config/Cursor'],
-      win32: ['AppData/Roaming/Cursor'],
-   },
-   'claude-code': {
-      darwin: ['Library/Application Support/Claude'],
-      linux: ['.config/Claude'],
-      win32: ['AppData/Roaming/Claude'],
-   },
-   vscode: {
-      darwin: ['Library/Application Support/Code'],
-      linux: ['.config/Code'],
-      win32: ['AppData/Roaming/Code'],
-   },
-   zed: {
-      darwin: ['Library/Application Support/Zed'],
-      linux: ['.config/zed'],
-      win32: ['AppData/Roaming/Zed'],
-   },
-   codex: {
-      darwin: ['.codex'],
-      linux: ['.codex'],
-      win32: ['.codex'],
-   },
-};
-
-/**
  * Get an adapter instance for a specific editor.
  */
 export function getAdapter(editor: EditorName): EditorAdapter {
@@ -85,7 +49,9 @@ export function getAvailableEditors(): EditorName[] {
  * Check if an editor is installed globally on the system by looking for its config/data directory.
  */
 async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
-   const paths = EDITOR_GLOBAL_PATHS[editor]?.[platform()];
+   const adapter = getAdapter(editor),
+         globalPaths = adapter.getGlobalDataPaths(),
+         paths = globalPaths[platform()];
 
    if (!paths) {
       return false;

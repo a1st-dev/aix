@@ -51,6 +51,12 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    abstract readonly name: EditorName;
    abstract readonly configDir: string;
 
+   /**
+    * Get the global data/config paths for this editor by platform. Used to detect if the editor is
+    * installed globally on the system. Paths are relative to the user's home directory.
+    */
+   abstract getGlobalDataPaths(): Partial<Record<NodeJS.Platform, string[]>>;
+
    /** Strategy for formatting and writing rules */
    protected abstract readonly rulesStrategy: RulesStrategy;
 

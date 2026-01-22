@@ -25,6 +25,14 @@ export class VSCodeAdapter extends BaseEditorAdapter {
    readonly name = 'vscode' as const;
    readonly configDir = '.vscode';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['Library/Application Support/Code'],
+         linux: ['.config/Code'],
+         win32: ['AppData/Roaming/Code'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new VSCodeRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new VSCodeMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({

@@ -26,6 +26,14 @@ export class WindsurfAdapter extends BaseEditorAdapter {
    readonly name = 'windsurf' as const;
    readonly configDir = '.windsurf';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['Library/Application Support/Windsurf'],
+         linux: ['.config/Windsurf'],
+         win32: ['AppData/Roaming/Windsurf'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new WindsurfRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new WindsurfMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new WindsurfSkillsStrategy();

@@ -156,6 +156,12 @@ export interface EditorAdapter {
    readonly configDir: string;
 
    /**
+    * Get the global data/config paths for this editor by platform. Used to detect if the editor is
+    * installed globally on the system. Paths are relative to the user's home directory.
+    */
+   getGlobalDataPaths(): Partial<Record<NodeJS.Platform, string[]>>;
+
+   /**
     * Check if this editor's config directory exists in the project.
     */
    detect(projectRoot: string): Promise<boolean>;

@@ -21,6 +21,14 @@ export class ZedAdapter extends BaseEditorAdapter {
    readonly name = 'zed' as const;
    readonly configDir = '.zed';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['Library/Application Support/Zed'],
+         linux: ['.config/zed'],
+         win32: ['AppData/Roaming/Zed'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new ZedRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new ZedMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new PointerSkillsStrategy();

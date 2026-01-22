@@ -25,6 +25,14 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
    readonly name = 'claude-code' as const;
    readonly configDir = '.claude';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['Library/Application Support/Claude'],
+         linux: ['.config/Claude'],
+         win32: ['AppData/Roaming/Claude'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new ClaudeCodeRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new StandardMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({

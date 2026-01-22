@@ -22,6 +22,14 @@ export class CodexAdapter extends BaseEditorAdapter {
    readonly name = 'codex' as const;
    readonly configDir = '.codex';
 
+   getGlobalDataPaths(): Record<string, string[]> {
+      return {
+         darwin: ['.codex'],
+         linux: ['.codex'],
+         win32: ['.codex'],
+      };
+   }
+
    protected readonly rulesStrategy: RulesStrategy = new CodexRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new CodexMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
