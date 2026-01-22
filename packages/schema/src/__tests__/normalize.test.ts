@@ -5,6 +5,8 @@ import {
    normalizeSourceRef,
    normalizeRulesConfig,
    normalizePromptsConfig,
+   detectSourceType,
+   isLocalPath,
 } from '../normalize.js';
 
 describe('normalizeSourceRef', () => {
@@ -268,5 +270,135 @@ describe('normalizeConfig', () => {
 
       // MCP config is passed through unchanged (no normalization needed)
       expect(result.mcp).toEqual(config.mcp);
+   });
+});
+
+describe('isLocalPath', () => {
+   it('recognizes explicit relative paths with ./', () => {
+      expect(isLocalPath('./file.md')).toBe(true);
+      expect(isLocalPath('./prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes parent directory paths with ../', () => {
+      expect(isLocalPath('../file.md')).toBe(true);
+      expect(isLocalPath('../../prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes absolute paths', () => {
+      expect(isLocalPath('/path/to/file.md')).toBe(true);
+      expect(isLocalPath('/Users/me/prompts/review.md')).toBe(true);
+   });
+
+   it('recognizes file: protocol paths', () => {
+      expect(isLocalPath('file:../foo/bar.md')).toBe(true);
+      expect(isLocalPath('file:./local.json')).toBe(true);
+   });
+
+   it('recognizes implicit relative paths with file extensions', () => {
+      expect(isLocalPath('prompts/add-skill.md')).toBe(true);
+      expect(isLocalPath('file.txt')).toBe(true);
+      expect(isLocalPath('path/to/config.json')).toBe(true);
+      expect(isLocalPath('rules.yaml')).toBe(true);
+      expect(isLocalPath('rules.yml')).toBe(true);
+   });
+
+   it('rejects URLs', () => {
+      expect(isLocalPath('https://example.com/file.md')).toBe(false);
+      expect(isLocalPath('http://example.com/file.md')).toBe(false);
+   });
+
+   it('rejects git shorthand', () => {
+      expect(isLocalPath('github:org/repo/file.md')).toBe(false);
+      expect(isLocalPath('gitlab:group/project/file.md')).toBe(false);
+      expect(isLocalPath('bitbucket:workspace/repo/file.md')).toBe(false);
+   });
+
+   it('rejects plain text without file extensions', () => {
+      expect(isLocalPath('some inline content')).toBe(false);
+      expect(isLocalPath('Review code for issues')).toBe(false);
+   });
+});
+
+describe('detectSourceType', () => {
+   describe('git-shorthand', () => {
+      it('detects github shorthand', () => {
+         expect(detectSourceType('github:org/repo')).toBe('git-shorthand');
+         expect(detectSourceType('github:org/repo/path#ref')).toBe('git-shorthand');
+      });
+
+      it('detects gitlab shorthand', () => {
+         expect(detectSourceType('gitlab:group/project')).toBe('git-shorthand');
+      });
+
+      it('detects bitbucket shorthand', () => {
+         expect(detectSourceType('bitbucket:workspace/repo')).toBe('git-shorthand');
+      });
+   });
+
+   describe('https-file', () => {
+      it('detects GitHub blob URLs', () => {
+         expect(detectSourceType('https://github.com/org/repo/blob/main/ai.json')).toBe('https-file');
+      });
+
+      it('detects GitLab blob URLs', () => {
+         expect(detectSourceType('https://gitlab.com/group/project/-/blob/main/ai.json')).toBe(
+            'https-file',
+         );
+      });
+
+      it('detects Bitbucket src URLs', () => {
+         expect(detectSourceType('https://bitbucket.org/workspace/repo/src/main/ai.json')).toBe(
+            'https-file',
+         );
+      });
+
+      it('detects direct .json URLs', () => {
+         expect(detectSourceType('https://example.com/config/ai.json')).toBe('https-file');
+      });
+   });
+
+   describe('https-repo', () => {
+      it('detects GitHub repo URLs', () => {
+         expect(detectSourceType('https://github.com/org/repo')).toBe('https-repo');
+      });
+
+      it('detects generic HTTPS URLs without .json', () => {
+         expect(detectSourceType('https://example.com/some/path')).toBe('https-repo');
+      });
+   });
+
+   describe('http-unsupported', () => {
+      it('detects HTTP URLs as unsupported', () => {
+         expect(detectSourceType('http://example.com/ai.json')).toBe('http-unsupported');
+         expect(detectSourceType('http://github.com/org/repo')).toBe('http-unsupported');
+      });
+   });
+
+   describe('local', () => {
+      it('detects explicit relative paths', () => {
+         expect(detectSourceType('./ai.json')).toBe('local');
+         expect(detectSourceType('../config/ai.json')).toBe('local');
+      });
+
+      it('detects absolute paths', () => {
+         expect(detectSourceType('/path/to/ai.json')).toBe('local');
+      });
+
+      it('detects file: protocol', () => {
+         expect(detectSourceType('file:../foo/bar.md')).toBe('local');
+      });
+
+      it('detects implicit relative paths with extensions', () => {
+         expect(detectSourceType('prompts/review.md')).toBe('local');
+         expect(detectSourceType('rules.yaml')).toBe('local');
+      });
+   });
+
+   describe('npm', () => {
+      it('detects npm package names', () => {
+         expect(detectSourceType('@scope/package')).toBe('npm');
+         expect(detectSourceType('aix-skill-typescript')).toBe('npm');
+         expect(detectSourceType('some-package')).toBe('npm');
+      });
    });
 });

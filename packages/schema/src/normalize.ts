@@ -1,14 +1,86 @@
 import type { AiJsonConfig } from './config.js';
 
 /**
- * Prefixes that indicate a local file path reference.
- */
-const LOCAL_PATH_PREFIXES = ['./', '../', '/', 'file:'];
-
-/**
  * File extensions that indicate a local file (for implicit relative paths).
  */
 const LOCAL_FILE_EXTENSIONS = /\.(md|txt|json|ya?ml|prompt\.md)$/i;
+
+/**
+ * Source types for config and asset references. This is the single source of truth for determining
+ * what kind of source a string represents.
+ */
+export type SourceType =
+   /** Local file path (./file, ../file, /absolute, or implicit like prompts/file.md) */
+   | 'local'
+   /** Git shorthand (github:org/repo, gitlab:org/repo, bitbucket:org/repo) */
+   | 'git-shorthand'
+   /** HTTPS URL pointing to a file (blob URL or direct .json file) */
+   | 'https-file'
+   /** HTTPS URL pointing to a repository root */
+   | 'https-repo'
+   /** Unsupported HTTP URL (non-HTTPS) */
+   | 'http-unsupported'
+   /** npm package reference */
+   | 'npm';
+
+/**
+ * Detect the source type of a string. This is the single source of truth for source type detection
+ * and should be used everywhere instead of ad-hoc checks.
+ *
+ * Detection order (first match wins):
+ * 1. Git shorthand (github:, gitlab:, bitbucket:)
+ * 2. HTTPS URLs (file vs repo)
+ * 3. HTTP URLs (unsupported)
+ * 4. Local paths (explicit prefixes or file extensions)
+ * 5. npm packages (fallback)
+ */
+export function detectSourceType(source: string): SourceType {
+   // Git shorthand: github:org/repo, gitlab:org/repo, bitbucket:org/repo
+   if (/^(github|gitlab|bitbucket):/.test(source)) {
+      return 'git-shorthand';
+   }
+
+   // HTTPS URL
+   if (source.startsWith('https://')) {
+      return isHttpsFileUrl(source) ? 'https-file' : 'https-repo';
+   }
+
+   // HTTP URL (reject for security)
+   if (source.startsWith('http://')) {
+      return 'http-unsupported';
+   }
+
+   // Local path detection
+   if (isLocalPath(source)) {
+      return 'local';
+   }
+
+   // Everything else is npm
+   return 'npm';
+}
+
+/**
+ * Check if an HTTPS URL points directly to a file (blob URL or direct file URL).
+ */
+function isHttpsFileUrl(url: string): boolean {
+   // GitHub blob URL: https://github.com/org/repo/blob/ref/path
+   if (/^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\//.test(url)) {
+      return true;
+   }
+   // GitLab blob URL: https://gitlab.com/group/project/-/blob/ref/path
+   if (/^https:\/\/gitlab\.com\/[^/]+\/[^/]+\/-\/blob\//.test(url)) {
+      return true;
+   }
+   // Bitbucket src URL: https://bitbucket.org/workspace/repo/src/ref/path
+   if (/^https:\/\/bitbucket\.org\/[^/]+\/[^/]+\/src\//.test(url)) {
+      return true;
+   }
+   // Direct file URL (ending in .json)
+   if (url.endsWith('.json')) {
+      return true;
+   }
+   return false;
+}
 
 /**
  * Detect if a string is a local path reference. Recognizes:
@@ -20,8 +92,13 @@ const LOCAL_FILE_EXTENSIONS = /\.(md|txt|json|ya?ml|prompt\.md)$/i;
  * Excludes URLs and git shorthands even if they have matching extensions.
  */
 export function isLocalPath(value: string): boolean {
-   // Explicit prefixes
-   if (LOCAL_PATH_PREFIXES.some((p) => value.startsWith(p))) {
+   // Explicit relative or absolute paths (including file: protocol)
+   if (
+      value.startsWith('./') ||
+      value.startsWith('../') ||
+      value.startsWith('/') ||
+      value.startsWith('file:')
+   ) {
       return true;
    }
 

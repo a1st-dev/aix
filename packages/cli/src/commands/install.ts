@@ -186,22 +186,38 @@ export default class Install extends BaseCommand<typeof Install> {
       // After successful installation, prompt to save editor to ai.json
       if (shouldPromptToSave && allSucceeded && !isDryRun && editors.length === 1) {
          const editor = editors[0] as EditorName,
+               localConfigPath = join(projectRoot, 'ai.json'),
+               localConfigExists = existsSync(localConfigPath),
                saveToConfig = await confirm({
                   message: `Save "${editor}" as the default editor in ai.json?`,
                   default: true,
                });
 
          if (saveToConfig) {
-            await updateConfig(loaded.path, (config) => ({
-               ...config,
-               editors: {
-                  ...config.editors,
-                  [editor]: { enabled: true },
-               },
-            }));
-            this.output.success(
-               `Added "${editor}" to ai.json. Future installs will target this editor.`,
-            );
+            if (!localConfigExists) {
+               const createConfig = await confirm({
+                  message: 'No ai.json found. Create one?',
+                  default: true,
+               });
+
+               if (createConfig) {
+                  const newConfig = { editors: { [editor]: { enabled: true } } };
+
+                  await writeFile(localConfigPath, JSON.stringify(newConfig, null, 2) + '\n', 'utf-8');
+                  this.output.success(`Created ./ai.json with "${editor}" as the default editor.`);
+               }
+            } else {
+               await updateConfig(localConfigPath, (config) => ({
+                  ...config,
+                  editors: {
+                     ...config.editors,
+                     [editor]: { enabled: true },
+                  },
+               }));
+               this.output.success(
+                  `Added "${editor}" to ai.json. Future installs will target this editor.`,
+               );
+            }
          }
       }
 

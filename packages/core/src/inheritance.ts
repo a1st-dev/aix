@@ -2,10 +2,10 @@ import { resolve, dirname } from 'pathe';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { downloadTemplate } from 'giget';
-import { parseJsonc } from '@a1st/aix-schema';
+import { parseJsonc, detectSourceType } from '@a1st/aix-schema';
 import { parseConfigContent } from './discovery.js';
 import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './errors.js';
-import { convertBlobToRawUrl, isLocalPath } from './url-parsing.js';
+import { convertBlobToRawUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 
@@ -61,28 +61,27 @@ async function resolveExtendsPath(
       return resolveRemoteExtends(new URL(extendPath, baseDir).href, visited);
    }
 
-   if (isLocalPath(extendPath)) {
+   const sourceType = detectSourceType(extendPath);
+
+   switch (sourceType) {
+   case 'local':
       return resolveLocalExtends(extendPath, baseDir, visited);
-   }
 
-   if (isGitPath(extendPath)) {
+   case 'git-shorthand':
+   case 'https-file':
+   case 'https-repo':
       return resolveGitExtends(extendPath, visited);
-   }
 
-   return resolveNpmExtends(extendPath, visited);
+   case 'npm':
+      return resolveNpmExtends(extendPath, visited);
+
+   case 'http-unsupported':
+      throw new ConfigParseError('HTTP URLs are not supported (use HTTPS)', extendPath);
+   }
 }
 
 function isRelativePath(path: string): boolean {
    return path.startsWith('./') || path.startsWith('../');
-}
-
-function isGitPath(path: string): boolean {
-   return (
-      path.startsWith('github:') ||
-      path.startsWith('gitlab:') ||
-      path.startsWith('bitbucket:') ||
-      path.startsWith('https://')
-   );
 }
 
 /**

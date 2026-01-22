@@ -5,15 +5,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'pathe';
 import { downloadTemplate } from 'giget';
-import { parseJsonc } from '@a1st/aix-schema';
+import { parseJsonc, detectSourceType } from '@a1st/aix-schema';
 import {
    convertBlobToRawUrl,
    parseGitShorthand,
    parseGitHubRepoUrl,
    parseGitHubBlobUrl,
-   parseGitLabBlobUrl,
-   parseBitbucketBlobUrl,
-   isLocalPath,
 } from './url-parsing.js';
 import {
    ConfigNotFoundError,
@@ -273,20 +270,6 @@ export function loadFromLocalPath(path: string, cwd: string = process.cwd()): Re
    };
 }
 
-/**
- * Check if a URL points directly to a file (blob URL or direct file URL).
- */
-function isDirectFileUrl(url: string): boolean {
-   // Check for blob URLs
-   if (parseGitHubBlobUrl(url) || parseGitLabBlobUrl(url) || parseBitbucketBlobUrl(url)) {
-      return true;
-   }
-   // Check for direct file URLs (ending in .json)
-   if (url.endsWith('.json')) {
-      return true;
-   }
-   return false;
-}
 
 /**
  * Load config from a GitHub/GitLab/Bitbucket repo URL (not a blob URL).
@@ -341,36 +324,26 @@ export async function loadFromSource(
    source: string,
    cwd: string = process.cwd(),
 ): Promise<RemoteLoadResult> {
-   // Git shorthand: github:org/repo, gitlab:org/repo, bitbucket:org/repo
-   if (source.startsWith('github:') || source.startsWith('gitlab:') || source.startsWith('bitbucket:')) {
+   const sourceType = detectSourceType(source);
+
+   switch (sourceType) {
+   case 'git-shorthand':
       return loadFromGitShorthand(source);
-   }
 
-   // HTTPS URL
-   if (source.startsWith('https://')) {
-      // If it's a direct file URL (blob or .json), fetch it
-      if (isDirectFileUrl(source)) {
-         return loadFromUrl(source);
-      }
-      // Otherwise, treat as repo URL and clone it
+   case 'https-file':
+      return loadFromUrl(source);
+
+   case 'https-repo':
       return loadFromRepoUrl(source);
-   }
 
-   // HTTP URL (reject for security)
-   if (source.startsWith('http://')) {
+   case 'http-unsupported':
+      throw new UnsupportedUrlError(source);
+
+   case 'local':
+      return loadFromLocalPath(source, cwd);
+
+   case 'npm':
+      // npm packages are not supported as config sources (only for skills/rules)
       throw new UnsupportedUrlError(source);
    }
-
-   // Local path (relative or absolute)
-   if (isLocalPath(source)) {
-      return loadFromLocalPath(source, cwd);
-   }
-
-   // If it looks like a file path without ./ prefix, try it as local
-   if (source.includes('/') || source.endsWith('.json')) {
-      return loadFromLocalPath(source, cwd);
-   }
-
-   // Unknown format
-   throw new UnsupportedUrlError(source);
 }
