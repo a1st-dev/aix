@@ -1,0 +1,45 @@
+---
+title: aix search
+description: Search the MCP server registry.
+---
+
+## Synopsis
+
+```bash
+aix search <type> <query> [options]
+```
+
+## Description
+
+Searches the official MCP registry for servers matching your query. Returns a list of available packages with descriptions.
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `type` | Type to search: `mcp` |
+| `query` | Search term |
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--limit`, `-l` | Maximum results to return (default: 10) |
+
+## Examples
+
+Search for Playwright MCP servers:
+
+```bash
+aix search mcp playwright
+```
+
+Search with a result limit:
+
+```bash
+aix search mcp database --limit 5
+```
+
+## Related commands
+
+- [`aix add`](/commands/add/) - Add a found package to your configuration

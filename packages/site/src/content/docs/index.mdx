@@ -1,0 +1,36 @@
+---
+title: aix Documentation
+description: Learn how to use aix to manage AI editor configuration with a single ai.json file.
+template: splash
+hero:
+  tagline: One config file for every AI editor
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/a1st-dev/aix
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Quick Start" icon="rocket">
+    Get up and running with aix in under 2 minutes.
+    [Start here →](/getting-started/quick-start/)
+  </Card>
+  <Card title="Commands" icon="setting">
+    Learn about all available CLI commands.
+    [View commands →](/commands/overview/)
+  </Card>
+  <Card title="ai.json Format" icon="document">
+    Understand the configuration file format.
+    [Learn more →](/concepts/ai-json/)
+  </Card>
+  <Card title="Supported Editors" icon="laptop">
+    See which AI editors aix supports.
+    [View editors →](/concepts/editors/)
+  </Card>
+</CardGrid>

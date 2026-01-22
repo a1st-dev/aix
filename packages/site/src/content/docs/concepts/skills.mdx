@@ -1,0 +1,83 @@
+---
+title: Skills, Rules, and Prompts
+description: Understanding the different types of AI configuration.
+---
+
+aix supports three types of AI instructions: skills, rules, and prompts.
+
+## Skills
+
+Skills are detailed instructions that teach the AI how to perform specific tasks. They're typically longer and more comprehensive than rules.
+
+**Use skills for:**
+- Coding standards and patterns
+- Review checklists
+- Complex workflows
+- Domain-specific knowledge
+
+```json
+{
+  "skills": [
+    {
+      "name": "react-patterns",
+      "source": "https://example.com/react-patterns.md"
+    }
+  ]
+}
+```
+
+## Rules
+
+Rules are concise constraints or guidelines. They're typically short and focused on a single behavior.
+
+**Use rules for:**
+- Code style preferences
+- Security requirements
+- Forbidden patterns
+- Quick reminders
+
+```json
+{
+  "rules": [
+    {
+      "name": "no-any",
+      "content": "Never use the 'any' type in TypeScript"
+    }
+  ]
+}
+```
+
+## Prompts
+
+Prompts are reusable templates for common interactions. They can include placeholders for dynamic content.
+
+**Use prompts for:**
+- Code explanation templates
+- Review request formats
+- Documentation generation
+- Refactoring instructions
+
+```json
+{
+  "prompts": [
+    {
+      "name": "explain",
+      "content": "Explain this code to a junior developer: {{code}}"
+    }
+  ]
+}
+```
+
+## Sources
+
+Skills, rules, and prompts can be loaded from:
+
+- **URLs**: GitHub raw files, gists, any public URL
+- **npm packages**: Published configuration packages
+- **Local files**: Relative paths in your project
+- **Inline content**: Direct text in the configuration
+
+## Related
+
+- [ai.json Format](/concepts/ai-json/)
+- [`aix add` Command](/commands/add/)

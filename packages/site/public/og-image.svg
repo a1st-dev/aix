@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:oklch(0.14 0.015 260)"/>
+      <stop offset="100%" style="stop-color:oklch(0.20 0.015 260)"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:oklch(0.58 0.14 180)"/>
+      <stop offset="100%" style="stop-color:oklch(0.68 0.14 180)"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <g transform="translate(100, 200)">
+    <path fill="url(#accent)" transform="scale(0.6)" fill-rule="evenodd" d="M81 36 64 0 47 36l-1 2-9-10a6 6 0 0 0-9 9l10 10h-2L0 64l36 17h2L28 91a6 6 0 1 0 9 9l9-10 1 2 17 36 17-36v-2l9 10a6 6 0 1 0 9-9l-9-9 2-1 36-17-36-17-2-1 9-9a6 6 0 1 0-9-9l-9 10v-2Zm-17 2-2 5c-4 8-11 15-19 19l-5 2 5 2c8 4 15 11 19 19l2 5 2-5c4-8 11-15 19-19l5-2-5-2c-8-4-15-11-19-19l-2-5Z" clip-rule="evenodd"/>
+    <path fill="url(#accent)" transform="scale(0.6)" d="M118 19a6 6 0 0 0-9-9l-3 3a6 6 0 1 0 9 9l3-3Zm-96 4c-2 2-6 2-9 0l-3-3a6 6 0 1 1 9-9l3 3c3 2 3 6 0 9Zm0 82c-2-2-6-2-9 0l-3 3a6 6 0 1 0 9 9l3-3c3-2 3-6 0-9Zm96 4a6 6 0 0 1-9 9l-3-3a6 6 0 1 1 9-9l3 3Z"/>
+  </g>
+
+  <text x="200" y="280" font-family="ui-sans-serif, system-ui, sans-serif" font-size="72" font-weight="700" fill="oklch(0.98 0.005 260)">aix</text>
+
+  <text x="100" y="380" font-family="ui-sans-serif, system-ui, sans-serif" font-size="48" font-weight="400" fill="oklch(0.83 0.012 260)">One config file. Every AI editor.</text>
+
+  <text x="100" y="550" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" fill="oklch(0.55 0.015 260)">aix.a1st.dev</text>
+</svg>

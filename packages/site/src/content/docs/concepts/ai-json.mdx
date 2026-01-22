@@ -1,0 +1,99 @@
+---
+title: ai.json Format
+description: Understanding the ai.json configuration file structure.
+---
+
+The `ai.json` file is the central configuration for aix. It defines your AI agent's skills, rules, prompts, and MCP servers in a single, portable format.
+
+## Structure
+
+```json
+{
+  "$schema": "https://aix.a1st.dev/schema.json",
+  "skills": [],
+  "rules": [],
+  "prompts": [],
+  "mcpServers": {},
+  "extends": []
+}
+```
+
+## Sections
+
+### skills
+
+Array of skill definitions. Skills are reusable instructions that teach the AI how to perform specific tasks.
+
+```json
+{
+  "skills": [
+    {
+      "name": "code-review",
+      "source": "https://example.com/code-review.md"
+    }
+  ]
+}
+```
+
+### rules
+
+Array of rules that constrain or guide AI behavior.
+
+```json
+{
+  "rules": [
+    {
+      "name": "no-console-log",
+      "content": "Never use console.log in production code"
+    }
+  ]
+}
+```
+
+### prompts
+
+Array of reusable prompt templates.
+
+```json
+{
+  "prompts": [
+    {
+      "name": "explain-code",
+      "content": "Explain this code in simple terms: {{code}}"
+    }
+  ]
+}
+```
+
+### mcpServers
+
+Object mapping server names to their configurations.
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic/mcp-playwright"]
+    }
+  }
+}
+```
+
+### extends
+
+Array of configurations to inherit from.
+
+```json
+{
+  "extends": [
+    "https://github.com/org/repo/ai.json",
+    "@company/shared-config"
+  ]
+}
+```
+
+## Related
+
+- [Supported Editors](/concepts/editors/)
+- [Skills, Rules, and Prompts](/concepts/skills/)

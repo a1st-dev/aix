@@ -1,0 +1,52 @@
+---
+title: aix add
+description: Add skills, rules, prompts, or MCP servers to your configuration.
+---
+
+## Synopsis
+
+```bash
+aix add <type> <source> [options]
+```
+
+## Description
+
+Adds a new item to your `ai.json` configuration. Supports adding from GitHub URLs, npm packages, or local files.
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `type` | Type of item: `skill`, `rule`, `prompt`, or `mcp` |
+| `source` | URL, package name, or file path |
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--name`, `-n` | Custom name for the item |
+
+## Examples
+
+Add an MCP server from the registry:
+
+```bash
+aix add mcp @anthropic/mcp-playwright
+```
+
+Add a skill from a URL:
+
+```bash
+aix add skill https://example.com/coding-standards.md
+```
+
+Add a rule from a local file:
+
+```bash
+aix add rule ./my-rules.md
+```
+
+## Related commands
+
+- [`aix search`](/commands/search/) - Search the MCP registry
+- [`aix list`](/commands/list/) - List configured items

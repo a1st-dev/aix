@@ -1,10 +1,107 @@
 {
   "$schema": "https://x.a1st.dev/schemas/v1/ai.json",
-  "skills": {},
+  "skills": {
+    "npm-search": {
+      "git": "github:yokuze/aix-config",
+      "ref": "main",
+      "path": "skills/npm-search"
+    }
+  },
   "mcp": {},
-  "rules": {},
+  "rules": {
+    "general": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/general.md"
+      }
+    },
+    "css-scss": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/css-scss.md"
+      }
+    },
+    "do-not": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/do-not.md"
+      }
+    },
+    "git": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/git.md"
+      }
+    },
+    "mcps": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/mcps.md"
+      }
+    },
+    "npm": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/npm.md"
+      }
+    },
+    "testing": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/testing.md"
+      }
+    },
+    "typescript-javascript": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/typescript-javascript.md"
+      }
+    },
+    "vue": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/vue.md"
+      }
+    },
+    "writing": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "rules/writing.md"
+      }
+    }
+  },
   "prompts": {
-    "plan": "./examples/custom/prompts/plan.md",
-    "code-review": "./examples/custom/prompts/code-review.md"
+    "plan": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "prompts/plan.md"
+      }
+    },
+    "code-review": "./examples/custom/prompts/code-review.md",
+    "add-skill": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "prompts/add-skill.md"
+      }
+    },
+    "implement-plan": {
+      "git": {
+        "url": "github:yokuze/aix-config",
+        "ref": "main",
+        "path": "prompts/implement-plan.md"
+      }
+    }
   }
 }

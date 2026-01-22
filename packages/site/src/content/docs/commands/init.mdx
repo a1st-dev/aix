@@ -1,0 +1,39 @@
+---
+title: aix init
+description: Create an ai.json configuration file.
+---
+
+## Synopsis
+
+```bash
+aix init [options]
+```
+
+## Description
+
+Creates a new `ai.json` file in the current directory. If a file already exists, you'll be prompted to confirm overwriting it.
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--force`, `-f` | Overwrite existing file without prompting |
+
+## Examples
+
+Create a new ai.json file:
+
+```bash
+aix init
+```
+
+Overwrite an existing file:
+
+```bash
+aix init --force
+```
+
+## Related commands
+
+- [`aix add`](/commands/add/) - Add items to your configuration
+- [`aix install`](/commands/install/) - Install to an editor

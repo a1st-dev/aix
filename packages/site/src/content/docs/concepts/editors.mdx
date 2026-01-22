@@ -1,0 +1,54 @@
+---
+title: Supported Editors
+description: AI editors that aix supports.
+---
+
+aix transforms your `ai.json` configuration into each editor's native format.
+
+## Supported editors
+
+| Editor | Target Name | Config Location |
+|--------|-------------|-----------------|
+| Cursor | `cursor` | `.cursor/` |
+| Windsurf | `windsurf` | `.windsurf/` |
+| Claude Code | `claude-code` | `.claude/` |
+| VS Code | `vscode` | `.vscode/` |
+| OpenAI Codex | `codex` | `.codex/` |
+| Zed | `zed` | `.zed/` |
+
+## Usage
+
+Install to a specific editor:
+
+```bash
+aix install --target cursor
+```
+
+Install to all editors:
+
+```bash
+aix install --all
+```
+
+## Editor-specific notes
+
+### Cursor
+
+Cursor uses `.cursor/rules` for custom instructions and `.cursor/mcp.json` for MCP server configuration.
+
+### Windsurf
+
+Windsurf uses `.windsurf/rules` and `.windsurf/mcp.json`.
+
+### Claude Code
+
+Claude Code uses `.claude/settings.json` for configuration.
+
+### Zed
+
+Zed uses `.zed/settings.json` with AI-specific sections.
+
+## Related
+
+- [ai.json Format](/concepts/ai-json/)
+- [`aix install` Command](/commands/install/)

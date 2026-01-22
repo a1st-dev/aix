@@ -1,0 +1,44 @@
+---
+title: aix list
+description: List items in your ai.json configuration.
+---
+
+## Synopsis
+
+```bash
+aix list [type] [options]
+```
+
+## Description
+
+Lists items configured in your `ai.json` file. Can filter by type or show all items.
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `type` | Optional filter: `skills`, `rules`, `prompts`, `mcpServers` |
+
+## Examples
+
+List all configured items:
+
+```bash
+aix list
+```
+
+List only MCP servers:
+
+```bash
+aix list mcpServers
+```
+
+List only skills:
+
+```bash
+aix list skills
+```
+
+## Related commands
+
+- [`aix add`](/commands/add/) - Add items to your configuration

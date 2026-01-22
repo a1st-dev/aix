@@ -1,0 +1,55 @@
+---
+title: aix install
+description: Install your ai.json configuration to an editor.
+---
+
+## Synopsis
+
+```bash
+aix install [options]
+```
+
+## Description
+
+Installs your `ai.json` configuration to one or more AI editors. Transforms the unified configuration into each editor's native format.
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--target`, `-t` | Target editor(s) to install to |
+| `--all` | Install to all supported editors |
+
+## Supported targets
+
+- `cursor` - Cursor editor
+- `windsurf` - Windsurf editor
+- `claude-code` - Claude Code
+- `vscode` - VS Code with AI extensions
+- `codex` - OpenAI Codex CLI
+- `zed` - Zed editor
+
+## Examples
+
+Install to Cursor:
+
+```bash
+aix install --target cursor
+```
+
+Install to multiple editors:
+
+```bash
+aix install --target cursor --target windsurf
+```
+
+Install to all supported editors:
+
+```bash
+aix install --all
+```
+
+## Related commands
+
+- [`aix init`](/commands/init/) - Create a configuration file
+- [`aix add`](/commands/add/) - Add items to your configuration

@@ -1,0 +1,38 @@
+/*
+ * Design tokens for aix marketing site
+ * Colors use OKLCH for perceptual uniformity
+ * Uses Tailwind v4 @theme directive conventions
+ */
+
+@theme {
+   /* Primary - Electric Blue (generates bg-primary-*, text-primary-*, etc.) */
+   --color-primary-50: oklch(0.97 0.02 240);
+   --color-primary-100: oklch(0.93 0.05 240);
+   --color-primary-200: oklch(0.87 0.10 240);
+   --color-primary-300: oklch(0.78 0.15 240);
+   --color-primary-400: oklch(0.68 0.18 240);
+   --color-primary-500: oklch(0.58 0.20 240);
+   --color-primary-600: oklch(0.50 0.18 240);
+   --color-primary-700: oklch(0.42 0.15 240);
+   --color-primary-800: oklch(0.36 0.12 240);
+   --color-primary-900: oklch(0.30 0.09 240);
+   --color-primary-950: oklch(0.22 0.06 240);
+
+   /* Semantic colors */
+   --color-success-500: oklch(0.65 0.18 145);
+   --color-warning-500: oklch(0.75 0.15 85);
+   --color-error-500: oklch(0.60 0.20 25);
+
+   /* Custom text sizes (generates text-display, text-hero, etc.) */
+   --text-display: 4rem;
+   --text-display--line-height: 1.1;
+   --text-hero: 3rem;
+   --text-hero--line-height: 1.15;
+
+   /* Custom shadow for glow effect */
+   --shadow-glow: 0 0 20px oklch(0.58 0.20 240 / 0.3);
+
+   /* Custom easing functions */
+   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}

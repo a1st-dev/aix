@@ -1,0 +1,61 @@
+@layer base, starlight, theme, components, utilities;
+
+@import './tokens.css';
+@import '@astrojs/starlight-tailwind';
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme {
+   --font-sans: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+   /* Accent color scale - Teal */
+   --color-accent-50: oklch(0.97 0.02 180);
+   --color-accent-100: oklch(0.93 0.04 180);
+   --color-accent-200: oklch(0.87 0.08 180);
+   --color-accent-300: oklch(0.78 0.12 180);
+   --color-accent-400: oklch(0.68 0.14 180);
+   --color-accent-500: oklch(0.58 0.14 180);
+   --color-accent-600: oklch(0.50 0.13 180);
+   --color-accent-700: oklch(0.42 0.11 180);
+   --color-accent-800: oklch(0.36 0.09 180);
+   --color-accent-900: oklch(0.30 0.07 180);
+   --color-accent-950: oklch(0.22 0.05 180);
+
+   /* Gray scale - Slate */
+   --color-gray-50: oklch(0.98 0.005 260);
+   --color-gray-100: oklch(0.96 0.008 260);
+   --color-gray-200: oklch(0.91 0.01 260);
+   --color-gray-300: oklch(0.83 0.012 260);
+   --color-gray-400: oklch(0.70 0.015 260);
+   --color-gray-500: oklch(0.55 0.015 260);
+   --color-gray-600: oklch(0.45 0.015 260);
+   --color-gray-700: oklch(0.37 0.015 260);
+   --color-gray-800: oklch(0.27 0.015 260);
+   --color-gray-900: oklch(0.20 0.015 260);
+   --color-gray-950: oklch(0.14 0.015 260);
+}
+
+@layer base {
+   html {
+      scroll-behavior: smooth;
+   }
+
+   :root {
+      color-scheme: dark;
+   }
+
+   :root[data-theme='light'] {
+      color-scheme: light;
+   }
+
+   :focus-visible {
+      outline: 2px solid var(--color-accent-500);
+      outline-offset: 2px;
+   }
+
+   ::selection {
+      background-color: var(--color-accent-500);
+      color: white;
+   }
+}

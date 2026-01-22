@@ -1,0 +1,47 @@
+---
+title: Quick Start
+description: Create your first ai.json configuration in under 2 minutes.
+---
+
+## Initialize
+
+Create an `ai.json` file in your project:
+
+```bash
+aix init
+```
+
+This creates a minimal configuration file you can customize.
+
+## Add an MCP server
+
+Search for and add an MCP server from the registry:
+
+```bash
+aix search mcp playwright
+aix add mcp @anthropic/mcp-playwright
+```
+
+## Add a skill
+
+Add a skill from a URL or local file:
+
+```bash
+aix add skill https://example.com/my-skill.md
+```
+
+## Install to your editor
+
+Install the configuration to your preferred editor:
+
+```bash
+aix install --target cursor
+```
+
+Supported targets: `cursor`, `windsurf`, `claude-code`, `vscode`, `codex`, `zed`
+
+## What's next?
+
+- Learn about all [available commands](/commands/overview/)
+- Understand the [ai.json format](/concepts/ai-json/)
+- See [supported editors](/concepts/editors/)
