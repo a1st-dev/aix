@@ -90,7 +90,7 @@ async function loadFromGitHubBlobUrl(parsed: {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { force: true, cwd: tmpdir() });
+      const result = await downloadTemplate(template, { forceClean: true, cwd: tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -197,7 +197,7 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { force: true, cwd: tmpdir() });
+      const result = await downloadTemplate(template, { forceClean: true, cwd: tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -287,7 +287,7 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(url, { force: true, cwd: tmpdir() });
+      const result = await downloadTemplate(url, { forceClean: true, cwd: tmpdir() });
 
       dir = result.dir;
    } catch (error) {
