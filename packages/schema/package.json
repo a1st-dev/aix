@@ -33,8 +33,8 @@
    "dependencies": {
       "compare-versions": "6.1.1",
       "jsonc-parser": "3.3.1",
-      "zod": "3.24.1",
-      "zod-to-json-schema": "3.24.1"
+      "zod": "4.3.6",
+      "zod-to-json-schema": "3.25.1"
    },
    "devDependencies": {
       "@poppinss/ts-exec": "1.4.1"
