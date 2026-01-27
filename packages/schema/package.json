@@ -37,6 +37,6 @@
       "zod-to-json-schema": "3.24.1"
    },
    "devDependencies": {
-      "@poppinss/ts-exec": "1.4.1"
+      "@poppinss/ts-exec": "1.4.2"
    }
 }
