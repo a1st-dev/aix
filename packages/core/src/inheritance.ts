@@ -1,8 +1,8 @@
-import { resolve, dirname } from 'pathe';
+import { resolve, dirname, isAbsolute } from 'pathe';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { downloadTemplate } from 'giget';
-import { parseJsonc, detectSourceType } from '@a1st/aix-schema';
+import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
 import { parseConfigContent } from './discovery.js';
 import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './errors.js';
 import { convertBlobToRawUrl } from './url-parsing.js';
@@ -67,8 +67,10 @@ async function resolveExtendsPath(
    case 'local':
       return resolveLocalExtends(extendPath, baseDir, visited);
 
-   case 'git-shorthand':
    case 'https-file':
+      return resolveRemoteExtends(extendPath, visited);
+
+   case 'git-shorthand':
    case 'https-repo':
       return resolveGitExtends(extendPath, visited);
 
@@ -171,9 +173,11 @@ async function resolveGitExtends(
    }
 
    const content = readFileSync(configPath, 'utf-8'),
-         parsed = parseConfigContent(content) as Record<string, unknown>;
+         parsed = parseConfigContent(content) as Record<string, unknown>,
+         resolved = await resolveExtends(parsed, { baseDir: dir, visited });
 
-   return resolveExtends(parsed, { baseDir: dir, visited });
+   // Normalize local paths to absolute so they remain valid after merging into the parent config
+   return normalizeLocalPaths(resolved, dir);
 }
 
 async function resolveNpmExtends(
@@ -188,15 +192,19 @@ async function resolveNpmExtends(
 
    try {
       // Use ESM-compatible import.meta.resolve to find the package
-      const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${process.cwd()}/`);
-      const packagePath = fileURLToPath(resolvedUrl);
-
-      const content = readFileSync(packagePath, 'utf-8'),
+      const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${process.cwd()}/`),
+            packagePath = fileURLToPath(resolvedUrl),
+            content = readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
-            baseDir = dirname(packagePath);
+            baseDir = dirname(packagePath),
+            resolved = await resolveExtends(parsed, { baseDir, visited });
 
-      return resolveExtends(parsed, { baseDir, visited });
-   } catch (_error) {
+      // Normalize local paths to absolute so they remain valid after merging into the parent config
+      return normalizeLocalPaths(resolved, baseDir);
+   } catch (error) {
+      if (error instanceof ConfigParseError || error instanceof CircularDependencyError) {
+         throw error;
+      }
       throw new ConfigParseError(
          `Failed to resolve npm package: ${packageName}. Make sure it's installed.`,
          packageName,
@@ -212,4 +220,145 @@ function aiJsonMergeResolver({ key }: { key: string }): 'keep' | undefined {
       return 'keep';
    }
    return undefined;
+}
+
+/**
+ * Normalize local paths in a config to absolute paths. This ensures that skills, rules, and prompts
+ * from extended configs (git, npm) remain resolvable after merging into the parent config.
+ */
+function normalizeLocalPaths(
+   config: Record<string, unknown>,
+   baseDir: string,
+): Record<string, unknown> {
+   const result = { ...config };
+
+   // Normalize skills
+   if (result.skills && typeof result.skills === 'object') {
+      result.skills = normalizeSkillPaths(result.skills as Record<string, unknown>, baseDir);
+   }
+
+   // Normalize rules
+   if (result.rules && typeof result.rules === 'object') {
+      result.rules = normalizeRulePaths(result.rules as Record<string, unknown>, baseDir);
+   }
+
+   // Normalize prompts
+   if (result.prompts && typeof result.prompts === 'object') {
+      result.prompts = normalizePromptPaths(result.prompts as Record<string, unknown>, baseDir);
+   }
+
+   return result;
+}
+
+/**
+ * Normalize skill reference paths to absolute paths.
+ */
+function normalizeSkillPaths(
+   skills: Record<string, unknown>,
+   baseDir: string,
+): Record<string, unknown> {
+   const result: Record<string, unknown> = {};
+
+   for (const [name, ref] of Object.entries(skills)) {
+      result[name] = normalizeSourceRef(ref, baseDir);
+   }
+
+   return result;
+}
+
+/**
+ * Normalize a source reference (skill, rule, prompt) to use absolute paths for local refs.
+ */
+function normalizeSourceRef(ref: unknown, baseDir: string): unknown {
+   if (ref === false || ref === null || ref === undefined) {
+      return ref;
+   }
+
+   // String shorthand (version range, local path, or git shorthand)
+   if (typeof ref === 'string') {
+      return normalizePathString(ref, baseDir);
+   }
+
+   // Object with path property (local ref)
+   if (typeof ref === 'object' && ref !== null) {
+      const obj = ref as Record<string, unknown>;
+
+      // { path: "./skills/foo" } → { path: "/abs/path/skills/foo" }
+      if ('path' in obj && typeof obj.path === 'string') {
+         return { ...obj, path: normalizePathString(obj.path, baseDir) };
+      }
+
+      // { source: "./skills/foo" } or { source: { path: "..." } }
+      if ('source' in obj) {
+         return { ...obj, source: normalizeSourceRef(obj.source, baseDir) };
+      }
+   }
+
+   return ref;
+}
+
+/**
+ * Normalize a path string to absolute if it's a local path.
+ */
+function normalizePathString(value: string, baseDir: string): string {
+   // Skip if already absolute
+   if (isAbsolute(value)) {
+      return value;
+   }
+
+   // Only normalize local paths (not git refs, npm packages, URLs, etc.)
+   if (!isLocalPath(value)) {
+      return value;
+   }
+
+   return resolve(baseDir, value);
+}
+
+/**
+ * Normalize rule paths to absolute paths.
+ */
+function normalizeRulePaths(
+   rules: Record<string, unknown>,
+   baseDir: string,
+): Record<string, unknown> {
+   const result: Record<string, unknown> = {};
+
+   for (const [key, value] of Object.entries(rules)) {
+      if (Array.isArray(value)) {
+         // Array of rule strings or paths
+         result[key] = value.map((item) =>
+            typeof item === 'string' ? normalizePathString(item, baseDir) : item,
+         );
+      } else if (typeof value === 'string') {
+         result[key] = normalizePathString(value, baseDir);
+      } else {
+         result[key] = value;
+      }
+   }
+
+   return result;
+}
+
+/**
+ * Normalize prompt paths to absolute paths.
+ */
+function normalizePromptPaths(
+   prompts: Record<string, unknown>,
+   baseDir: string,
+): Record<string, unknown> {
+   const result: Record<string, unknown> = {};
+
+   for (const [key, value] of Object.entries(prompts)) {
+      if (Array.isArray(value)) {
+         result[key] = value.map((item) =>
+            typeof item === 'string' ? normalizePathString(item, baseDir) : item,
+         );
+      } else if (typeof value === 'string') {
+         result[key] = normalizePathString(value, baseDir);
+      } else {
+         result[key] = value;
+      }
+   }
+
+   return result;
 }
