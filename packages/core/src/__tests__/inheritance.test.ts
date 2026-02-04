@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { resolveExtends } from '../inheritance.js';
 import { CircularDependencyError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'inheritance');
+const testDir = join(process.cwd(), 'test-fixtures', 'inheritance'),
+      originalFetch = global.fetch;
 
 describe('resolveExtends', () => {
    beforeEach(async () => {
@@ -14,6 +15,7 @@ describe('resolveExtends', () => {
 
    afterEach(async () => {
       await safeRm(testDir, { force: true });
+      global.fetch = originalFetch;
    });
 
    it('returns config without extends as-is', async () => {
@@ -116,5 +118,45 @@ describe('resolveExtends', () => {
          react: '^1.0.0',
          vue: '^1.0.0',
       });
+   });
+
+   it('loads HTTPS file extends', async () => {
+      const baseConfig = { skills: { typescript: '^1.0.0' } },
+            config = {
+               extends: 'https://example.com/ai.json',
+               skills: { react: '^1.0.0' },
+            },
+            fetchMock = vi.fn().mockResolvedValue({
+               ok: true,
+               text: () => Promise.resolve(JSON.stringify(baseConfig)),
+            });
+
+      global.fetch = fetchMock;
+
+      const result = await resolveExtends(config, { baseDir: testDir });
+
+      expect(result.skills).toEqual({
+         typescript: '^1.0.0',
+         react: '^1.0.0',
+      });
+      expect(fetchMock).toHaveBeenCalledWith('https://example.com/ai.json');
+   });
+
+   it('converts GitHub blob URL extends to raw URL', async () => {
+      const baseConfig = { skills: { typescript: '^1.0.0' } },
+            config = {
+               extends: 'https://github.com/org/repo/blob/main/ai.json',
+               skills: { react: '^1.0.0' },
+            },
+            fetchMock = vi.fn().mockResolvedValue({
+               ok: true,
+               text: () => Promise.resolve(JSON.stringify(baseConfig)),
+            });
+
+      global.fetch = fetchMock;
+
+      await resolveExtends(config, { baseDir: testDir });
+
+      expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json');
    });
 });
