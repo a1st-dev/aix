@@ -50,7 +50,7 @@ export async function validateSkill(skill: ParsedSkill): Promise<ValidationResul
    errors.push(...accessResults.filter((e): e is string => e !== null));
 
    // Check description quality
-   if (skill.frontmatter.description.length < 50) {
+   if (skill.frontmatter.description && skill.frontmatter.description.length < 50) {
       warnings.push('Description is short - consider adding more detail for better AI discovery');
    }
 

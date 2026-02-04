@@ -1,8 +1,8 @@
 import { resolve, dirname, isAbsolute } from 'pathe';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { downloadTemplate } from 'giget';
 import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
+import { withGitDownload } from './git-download.js';
 import { parseConfigContent } from './discovery.js';
 import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './errors.js';
 import { convertBlobToRawUrl } from './url-parsing.js';
@@ -11,6 +11,8 @@ import type { AiJsonConfig } from '@a1st/aix-schema';
 
 export interface ResolveOptions {
    baseDir: string;
+   /** Project root for determining temp directory location */
+   projectRoot: string;
    visited?: Set<string>;
    /** Whether the baseDir is a remote URL (for resolving relative extends) */
    isRemote?: boolean;
@@ -20,7 +22,7 @@ export async function resolveExtends(
    config: Record<string, unknown>,
    options: ResolveOptions,
 ): Promise<AiJsonConfig> {
-   const { baseDir, visited = new Set<string>(), isRemote = false } = options;
+   const { baseDir, projectRoot, visited = new Set<string>(), isRemote = false } = options;
 
    if (!config.extends) {
       return config as AiJsonConfig;
@@ -38,7 +40,12 @@ export async function resolveExtends(
       }
 
       // eslint-disable-next-line no-await-in-loop -- Sequential: inheritance chain order matters
-      const resolvedConfig = await resolveExtendsPath(extendPath, baseDir, visited, isRemote);
+      const resolvedConfig = await resolveExtendsPath(extendPath, {
+         baseDir,
+         projectRoot,
+         visited,
+         isRemote,
+      });
 
       merged = deepMergeJson(merged, resolvedConfig, { resolver: aiJsonMergeResolver });
    }
@@ -50,32 +57,39 @@ export async function resolveExtends(
    return merged as AiJsonConfig;
 }
 
+interface ResolveExtendsPathOptions {
+   baseDir: string;
+   projectRoot: string;
+   visited: Set<string>;
+   isRemote: boolean;
+}
+
 async function resolveExtendsPath(
    extendPath: string,
-   baseDir: string,
-   visited: Set<string>,
-   isRemote: boolean,
+   options: ResolveExtendsPathOptions,
 ): Promise<Record<string, unknown>> {
+   const { baseDir, projectRoot, visited, isRemote } = options;
+
    // If base is a remote URL and extend is a relative path, resolve as remote URL
    if (isRemote && isRelativePath(extendPath)) {
-      return resolveRemoteExtends(new URL(extendPath, baseDir).href, visited);
+      return resolveRemoteExtends(new URL(extendPath, baseDir).href, projectRoot, visited);
    }
 
    const sourceType = detectSourceType(extendPath);
 
    switch (sourceType) {
    case 'local':
-      return resolveLocalExtends(extendPath, baseDir, visited);
+      return resolveLocalExtends(extendPath, baseDir, projectRoot, visited);
 
    case 'https-file':
-      return resolveRemoteExtends(extendPath, visited);
+      return resolveRemoteExtends(extendPath, projectRoot, visited);
 
    case 'git-shorthand':
    case 'https-repo':
-      return resolveGitExtends(extendPath, visited);
+      return resolveGitExtends(extendPath, projectRoot, visited);
 
    case 'npm':
-      return resolveNpmExtends(extendPath, visited);
+      return resolveNpmExtends(extendPath, projectRoot, visited);
 
    case 'http-unsupported':
       throw new ConfigParseError('HTTP URLs are not supported (use HTTPS)', extendPath);
@@ -91,6 +105,7 @@ function isRelativePath(path: string): boolean {
  */
 async function resolveRemoteExtends(
    url: string,
+   projectRoot: string,
    visited: Set<string>,
 ): Promise<Record<string, unknown>> {
    if (visited.has(url)) {
@@ -124,12 +139,13 @@ async function resolveRemoteExtends(
    const parsed = result.data as Record<string, unknown>,
          newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
 
-   return resolveExtends(parsed, { baseDir: newBaseUrl, visited, isRemote: true });
+   return resolveExtends(parsed, { baseDir: newBaseUrl, projectRoot, visited, isRemote: true });
 }
 
 async function resolveLocalExtends(
    extendPath: string,
    baseDir: string,
+   projectRoot: string,
    visited: Set<string>,
 ): Promise<Record<string, unknown>> {
    const absolutePath = resolve(baseDir, extendPath);
@@ -148,11 +164,12 @@ async function resolveLocalExtends(
          parsed = parseConfigContent(content) as Record<string, unknown>,
          newBaseDir = dirname(absolutePath);
 
-   return resolveExtends(parsed, { baseDir: newBaseDir, visited });
+   return resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited });
 }
 
 async function resolveGitExtends(
    extendPath: string,
+   projectRoot: string,
    visited: Set<string>,
 ): Promise<Record<string, unknown>> {
    if (visited.has(extendPath)) {
@@ -161,27 +178,25 @@ async function resolveGitExtends(
 
    visited.add(extendPath);
 
-   const { dir } = await downloadTemplate(extendPath, {
-      force: false,
-      cwd: process.cwd(),
+   return withGitDownload(extendPath, projectRoot, async (dir) => {
+      const configPath = resolve(dir, 'ai.json');
+
+      if (!existsSync(configPath)) {
+         throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
+      }
+
+      const content = readFileSync(configPath, 'utf-8'),
+            parsed = parseConfigContent(content) as Record<string, unknown>,
+            resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited });
+
+      // Normalize local paths to absolute so they remain valid after merging into the parent config
+      return normalizeLocalPaths(resolved, dir);
    });
-
-   const configPath = resolve(dir, 'ai.json');
-
-   if (!existsSync(configPath)) {
-      throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
-   }
-
-   const content = readFileSync(configPath, 'utf-8'),
-         parsed = parseConfigContent(content) as Record<string, unknown>,
-         resolved = await resolveExtends(parsed, { baseDir: dir, visited });
-
-   // Normalize local paths to absolute so they remain valid after merging into the parent config
-   return normalizeLocalPaths(resolved, dir);
 }
 
 async function resolveNpmExtends(
    packageName: string,
+   projectRoot: string,
    visited: Set<string>,
 ): Promise<Record<string, unknown>> {
    if (visited.has(packageName)) {
@@ -197,7 +212,7 @@ async function resolveNpmExtends(
             content = readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
-            resolved = await resolveExtends(parsed, { baseDir, visited });
+            resolved = await resolveExtends(parsed, { baseDir, projectRoot, visited });
 
       // Normalize local paths to absolute so they remain valid after merging into the parent config
       return normalizeLocalPaths(resolved, baseDir);

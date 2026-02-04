@@ -87,6 +87,7 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
    const remote = await loadFromSource(source, cwd),
          resolved = await resolveExtends(remote.content, {
             baseDir: remote.baseUrl,
+            projectRoot: cwd,
             isRemote: remote.isRemote,
          });
 
@@ -161,7 +162,7 @@ async function loadFromDiscovered(discovered: {
    try {
       const parsed = parseConfigContent(discovered.content) as Record<string, unknown>,
             baseDir = dirname(discovered.path),
-            resolved = await resolveExtends(parsed, { baseDir });
+            resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir });
 
       let validated = parseConfig(resolved);
 
