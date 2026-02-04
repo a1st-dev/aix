@@ -77,13 +77,38 @@ Content here.
       expect(result.source).toBe('npm');
    });
 
-   it('throws error for missing frontmatter', async () => {
+   it('parses SKILL.md without frontmatter and uses folder name', async () => {
       const skillDir = join(testDir, 'no-frontmatter');
 
       await mkdir(skillDir, { recursive: true });
       await writeFile(join(skillDir, 'SKILL.md'), '# Just markdown\n\nNo frontmatter here.');
 
-      await expect(parseSkillMd(skillDir, 'local')).rejects.toThrow('missing frontmatter');
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter.name).toBe('no-frontmatter');
+      expect(result.body).toBe('# Just markdown\n\nNo frontmatter here.');
+      expect(result.basePath).toBe(skillDir);
+      expect(result.source).toBe('local');
+   });
+
+   it('uses folder name when frontmatter has no name', async () => {
+      const skillDir = join(testDir, 'my-skill-folder');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+         join(skillDir, 'SKILL.md'),
+         `---
+description: A skill without a name field
+---
+
+Content here.
+`,
+      );
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter.name).toBe('my-skill-folder');
+      expect(result.frontmatter.description).toBe('A skill without a name field');
    });
 
    it('throws error for invalid frontmatter schema', async () => {
