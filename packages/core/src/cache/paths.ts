@@ -90,3 +90,10 @@ export function getImportStagingDir(projectRoot: string): string {
 export function getImportBackupDir(projectRoot: string): string {
    return join(projectRoot, '.aix', '.tmp', 'import-backup');
 }
+
+/**
+ * Get the git downloads directory (ephemeral, cleaned up after each operation).
+ */
+export function getGitDownloadsDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', '.tmp', 'git-downloads');
+}

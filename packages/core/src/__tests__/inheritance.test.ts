@@ -20,7 +20,7 @@ describe('resolveExtends', () => {
 
    it('returns config without extends as-is', async () => {
       const config = { skills: { typescript: '^1.0.0' }, mcp: {} },
-            result = await resolveExtends(config, { baseDir: testDir });
+            result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result).toEqual(config);
    });
@@ -36,7 +36,7 @@ describe('resolveExtends', () => {
          skills: { react: '^1.0.0' },
       };
 
-      const result = await resolveExtends(config, { baseDir: testDir });
+      const result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result.skills).toEqual({
          typescript: '^1.0.0',
@@ -58,7 +58,7 @@ describe('resolveExtends', () => {
          mcp: { github: { enabled: false } },
       };
 
-      const result = await resolveExtends(config, { baseDir: testDir });
+      const result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result.mcp).toEqual({
          github: { enabled: false },
@@ -78,7 +78,7 @@ describe('resolveExtends', () => {
          rules: ['Use React'],
       };
 
-      const result = await resolveExtends(config, { baseDir: testDir });
+      const result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result.rules).toEqual(['Use React']);
    });
@@ -92,7 +92,7 @@ describe('resolveExtends', () => {
       await writeFile(pathA, JSON.stringify(configA), 'utf-8');
       await writeFile(pathB, JSON.stringify(configB), 'utf-8');
 
-      await expect(resolveExtends(configA, { baseDir: testDir })).rejects.toThrow(
+      await expect(resolveExtends(configA, { baseDir: testDir, projectRoot: testDir })).rejects.toThrow(
          CircularDependencyError,
       );
    });
@@ -111,7 +111,7 @@ describe('resolveExtends', () => {
          skills: { vue: '^1.0.0' },
       };
 
-      const result = await resolveExtends(config, { baseDir: testDir });
+      const result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result.skills).toEqual({
          typescript: '^1.0.0',
@@ -133,7 +133,7 @@ describe('resolveExtends', () => {
 
       global.fetch = fetchMock;
 
-      const result = await resolveExtends(config, { baseDir: testDir });
+      const result = await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(result.skills).toEqual({
          typescript: '^1.0.0',
@@ -155,7 +155,7 @@ describe('resolveExtends', () => {
 
       global.fetch = fetchMock;
 
-      await resolveExtends(config, { baseDir: testDir });
+      await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json');
    });
