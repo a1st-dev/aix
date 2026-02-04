@@ -10,6 +10,7 @@ import {
    VSCodeAdapter,
    ZedAdapter,
    CodexAdapter,
+   KiroAdapter,
    getAdapter,
    getAvailableEditors,
    detectEditors,
@@ -55,7 +56,8 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('vscode');
          expect(editors).toContain('zed');
          expect(editors).toContain('codex');
-         expect(editors).toHaveLength(6);
+         expect(editors).toContain('kiro');
+         expect(editors).toHaveLength(7);
       });
    });
 
@@ -67,6 +69,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('vscode')).toBeInstanceOf(VSCodeAdapter);
          expect(getAdapter('zed')).toBeInstanceOf(ZedAdapter);
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
+         expect(getAdapter('kiro')).toBeInstanceOf(KiroAdapter);
       });
 
       it('throws for unknown editor', () => {
@@ -669,6 +672,32 @@ describe('Editor Adapters', () => {
 
          // No features configured, so nothing to report as unsupported
          expect(result.unsupportedFeatures).toBeUndefined();
+      });
+   });
+
+   describe('KiroAdapter', () => {
+      const adapter = new KiroAdapter();
+
+      it('has correct name and configDir', () => {
+         expect(adapter.name).toBe('kiro');
+         expect(adapter.configDir).toBe('.kiro');
+      });
+
+      it('detects when .kiro directory exists', async () => {
+         await mkdir(join(testDir, '.kiro'), { recursive: true });
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('does not detect when .kiro directory is missing', async () => {
+         expect(await adapter.detect(testDir)).toBe(false);
+      });
+
+      it('has correct global data paths', () => {
+         const paths = adapter.getGlobalDataPaths();
+
+         expect(paths.darwin).toEqual(['.kiro']);
+         expect(paths.linux).toEqual(['.kiro']);
+         expect(paths.win32).toEqual(['.kiro']);
       });
    });
 });

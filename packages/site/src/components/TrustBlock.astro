@@ -1,55 +1,32 @@
 ---
 const editors = [
-   { name: 'Claude Code', logo: 'claude' },
-   { name: 'Cursor', logo: 'cursor' },
-   { name: 'VS Code', logo: 'vscode' },
-   { name: 'Windsurf', logo: 'windsurf' },
-   { name: 'Codex', logo: 'codex' },
-   { name: 'Zed', logo: 'zed' },
+   { name: 'Claude Code', icon: '/icons/claude-color.svg', colored: true },
+   { name: 'Cursor', icon: '/icons/cursor.svg', colored: false },
+   { name: 'VS Code', icon: '/icons/vscode-color.svg', colored: true },
+   { name: 'Windsurf', icon: '/icons/windsurf.svg', colored: false },
+   { name: 'Codex', icon: '/icons/openai.svg', colored: false },
+   { name: 'Zed', icon: '/icons/zed.svg', colored: true },
 ];
 ---
 
-<section class="trust-block border-y border-gray-800/50 bg-gray-900/30 py-16">
-   <div class="mx-auto max-w-5xl px-6">
-      <p class="mb-8 text-center text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+<section class="trust-block relative border-y border-gray-800/50 bg-gray-900/30 py-12 overflow-hidden">
+   <!-- Subtle background gradient -->
+   <div class="absolute inset-0 bg-gradient-to-b from-transparent via-accent-950/5 to-transparent"></div>
+
+   <div class="relative mx-auto max-w-5xl px-6">
+      <p class="mb-8 text-center text-sm font-semibold uppercase tracking-[0.2em] text-gray-300">
          Works with your editor
       </p>
       <div class="grid grid-cols-3 gap-8 md:grid-cols-6">
-         {editors.map((editor) => (
-            <div class="trust-block__editor group flex flex-col items-center gap-2">
-               <div class="flex size-12 items-center justify-center rounded-xl border border-gray-800/70 bg-gray-900/50 text-gray-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-gray-700 group-hover:bg-gray-900 group-hover:text-gray-100">
-                  {editor.logo === 'claude' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M4.709 15.955l4.72-2.647.08-.08-.08-.08-2.086-1.2a.79.79 0 01-.37-.63c-.01-.25.1-.49.29-.66l6.96-5.87c.21-.18.49-.27.77-.25.28.02.54.14.73.34l5.63 6.01c.18.19.28.44.28.7 0 .26-.1.51-.28.7l-5.63 6.01c-.19.2-.45.32-.73.34-.28.02-.56-.07-.77-.25l-6.96-5.87a.79.79 0 01-.29-.66c.01-.25.15-.48.37-.63l2.086-1.2.08-.08-.08-.08-4.72-2.647"/>
-                     </svg>
-                  )}
-                  {editor.logo === 'cursor' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M5.5 3L19 12l-13.5 9V3z"/>
-                     </svg>
-                  )}
-                  {editor.logo === 'vscode' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.583 2.333L7.5 10.5 3.417 7.417l-1.75 1.166L5.5 12l-3.833 3.417 1.75 1.166L7.5 13.5l10.083 8.167L21.667 19V5l-4.084-2.667zM17.5 16.5l-6-4.5 6-4.5v9z"/>
-                     </svg>
-                  )}
-                  {editor.logo === 'windsurf' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L2 19h20L12 2zm0 4l6.5 11h-13L12 6z"/>
-                     </svg>
-                  )}
-                  {editor.logo === 'codex' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                     </svg>
-                  )}
-                  {editor.logo === 'zed' && (
-                     <svg class="size-6" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3 5h18v2H7.5L18 17H3v2h18v-2h-4.5L6 7h12V5H3z"/>
-                     </svg>
-                  )}
+         {editors.map((editor, index) => (
+            <div
+               class="trust-block__editor group flex flex-col items-center gap-2"
+               style={`animation: fadeInUp 0.6s ease-out ${index * 0.1}s both`}
+            >
+               <div class="flex size-14 items-center justify-center rounded-xl border border-gray-800/70 bg-gray-900/50 transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-110 group-hover:border-accent-500/50 group-hover:bg-gray-900 group-hover:shadow-[0_0_20px_rgba(94,234,212,0.2)]">
+                  <img src={editor.icon} alt={editor.name} class:list={['size-7', { 'editor-icon-mono': !editor.colored }]} />
                </div>
-               <span class="text-xs font-medium text-gray-500 transition-colors group-hover:text-gray-300">
+               <span class="text-xs font-medium text-gray-500 transition-colors group-hover:text-accent-300">
                   {editor.name}
                </span>
             </div>
@@ -57,3 +34,21 @@ const editors = [
       </div>
    </div>
 </section>
+
+<style>
+   @keyframes fadeInUp {
+      from {
+         opacity: 0;
+         transform: translateY(20px);
+      }
+      to {
+         opacity: 1;
+         transform: translateY(0);
+      }
+   }
+
+   /* Make monochrome icons visible on dark background */
+   .editor-icon-mono {
+      filter: brightness(0) invert(1);
+   }
+</style>

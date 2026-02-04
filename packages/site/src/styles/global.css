@@ -44,6 +44,19 @@
 
    :root {
       color-scheme: dark;
+
+      /* Starlight theme overrides to match site brand color (teal) */
+      --sl-color-accent-low: oklch(0.22 0.05 180);
+      --sl-color-accent: oklch(0.58 0.14 180);
+      --sl-color-accent-high: oklch(0.78 0.12 180);
+      --sl-color-white: #ffffff;
+      --sl-color-gray-1: oklch(0.96 0.008 260);
+      --sl-color-gray-2: oklch(0.91 0.01 260);
+      --sl-color-gray-3: oklch(0.83 0.012 260);
+      --sl-color-gray-4: oklch(0.55 0.015 260);
+      --sl-color-gray-5: oklch(0.37 0.015 260);
+      --sl-color-gray-6: oklch(0.20 0.015 260);
+      --sl-color-black: oklch(0.14 0.015 260);
    }
 
    :root[data-theme='light'] {
@@ -58,5 +71,46 @@
    ::selection {
       background-color: var(--color-accent-500);
       color: white;
+   }
+}
+
+@layer utilities {
+   .text-gradient {
+      background: linear-gradient(135deg, var(--color-accent-300) 0%, var(--color-accent-500) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+   }
+
+   .bg-radial-gradient {
+      background: radial-gradient(circle at 50% 0%, var(--color-accent-950) 0%, transparent 50%);
+   }
+
+   .animate-float {
+      animation: float 6s ease-in-out infinite;
+   }
+
+   .animate-float-delayed {
+      animation: float 6s ease-in-out 2s infinite;
+   }
+
+   .animate-glow {
+      animation: glow 3s ease-in-out infinite;
+   }
+
+   @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+   }
+
+   @keyframes glow {
+      0%, 100% {
+         box-shadow: 0 0 20px var(--color-accent-500);
+         opacity: 0.5;
+      }
+      50% {
+         box-shadow: 0 0 40px var(--color-accent-400);
+         opacity: 0.8;
+      }
    }
 }

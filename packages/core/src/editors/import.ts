@@ -22,6 +22,9 @@ import { ZedPromptsStrategy } from './strategies/zed/prompts.js';
 import { CodexRulesStrategy } from './strategies/codex/rules.js';
 import { CodexPromptsStrategy } from './strategies/codex/prompts.js';
 import { CodexMcpStrategy } from './strategies/codex/mcp.js';
+import { KiroRulesStrategy } from './strategies/kiro/rules.js';
+import { KiroPromptsStrategy } from './strategies/kiro/prompts.js';
+import { KiroMcpStrategy } from './strategies/kiro/mcp.js';
 
 export interface ImportResult {
    mcp: Record<string, McpServerConfig>;
@@ -87,6 +90,12 @@ function getImportStrategies(editor: EditorName): ImportStrategies {
          mcp: new CodexMcpStrategy(),
          rules: new CodexRulesStrategy(),
          prompts: new CodexPromptsStrategy(),
+      };
+   case 'kiro':
+      return {
+         mcp: new KiroMcpStrategy(),
+         rules: new KiroRulesStrategy(),
+         prompts: new KiroPromptsStrategy(),
       };
    }
 }
@@ -174,6 +183,7 @@ const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
    vscode: '.vscode',
    zed: '.zed',
    codex: '.codex',
+   kiro: '.kiro',
 };
 
 /**

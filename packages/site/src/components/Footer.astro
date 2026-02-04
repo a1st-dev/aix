@@ -15,8 +15,12 @@ const links = {
 };
 ---
 
-<footer class="footer border-t border-gray-800 bg-gray-950 py-12">
-   <div class="mx-auto max-w-5xl px-6">
+<footer class="footer relative border-t border-gray-800 py-12 overflow-hidden">
+   <!-- Geometric pattern background -->
+   <div class="absolute inset-0 -z-20 bg-gray-950" style="background-image: url('/pattern.svg'); background-repeat: repeat; background-size: 58px auto;"></div>
+   <div class="absolute inset-0 -z-10 bg-gradient-to-t from-gray-950/60 via-gray-950/50 to-gray-950/70"></div>
+
+   <div class="relative mx-auto max-w-5xl px-6">
       <div class="grid gap-8 md:grid-cols-4">
          <div class="md:col-span-2">
             <a href="/" class="mb-4 flex items-center gap-2 text-xl font-bold text-gray-50">
@@ -26,13 +30,13 @@ const links = {
                </svg>
                aix
             </a>
-            <p class="max-w-xs text-sm text-gray-500">
+            <p class="max-w-xs text-sm text-gray-200">
                One config file for every AI editor. Define once, install everywhere.
             </p>
          </div>
 
          <div>
-            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-200">
                Documentation
             </h3>
             <ul class="space-y-2">
@@ -40,7 +44,7 @@ const links = {
                   <li>
                      <a
                         href={link.href}
-                        class="text-sm text-gray-500 transition-colors hover:text-gray-300"
+                        class="text-sm text-gray-200 transition-colors hover:text-gray-100"
                      >
                         {link.label}
                      </a>
@@ -50,7 +54,7 @@ const links = {
          </div>
 
          <div>
-            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+            <h3 class="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-200">
                Resources
             </h3>
             <ul class="space-y-2">
@@ -58,7 +62,7 @@ const links = {
                   <li>
                      <a
                         href={link.href}
-                        class="text-sm text-gray-500 transition-colors hover:text-gray-300"
+                        class="text-sm text-gray-200 transition-colors hover:text-gray-100"
                      >
                         {link.label}
                      </a>
@@ -68,7 +72,7 @@ const links = {
          </div>
       </div>
 
-      <div class="mt-12 border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
+      <div class="mt-12 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
          <p>
             MIT License © {currentYear} a1st.dev. Built with
             <a href="https://astro.build" class="text-gray-400 hover:text-gray-300">Astro</a>.

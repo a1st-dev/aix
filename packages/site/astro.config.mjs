@@ -2,10 +2,12 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@astrojs/react';
 
 export default defineConfig({
 	site: 'https://aix.a1st.dev',
 	integrations: [
+		react(),
 		starlight({
 			title: 'aix',
 			social: [

@@ -26,6 +26,7 @@ Supported editors:
 
 - `claude-code`
 - `cursor`
+- `kiro`
 - `vscode`
 - `windsurf`
 - `codex`

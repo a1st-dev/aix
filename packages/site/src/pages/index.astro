@@ -32,21 +32,21 @@ const description = 'Define your AI agent configuration once in ai.json. Install
 
       <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
    </head>
-   <body class="min-h-screen bg-gradient-to-b from-gray-950 via-gray-950 to-gray-900 font-sans text-gray-100 antialiased">
-      <header class="fixed inset-x-0 top-0 z-50 border-b border-gray-800/50 bg-gray-950/80 backdrop-blur-lg">
+   <body class="min-h-screen bg-gradient-to-b from-gray-950 via-gray-950 to-gray-900 font-sans text-accent-100 antialiased">
+      <header class="fixed inset-x-0 top-0 z-50 border-b border-accent-800/50 bg-gray-950/90 backdrop-blur-xl transition-all duration-300">
          <nav class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-            <a href="/" class="flex items-center gap-2 text-xl font-bold text-gray-50">
-               <svg class="size-6 text-accent-500" viewBox="0 0 128 128" fill="currentColor">
+            <a href="/" class="group flex items-center gap-2 text-xl font-bold text-accent-50 no-underline transition-all hover:scale-105">
+               <svg class="size-6 text-accent-500 transition-transform group-hover:rotate-12" viewBox="0 0 128 128" fill="currentColor">
                   <path fill-rule="evenodd" d="M81 36 64 0 47 36l-1 2-9-10a6 6 0 0 0-9 9l10 10h-2L0 64l36 17h2L28 91a6 6 0 1 0 9 9l9-10 1 2 17 36 17-36v-2l9 10a6 6 0 1 0 9-9l-9-9 2-1 36-17-36-17-2-1 9-9a6 6 0 1 0-9-9l-9 10v-2Zm-17 2-2 5c-4 8-11 15-19 19l-5 2 5 2c8 4 15 11 19 19l2 5 2-5c4-8 11-15 19-19l5-2-5-2c-8-4-15-11-19-19l-2-5Z" clip-rule="evenodd"/>
                   <path d="M118 19a6 6 0 0 0-9-9l-3 3a6 6 0 1 0 9 9l3-3Zm-96 4c-2 2-6 2-9 0l-3-3a6 6 0 1 1 9-9l3 3c3 2 3 6 0 9Zm0 82c-2-2-6-2-9 0l-3 3a6 6 0 1 0 9 9l3-3c3-2 3-6 0-9Zm96 4a6 6 0 0 1-9 9l-3-3a6 6 0 1 1 9-9l3 3Z"/>
                </svg>
                aix
             </a>
             <div class="flex items-center gap-6">
-               <a href="/getting-started/installation/" class="text-sm text-gray-400 transition-colors hover:text-gray-100">
+               <a href="/getting-started/installation/" class="text-sm text-white no-underline transition-colors hover:text-accent-300">
                   Docs
                </a>
-               <a href="https://github.com/a1st-dev/aix" class="text-sm text-gray-400 transition-colors hover:text-gray-100">
+               <a href="https://github.com/a1st-dev/aix" class="text-sm text-white no-underline transition-colors hover:text-accent-300">
                   GitHub
                </a>
             </div>
@@ -62,5 +62,73 @@ const description = 'Define your AI agent configuration once in ai.json. Install
       </main>
 
       <Footer />
+
+      <!-- Scroll to top button -->
+      <button
+         id="scroll-to-top"
+         class="fixed bottom-8 right-8 z-40 hidden size-12 cursor-pointer items-center justify-center rounded-full border border-accent-500/30 bg-accent-500/10 text-accent-300 backdrop-blur-sm transition-all hover:scale-110 hover:border-accent-500/50 hover:bg-accent-500/20 hover:shadow-[0_0_20px_rgba(94,234,212,0.3)]"
+         aria-label="Scroll to top"
+      >
+         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+         </svg>
+      </button>
+
+      <script>
+         // Scroll to top button
+         const scrollBtn = document.getElementById('scroll-to-top');
+
+         window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+               scrollBtn?.classList.remove('hidden');
+               scrollBtn?.classList.add('flex');
+            } else {
+               scrollBtn?.classList.add('hidden');
+               scrollBtn?.classList.remove('flex');
+            }
+         });
+
+         scrollBtn?.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+         });
+
+         // Add scroll-triggered animations
+         const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+         };
+
+         const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+               if (entry.isIntersecting) {
+                  entry.target.classList.add('animate-in');
+               }
+            });
+         }, observerOptions);
+
+         // Observe all sections
+         document.querySelectorAll('section').forEach(section => {
+            observer.observe(section);
+         });
+      </script>
+
+      <style>
+         section {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+         }
+
+         section.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+         }
+
+         /* Hero section should be visible immediately */
+         .hero {
+            opacity: 1;
+            transform: translateY(0);
+         }
+      </style>
    </body>
 </html>

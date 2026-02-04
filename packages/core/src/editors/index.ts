@@ -18,6 +18,7 @@ export {
    VSCodeAdapter,
    ZedAdapter,
    CodexAdapter,
+   KiroAdapter,
 } from './adapters/index.js';
 
 export {

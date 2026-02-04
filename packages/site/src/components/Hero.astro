@@ -4,50 +4,63 @@ import 'asciinema-player/dist/bundle/asciinema-player.css';
 const terminalCastPath = '/casts/aix-demo.cast';
 ---
 
-<section class="hero relative overflow-hidden py-24 md:py-32 lg:py-40">
-   <div class="hero__gradient absolute inset-0 -z-10 bg-radial-[at_50%_0%] from-accent-950/50 via-transparent to-transparent"></div>
+<section class="hero relative -mt-16 overflow-hidden pt-12 pb-12 md:pt-16 md:pb-16 lg:pt-20 lg:pb-20">
+   <div class="absolute inset-0 -z-15 bg-gradient-to-b from-gray-950/80 via-gray-950/70 to-gray-950/90"></div>
+   <!-- Geometric pattern background -->
+   <div class="hero__pattern absolute inset-0 -z-20 opacity-100 text-accent-500" style="background-image: url('/pattern.svg'); background-repeat: repeat; background-size: 58px auto;"></div>
+
+   <!-- Animated gradient background -->
+   <div class="hero__gradient absolute inset-0 -z-10 bg-radial-gradient opacity-60"></div>
 
    <div class="mx-auto max-w-5xl px-6 text-center">
-      <p class="hero__eyebrow mb-4 inline-block rounded-full border border-accent-500/30 bg-accent-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-accent-300">
+      <p class="hero__eyebrow mb-4 inline-block rounded-full border border-accent-500/30 bg-accent-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-accent-300 transition-all hover:border-accent-500/50 hover:bg-accent-500/20">
          Now supporting Zed
       </p>
 
-      <h1 class="hero__headline mb-6 text-balance text-4xl font-bold tracking-tight text-gray-50 md:text-5xl lg:text-6xl">
+      <h1 class="hero__headline mb-6 text-balance text-4xl font-bold tracking-tight text-accent-50 md:text-5xl lg:text-7xl">
          One config file.<br class="hidden sm:inline" />
-         <span class="text-accent-400">Every AI editor.</span>
+         <span class="text-gradient">Every AI editor.</span>
       </h1>
 
-      <p class="hero__subheadline mx-auto mb-10 max-w-2xl text-pretty text-lg text-gray-300 md:text-xl">
-         Define your AI agent configuration once in <code class="rounded bg-gray-800 px-1.5 py-0.5 font-mono text-accent-300">ai.json</code>.
-         Install to Claude Code, Cursor, VS Code, Windsurf, and more.
+      <p class="hero__subheadline mx-auto mb-10 max-w-2xl text-pretty text-2xl text-accent-100 md:text-xl leading-[2]">
+         Define your AI agent configuration once in <code class="rounded bg-accent-800 px-1.5 py-0.5 font-mono text-accent-50">ai.json</code>.
+         Install to
+         <span class="inline-flex items-baseline gap-1.5 ml-2"><img src="/icons/claude-color.svg" alt="" class="inline size-5 align-bottom relative top-1" />Claude Code</span>,
+         <span class="inline-flex items-baseline gap-1.5 ml-2"><img src="/icons/cursor.svg" alt="" class="inline size-5 align-bottom relative top-1 brightness-0 invert" />Cursor</span>,
+         <span class="inline-flex items-baseline gap-1.5 ml-2"><img src="/icons/vscode-color.svg" alt="" class="inline size-5 align-bottom relative top-1" />VS Code</span>,
+         <span class="inline-flex items-baseline gap-1.5 ml-2"><img src="/icons/windsurf.svg" alt="" class="inline size-5 align-bottom relative top-1 brightness-0 invert" />Windsurf</span>,
+         and more.
       </p>
 
       <div class="hero__cta-group mb-16 flex flex-col items-center justify-center gap-4 sm:flex-row">
          <a
             href="/getting-started/quick-start"
-            class="inline-flex items-center justify-center rounded-lg bg-accent-500 px-6 py-3 text-base font-semibold text-gray-950 transition-all hover:bg-accent-400 hover:shadow-glow focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-gray-950"
+            class="group inline-flex items-center justify-center rounded-lg bg-accent-500 px-6 py-3 text-base font-semibold text-accent-950 no-underline transition-all hover:bg-accent-400 hover:scale-105 hover:shadow-[0_0_30px_rgba(94,234,212,0.4)] focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-accent-950"
          >
             Get Started
+            <svg class="ml-2 size-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
          </a>
          <a
             href="https://github.com/a1st-dev/aix"
-            class="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 px-6 py-3 text-base font-semibold text-gray-200 transition-all hover:border-gray-600 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-gray-950"
+            class="group inline-flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 px-6 py-3 text-base font-semibold text-accent-200 no-underline transition-all hover:border-gray-600 hover:bg-gray-800 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-gray-950"
          >
-            <svg class="size-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <svg class="size-5 transition-transform group-hover:rotate-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
             </svg>
             View on GitHub
          </a>
       </div>
 
-      <div class="hero__terminal mx-auto max-w-2xl overflow-hidden rounded-xl border border-gray-800 bg-gray-900/80 shadow-2xl backdrop-blur">
+      <div class="hero__terminal mx-auto max-w-2xl overflow-hidden rounded-xl border border-gray-800 bg-gray-900/80 shadow-2xl backdrop-blur transition-all hover:border-gray-700 hover:shadow-[0_0_50px_rgba(94,234,212,0.15)]">
          <div class="flex items-center gap-2 border-b border-gray-800 bg-gray-900 px-4 py-3">
-            <span class="size-3 rounded-full bg-gray-700"></span>
-            <span class="size-3 rounded-full bg-gray-700"></span>
-            <span class="size-3 rounded-full bg-gray-700"></span>
-            <span class="ml-2 text-sm text-gray-500">Terminal</span>
+            <span class="size-3 rounded-full bg-red-500/80"></span>
+            <span class="size-3 rounded-full bg-yellow-500/80"></span>
+            <span class="size-3 rounded-full bg-green-500/80"></span>
+            <span class="ml-2 text-sm text-accent-500">Terminal</span>
          </div>
-         <div class="bg-gray-950/70 p-3 sm:p-4">
+         <div class="bg-[#0d1117] p-3 sm:p-4">
             <div
                class="hero__terminal-player"
                data-hero-terminal-player
@@ -86,9 +99,85 @@ const terminalCastPath = '/casts/aix-demo.cast';
          controls: prefersReducedMotion,
          fit: 'width',
          cols: terminalColumns,
-         rows: terminalRows
+         rows: terminalRows,
+         speed: 0.35,
+         idleTimeLimit: 3,
+         theme: 'monokai'
       });
    }
 
    initHeroTerminalPlayer();
 </script>
+
+<style>
+   @keyframes float {
+      0%, 100% {
+         transform: translateY(0px);
+         opacity: 0.6;
+      }
+      50% {
+         transform: translateY(-20px);
+         opacity: 1;
+      }
+   }
+
+   /* Asciinema player theme overrides */
+   .hero__terminal-player :global(.ap-wrapper),
+   .hero__terminal-player :global(.ap-player),
+   .hero__terminal-player :global(.ap-terminal),
+   .hero__terminal-player :global(.asciinema-terminal) {
+      background: transparent !important;
+      border: none !important;
+   }
+
+   /* Remove any yellow/colored borders */
+   .hero__terminal-player :global(*) {
+      border-color: transparent !important;
+   }
+
+   /* Terminal text base color */
+   .hero__terminal-player :global(.ap-line) {
+      color: #e2e8f0;
+   }
+
+   /* Syntax highlighting colors */
+   .hero__terminal-player :global(.ap-fg-green),
+   .hero__terminal-player :global(.ap-fg-2) {
+      color: #5eead4 !important; /* teal for success/prompt */
+   }
+
+   .hero__terminal-player :global(.ap-fg-yellow),
+   .hero__terminal-player :global(.ap-fg-3) {
+      color: #fbbf24 !important; /* yellow */
+   }
+
+   .hero__terminal-player :global(.ap-fg-blue),
+   .hero__terminal-player :global(.ap-fg-4) {
+      color: #60a5fa !important; /* blue */
+   }
+
+   .hero__terminal-player :global(.ap-fg-red),
+   .hero__terminal-player :global(.ap-fg-1) {
+      color: #f87171 !important; /* red */
+   }
+
+   .hero__terminal-player :global(.ap-fg-magenta),
+   .hero__terminal-player :global(.ap-fg-5) {
+      color: #c084fc !important; /* purple */
+   }
+
+   .hero__terminal-player :global(.ap-fg-cyan),
+   .hero__terminal-player :global(.ap-fg-6) {
+      color: #5eead4 !important; /* cyan/teal */
+   }
+
+   .hero__terminal-player :global(.ap-bright),
+   .hero__terminal-player :global(.ap-fg-white) {
+      color: #f8fafc !important;
+   }
+
+   /* Hide controls for cleaner look */
+   .hero__terminal-player :global(.ap-control-bar) {
+      display: none !important;
+   }
+</style>

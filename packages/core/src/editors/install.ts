@@ -11,6 +11,7 @@ import {
    VSCodeAdapter,
    ZedAdapter,
    CodexAdapter,
+   KiroAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
 
@@ -24,6 +25,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    vscode: VSCodeAdapter,
    zed: ZedAdapter,
    codex: CodexAdapter,
+   kiro: KiroAdapter,
 };
 
 /**

@@ -11,6 +11,7 @@ aix transforms your `ai.json` configuration into each editor's native format.
 |--------|-------------|-----------------|
 | Cursor | `cursor` | `.cursor/` |
 | Windsurf | `windsurf` | `.windsurf/` |
+| Kiro | `kiro` | `.kiro/` |
 | Claude Code | `claude-code` | `.claude/` |
 | VS Code | `vscode` | `.vscode/` |
 | OpenAI Codex | `codex` | `.codex/` |
@@ -31,6 +32,18 @@ aix install --all
 ```
 
 ## Editor-specific notes
+
+### Kiro
+
+Kiro uses a unique configuration structure:
+
+- **Rules**: Written to `.kiro/steering/*.md` as steering files with YAML frontmatter
+- **MCP servers**: Configured in `.kiro/settings/mcp.json`
+- **Skills**: Stored in `.aix/skills/` (standard format) and converted to Kiro Powers in `.kiro/powers/` during installation
+- **Prompts**: Converted to steering files with `inclusion: manual` in `.kiro/steering/` (appear as slash commands)
+- **Hooks**: Written as individual JSON files in `.kiro/hooks/`
+
+**Note on Skills**: Kiro doesn't natively support Agent Skills (SKILL.md format). Instead, aix converts skills to Kiro Powers during installation. After running `aix install --target kiro`, you'll need to manually install the generated Powers through Kiro's IDE UI by pointing to `.kiro/powers/{skill-name}/`.
 
 ### Cursor
 

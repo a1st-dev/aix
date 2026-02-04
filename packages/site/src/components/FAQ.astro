@@ -30,19 +30,22 @@ const faqs = [
 <section class="faq border-t border-gray-800/50 bg-gray-900/20 py-24 md:py-28">
    <div class="mx-auto max-w-3xl px-6">
       <h2 class="mb-4 text-balance text-center text-3xl font-bold text-gray-50 md:text-4xl">
-         Frequently asked questions
+         Frequently asked <span class="text-gradient">questions</span>
       </h2>
       <p class="mx-auto mb-12 max-w-xl text-pretty text-center text-lg text-gray-300 md:text-xl">
          Everything you need to know about aix.
       </p>
 
       <div class="faq__list space-y-4">
-         {faqs.map((faq) => (
-            <details class="faq__item group rounded-2xl border border-gray-800/70 bg-gray-900/40 transition-all duration-300 hover:border-gray-700 hover:bg-gray-900/70">
-               <summary class="flex cursor-pointer items-center justify-between p-5 text-left font-medium text-gray-100 [&::-webkit-details-marker]:hidden">
+         {faqs.map((faq, index) => (
+            <details
+               class="faq__item group rounded-2xl border border-gray-800/70 bg-gray-900/40 transition-all duration-300 hover:border-accent-500/30 hover:bg-gray-900/70"
+               style={`animation: fadeInUp 0.5s ease-out ${index * 0.1}s both`}
+            >
+               <summary class="flex cursor-pointer items-center justify-between p-5 text-left font-medium text-gray-100 transition-colors hover:text-accent-300 [&::-webkit-details-marker]:hidden">
                   <span>{faq.question}</span>
                   <svg
-                     class="size-5 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+                     class="size-5 shrink-0 text-gray-400 transition-all duration-300 group-open:rotate-180 group-open:text-accent-400"
                      fill="none"
                      viewBox="0 0 24 24"
                      stroke="currentColor"
@@ -59,3 +62,16 @@ const faqs = [
       </div>
    </div>
 </section>
+
+<style>
+   @keyframes fadeInUp {
+      from {
+         opacity: 0;
+         transform: translateY(20px);
+      }
+      to {
+         opacity: 1;
+         transform: translateY(0);
+      }
+   }
+</style>
