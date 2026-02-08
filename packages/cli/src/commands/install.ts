@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
-import { parseConfig, normalizeEditors, type AiJsonConfig } from '@a1st/aix-schema';
+import { parseConfig, normalizeEditors, parseJsonc, type AiJsonConfig } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import { ConfigParseError } from '@a1st/aix-core';
 import { scopeFlag, parseScopes } from '../flags/scope.js';
@@ -452,13 +452,17 @@ export default class Install extends BaseCommand<typeof Install> {
          finalConfig = { ...filteredRemote } as AiJsonConfig;
          action = 'overwrote';
       } else {
-         // Merge mode - load local and merge remote into it
-         const localLoaded = await loadConfig(localPath);
+         // Merge mode - read raw local config WITHOUT resolving extends to preserve the original
+         // structure including extends and relative paths
+         const localContent = readFileSync(localPath, 'utf-8'),
+               localParsed = parseJsonc(localContent);
 
-         if (!localLoaded) {
-            this.error(`Could not load local config from: ${localPath}`);
+         if (localParsed.errors.length > 0) {
+            this.error(`Could not parse local config: ${localParsed.errors[0]?.message}`);
          }
-         finalConfig = mergeConfigs(localLoaded.config, filteredRemote);
+         const localConfig = localParsed.data as AiJsonConfig;
+
+         finalConfig = mergeConfigs(localConfig, filteredRemote);
          action = 'merged';
       }
 

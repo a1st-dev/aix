@@ -3,10 +3,9 @@ import { existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'pathe';
 import detectIndent from 'detect-indent';
 import { parseConfig, parseLocalConfig, type AiJsonConfig } from '@a1st/aix-schema';
-import { loadConfig } from './loader.js';
 import { parseConfigContent } from './discovery.js';
 import { createBackup } from './backup.js';
-import { ConfigNotFoundError, EmbeddedConfigUpdateError } from './errors.js';
+import { ConfigNotFoundError } from './errors.js';
 
 const DEFAULT_INDENT = 2;
 
@@ -32,26 +31,18 @@ export async function updateConfig(
       throw new ConfigNotFoundError(absolutePath);
    }
 
-   const loaded = await loadConfig(absolutePath);
-
-   if (!loaded) {
-      throw new ConfigNotFoundError(absolutePath);
-   }
-
-   // Prevent overwriting package.json when config is embedded in it
-   if (loaded.source === 'package.json') {
-      throw new EmbeddedConfigUpdateError(absolutePath);
-   }
-
    // Create backup before modifying (per QA spec)
    if (backup) {
       await createBackup(absolutePath);
    }
 
-   // Detect existing indentation from the file
+   // Read and parse the raw file content WITHOUT resolving extends. This preserves the original
+   // structure including extends and relative paths, which is critical for config files that
+   // inherit from remote sources.
    const existingContent = await readFile(absolutePath, 'utf-8'),
          indent = detectIndent(existingContent).indent || DEFAULT_INDENT,
-         updated = await updater(loaded.config),
+         rawConfig = parseConfigContent(existingContent) as AiJsonConfig,
+         updated = await updater(rawConfig),
          validated = parseConfig(updated),
          // Use unique temp file name to avoid collisions (pid + timestamp)
          tempPath = `${absolutePath}.${process.pid}.${Date.now()}.tmp`;
