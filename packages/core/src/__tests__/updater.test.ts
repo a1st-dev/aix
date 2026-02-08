@@ -48,4 +48,36 @@ describe('updateConfig', () => {
 
       await expect(updateConfig(configPath, (cfg) => cfg)).rejects.toThrow(ConfigNotFoundError);
    });
+
+   it('preserves extends and relative paths when updating', async () => {
+      const config = {
+               extends: 'github:yokuze/aix-config#main',
+               skills: { local: './skills/my-skill' },
+               editors: { windsurf: { enabled: true } },
+            },
+            configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+      // Update the config by adding a new editor
+      await updateConfig(configPath, (cfg) => ({
+         ...cfg,
+         editors: {
+            ...cfg.editors,
+            cursor: { enabled: true },
+         },
+      }));
+
+      const updated = JSON.parse(await readFile(configPath, 'utf-8')) as Record<string, unknown>;
+
+      // extends should be preserved exactly as-is
+      expect(updated.extends).toBe('github:yokuze/aix-config#main');
+      // Relative paths should remain relative
+      expect(updated.skills).toEqual({ local: './skills/my-skill' });
+      // The update should have been applied
+      expect(updated.editors).toEqual({
+         windsurf: { enabled: true },
+         cursor: { enabled: true },
+      });
+   });
 });
