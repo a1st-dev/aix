@@ -12,7 +12,7 @@ import { getGitDownloadsDir } from './cache/paths.js';
  *
  * @example "github:org/repo#main" → "org-repo-main-a1b2c3d4"
  */
-function createDownloadKey(template: string): string {
+export function createDownloadKey(template: string): string {
    // Parse template to extract components
    // Format: "provider:user/repo/path#ref" or "provider:user/repo#ref"
    const match = template.match(/^(?:github|gitlab|bitbucket):([^#]+)(?:#(.+))?$/);

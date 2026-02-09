@@ -1,8 +1,10 @@
-import { resolve, dirname, isAbsolute } from 'pathe';
+import { resolve, dirname, join, isAbsolute } from 'pathe';
 import { existsSync, readFileSync } from 'node:fs';
+import { cp, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
-import { withGitDownload } from './git-download.js';
+import { withGitDownload, createDownloadKey } from './git-download.js';
+import { getExtendsDir } from './cache/paths.js';
 import { parseConfigContent } from './discovery.js';
 import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './errors.js';
 import { convertBlobToRawUrl } from './url-parsing.js';
@@ -22,10 +24,21 @@ export async function resolveExtends(
    config: Record<string, unknown>,
    options: ResolveOptions,
 ): Promise<AiJsonConfig> {
-   const { baseDir, projectRoot, visited = new Set<string>(), isRemote = false } = options;
+   const { baseDir, projectRoot, visited = new Set<string>(), isRemote = false } = options,
+         isTopLevel = !options.visited;
 
    if (!config.extends) {
       return config as AiJsonConfig;
+   }
+
+   // On the top-level call, wipe the extends directory so it exactly reflects the current config.
+   // This prevents orphaned directories from accumulating when the extends URL changes.
+   if (isTopLevel) {
+      const extendsDir = getExtendsDir(projectRoot);
+
+      if (existsSync(extendsDir)) {
+         await rm(extendsDir, { recursive: true, force: true });
+      }
    }
 
    const extendsValue = config.extends,
@@ -162,9 +175,12 @@ async function resolveLocalExtends(
 
    const content = readFileSync(absolutePath, 'utf-8'),
          parsed = parseConfigContent(content) as Record<string, unknown>,
-         newBaseDir = dirname(absolutePath);
+         newBaseDir = dirname(absolutePath),
+         resolved = await resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited });
 
-   return resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited });
+   // Normalize local paths to absolute so they remain valid after merging into the parent config,
+   // which may be in a different directory.
+   return normalizeLocalPaths(resolved, newBaseDir);
 }
 
 async function resolveGitExtends(
@@ -189,8 +205,16 @@ async function resolveGitExtends(
             parsed = parseConfigContent(content) as Record<string, unknown>,
             resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited });
 
-      // Normalize local paths to absolute so they remain valid after merging into the parent config
-      return normalizeLocalPaths(resolved, dir);
+      // Copy the downloaded content to a permanent location under .aix/extends/ so that skill,
+      // rule, and prompt paths remain resolvable after the ephemeral temp dir is cleaned up.
+      const extendsKey = createDownloadKey(extendPath),
+            permanentDir = join(getExtendsDir(projectRoot), extendsKey);
+
+      await mkdir(dirname(permanentDir), { recursive: true });
+      await cp(dir, permanentDir, { recursive: true, force: true });
+
+      // Normalize local paths to point at the permanent copy
+      return normalizeLocalPaths(resolved, permanentDir);
    });
 }
 
