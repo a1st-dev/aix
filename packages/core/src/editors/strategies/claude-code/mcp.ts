@@ -3,10 +3,14 @@ import type { McpStrategy } from '../types.js';
 import { StandardMcpStrategy } from '../shared/standard-mcp.js';
 
 /**
- * Claude Code MCP strategy. Uses `mcp.json` with a `mcpServers` object.
+ * Claude Code MCP strategy. Uses `.mcp.json` (dot-prefixed) with a `mcpServers` object.
  * Global config path is platform-specific.
  */
 export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStrategy {
+   override getConfigPath(): string {
+      return '.mcp.json';
+   }
+
    override getGlobalMcpConfigPath(): string | null {
       const paths: Record<string, string> = {
          darwin: 'Library/Application Support/Claude/claude_desktop_config.json',
