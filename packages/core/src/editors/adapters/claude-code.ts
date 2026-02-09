@@ -3,10 +3,11 @@ import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
 import {
    ClaudeCodeRulesStrategy,
+   ClaudeCodeMcpStrategy,
    ClaudeCodePromptsStrategy,
    ClaudeCodeHooksStrategy,
 } from '../strategies/claude-code/index.js';
-import { StandardMcpStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
+import { NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -17,7 +18,7 @@ import type {
 
 /**
  * Claude Code editor adapter. Writes rules to `.claude/rules/*.md` and MCP config to
- * `.claude/mcp.json`. Skills are installed to `.aix/skills/{name}/` with symlinks from
+ * `.claude/.mcp.json`. Skills are installed to `.aix/skills/{name}/` with symlinks from
  * `.claude/skills/` since Claude Code has native Agent Skills support. Hooks are written
  * to `.claude/settings.json`.
  */
@@ -34,7 +35,7 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
    }
 
    protected readonly rulesStrategy: RulesStrategy = new ClaudeCodeRulesStrategy();
-   protected readonly mcpStrategy: McpStrategy = new StandardMcpStrategy();
+   protected readonly mcpStrategy: McpStrategy = new ClaudeCodeMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.claude/skills',
    });

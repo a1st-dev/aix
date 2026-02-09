@@ -2,7 +2,8 @@ import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 
 /**
- * Standard MCP strategy used by Cursor and Claude Code. Uses `mcp.json` with a `mcpServers` object.
+ * Standard MCP strategy used by Cursor. Uses `mcp.json` with a `mcpServers` object. Claude Code
+ * extends this with {@link ClaudeCodeMcpStrategy} for its `.mcp.json` (dot-prefixed) filename.
  */
 export class StandardMcpStrategy implements McpStrategy {
    isSupported(): boolean {
