@@ -97,3 +97,11 @@ export function getImportBackupDir(projectRoot: string): string {
 export function getGitDownloadsDir(projectRoot: string): string {
    return join(projectRoot, '.aix', '.tmp', 'git-downloads');
 }
+
+/**
+ * Get the extends directory (persistent copies of git-extended config content). Each extended config
+ * gets its own subdirectory keyed by the git template string.
+ */
+export function getExtendsDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', 'extends');
+}

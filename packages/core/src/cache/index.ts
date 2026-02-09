@@ -12,6 +12,7 @@ export {
    getImportedPromptsDir,
    getImportStagingDir,
    getImportBackupDir,
+   getExtendsDir,
 } from './paths.js';
 export { getCacheStatus, type CacheStatus, type CacheEntry, type CacheCategory } from './status.js';
 export { clearCache, type ClearCacheResult } from './clear.js';
