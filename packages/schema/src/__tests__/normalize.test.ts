@@ -6,7 +6,6 @@ import {
    normalizeRulesConfig,
    normalizePromptsConfig,
    detectSourceType,
-   isLocalPath,
 } from '../normalize.js';
 
 describe('normalizeSourceRef', () => {
@@ -257,52 +256,6 @@ describe('normalizeConfig', () => {
    });
 });
 
-describe('isLocalPath', () => {
-   it('recognizes explicit relative paths with ./', () => {
-      expect(isLocalPath('./file.md')).toBe(true);
-      expect(isLocalPath('./prompts/review.md')).toBe(true);
-   });
-
-   it('recognizes parent directory paths with ../', () => {
-      expect(isLocalPath('../file.md')).toBe(true);
-      expect(isLocalPath('../../prompts/review.md')).toBe(true);
-   });
-
-   it('recognizes absolute paths', () => {
-      expect(isLocalPath('/path/to/file.md')).toBe(true);
-      expect(isLocalPath('/Users/me/prompts/review.md')).toBe(true);
-   });
-
-   it('recognizes file: protocol paths', () => {
-      expect(isLocalPath('file:../foo/bar.md')).toBe(true);
-      expect(isLocalPath('file:./local.json')).toBe(true);
-   });
-
-   it('recognizes implicit relative paths with file extensions', () => {
-      expect(isLocalPath('prompts/add-skill.md')).toBe(true);
-      expect(isLocalPath('file.txt')).toBe(true);
-      expect(isLocalPath('path/to/config.json')).toBe(true);
-      expect(isLocalPath('rules.yaml')).toBe(true);
-      expect(isLocalPath('rules.yml')).toBe(true);
-   });
-
-   it('rejects URLs', () => {
-      expect(isLocalPath('https://example.com/file.md')).toBe(false);
-      expect(isLocalPath('http://example.com/file.md')).toBe(false);
-   });
-
-   it('rejects git shorthand', () => {
-      expect(isLocalPath('github:org/repo/file.md')).toBe(false);
-      expect(isLocalPath('gitlab:group/project/file.md')).toBe(false);
-      expect(isLocalPath('bitbucket:workspace/repo/file.md')).toBe(false);
-   });
-
-   it('rejects plain text without file extensions', () => {
-      expect(isLocalPath('some inline content')).toBe(false);
-      expect(isLocalPath('Review code for issues')).toBe(false);
-   });
-});
-
 describe('detectSourceType', () => {
    describe('git-shorthand', () => {
       it('detects github shorthand', () => {
@@ -370,11 +323,13 @@ describe('detectSourceType', () => {
 
       it('detects file: protocol', () => {
          expect(detectSourceType('file:../foo/bar.md')).toBe('local');
+         expect(detectSourceType('file:./local.json')).toBe('local');
       });
 
       it('detects implicit relative paths with extensions', () => {
          expect(detectSourceType('prompts/review.md')).toBe('local');
          expect(detectSourceType('rules.yaml')).toBe('local');
+         expect(detectSourceType('rules.yml')).toBe('local');
       });
    });
 
