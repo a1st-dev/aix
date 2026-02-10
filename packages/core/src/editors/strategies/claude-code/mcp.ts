@@ -9,7 +9,8 @@ import { StandardMcpStrategy } from '../shared/standard-mcp.js';
  */
 export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStrategy {
    override getConfigPath(): string {
-      return '.mcp.json';
+      // Claude Code reads .mcp.json from the project root, not from .claude/
+      return '../.mcp.json';
    }
 
    override getGlobalMcpConfigPath(): string | null {
