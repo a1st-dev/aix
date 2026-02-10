@@ -214,7 +214,12 @@ export default class Install extends BaseCommand<typeof Install> {
                });
 
                if (createConfig) {
-                  const newConfig = { editors: { [editor]: { enabled: true } } };
+                  // When installing from a remote source, persist it as extends so future
+                  // `aix i` (without a source argument) can re-fetch the config.
+                  const newConfig: Record<string, unknown> = {
+                     ...(args.source && { extends: args.source }),
+                     editors: { [editor]: { enabled: true } },
+                  };
 
                   await writeFile(localConfigPath, JSON.stringify(newConfig, null, 2) + '\n', 'utf-8');
                   this.output.success(`Created ./ai.json with "${editor}" as the default editor.`);
