@@ -18,7 +18,7 @@ import type {
 
 /**
  * Claude Code editor adapter. Writes rules to `.claude/rules/*.md` and MCP config to
- * `.claude/.mcp.json`. Skills are installed to `.aix/skills/{name}/` with symlinks from
+ * `.mcp.json` (project root). Skills are installed to `.aix/skills/{name}/` with symlinks from
  * `.claude/skills/` since Claude Code has native Agent Skills support. Hooks are written
  * to `.claude/settings.json`.
  */
