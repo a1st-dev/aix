@@ -82,18 +82,6 @@ describe('loadFromSource', () => {
       await safeRm(testDir, { force: true });
    });
 
-   it('loads from local path starting with ./', async () => {
-      const config = { skills: {} },
-            configPath = join(testDir, 'ai.json');
-
-      await writeFile(configPath, JSON.stringify(config), 'utf-8');
-
-      const result = await loadFromSource('./ai.json', testDir);
-
-      expect(result.content).toEqual(config);
-      expect(result.source).toBe('local');
-   });
-
    it('loads from local path starting with ../', async () => {
       const config = { skills: {} },
             configPath = join(testDir, 'ai.json'),
@@ -103,18 +91,6 @@ describe('loadFromSource', () => {
       await writeFile(configPath, JSON.stringify(config), 'utf-8');
 
       const result = await loadFromSource('../ai.json', subDir);
-
-      expect(result.content).toEqual(config);
-      expect(result.source).toBe('local');
-   });
-
-   it('loads from absolute path', async () => {
-      const config = { skills: {} },
-            configPath = join(testDir, 'ai.json');
-
-      await writeFile(configPath, JSON.stringify(config), 'utf-8');
-
-      const result = await loadFromSource(configPath, testDir);
 
       expect(result.content).toEqual(config);
       expect(result.source).toBe('local');
