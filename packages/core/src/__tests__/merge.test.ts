@@ -120,55 +120,30 @@ describe('mergeConfigs', () => {
       });
    });
 
-   describe('rules merge', () => {
-      it('merges rules with key-level replacement (remote wins on conflict)', () => {
+   describe('rules and prompts merge', () => {
+      it.each(['rules', 'prompts'] as const)('%s: remote wins on key conflict', (section) => {
          const local: AiJsonConfig = {
             ...emptyConfig,
-            rules: {
-               'local-rule-1': { content: 'local rule 1' },
-               'shared-rule': { content: 'local shared content' },
-            },
-         };
-
-         const remote: Partial<AiJsonConfig> = {
-            rules: {
-               'remote-rule-1': { content: 'remote rule 1' },
-               'shared-rule': { content: 'remote shared content' },
-            },
-         };
-
-         const result = mergeConfigs(local, remote);
-
-         expect(Object.keys(result.rules ?? {})).toHaveLength(3);
-         expect(result.rules?.['local-rule-1']).toEqual({ content: 'local rule 1' });
-         expect(result.rules?.['remote-rule-1']).toEqual({ content: 'remote rule 1' });
-         expect(result.rules?.['shared-rule']).toEqual({ content: 'remote shared content' });
-      });
-   });
-
-   describe('prompts merge', () => {
-      it('merges prompts with key-level replacement (remote wins on conflict)', () => {
-         const local: AiJsonConfig = {
-            ...emptyConfig,
-            prompts: {
-               'add-feature': { content: 'local add-feature content' },
+            [section]: {
                'local-only': { content: 'local-only content' },
+               'shared-key': { content: 'local shared content' },
             },
          };
 
          const remote: Partial<AiJsonConfig> = {
-            prompts: {
-               'add-feature': { content: 'remote add-feature content' },
+            [section]: {
                'remote-only': { content: 'remote-only content' },
+               'shared-key': { content: 'remote shared content' },
             },
          };
 
          const result = mergeConfigs(local, remote);
+         const resultSection = result[section] as Record<string, unknown>;
 
-         expect(Object.keys(result.prompts ?? {})).toHaveLength(3);
-         expect(result.prompts?.['add-feature']).toEqual({ content: 'remote add-feature content' });
-         expect(result.prompts?.['local-only']).toEqual({ content: 'local-only content' });
-         expect(result.prompts?.['remote-only']).toEqual({ content: 'remote-only content' });
+         expect(Object.keys(resultSection)).toHaveLength(3);
+         expect(resultSection['local-only']).toEqual({ content: 'local-only content' });
+         expect(resultSection['remote-only']).toEqual({ content: 'remote-only content' });
+         expect(resultSection['shared-key']).toEqual({ content: 'remote shared content' });
       });
    });
 
@@ -262,80 +237,25 @@ describe('mergeConfigs with false values', () => {
    };
 
    describe('false removes entry from merged result', () => {
-      it('removes MCP server when remote has false', () => {
+      it.each([
+         { section: 'mcp', key: 'playwright', value: mcpServer('npx', ['-y', '@playwright/mcp']) },
+         { section: 'rules', key: 'my-rule', value: { content: 'rule content' } },
+         { section: 'skills', key: 'pdf', value: { git: 'https://github.com/test/skills', path: 'skills/pdf' } },
+         { section: 'prompts', key: 'code-review', value: { content: 'Review this code' } },
+      ])('removes $section entry when remote has false', ({ section, key, value }) => {
          const local: AiJsonConfig = {
             ...emptyConfig,
-            mcp: {
-               playwright: mcpServer('npx', ['-y', '@playwright/mcp']),
-            },
+            [section]: { [key]: value },
          };
 
          const remote: Partial<AiJsonConfig> = {
-            mcp: {
-               playwright: false,
-            },
+            [section]: { [key]: false },
          };
 
          const result = mergeConfigs(local, remote);
+         const resultSection = result[section as keyof AiJsonConfig] as Record<string, unknown> | undefined;
 
-         expect(result.mcp?.playwright).toBeUndefined();
-      });
-
-      it('removes rule when remote has false', () => {
-         const local: AiJsonConfig = {
-            ...emptyConfig,
-            rules: {
-               'my-rule': { content: 'rule content' },
-            },
-         };
-
-         const remote: Partial<AiJsonConfig> = {
-            rules: {
-               'my-rule': false,
-            },
-         };
-
-         const result = mergeConfigs(local, remote);
-
-         expect(result.rules?.['my-rule']).toBeUndefined();
-      });
-
-      it('removes skill when remote has false', () => {
-         const local: AiJsonConfig = {
-            ...emptyConfig,
-            skills: {
-               pdf: { git: 'https://github.com/test/skills', path: 'skills/pdf' },
-            },
-         };
-
-         const remote: Partial<AiJsonConfig> = {
-            skills: {
-               pdf: false,
-            },
-         };
-
-         const result = mergeConfigs(local, remote);
-
-         expect(result.skills?.pdf).toBeUndefined();
-      });
-
-      it('removes prompt when remote has false', () => {
-         const local: AiJsonConfig = {
-            ...emptyConfig,
-            prompts: {
-               'code-review': { content: 'Review this code' },
-            },
-         };
-
-         const remote: Partial<AiJsonConfig> = {
-            prompts: {
-               'code-review': false,
-            },
-         };
-
-         const result = mergeConfigs(local, remote);
-
-         expect(result.prompts?.['code-review']).toBeUndefined();
+         expect(resultSection?.[key]).toBeUndefined();
       });
    });
 
@@ -439,41 +359,18 @@ describe('filterConfigByScopes', () => {
       },
    };
 
-   it('returns only mcp section when scope is mcp', () => {
-      const result = filterConfigByScopes(fullConfig, ['mcp']);
+   it.each(['mcp', 'rules', 'skills', 'editors'] as const)(
+      'returns only %s section when scope is %s',
+      (scope) => {
+         const result = filterConfigByScopes(fullConfig, [scope]);
 
-      expect(result).toEqual({ mcp: fullConfig.mcp });
-      expect(result.skills).toBeUndefined();
-      expect(result.rules).toBeUndefined();
-      expect(result.editors).toBeUndefined();
-   });
+         expect(result).toEqual({ [scope]: fullConfig[scope] });
 
-   it('returns only rules section when scope is rules', () => {
-      const result = filterConfigByScopes(fullConfig, ['rules']);
-
-      expect(result).toEqual({ rules: fullConfig.rules });
-      expect(result.mcp).toBeUndefined();
-      expect(result.skills).toBeUndefined();
-      expect(result.editors).toBeUndefined();
-   });
-
-   it('returns only skills section when scope is skills', () => {
-      const result = filterConfigByScopes(fullConfig, ['skills']);
-
-      expect(result).toEqual({ skills: fullConfig.skills });
-      expect(result.mcp).toBeUndefined();
-      expect(result.rules).toBeUndefined();
-      expect(result.editors).toBeUndefined();
-   });
-
-   it('returns only editors section when scope is editors', () => {
-      const result = filterConfigByScopes(fullConfig, ['editors']);
-
-      expect(result).toEqual({ editors: fullConfig.editors });
-      expect(result.mcp).toBeUndefined();
-      expect(result.rules).toBeUndefined();
-      expect(result.skills).toBeUndefined();
-   });
+         for (const other of (['mcp', 'rules', 'skills', 'editors'] as const).filter(s => s !== scope)) {
+            expect(result[other]).toBeUndefined();
+         }
+      },
+   );
 
    it('returns multiple sections when multiple scopes provided', () => {
       const result = filterConfigByScopes(fullConfig, ['mcp', 'rules']);
