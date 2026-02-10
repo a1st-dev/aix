@@ -75,8 +75,19 @@ export interface McpStrategy {
    /** Format MCP config for this editor */
    formatConfig(mcp: Record<string, McpServerConfig>): string;
 
-   /** Get the MCP config file path relative to the editor config dir (e.g., 'mcp.json') */
+   /**
+    * Get the MCP config file path. By default this is relative to the editor config dir (e.g.,
+    * `'mcp.json'` → `{configDir}/mcp.json`). When {@link isProjectRootConfig} returns `true`, the
+    * path is relative to the project root instead (e.g., `'.mcp.json'` → `{projectRoot}/.mcp.json`).
+    */
    getConfigPath(): string;
+
+   /**
+    * Whether the MCP config file lives at the project root rather than inside the editor config
+    * dir. Defaults to `false` when not implemented. Claude Code uses this because it reads
+    * `.mcp.json` from the project root, not from `.claude/`.
+    */
+   isProjectRootConfig?(): boolean;
 
    /** Get the global MCP config path relative to home directory, or null if not supported */
    getGlobalMcpConfigPath(): string | null;

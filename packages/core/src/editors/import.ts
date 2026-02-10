@@ -219,7 +219,8 @@ async function importLocalMcpConfig(
    const warnings: string[] = [],
          configDir = EDITOR_CONFIG_DIRS[editor],
          mcpConfigPath = strategy.getConfigPath(),
-         fullPath = join(projectRoot, configDir, mcpConfigPath);
+         baseDir = strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir),
+         fullPath = join(baseDir, mcpConfigPath);
 
    // Skip if MCP is not supported for project-local config (e.g., global-only editors)
    if (!strategy.isSupported() || strategy.isGlobalOnly?.()) {

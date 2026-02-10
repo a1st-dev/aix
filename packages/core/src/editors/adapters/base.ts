@@ -316,7 +316,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const mcpEntries = Object.keys(editorConfig.mcp);
 
          if (mcpEntries.length > 0) {
-            const mcpPath = join(configDir, this.mcpStrategy.getConfigPath());
+            const mcpBaseDir = this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
+                  mcpPath = join(mcpBaseDir, this.mcpStrategy.getConfigPath());
 
             // Only merge JSON files that we directly write to (MCP config files)
             if (this.isJsonFile(mcpPath)) {
