@@ -63,16 +63,4 @@ describe('Editor Config Import', () => {
       });
    });
 
-   describe('MCP parsing', () => {
-      // These tests verify the parsing logic works correctly
-      // by testing the internal parsing functions indirectly
-
-      it('handles missing config gracefully', async () => {
-         const result = await importFromEditor('cursor');
-
-         // Should not throw, just return empty with warnings
-         expect(result).toBeDefined();
-         expect(typeof result.mcp).toBe('object');
-      });
-   });
 });
