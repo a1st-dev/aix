@@ -226,6 +226,26 @@ describe('Editor Adapters', () => {
          expect(ruleContent).toContain('*.ts');
          expect(ruleContent).toContain('TypeScript rule');
       });
+
+      it('writes MCP config to project root, not .claude/', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir);
+
+         const mcpChange = result.changes.find((c) => c.category === 'mcp');
+
+         expect(mcpChange).toBeDefined();
+         expect(mcpChange!.path).toBe(join(testDir, '.mcp.json'));
+
+         const mcpContent = await readFile(join(testDir, '.mcp.json'), 'utf-8'),
+               mcpConfig = JSON.parse(mcpContent);
+
+         expect(mcpConfig.mcpServers.server).toBeDefined();
+      });
    });
 
    describe('VSCodeAdapter', () => {

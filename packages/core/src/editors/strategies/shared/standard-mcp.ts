@@ -14,6 +14,10 @@ export class StandardMcpStrategy implements McpStrategy {
       return 'mcp.json';
    }
 
+   isProjectRootConfig(): boolean {
+      return false;
+   }
+
    getGlobalMcpConfigPath(): string | null {
       return '.cursor/mcp.json';
    }
