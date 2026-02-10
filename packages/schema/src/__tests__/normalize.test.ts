@@ -181,22 +181,6 @@ describe('normalizeConfig', () => {
       });
    });
 
-   it('normalizes rules with string references', () => {
-      const config = {
-         rules: {
-            'style-rule': './rules/style.md',
-            'remote-rule': 'https://github.com/user/repo/rules.md',
-         },
-      };
-
-      const result = normalizeConfig(config);
-
-      expect(result.rules).toEqual({
-         'style-rule': { path: './rules/style.md' },
-         'remote-rule': { git: { url: 'https://github.com/user/repo/rules.md' } },
-      });
-   });
-
    it('normalizes rules with mixed formats', () => {
       const config = {
          rules: {

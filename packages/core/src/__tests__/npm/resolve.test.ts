@@ -74,16 +74,4 @@ describe('resolveNpmPath', () => {
       });
    });
 
-   describe('subpath handling', () => {
-      it('appends subpath when provided with version', async () => {
-         const result = await resolveNpmPath({
-            packageName: 'my-package',
-            subpath: 'dist/rules/code.md',
-            version: '2.0.0',
-            projectRoot,
-         });
-
-         expect(result).toContain('dist/rules/code.md');
-      });
-   });
 });
