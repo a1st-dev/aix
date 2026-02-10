@@ -152,24 +152,15 @@ describe('PromptsStrategy implementations', () => {
    });
 
    describe('ZedPromptsStrategy', () => {
-      const strategy = new ZedPromptsStrategy();
-
-      it('is not supported', () => {
-         expect(strategy.isSupported()).toBe(false);
-      });
-
-      it('returns empty prompts directory', () => {
-         expect(strategy.getPromptsDir()).toBe('');
-      });
-
-      it('returns empty file extension', () => {
-         expect(strategy.getFileExtension()).toBe('');
-      });
-
-      it('returns empty string for formatted prompt', () => {
+      it('behaves identically to NoPromptsStrategy', () => {
+         const zed = new ZedPromptsStrategy();
+         const no = new NoPromptsStrategy();
          const prompt = createPrompt();
 
-         expect(strategy.formatPrompt(prompt)).toBe('');
+         expect(zed.isSupported()).toBe(no.isSupported());
+         expect(zed.getPromptsDir()).toBe(no.getPromptsDir());
+         expect(zed.getFileExtension()).toBe(no.getFileExtension());
+         expect(zed.formatPrompt(prompt)).toBe(no.formatPrompt(prompt));
       });
    });
 

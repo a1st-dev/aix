@@ -4,9 +4,6 @@ import {
    parseGitLabBlobUrl,
    parseBitbucketBlobUrl,
    parseGitShorthand,
-   githubBlobToRaw,
-   gitlabBlobToRaw,
-   bitbucketBlobToRaw,
    convertBlobToRawUrl,
    buildProviderUrl,
    isLocalPath,
@@ -145,44 +142,6 @@ describe('parseGitShorthand', () => {
    it('returns undefined for invalid shorthand', () => {
       expect(parseGitShorthand('invalid')).toBeUndefined();
       expect(parseGitShorthand('github:org')).toBeUndefined();
-   });
-});
-
-describe('githubBlobToRaw', () => {
-   it('converts blob URL to raw URL', () => {
-      const result = githubBlobToRaw('https://github.com/org/repo/blob/main/path/to/file.json');
-
-      expect(result).toBe('https://raw.githubusercontent.com/org/repo/main/path/to/file.json');
-   });
-
-   it('returns undefined for non-blob URLs', () => {
-      expect(githubBlobToRaw('https://github.com/org/repo')).toBeUndefined();
-   });
-});
-
-describe('gitlabBlobToRaw', () => {
-   it('converts blob URL to raw URL', () => {
-      const result = gitlabBlobToRaw('https://gitlab.com/group/project/-/blob/main/path/to/file.json');
-
-      expect(result).toBe('https://gitlab.com/group/project/-/raw/main/path/to/file.json');
-   });
-
-   it('returns undefined for non-blob URLs', () => {
-      expect(gitlabBlobToRaw('https://gitlab.com/group/project')).toBeUndefined();
-   });
-});
-
-describe('bitbucketBlobToRaw', () => {
-   it('converts src URL to raw URL', () => {
-      const result = bitbucketBlobToRaw(
-         'https://bitbucket.org/workspace/repo/src/main/path/to/file.json',
-      );
-
-      expect(result).toBe('https://bitbucket.org/workspace/repo/raw/main/path/to/file.json');
-   });
-
-   it('returns undefined for non-src URLs', () => {
-      expect(bitbucketBlobToRaw('https://bitbucket.org/workspace/repo')).toBeUndefined();
    });
 });
 
