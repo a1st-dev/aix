@@ -16,7 +16,8 @@ ai.local.json
 
 .windsurf
 .cursor
-
+.kiro
+.vscode
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)
 plans/
