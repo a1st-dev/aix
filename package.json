@@ -40,7 +40,7 @@
       "npm": ">=10.0.0"
    },
    "dependencies": {
-      "@lobehub/icons": "^4.0.3",
-      "@lobehub/icons-static-svg": "^1.77.0"
+      "@lobehub/icons": "^4.4.3",
+      "@lobehub/icons-static-svg": "^1.79.0"
    }
 }
