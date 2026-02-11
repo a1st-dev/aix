@@ -7,17 +7,17 @@ export function formatRulesForEditor(rules: MergedRule[], format: 'markdown' | '
    const contents = rules.map((r) => r.content);
 
    switch (format) {
-      case 'markdown':
-         return contents.map((rule, i) => `${i + 1}. ${rule}`).join('\n\n');
+   case 'markdown':
+      return contents.map((rule, i) => `${i + 1}. ${rule}`).join('\n\n');
 
-      case 'text':
-         return contents.join('\n\n---\n\n');
+   case 'text':
+      return contents.join('\n\n---\n\n');
 
-      case 'json':
-         return JSON.stringify(contents, null, 2);
+   case 'json':
+      return JSON.stringify(contents, null, 2);
 
-      default:
-         return contents.join('\n\n');
+   default:
+      return contents.join('\n\n');
    }
 }
 

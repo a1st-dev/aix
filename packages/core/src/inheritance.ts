@@ -91,21 +91,21 @@ async function resolveExtendsPath(
    const sourceType = detectSourceType(extendPath);
 
    switch (sourceType) {
-      case 'local':
-         return resolveLocalExtends(extendPath, baseDir, projectRoot, visited);
+   case 'local':
+      return resolveLocalExtends(extendPath, baseDir, projectRoot, visited);
 
-      case 'https-file':
-         return resolveRemoteExtends(extendPath, projectRoot, visited);
+   case 'https-file':
+      return resolveRemoteExtends(extendPath, projectRoot, visited);
 
-      case 'git-shorthand':
-      case 'https-repo':
-         return resolveGitExtends(extendPath, projectRoot, visited);
+   case 'git-shorthand':
+   case 'https-repo':
+      return resolveGitExtends(extendPath, projectRoot, visited);
 
-      case 'npm':
-         return resolveNpmExtends(extendPath, projectRoot, visited);
+   case 'npm':
+      return resolveNpmExtends(extendPath, projectRoot, visited);
 
-      case 'http-unsupported':
-         throw new ConfigParseError('HTTP URLs are not supported (use HTTPS)', extendPath);
+   case 'http-unsupported':
+      throw new ConfigParseError('HTTP URLs are not supported (use HTTPS)', extendPath);
    }
 }
 

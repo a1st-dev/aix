@@ -24,31 +24,31 @@ export function filterConfigByScopes(
 
    for (const scope of scopes) {
       switch (scope) {
-         case 'rules':
-            if (config.rules) {
-               result.rules = config.rules;
-            }
-            break;
-         case 'prompts':
-            if (config.prompts) {
-               result.prompts = config.prompts;
-            }
-            break;
-         case 'mcp':
-            if (config.mcp) {
-               result.mcp = config.mcp;
-            }
-            break;
-         case 'skills':
-            if (config.skills) {
-               result.skills = config.skills;
-            }
-            break;
-         case 'editors':
-            if (config.editors) {
-               result.editors = config.editors;
-            }
-            break;
+      case 'rules':
+         if (config.rules) {
+            result.rules = config.rules;
+         }
+         break;
+      case 'prompts':
+         if (config.prompts) {
+            result.prompts = config.prompts;
+         }
+         break;
+      case 'mcp':
+         if (config.mcp) {
+            result.mcp = config.mcp;
+         }
+         break;
+      case 'skills':
+         if (config.skills) {
+            result.skills = config.skills;
+         }
+         break;
+      case 'editors':
+         if (config.editors) {
+            result.editors = config.editors;
+         }
+         break;
       }
    }
 

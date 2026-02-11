@@ -75,33 +75,33 @@ function mergeRecursive(
             strategy = resolver?.(context) ?? getDefaultStrategy(oldValue, newValue);
 
       switch (strategy) {
-         case 'keep':
+      case 'keep':
          // Keep old value, do nothing
-            break;
+         break;
 
-         case 'replace':
+      case 'replace':
          // Replace entirely with new value
-            result[key] = newValue;
-            break;
+         result[key] = newValue;
+         break;
 
-         case 'merge':
-         default:
+      case 'merge':
+      default:
          // Default merge behavior
-            if (isPlainObject(newValue)) {
-               if (isPlainObject(oldValue)) {
-                  result[key] = mergeRecursive(
-                     oldValue as Record<string, unknown>,
-                     newValue as Record<string, unknown>,
-                     [...path, key],
-                     resolver,
-                  );
-               } else {
-                  result[key] = newValue;
-               }
+         if (isPlainObject(newValue)) {
+            if (isPlainObject(oldValue)) {
+               result[key] = mergeRecursive(
+                  oldValue as Record<string, unknown>,
+                  newValue as Record<string, unknown>,
+                  [...path, key],
+                  resolver,
+               );
             } else {
                result[key] = newValue;
             }
-            break;
+         } else {
+            result[key] = newValue;
+         }
+         break;
       }
    }
 

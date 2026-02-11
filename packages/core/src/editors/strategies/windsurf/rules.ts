@@ -25,24 +25,24 @@ export class WindsurfRulesStrategy implements RulesStrategy {
 
       // Map activation type to Windsurf trigger values
       switch (rule.activation.type) {
-         case 'always':
-            lines.push('trigger: always_on');
-            break;
-         case 'auto':
-            lines.push('trigger: model_decision');
-            if (rule.activation.description) {
-               lines.push(`description: ${rule.activation.description}`);
-            }
-            break;
-         case 'glob':
-            lines.push('trigger: glob');
-            if (rule.activation.globs?.length) {
-               lines.push(`globs: ${rule.activation.globs.join(', ')}`);
-            }
-            break;
-         case 'manual':
-            lines.push('trigger: manual');
-            break;
+      case 'always':
+         lines.push('trigger: always_on');
+         break;
+      case 'auto':
+         lines.push('trigger: model_decision');
+         if (rule.activation.description) {
+            lines.push(`description: ${rule.activation.description}`);
+         }
+         break;
+      case 'glob':
+         lines.push('trigger: glob');
+         if (rule.activation.globs?.length) {
+            lines.push(`globs: ${rule.activation.globs.join(', ')}`);
+         }
+         break;
+      case 'manual':
+         lines.push('trigger: manual');
+         break;
       }
 
       lines.push('---', '');

@@ -53,42 +53,42 @@ interface ImportStrategies {
  */
 function getImportStrategies(editor: EditorName): ImportStrategies {
    switch (editor) {
-      case 'windsurf':
-         return {
-            mcp: new WindsurfMcpStrategy(),
-            rules: new WindsurfRulesStrategy(),
-            prompts: new WindsurfPromptsStrategy(),
-         };
-      case 'cursor':
-         return {
-            mcp: new StandardMcpStrategy(),
-            rules: new CursorRulesStrategy(),
-            prompts: new CursorPromptsStrategy(),
-         };
-      case 'claude-code':
-         return {
-            mcp: new ClaudeCodeMcpStrategy(),
-            rules: new ClaudeCodeRulesStrategy(),
-            prompts: new ClaudeCodePromptsStrategy(),
-         };
-      case 'vscode':
-         return {
-            mcp: new VSCodeMcpStrategy(),
-            rules: new VSCodeRulesStrategy(),
-            prompts: new VSCodePromptsStrategy(),
-         };
-      case 'zed':
-         return {
-            mcp: new ZedMcpStrategy(),
-            rules: new ZedRulesStrategy(),
-            prompts: new ZedPromptsStrategy(),
-         };
-      case 'codex':
-         return {
-            mcp: new CodexMcpStrategy(),
-            rules: new CodexRulesStrategy(),
-            prompts: new CodexPromptsStrategy(),
-         };
+   case 'windsurf':
+      return {
+         mcp: new WindsurfMcpStrategy(),
+         rules: new WindsurfRulesStrategy(),
+         prompts: new WindsurfPromptsStrategy(),
+      };
+   case 'cursor':
+      return {
+         mcp: new StandardMcpStrategy(),
+         rules: new CursorRulesStrategy(),
+         prompts: new CursorPromptsStrategy(),
+      };
+   case 'claude-code':
+      return {
+         mcp: new ClaudeCodeMcpStrategy(),
+         rules: new ClaudeCodeRulesStrategy(),
+         prompts: new ClaudeCodePromptsStrategy(),
+      };
+   case 'vscode':
+      return {
+         mcp: new VSCodeMcpStrategy(),
+         rules: new VSCodeRulesStrategy(),
+         prompts: new VSCodePromptsStrategy(),
+      };
+   case 'zed':
+      return {
+         mcp: new ZedMcpStrategy(),
+         rules: new ZedRulesStrategy(),
+         prompts: new ZedPromptsStrategy(),
+      };
+   case 'codex':
+      return {
+         mcp: new CodexMcpStrategy(),
+         rules: new CodexRulesStrategy(),
+         prompts: new CodexPromptsStrategy(),
+      };
    }
 }
 
