@@ -35,12 +35,12 @@ export async function resolveSkillRef(
    projectRoot: string,
 ): Promise<ParsedSkill> {
    switch (ref.type) {
-   case 'local':
-      return resolveLocal(ref, baseDir);
-   case 'git':
-      return resolveGit(ref);
-   case 'npm':
-      return resolveNpm(ref, projectRoot);
+      case 'local':
+         return resolveLocal(ref, baseDir);
+      case 'git':
+         return resolveGit(ref);
+      case 'npm':
+         return resolveNpm(ref, projectRoot);
    }
 }
 

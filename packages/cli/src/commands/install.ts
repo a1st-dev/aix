@@ -653,14 +653,14 @@ export default class Install extends BaseCommand<typeof Install> {
     */
    private getChangePrefix(action: FileChange['action']): string {
       switch (action) {
-      case 'create':
-         return this.output.green('✓');
-      case 'update':
-         return this.output.green('✓');
-      case 'unchanged':
-         return this.output.green('✓');
-      case 'delete':
-         return this.output.red('-');
+         case 'create':
+            return this.output.green('✓');
+         case 'update':
+            return this.output.green('✓');
+         case 'unchanged':
+            return this.output.green('✓');
+         case 'delete':
+            return this.output.red('-');
       }
    }
 

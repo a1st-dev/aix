@@ -327,23 +327,23 @@ export async function loadFromSource(
    const sourceType = detectSourceType(source);
 
    switch (sourceType) {
-   case 'git-shorthand':
-      return loadFromGitShorthand(source);
+      case 'git-shorthand':
+         return loadFromGitShorthand(source);
 
-   case 'https-file':
-      return loadFromUrl(source);
+      case 'https-file':
+         return loadFromUrl(source);
 
-   case 'https-repo':
-      return loadFromRepoUrl(source);
+      case 'https-repo':
+         return loadFromRepoUrl(source);
 
-   case 'http-unsupported':
-      throw new UnsupportedUrlError(source);
+      case 'http-unsupported':
+         throw new UnsupportedUrlError(source);
 
-   case 'local':
-      return loadFromLocalPath(source, cwd);
+      case 'local':
+         return loadFromLocalPath(source, cwd);
 
-   case 'npm':
+      case 'npm':
       // npm packages are not supported as config sources (only for skills/rules)
-      throw new UnsupportedUrlError(source);
+         throw new UnsupportedUrlError(source);
    }
 }
