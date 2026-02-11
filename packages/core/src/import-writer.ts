@@ -15,8 +15,14 @@ export interface WrittenImports {
    prompts: Record<string, string>;
 }
 
+/** A rule with a suggested name for the output file. */
+export interface NamedRule {
+   content: string;
+   name: string;
+}
+
 export interface ImportContent {
-   rules: string[];
+   rules: NamedRule[];
    prompts: Record<string, string>;
 }
 
@@ -77,15 +83,22 @@ export async function writeImportedContent(
    await mkdir(stagingRulesDir, { recursive: true });
    await mkdir(stagingPromptsDir, { recursive: true });
 
-   // Build rule write operations
-   const ruleWrites = content.rules.map((ruleContent, i) => {
-      const name = `imported-rule-${i + 1}`,
-            fileName = `${sanitizeFileName(name)}.md`,
+   // Deduplicate rule names: if multiple rules share a name, append -1, -2, etc.
+   const nameCount = new Map<string, number>();
+
+   const ruleWrites = content.rules.map((rule) => {
+      const baseName = sanitizeFileName(rule.name) || 'imported-rule',
+            count = nameCount.get(baseName) ?? 0;
+
+      nameCount.set(baseName, count + 1);
+
+      const dedupedName = count === 0 ? baseName : `${baseName}-${count}`,
+            fileName = `${dedupedName}.md`,
             stagingPath = join(stagingRulesDir, fileName),
             relativePath = `./.aix/imported/rules/${fileName}`;
 
-      result.rules[name] = relativePath;
-      return writeFile(stagingPath, ruleContent, 'utf-8');
+      result.rules[dedupedName] = relativePath;
+      return writeFile(stagingPath, rule.content, 'utf-8');
    });
 
    // Build prompt write operations

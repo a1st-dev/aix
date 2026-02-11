@@ -24,9 +24,12 @@ describe('import-writer', () => {
    });
 
    describe('writeImportedContent', () => {
-      it('writes rules to staging directory', async () => {
+      it('writes rules to staging directory using provided names', async () => {
          const content = {
-            rules: ['# Rule 1\nBe nice.', '# Rule 2\nBe thorough.'],
+            rules: [
+               { content: '# Rule 1\nBe nice.', name: 'global' },
+               { content: '# Rule 2\nBe thorough.', name: 'style' },
+            ],
             prompts: {},
          };
 
@@ -36,12 +39,31 @@ describe('import-writer', () => {
                files = await readdir(stagingRulesDir);
 
          expect(files).toHaveLength(2);
-         expect(files).toContain('imported-rule-1.md');
-         expect(files).toContain('imported-rule-2.md');
+         expect(files).toContain('global.md');
+         expect(files).toContain('style.md');
 
-         const rule1Content = await readFile(join(stagingRulesDir, 'imported-rule-1.md'), 'utf-8');
+         const rule1Content = await readFile(join(stagingRulesDir, 'global.md'), 'utf-8');
 
          expect(rule1Content).toBe('# Rule 1\nBe nice.');
+      });
+
+      it('deduplicates rule names by appending a suffix', async () => {
+         const content = {
+            rules: [
+               { content: '# Global 1', name: 'global' },
+               { content: '# Global 2', name: 'global' },
+            ],
+            prompts: {},
+         };
+
+         await writeImportedContent(testDir, content);
+
+         const stagingRulesDir = join(testDir, '.aix', '.tmp', 'import-staging', 'rules'),
+               files = await readdir(stagingRulesDir);
+
+         expect(files).toHaveLength(2);
+         expect(files).toContain('global.md');
+         expect(files).toContain('global-1.md');
       });
 
       it('writes prompts to staging directory with original names', async () => {
@@ -69,13 +91,13 @@ describe('import-writer', () => {
 
       it('returns correct path references pointing to final location', async () => {
          const content = {
-            rules: ['# Rule 1'],
+            rules: [{ content: '# Rule 1', name: 'global' }],
             prompts: { 'my-prompt': '# Prompt' },
          };
 
          const result = await writeImportedContent(testDir, content);
 
-         expect(result.rules['imported-rule-1']).toBe('./.aix/imported/rules/imported-rule-1.md');
+         expect(result.rules['global']).toBe('./.aix/imported/rules/global.md');
          expect(result.prompts['my-prompt']).toBe('./.aix/imported/prompts/my-prompt.md');
       });
 
@@ -99,21 +121,21 @@ describe('import-writer', () => {
          await mkdir(stagingDir, { recursive: true });
          await writeFile(join(stagingDir, 'old-file.md'), 'old content', 'utf-8');
 
-         const content = { rules: ['# New Rule'], prompts: {} };
+         const content = { rules: [{ content: '# New Rule', name: 'new-rule' }], prompts: {} };
 
          await writeImportedContent(testDir, content);
 
          const files = await readdir(stagingDir);
 
          expect(files).toHaveLength(1);
-         expect(files).toContain('imported-rule-1.md');
+         expect(files).toContain('new-rule.md');
          expect(files).not.toContain('old-file.md');
       });
    });
 
    describe('commitImport', () => {
       it('moves staging to final location', async () => {
-         const content = { rules: ['# Rule'], prompts: { 'test': '# Test' } };
+         const content = { rules: [{ content: '# Rule', name: 'global' }], prompts: { 'test': '# Test' } };
 
          await writeImportedContent(testDir, content);
          await commitImport(testDir);
@@ -127,7 +149,7 @@ describe('import-writer', () => {
 
          const ruleFiles = await readdir(finalRulesDir);
 
-         expect(ruleFiles).toContain('imported-rule-1.md');
+         expect(ruleFiles).toContain('global.md');
 
          // Staging should be cleaned up
          expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
@@ -141,7 +163,7 @@ describe('import-writer', () => {
          await writeFile(join(existingDir, 'old-rule.md'), '# Old Rule', 'utf-8');
 
          // Stage new import
-         const content = { rules: ['# New Rule'], prompts: {} };
+         const content = { rules: [{ content: '# New Rule', name: 'new-rule' }], prompts: {} };
 
          await writeImportedContent(testDir, content);
          await commitImport(testDir);
@@ -150,7 +172,7 @@ describe('import-writer', () => {
          const files = await readdir(existingDir);
 
          expect(files).toHaveLength(1);
-         expect(files).toContain('imported-rule-1.md');
+         expect(files).toContain('new-rule.md');
          expect(files).not.toContain('old-rule.md');
 
          // Backup should be cleaned up
@@ -160,7 +182,7 @@ describe('import-writer', () => {
 
    describe('rollbackImport', () => {
       it('cleans up staging directory', async () => {
-         const content = { rules: ['# Rule'], prompts: {} };
+         const content = { rules: [{ content: '# Rule', name: 'test' }], prompts: {} };
 
          await writeImportedContent(testDir, content);
 
@@ -181,7 +203,7 @@ describe('import-writer', () => {
          await writeFile(join(existingDir, 'original-rule.md'), '# Original Rule', 'utf-8');
 
          // Stage new import
-         const content = { rules: ['# New Rule'], prompts: {} };
+         const content = { rules: [{ content: '# New Rule', name: 'new-rule' }], prompts: {} };
 
          await writeImportedContent(testDir, content);
 
@@ -208,7 +230,7 @@ describe('import-writer', () => {
       });
 
       it('handles rollback when no backup exists', async () => {
-         const content = { rules: ['# Rule'], prompts: {} };
+         const content = { rules: [{ content: '# Rule', name: 'test' }], prompts: {} };
 
          await writeImportedContent(testDir, content);
 
@@ -218,6 +240,19 @@ describe('import-writer', () => {
          // Should not throw, staging should be cleaned
          expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
          expect(existsSync(join(testDir, '.aix', 'imported'))).toBe(false);
+      });
+   });
+
+   describe('rule name edge cases', () => {
+      it('falls back to imported-rule when name sanitizes to empty', async () => {
+         const content = {
+            rules: [{ content: '# Rule', name: '!!!' }],
+            prompts: {},
+         };
+
+         const result = await writeImportedContent(testDir, content);
+
+         expect(result.rules['imported-rule']).toBe('./.aix/imported/rules/imported-rule.md');
       });
    });
 
