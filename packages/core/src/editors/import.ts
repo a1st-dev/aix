@@ -4,6 +4,7 @@ import { join } from 'pathe';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName } from './types.js';
 import type { McpStrategy, RulesStrategy, PromptsStrategy } from './strategies/types.js';
+import type { NamedRule } from '../import-writer.js';
 import { WindsurfRulesStrategy } from './strategies/windsurf/rules.js';
 import { WindsurfPromptsStrategy } from './strategies/windsurf/prompts.js';
 import { WindsurfMcpStrategy } from './strategies/windsurf/mcp.js';
@@ -25,7 +26,7 @@ import { CodexMcpStrategy } from './strategies/codex/mcp.js';
 
 export interface ImportResult {
    mcp: Record<string, McpServerConfig>;
-   rules: string[];
+   rules: NamedRule[];
    skills: Record<string, string>;
    prompts: Record<string, string>;
    warnings: string[];
@@ -122,7 +123,7 @@ export async function importFromEditor(
    Object.assign(result.mcp, globalMcp.mcp);
    result.warnings.push(...globalMcp.warnings);
 
-   const globalRules = await importRules(strategies.rules, 'global');
+   const globalRules = await importGlobalRules(strategies.rules);
 
    if (globalRules.rules.length > 0) {
       result.sources.global = true;
@@ -243,12 +244,11 @@ async function importLocalMcpConfig(
 }
 
 /**
- * Import rules from an editor's global config.
+ * Import rules from an editor's global config. Tags each rule with the name 'global'.
  */
-async function importRules(
+async function importGlobalRules(
    strategy: RulesStrategy,
-   _source: 'global',
-): Promise<{ rules: string[]; warnings: string[] }> {
+): Promise<{ rules: NamedRule[]; warnings: string[] }> {
    const warnings: string[] = [],
          rulesPath = strategy.getGlobalRulesPath();
 
@@ -259,9 +259,13 @@ async function importRules(
    const fullPath = join(homedir(), rulesPath);
 
    try {
-      const content = await readFile(fullPath, 'utf-8');
+      const content = await readFile(fullPath, 'utf-8'),
+            parsed = strategy.parseGlobalRules(content);
 
-      return strategy.parseGlobalRules(content);
+      return {
+         rules: parsed.rules.map((r) => ({ content: r, name: 'global' })),
+         warnings: parsed.warnings,
+      };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
@@ -272,13 +276,13 @@ async function importRules(
 }
 
 /**
- * Import rules from project-local editor config.
+ * Import rules from project-local editor config. Tags each rule with its filename (sans extension).
  */
 async function importLocalRules(
    strategy: RulesStrategy,
    editor: EditorName,
    projectRoot: string,
-): Promise<{ rules: string[]; warnings: string[] }> {
+): Promise<{ rules: NamedRule[]; warnings: string[] }> {
    const warnings: string[] = [],
          configDir = EDITOR_CONFIG_DIRS[editor],
          rulesDir = strategy.getRulesDir(),
@@ -288,14 +292,15 @@ async function importLocalRules(
       const files = await readdir(fullPath),
             ext = strategy.getFileExtension(),
             ruleFiles = files.filter((f) => f.endsWith(ext)),
-            rules: string[] = [];
+            rules: NamedRule[] = [];
 
       for (const file of ruleFiles) {
          try {
             // eslint-disable-next-line no-await-in-loop -- Sequential for simplicity
-            const content = await readFile(join(fullPath, file), 'utf-8');
+            const content = await readFile(join(fullPath, file), 'utf-8'),
+                  name = file.endsWith(ext) ? file.slice(0, -ext.length) : file;
 
-            rules.push(content);
+            rules.push({ content, name });
          } catch {
             // Skip files that can't be read
          }

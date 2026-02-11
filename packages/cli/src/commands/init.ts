@@ -110,10 +110,7 @@ export default class Init extends BaseCommand<typeof Init> {
       }
 
       // Write imported content to .aix/imported/ and get path references
-      const written = await writeImportedContent(process.cwd(), {
-         rules: result.rules,
-         prompts: result.prompts,
-      });
+      const written = await writeImportedContent(process.cwd(), result);
 
       // Build rules object with path references
       const rules: Record<string, { path: string }> = {};
