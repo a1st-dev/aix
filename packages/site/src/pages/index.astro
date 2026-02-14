@@ -1,0 +1,265 @@
+---
+import { Icon } from 'astro-icon/components';
+import TerminalBlock from '../components/TerminalBlock.astro';
+import EditorGrid from '../components/EditorGrid.astro';
+import FeatureCard from '../components/FeatureCard.astro';
+import ComparisonStrip from '../components/ComparisonStrip.astro';
+import logoDarkSrc from '../assets/logo-dark.svg?url';
+
+import '@fontsource/cormorant-garamond/400.css';
+import '@fontsource/cormorant-garamond/500.css';
+import '@fontsource/cormorant-garamond/600.css';
+import '@fontsource/cormorant-garamond/700.css';
+import '@fontsource/instrument-sans/400.css';
+import '@fontsource/instrument-sans/500.css';
+import '@fontsource/instrument-sans/600.css';
+import '@fontsource/instrument-sans/700.css';
+import '../styles/theme.css';
+import '../styles/landing.css';
+
+const title = 'aix — One config file. Every AI editor.';
+const description =
+  'Define your skills, rules, prompts, and MCP servers once in ai.json. Install to Cursor, VS Code, Claude Code, Windsurf, Zed, and Codex with one command.';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+
+  <body>
+    <!-- Grain overlay -->
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+      <div class="nav__inner">
+        <a href="/" class="nav__logo" aria-label="aix home">
+          <img src={logoDarkSrc} class="nav__logo-mark" alt="" aria-hidden="true" />
+        </a>
+        <div class="nav__links">
+          <a href="/getting-started/installation/" class="nav__link">Docs</a>
+          <a
+            href="https://github.com/a1st-dev/aix"
+            class="nav__link nav__link--github"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Icon name="simple-icons:github" class="nav__github-icon" />
+            GitHub
+            <Icon name="lucide:external-link" class="nav__external-icon" />
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero__container">
+        <div class="hero__accent-line" aria-hidden="true"></div>
+        <h1 class="hero__title">
+          <span class="hero__title-line hero__title-line--1">One config file.</span>
+          <span class="hero__title-line hero__title-line--2">Every AI editor.</span>
+        </h1>
+        <p class="hero__subtitle">
+          Define your
+          <a target="_blank" href="https://agentskills.io/home" class="highlight">skills</a>,
+          <a target="_blank" href="https://cursor.com/docs/context/rules" class="highlight">rules</a>,
+          <a target="_blank" href="https://cursor.com/docs/context/commands" class="highlight">prompts</a>, and
+          <a target="_blank" href="https://modelcontextprotocol.io/specification/2025-11-25" class="highlight">MCP servers</a> in
+          <code>ai.json</code>. Install to Cursor, VS Code, Claude Code, Windsurf,
+          Zed, or Codex with one command.
+        </p>
+        <div class="hero__terminal">
+          <TerminalBlock
+            lines={[
+              "$ npm install -g @a1st/aix",
+              "$ aix init",
+              "✓ Created ai.json",
+              "$ aix add skill github:obra/superpowers:skills/brainstorming",
+              "✓ Added skill brainstorming",
+              "$ aix install --to claude-code",
+              "✓ Claude Code — 1 rule",
+            ]}
+            typing
+          />
+        </div>
+        <div class="hero__cta-row">
+          <a href="/getting-started/installation/" class="hero__cta">
+            Get Started
+          </a>
+          <a
+            href="https://github.com/a1st-dev/aix"
+            class="hero__cta hero__cta--secondary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Editors -->
+    <section class="section editors-section">
+      <div class="section__inner">
+        <span class="section__eyebrow">Works with</span>
+        <EditorGrid />
+      </div>
+    </section>
+
+    <!-- Comparison -->
+    <section class="section comparison-section">
+      <div class="section__inner">
+        <h2 class="section__title">Stop wrangling config files.</h2>
+        <p class="section__desc">
+          Define your skills and rules once in <code>ai.json</code>. aix
+          generates the native config files needed for Cursor, VS Code,
+          Windsurf, Claude, and more.
+        </p>
+        <ComparisonStrip />
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section features-section">
+      <div class="section__inner">
+        <span class="section__eyebrow">Features</span>
+        <div class="features-section__cards">
+          <FeatureCard
+            label="aix install"
+            title="Write once. Run anywhere."
+            description="aix compiles your high-level config into the native formats required by each editor. Works with Cursor, VS Code, Claude Code, Windsurf, Zed, and Codex."
+            code={`$ aix install
+
+  ✓ Cursor      .cursor/mcp.json
+  ✓ VS Code     .vscode/settings.json
+  ✓ Claude Code .claude/config.json
+  ✓ Windsurf    .windsurf/mcp_config.json
+  ✓ Zed         .config/zed/settings.json`}
+            delay={0.2}
+          />
+
+          <FeatureCard
+            label="extends"
+            title="Standardize your team or project's AI config."
+            description="Extend from npm packages, GitHub repos, or local paths. Layer your company's base config with project-specific overrides — same pattern as tsconfig.json."
+            language="json"
+            code={`{
+  "extends": "github:company/ai-config",
+  "skills": {
+    "brainstorming": "github:obra/superpowers:skills/brainstorming"
+  }
+}`}
+            reverse
+            delay={0.4}
+          />
+
+          <FeatureCard
+            label="aix search"
+            title="Find skills and MCP servers."
+            description="Interactive search across npm and the official MCP Registry. Browse, preview, and install in one step — without leaving the terminal."
+            code={`$ aix search filesystem
+
+  ┌─────────────────────────────────────────────────────┐
+  │ MCP Server                                Transport │
+  ├─────────────────────────────────────────────────────┤
+  │ ◈ @modelcontextprotocol/server-filesystem stdio     │
+  │ ◈ @modelcontextprotocol/server-memory     stdio     │
+  │ ◈ @modelcontextprotocol/server-postgres   stdio     │
+  └─────────────────────────────────────────────────────┘`}
+            delay={0.6}
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="section how-section">
+      <div class="section__inner">
+        <h2 class="section__title">Three commands. That's it.</h2>
+        <div class="how-section__steps">
+          <div class="how-step">
+            <span class="how-step__number">1</span>
+            <div class="how-step__content">
+              <h3 class="how-step__title">Initialize</h3>
+              <p class="how-step__desc">
+                Create an <code>ai.json</code>.
+              </p>
+              <p class="how-step__desc">Optionally, import your
+                existing editor/agent config with <code>--from claude-code</code>.
+              </p>
+              <code class="how-step__cmd">aix init</code>
+            </div>
+          </div>
+          <div class="how-step">
+            <span class="how-step__number">2</span>
+            <div class="how-step__content">
+              <h3 class="how-step__title">Configure</h3>
+              <p class="how-step__desc">
+                Add skills, rules, prompts, and MCP servers — from files,
+                GitHub, or npm.
+              </p>
+              <code class="how-step__cmd">aix add skill react</code>
+            </div>
+          </div>
+          <div class="how-step">
+            <span class="how-step__number">3</span>
+            <div class="how-step__content">
+              <h3 class="how-step__title">Install</h3>
+              <p class="how-step__desc">
+                Sync your config to every detected editor. Run it again
+                whenever you change <code>ai.json</code>.
+              </p>
+              <code class="how-step__cmd">aix install</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Footer -->
+    <section class="section cta-section">
+      <div class="section__inner">
+        <h2 class="cta-section__title">Get started in 30 seconds.</h2>
+        <div class="cta-section__install">
+          <code>npm install -g @a1st/aix</code>
+        </div>
+        <div class="cta-section__links">
+          <a href="/getting-started/installation/" class="hero__cta">
+            Read the Docs
+          </a>
+          <a
+            href="https://github.com/a1st-dev/aix"
+            class="hero__cta hero__cta--secondary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View on GitHub →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer__inner">
+        <span class="footer__logo"><span class="footer__logo-ai">ai</span>x</span>
+        <span class="footer__sep">·</span>
+        <span class="footer__text">MIT License</span>
+        <span class="footer__sep">·</span>
+        <a
+          href="https://github.com/a1st-dev/aix"
+          class="footer__link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub
+        </a>
+      </div>
+    </footer>
+  </body>
+</html>
