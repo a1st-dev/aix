@@ -9,6 +9,11 @@
       "mcp",
       "model-context-protocol"
    ],
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/core"
+   },
    "files": [
       "dist"
    ],
@@ -20,11 +25,6 @@
          "types": "./dist/index.d.ts",
          "import": "./dist/index.js"
       }
-   },
-   "repository": {
-      "type": "git",
-      "url": "https://github.com/a1st-dev/aix.git",
-      "directory": "packages/core"
    },
    "publishConfig": {
       "access": "public",

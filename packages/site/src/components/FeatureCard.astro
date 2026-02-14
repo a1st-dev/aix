@@ -1,0 +1,173 @@
+---
+/**
+ * Asymmetric feature card with code snippet and description.
+ */
+interface Props {
+  label: string;
+  title: string;
+  description: string;
+  code?: string;
+  language?: 'json' | 'text';
+  reverse?: boolean;
+  delay?: number;
+}
+
+const {
+  label,
+  title,
+  description,
+  code,
+  language = 'text',
+  reverse = false,
+  delay = 0,
+} = Astro.props;
+
+const highlightJson = (input: string) => {
+  const escaped = input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const tokens: string[] = [];
+  const withCommentTokens = escaped.replace(/(^|\s)(\/\/.*)$/gm, (match, lead, comment) => {
+    const token = `__TOKEN_${tokens.length}__`;
+    tokens.push(`${lead}<span class="code-token code-token--comment">${comment}</span>`);
+    return token;
+  });
+
+  const withStringTokens = withCommentTokens.replace(/"(\\.|[^"\\])*"/g, (match, _content, offset) => {
+    const rest = withCommentTokens.slice(offset + match.length);
+    const isKey = /^\s*:/.test(rest);
+    const token = `__TOKEN_${tokens.length}__`;
+    tokens.push(
+      `<span class="code-token ${isKey ? 'code-token--key' : 'code-token--string'}">${match}</span>`
+    );
+    return token;
+  });
+
+  const withLiterals = withStringTokens
+    .replace(/\b(true|false|null)\b/g, '<span class="code-token code-token--literal">$1</span>')
+    .replace(/\b-?\d+(?:\.\d+)?\b/g, '<span class="code-token code-token--number">$&</span>');
+
+  return withLiterals.replace(/__TOKEN_(\d+)__/g, (_match, index) => tokens[Number(index)]);
+};
+---
+
+<div
+  class:list={["feature-card", { "feature-card--reverse": reverse }]}
+  style={`animation-delay: ${delay}s`}
+>
+  <div class="feature-card__text">
+    <span class="feature-card__label">{label}</span>
+    <h3 class="feature-card__title">{title}</h3>
+    <p class="feature-card__desc">{description}</p>
+  </div>
+  {code && (
+    <div class="feature-card__code">
+      {language === "json" ? (
+        <pre><code set:html={highlightJson(code)}></code></pre>
+      ) : (
+        <pre><code>{code}</code></pre>
+      )}
+    </div>
+  )}
+</div>
+
+<style>
+  .feature-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+    align-items: center;
+    padding: 2.5rem 0;
+    opacity: 0;
+    animation: cardReveal 0.6s ease forwards;
+  }
+  .feature-card--reverse {
+    direction: rtl;
+  }
+  .feature-card--reverse > * {
+    direction: ltr;
+  }
+  .feature-card__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .feature-card__label {
+    font-family: var(--sl-font-system-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--sl-color-accent);
+    opacity: 0.8;
+  }
+  .feature-card__title {
+    font-family: var(--aix-font-display);
+    font-size: 1.65rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+  }
+  .feature-card__desc {
+    font-family: var(--sl-font);
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: var(--sl-color-gray-3);
+    margin: 0;
+  }
+  .feature-card__code {
+    background: var(--aix-surface-deep);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    overflow-x: auto;
+  }
+  .feature-card__code pre {
+    margin: 0;
+    font-family: var(--sl-font-system-mono);
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--sl-color-gray-2);
+    white-space: pre;
+  }
+  .feature-card__code .code-token--comment {
+    color: var(--sl-color-gray-4);
+    font-style: italic;
+  }
+  .feature-card__code .code-token--key {
+    color: var(--sl-color-accent);
+  }
+  .feature-card__code .code-token--string {
+    color: var(--aix-code-string);
+  }
+  .feature-card__code .code-token--number {
+    color: var(--aix-code-number);
+  }
+  .feature-card__code .code-token--literal {
+    color: var(--aix-code-literal);
+  }
+
+  @keyframes cardReveal {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .feature-card {
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+    .feature-card--reverse {
+      direction: ltr;
+    }
+  }
+</style>

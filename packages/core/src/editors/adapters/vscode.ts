@@ -5,8 +5,9 @@ import {
    VSCodeRulesStrategy,
    VSCodeMcpStrategy,
    VSCodePromptsStrategy,
+   VSCodeHooksStrategy,
 } from '../strategies/vscode/index.js';
-import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -17,7 +18,7 @@ import type {
 
 /**
  * VS Code (GitHub Copilot) editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
- * MCP config to `.vscode/mcp.json`, and skills to `.github/skills/`. VS Code doesn't support hooks.
+ * MCP config to `.vscode/mcp.json`, skills to `.github/skills/`, and hooks to `.github/hooks/hooks.json`.
  * Skills are installed to `.aix/skills/{name}/` with symlinks from `.github/skills/` since VS Code
  * has native Agent Skills support.
  */
@@ -39,7 +40,7 @@ export class VSCodeAdapter extends BaseEditorAdapter {
       editorSkillsDir: '.github/skills',
    });
    protected readonly promptsStrategy: PromptsStrategy = new VSCodePromptsStrategy();
-   protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
+   protected readonly hooksStrategy: HooksStrategy = new VSCodeHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 

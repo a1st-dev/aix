@@ -23,8 +23,12 @@
       ],
       "max-depth": ["warn", { "max": 4 }],
       "max-nested-callbacks": ["warn", { "max": 3 }],
-      "max-lines-per-function": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
-      "max-params": ["warn", { "max": 4 }]
+      "max-lines-per-function": [
+         "warn",
+         { "max": 300, "skipBlankLines": true, "skipComments": true }
+      ],
+      "max-params": ["warn", { "max": 4 }],
+      "typescript/triple-slash-reference": "off"
    },
    "overrides": [
       {
@@ -33,7 +37,24 @@
             "max-nested-callbacks": "off",
             "max-lines-per-function": "off"
          }
+      },
+      {
+         "files": ["**/*.astro"],
+         "rules": {
+            "@stylistic/indent": "off",
+            "@stylistic/semi": "off",
+            "@stylistic/brace-style": "off",
+            "@stylistic/padding-line-between-statements": "off",
+            "max-lines-per-function": "off"
+         }
       }
    ],
-   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.js", "**/*.cjs", "**/*.mjs", "**/.aix/**"]
+   "ignorePatterns": [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/*.js",
+      "**/*.cjs",
+      "**/*.mjs",
+      "**/.aix/**"
+   ]
 }

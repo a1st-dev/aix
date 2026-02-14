@@ -1,0 +1,232 @@
+/* ============================================
+   aix — Editorial Design System
+   Warm dark tones · Serif display · Geometric accents
+   ============================================ */
+
+/* ----- Starlight Theme Overrides ----- */
+
+:root {
+   --sl-font: "Instrument Sans", "Segoe UI", sans-serif;
+   --sl-font-system-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+
+   --sl-color-white: #f5f0e8;
+   --sl-color-gray-1: #e8e0d4;
+   --sl-color-gray-2: #c4b9a8;
+   --sl-color-gray-3: #9a8e7d;
+   --sl-color-gray-4: #6b6054;
+   --sl-color-gray-5: #3d3630;
+   --sl-color-gray-6: #252019;
+
+   --sl-color-accent-low: #2a2318;
+   --sl-color-accent: #d4a853;
+   --sl-color-accent-high: #f0ddb8;
+
+   --sl-color-bg-nav: #1e1a15;
+   --sl-color-bg-sidebar: #1a1715;
+   --sl-color-bg: #1a1715;
+   --sl-color-hairline-light: #3d3630;
+   --sl-color-hairline-shade: #252019;
+
+   /* Expressive Code Overrides - Dark */
+   --ec-frm-trmBg: var(--sl-color-gray-6);
+   --ec-frm-trmTtbBg: var(--sl-color-gray-6);
+   --ec-frm-edBg: var(--sl-color-gray-6);
+   --ec-frm-edTabBarBg: var(--sl-color-gray-6);
+   --ec-codeBg: var(--sl-color-gray-6);
+   --ec-brdCol: transparent;
+
+   /* ----- Shared Design Tokens ----- */
+
+   --aix-font-display: "Cormorant Garamond", Georgia, serif;
+
+   /* Surface depth levels */
+   --aix-surface-deep: #0e0c0a;
+   --aix-surface-sunken: #161310;
+
+   /* Accent variants */
+   --aix-accent-hover: #e0b964;
+   --aix-accent-subtle: rgba(212, 168, 83, 0.1);
+   --aix-accent-ghost: rgba(212, 168, 83, 0.08);
+   --aix-accent-glow: rgba(212, 168, 83, 0.06);
+   --aix-accent-shadow: rgba(212, 168, 83, 0.25);
+   --aix-accent-selection: rgba(212, 168, 83, 0.3);
+   --aix-accent-subtle-bg: rgba(212, 168, 83, 0.1);
+
+   /* Nav backdrop */
+   --aix-nav-bg: rgba(26, 23, 21, 0.85);
+   --aix-nav-border: rgba(61, 54, 48, 0.5);
+
+   /* Semantic */
+   --aix-success: #7a8c6e;
+   --aix-success-subtle: rgba(122, 140, 110, 0.15);
+   --aix-success-border: rgba(122, 140, 110, 0.25);
+   --aix-error: #c4756e;
+   --aix-error-subtle: rgba(196, 117, 110, 0.1);
+   --aix-error-border: rgba(196, 117, 110, 0.15);
+   --aix-error-muted: rgba(196, 117, 110, 0.4);
+
+   /* Code syntax */
+   --aix-code-string: #caa06b;
+   --aix-code-number: #8bb19a;
+   --aix-code-literal: #9db1d0;
+}
+
+:root[data-theme="light"] {
+   --sl-color-white: #1a1715;
+   --sl-color-gray-1: #3d3630;
+   --sl-color-gray-2: #6b6054;
+   --sl-color-gray-3: #9a8e7d;
+   --sl-color-gray-4: #c4b9a8;
+   --sl-color-gray-5: #e8e0d4;
+   --sl-color-gray-6: #faf7f2;
+
+   --sl-color-accent-low: #f5ecd9;
+   --sl-color-accent: #a07b2e;
+   --sl-color-accent-high: #3d2e0f;
+
+   --sl-color-bg-nav: #f5f0e8;
+   --sl-color-bg: #faf7f2;
+   --sl-color-bg-sidebar: #faf7f2;
+
+   --sl-color-hairline-light: #e8e0d4;
+   --sl-color-hairline-shade: #c4b9a8;
+
+   /* Expressive Code Overrides - Light */
+   --ec-frm-trmBg: var(--sl-color-gray-6);
+   --ec-frm-trmTtbBg: var(--sl-color-gray-6);
+   --ec-frm-edBg: var(--sl-color-gray-6);
+   --ec-frm-edTabBarBg: var(--sl-color-gray-6);
+   --ec-codeBg: var(--sl-color-gray-6);
+   --ec-brdCol: transparent;
+}
+
+/* ---- Headings: Cormorant Garamond ---- */
+starlight-content h1,
+starlight-content h2,
+starlight-content h3,
+starlight-content h4,
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+   font-family: "Cormorant Garamond", Georgia, serif;
+   font-weight: 600;
+   letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h1 {
+   font-size: 2.5rem;
+   line-height: 1.15;
+   margin-top: 0;
+}
+
+.sl-markdown-content h2 {
+   font-size: 1.75rem;
+   line-height: 1.25;
+   padding-bottom: 0.5rem;
+   border-bottom: 1px solid var(--sl-color-hairline-light);
+}
+
+.sl-markdown-content h3 {
+   font-size: 1.35rem;
+}
+
+/* ---- Code blocks ---- */
+.sl-markdown-content pre {
+   border: 1px solid var(--sl-color-hairline-light);
+   border-radius: 8px;
+}
+
+.sl-markdown-content code:not(pre code) {
+   background: var(--sl-color-accent-low);
+   color: var(--sl-color-accent-high);
+   padding: 0.15em 0.4em;
+   border-radius: 4px;
+   font-size: 0.9em;
+}
+
+/* ---- Sidebar refinements ---- */
+nav.sidebar .top-level > li > details > summary,
+nav.sidebar .top-level > li > a {
+   font-family: var(--sl-font-system-mono);
+   font-weight: 400;
+   font-size: 0.7rem;
+   letter-spacing: 0.14em;
+   text-transform: uppercase;
+}
+
+/* ---- Tables ---- */
+.sl-markdown-content table {
+   border-collapse: collapse;
+   width: 100%;
+}
+
+.sl-markdown-content th {
+   font-family: "Cormorant Garamond", Georgia, serif;
+   font-weight: 600;
+   text-transform: uppercase;
+   font-size: 0.85rem;
+   letter-spacing: 0.06em;
+}
+
+.sl-markdown-content th,
+.sl-markdown-content td {
+   border: 1px solid var(--sl-color-hairline-light);
+   padding: 0.6rem 0.8rem;
+}
+
+.sl-markdown-content tr:nth-child(even) {
+   background: var(--aix-accent-glow);
+}
+
+/* ---- Aside/callout accent ---- */
+.starlight-aside--tip {
+   border-color: var(--sl-color-accent);
+}
+
+/* ---- Smooth scrolling ---- */
+html {
+   scroll-behavior: smooth;
+}
+
+/* ---- Selection color ---- */
+::selection {
+   background: var(--aix-accent-selection);
+   color: inherit;
+}
+
+/* ---- Background Pattern ---- */
+html {
+   background-color: var(--sl-color-bg, #1a1715);
+}
+
+body {
+   background-color: transparent;
+}
+
+body::after {
+   content: "";
+   display: block;
+   position: fixed;
+   top: 0;
+   left: 0;
+   width: 100vw;
+   height: 100vh;
+   pointer-events: none;
+   z-index: -1;
+
+   background-image: url("/pattern.svg");
+   background-repeat: repeat;
+   background-size: 600px;
+   opacity: 0.04;
+}
+
+.highlight {
+   background: var(--aix-accent-subtle-bg);
+   color: var(--sl-color-accent);
+   padding-inline: 0.25em;
+}
+
+a:hover:not([class*="cta"]) {
+   text-decoration: underline;
+}

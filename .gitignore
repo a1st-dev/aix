@@ -10,6 +10,9 @@ coverage/
 
 oclif.manifest.json
 
+.vercel/
+.astro/
+
 # AIX and other editor config flies
 .aix/.tmp
 ai.local.json
@@ -18,6 +21,8 @@ ai.local.json
 .cursor
 .kiro
 .vscode
+.github
+.claude
 
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)

@@ -4,7 +4,7 @@ import { OGImageRoute } from 'astro-og-canvas';
 const docs = await getCollection('docs');
 
 const pages: Record<string, { title: string; description?: string }> = Object.fromEntries(
-   docs.map((entry) => [entry.data.slug ?? entry.id, { title: entry.data.title, description: entry.data.description }]),
+   docs.map((entry) => [entry.id, { title: entry.data.title, description: entry.data.description }]),
 );
 
 // Landing page

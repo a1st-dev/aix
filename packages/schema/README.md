@@ -18,11 +18,11 @@ This package defines the structure and validation for `ai.json` files. It's used
 
 ```typescript
 import {
-  parseConfig,          // Parse and validate a full ai.json config
-  parseLocalConfig,     // Parse config allowing local-only fields
-  aiJsonSchema,         // Zod schema for ai.json
-  type AiJsonConfig,    // TypeScript type for validated config
-} from '@a1st/aix-schema';
+   parseConfig, // Parse and validate a full ai.json config
+   parseLocalConfig, // Parse config allowing local-only fields
+   aiJsonSchema, // Zod schema for ai.json
+   type AiJsonConfig, // TypeScript type for validated config
+} from "@a1st/aix-schema";
 ```
 
 ## JSON Schema
@@ -31,7 +31,7 @@ The package exports `schema.json` for IDE integration:
 
 ```json
 {
-  "$schema": "node_modules/@a1st/aix-schema/schema.json"
+   "$schema": "node_modules/@a1st/aix-schema/schema.json"
 }
 ```
 

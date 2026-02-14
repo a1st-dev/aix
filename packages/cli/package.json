@@ -3,20 +3,25 @@
    "version": "0.0.4",
    "description": "CLI for aix - unified AI agent configuration",
    "keywords": [
+      "agents",
+      "ai",
       "ai-config",
       "claude",
       "claude-code",
+      "cli",
       "codex",
       "cursor",
-      "windsurf",
-      "vscode",
-      "zed",
-      "cli",
+      "mcp",
       "skills",
-      "agents",
-      "ai",
-      "mcp"
+      "vscode",
+      "windsurf",
+      "zed"
    ],
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/cli"
+   },
    "bin": {
       "aix": "./bin/run.js"
    },
@@ -29,11 +34,6 @@
    "type": "module",
    "main": "./dist/index.js",
    "types": "./dist/index.d.ts",
-   "repository": {
-      "type": "git",
-      "url": "https://github.com/a1st-dev/aix.git",
-      "directory": "packages/cli"
-   },
    "publishConfig": {
       "access": "public",
       "registry": "https://registry.npmjs.org/"

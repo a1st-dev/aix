@@ -17,12 +17,12 @@ This package is used internally by `@a1st/aix` (the CLI). It handles:
 
 ```typescript
 import {
-  loadConfig,           // Load ai.json from path or remote source
-  installToEditor,      // Install config to a specific editor
-  resolveAllSkills,     // Resolve skill references to parsed skills
-  updateConfig,         // Safely update ai.json with backup
-  mergeConfigs,         // Merge two configs together
-} from '@a1st/aix-core';
+   loadConfig, // Load ai.json from path or remote source
+   installToEditor, // Install config to a specific editor
+   resolveAllSkills, // Resolve skill references to parsed skills
+   updateConfig, // Safely update ai.json with backup
+   mergeConfigs, // Merge two configs together
+} from "@a1st/aix-core";
 ```
 
 ## Installation

@@ -1,0 +1,147 @@
+---
+/**
+ * Terminal-style code block with window chrome and syntax coloring.
+ * Usage: <TerminalBlock title="Terminal" lines={["$ npm install -g @a1st/aix", "$ aix install"]} />
+ */
+interface Props {
+  title?: string;
+  lines: string[];
+  typing?: boolean;
+}
+
+const { title = 'Terminal', lines, typing = false } = Astro.props;
+---
+
+<div class="terminal-block">
+  <div class="terminal-chrome">
+    <span class="terminal-dot terminal-dot--red"></span>
+    <span class="terminal-dot terminal-dot--yellow"></span>
+    <span class="terminal-dot terminal-dot--green"></span>
+    <span class="terminal-title">{title}</span>
+  </div>
+  <div class="terminal-body">
+    {lines.map((line, i) => (
+      <div class="terminal-line" style={`animation-delay: ${i * 0.12}s`}>
+        {line.startsWith("$") ? (
+          <>
+            <span class="terminal-prompt">$</span>
+            <span class="terminal-cmd">{line.slice(2)}</span>
+          </>
+        ) : line.startsWith("#") ? (
+          <span class="terminal-comment">{line}</span>
+        ) : line.startsWith("✓") || line.startsWith("✔") ? (
+          <span class="terminal-success">{line}</span>
+        ) : line.startsWith("→") ? (
+          <span class="terminal-info">{line}</span>
+        ) : (
+          <span class="terminal-output">{line}</span>
+        )}
+      </div>
+    ))}
+    {typing && <div class="terminal-cursor" />}
+  </div>
+</div>
+
+<style>
+  .terminal-block {
+    background: var(--aix-surface-deep);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: var(--sl-font-system-mono);
+    font-size: 0.85rem;
+    line-height: 1.7;
+    max-width: 640px;
+    width: 100%;
+    text-align: left;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      0 0 0 1px var(--aix-accent-glow);
+  }
+  .terminal-chrome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--aix-surface-sunken);
+    border-bottom: 1px solid var(--sl-color-hairline-shade);
+  }
+  .terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .terminal-dot--red {
+    background: var(--aix-error);
+  }
+  .terminal-dot--yellow {
+    background: var(--sl-color-accent);
+  }
+  .terminal-dot--green {
+    background: var(--aix-success);
+  }
+  .terminal-title {
+    margin-left: 8px;
+    color: var(--sl-color-gray-4);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+  .terminal-body {
+    padding: 16px 20px 20px;
+  }
+  .terminal-line {
+    opacity: 0;
+    animation: termReveal 0.4s ease forwards;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .terminal-prompt {
+    color: var(--sl-color-accent);
+    margin-right: 8px;
+    user-select: none;
+  }
+  .terminal-cmd {
+    color: var(--sl-color-white);
+  }
+  .terminal-output {
+    color: var(--sl-color-gray-3);
+  }
+  .terminal-comment {
+    color: var(--sl-color-gray-4);
+    font-style: italic;
+  }
+  .terminal-success {
+    color: var(--aix-success);
+  }
+  .terminal-info {
+    color: var(--sl-color-accent);
+  }
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--sl-color-accent);
+    animation: blink 1s step-end infinite;
+    margin-top: 4px;
+    vertical-align: text-bottom;
+  }
+  @keyframes termReveal {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

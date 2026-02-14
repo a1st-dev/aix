@@ -1,0 +1,26 @@
+{
+   "$schema": "https://x.a1st.dev/schemas/v1/ai.json",
+   "skills": {
+      "npm-search": {
+         "path": "./skills/npm-search/"
+      }
+   },
+   "mcp": {},
+   "rules": {
+      "general": "./rules/general.md",
+      "css-scss": "./rules/css-scss.md",
+      "do-not": "./rules/do-not.md",
+      "git": "./rules/git.md",
+      "mcps": "./rules/mcps.md",
+      "npm": "./rules/npm.md",
+      "testing": "./rules/testing.md",
+      "typescript-javascript": "./rules/typescript-javascript.md",
+      "vue": "./rules/vue.md",
+      "writing": "./rules/writing.md"
+   },
+   "prompts": {
+      "add-skill": "./prompts/add-skill.md",
+      "plan": "./prompts/plan.md",
+      "implement-plan": "./prompts/implement-plan.md"
+   }
+}

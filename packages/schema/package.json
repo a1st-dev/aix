@@ -9,6 +9,11 @@
       "validation",
       "zod"
    ],
+   "repository": {
+      "type": "git",
+      "url": "https://github.com/a1st-dev/aix.git",
+      "directory": "packages/schema"
+   },
    "files": [
       "dist",
       "schema.json"
@@ -21,11 +26,6 @@
          "types": "./dist/index.d.ts",
          "import": "./dist/index.js"
       }
-   },
-   "repository": {
-      "type": "git",
-      "url": "https://github.com/a1st-dev/aix.git",
-      "directory": "packages/schema"
    },
    "publishConfig": {
       "access": "public",

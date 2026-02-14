@@ -1,0 +1,135 @@
+---
+/**
+ * Horizontal row of supported editor names with a connecting line motif.
+ * Icons from simple-icons via astro-icon.
+ */
+import { Icon } from 'astro-icon/components';
+
+const editors = [
+  { name: 'Cursor', icon: 'simple-icons:cursor' },
+  { name: 'VS Code', icon: 'simple-icons:visualstudiocode' },
+  { name: 'Claude Code', icon: 'simple-icons:anthropic' },
+  { name: 'Windsurf', icon: 'simple-icons:codeium' },
+  { name: 'Zed', icon: 'simple-icons:zedindustries' },
+  { name: 'Codex', icon: 'simple-icons:openai' },
+];
+---
+
+<div class="editor-grid">
+  <div class="editor-grid__line" aria-hidden="true"></div>
+  <div class="editor-grid__items">
+    {editors.map((editor, i) => (
+      <div
+        class="editor-grid__item"
+        style={`animation-delay: ${0.3 + i * 0.08}s`}
+      >
+        <span class="editor-grid__icon">
+          <Icon name={editor.icon} />
+        </span>
+        <span class="editor-grid__name">{editor.name}</span>
+        <span class="editor-grid__dot" aria-hidden="true"></span>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .editor-grid {
+    position: relative;
+    padding: 2rem 0;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .editor-grid__line {
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    right: 5%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--sl-color-accent) 20%,
+      var(--sl-color-accent) 80%,
+      transparent
+    );
+    opacity: 0.3;
+  }
+  .editor-grid__items {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    position: relative;
+  }
+  .editor-grid__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem;
+    position: relative;
+    opacity: 0;
+    animation: editorReveal 0.5s ease forwards;
+  }
+  .editor-grid__icon {
+    color: var(--sl-color-accent);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 10px;
+    background: var(--sl-color-bg-nav);
+    transition:
+      border-color 0.3s,
+      transform 0.3s;
+  }
+  .editor-grid__icon :global(svg) {
+    width: 24px;
+    height: 24px;
+  }
+  .editor-grid__item:hover .editor-grid__icon {
+    border-color: var(--sl-color-accent);
+    transform: translateY(-3px);
+  }
+  .editor-grid__name {
+    font-family: var(--sl-font);
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .editor-grid__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--sl-color-accent);
+    opacity: 0.5;
+    position: absolute;
+    bottom: -14px;
+  }
+  @keyframes editorReveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 600px) {
+    .editor-grid__items {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .editor-grid__line {
+      display: none;
+    }
+    .editor-grid__dot {
+      display: none;
+    }
+  }
+</style>
