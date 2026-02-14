@@ -5,6 +5,11 @@ import type { HooksStrategy } from '../types.js';
  * Map from generic ai.json hook events to Cursor's camelCase event names.
  */
 const EVENT_MAP: Record<string, string> = {
+   session_start: 'sessionStart',
+   session_end: 'sessionEnd',
+   pre_tool_use: 'preToolUse',
+   post_tool_use: 'postToolUse',
+   pre_file_read: 'beforeReadFile',
    pre_command: 'beforeShellExecution',
    post_command: 'afterShellExecution',
    pre_mcp_tool: 'beforeMCPExecution',
@@ -18,6 +23,11 @@ const EVENT_MAP: Record<string, string> = {
  * Events that Cursor supports.
  */
 const SUPPORTED_EVENTS = new Set([
+   'session_start',
+   'session_end',
+   'pre_tool_use',
+   'post_tool_use',
+   'pre_file_read',
    'pre_command',
    'post_command',
    'pre_mcp_tool',
@@ -57,6 +67,7 @@ export class CursorHooksStrategy implements HooksStrategy {
          cursorHooks[cursorEvent] = matchers.flatMap((matcher: HookMatcher) =>
             matcher.hooks.map((hook) => ({
                command: hook.command,
+               ...(matcher.matcher && { matcher: matcher.matcher }),
                ...(hook.timeout && { timeout: hook.timeout }),
             })),
          );
