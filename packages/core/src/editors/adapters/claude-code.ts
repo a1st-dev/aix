@@ -28,9 +28,9 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
 
    getGlobalDataPaths(): Record<string, string[]> {
       return {
-         darwin: ['Library/Application Support/Claude'],
-         linux: ['.config/Claude'],
-         win32: ['AppData/Roaming/Claude'],
+         darwin: ['.claude', 'Library/Application Support/Claude'],
+         linux: ['.claude', '.config/Claude'],
+         win32: ['.claude', 'AppData/Roaming/Claude'],
       };
    }
 
