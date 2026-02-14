@@ -283,7 +283,8 @@ export default class Install extends BaseCommand<typeof Install> {
             const detected = await detectEditors(projectRoot);
 
             if (detected.length === 0) {
-               this.output.warn('No editors detected. Use --target to specify an editor.');
+               this.output.warn('No editors detected.');
+               this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
                return null;
             }
             if (detected.length === 1) {
@@ -303,7 +304,8 @@ export default class Install extends BaseCommand<typeof Install> {
       }
 
       if (editors.length === 0) {
-         this.output.warn('No editors found. Use --target to specify an editor.');
+         this.output.warn('No editors found.');
+         this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
          return null;
       }
 
