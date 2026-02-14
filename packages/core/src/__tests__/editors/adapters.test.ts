@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ import {
    detectEditors,
    installToEditor,
 } from '../../editors/index.js';
+import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
 import { safeRm } from '../../fs/safe-rm.js';
 
 const createMcpServer = (command: string, args: string[] = []): McpServerConfig => {
@@ -319,7 +321,7 @@ describe('Editor Adapters', () => {
          expect(await adapter.detect(testDir)).toBe(false);
       });
 
-      it('writes all rules to a single AGENTS.md file', async () => {
+      it('writes always-activation rules to AGENTS.md at project root', async () => {
          const config = createConfig({
             rules: {
                'rule-one': { activation: 'always', content: 'First rule content' },
@@ -329,13 +331,81 @@ describe('Editor Adapters', () => {
 
          await installToEditor('codex', config, testDir);
 
-         const agentsContent = await readFile(join(testDir, '.codex/AGENTS.md'), 'utf-8');
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
 
          expect(agentsContent).toContain('# AGENTS.md');
          expect(agentsContent).toContain('## rule-one');
          expect(agentsContent).toContain('First rule content');
          expect(agentsContent).toContain('## rule-two');
          expect(agentsContent).toContain('Second rule content');
+      });
+
+      it('places glob-scoped rules in subdirectory AGENTS.md files', async () => {
+         const config = createConfig({
+            rules: {
+               'root-rule': { activation: 'always', content: 'Root content' },
+               'src-rule': {
+                  activation: 'glob',
+                  globs: ['src/utils/**/*.ts'],
+                  content: 'Src utils content',
+               },
+            },
+         });
+
+         await installToEditor('codex', config, testDir);
+
+         // Root rule goes to project-root AGENTS.md
+         const rootContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(rootContent).toContain('## root-rule');
+         expect(rootContent).toContain('Root content');
+         expect(rootContent).not.toContain('Src utils content');
+
+         // Glob rule goes to subdirectory AGENTS.md
+         const subContent = await readFile(join(testDir, 'src/utils/AGENTS.md'), 'utf-8');
+
+         expect(subContent).toContain('## src-rule');
+         expect(subContent).toContain('Src utils content');
+      });
+
+      it('keeps glob rules without a clear directory prefix in root AGENTS.md', async () => {
+         const config = createConfig({
+            rules: {
+               'broad-glob': {
+                  activation: 'glob',
+                  globs: ['**/*.test.ts'],
+                  content: 'Test file rule',
+               },
+            },
+         });
+
+         await installToEditor('codex', config, testDir);
+
+         const rootContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(rootContent).toContain('## broad-glob');
+         expect(rootContent).toContain('Test file rule');
+      });
+
+      it('removes legacy .codex/AGENTS.md on install', async () => {
+         // Create legcy file
+         await mkdir(join(testDir, '.codex'), { recursive: true });
+         await writeFile(join(testDir, '.codex/AGENTS.md'), '# old content');
+
+         const config = createConfig({
+            rules: {
+               'new-rule': { activation: 'always', content: 'New content' },
+            },
+         });
+
+         await installToEditor('codex', config, testDir);
+
+         // Legacy file should be removed
+         expect(existsSync(join(testDir, '.codex/AGENTS.md'))).toBe(false);
+         // New file at project root
+         const rootContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(rootContent).toContain('New content');
       });
 
       // Note: Codex MCP is global-only (~/.codex/config.toml), so project-level MCP is not supported
@@ -595,7 +665,7 @@ describe('Editor Adapters', () => {
    });
 
    describe('Unsupported feature detection', () => {
-      it('VS Code reports unsupported hooks but not MCP', async () => {
+      it('VS Code reports unsupported hooks events but supports hooks overall', async () => {
          const config = createConfig({
             mcp: {
                server1: createMcpServer('cmd1'),
@@ -603,15 +673,16 @@ describe('Editor Adapters', () => {
             },
             hooks: {
                pre_command: [{ hooks: [{ command: 'echo pre' }] }],
+               session_end: [{ hooks: [{ command: 'echo end' }] }],
             },
          });
 
          const result = await installToEditor('vscode', config, testDir);
 
-         // VS Code now supports MCP but not hooks
+         // VS Code supports MCP and hooks (but not session_end)
          expect(result.unsupportedFeatures?.mcp).toBeUndefined();
-         expect(result.unsupportedFeatures?.hooks).toBeDefined();
-         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBeUndefined();
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('session_end');
       });
 
       it('Zed reports unsupported hooks but not MCP', async () => {
@@ -690,5 +761,56 @@ describe('Editor Adapters', () => {
          // No features configured, so nothing to report as unsupported
          expect(result.unsupportedFeatures).toBeUndefined();
       });
+   });
+});
+
+describe('extractGlobDirectoryPrefix', () => {
+   const rule = (activation: Record<string, unknown>) =>
+      ({ content: '', activation }) as Parameters<typeof extractGlobDirectoryPrefix>[0];
+
+   it('returns empty string for always-activation rules', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'always' }))).toBe('');
+   });
+
+   it('returns empty string for auto-activation rules', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'auto', description: 'test' }))).toBe('');
+   });
+
+   it('returns empty string for glob rules without globs', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [] }))).toBe('');
+   });
+
+   it('extracts static prefix from a single glob', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['src/utils/**/*.ts'] }))).toBe(
+         'src/utils',
+      );
+   });
+
+   it('extracts shared prefix from multiple globs in the same directory', () => {
+      expect(
+         extractGlobDirectoryPrefix(
+            rule({ type: 'glob', globs: ['src/utils/**/*.ts', 'src/utils/**/*.js'] }),
+         ),
+      ).toBe('src/utils');
+   });
+
+   it('returns empty string when globs have different prefixes', () => {
+      expect(
+         extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['src/**/*.ts', 'lib/**/*.ts'] })),
+      ).toBe('');
+   });
+
+   it('returns empty string for root-level wildcards', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['**/*.test.ts'] }))).toBe('');
+   });
+
+   it('returns empty string for single-segment wildcard', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['*.ts'] }))).toBe('');
+   });
+
+   it('handles deeply nested prefix', () => {
+      expect(
+         extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['packages/core/src/**'] })),
+      ).toBe('packages/core/src');
    });
 });

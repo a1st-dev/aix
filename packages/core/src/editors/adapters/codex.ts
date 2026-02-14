@@ -1,7 +1,8 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
+import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
+import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
 import { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy } from '../strategies/codex/index.js';
 import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import type {
@@ -13,10 +14,15 @@ import type {
 } from '../strategies/types.js';
 
 /**
- * Codex CLI editor adapter. Writes rules to `.codex/AGENTS.md` (single file, plain markdown) and
- * skills to `.codex/skills/{name}/`. MCP config is global-only (`~/.codex/config.toml`) and
- * requires user confirmation to modify. Codex prompts are also global-only (`~/.codex/prompts/`).
- * Codex does not support hooks.
+ * Codex CLI editor adapter. Writes rules to `AGENTS.md` at the project root (and optionally in
+ * subdirectories for glob-scoped rules). Skills go to `.codex/skills/{name}/`. MCP config is
+ * global-only (`~/.codex/config.toml`). Prompts are also global-only (`~/.codex/prompts/`). Codex
+ * does not support hooks.
+ *
+ * Codex discovers AGENTS.md files by walking from the project root down to the CWD, reading at
+ * most one per directory. Rules with a clear single-directory glob prefix (e.g. `src/utils/**`) are
+ * placed in that subdirectory's AGENTS.md so they only apply when Codex runs from that context.
+ * All other rules (always, auto, manual, or globs without a clear prefix) go to the root file.
  */
 export class CodexAdapter extends BaseEditorAdapter {
    readonly name = 'codex' as const;
@@ -58,7 +64,9 @@ export class CodexAdapter extends BaseEditorAdapter {
    }
 
    /**
-    * Override planChanges to write all rules to a single AGENTS.md file instead of separate files.
+    * Override planChanges to write AGENTS.md files at the project root and in subdirectories.
+    * Glob-activation rules with a clear directory prefix are placed in subdirectory AGENTS.md files;
+    * all other rules go to the root AGENTS.md. Also cleans up the legacy `.codex/AGENTS.md` file.
     */
    protected override async planChanges(
       editorConfig: EditorConfig,
@@ -66,17 +74,29 @@ export class CodexAdapter extends BaseEditorAdapter {
       scopes: string[],
       _options: ApplyOptions = {},
    ): Promise<FileChange[]> {
-      const changes: FileChange[] = [],
-            configDir = join(projectRoot, this.configDir);
+      const changes: FileChange[] = [];
 
-      // Rules - Codex uses a single AGENTS.md file
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
-         const agentsPath = join(configDir, 'AGENTS.md'),
-               content = this.formatAgentsMd(editorConfig.rules),
-               existing = await this.readExisting(agentsPath),
-               action = this.determineAction(existing, content);
+         // Bucket rules by target directory
+         const buckets = this.bucketRulesByDirectory(editorConfig.rules);
 
-         changes.push({ path: agentsPath, action, content, category: 'rule' });
+         for (const [dir, rules] of buckets) {
+            const agentsPath = dir === '' ? join(projectRoot, 'AGENTS.md') : join(projectRoot, dir, 'AGENTS.md'),
+                  content = this.formatAgentsMd(rules),
+                  // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
+                  existing = await this.readExisting(agentsPath),
+                  action = this.determineAction(existing, content);
+
+            // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
+            changes.push({ path: agentsPath, action, content, category: 'rule' });
+         }
+
+         // Clean up legacy .codex/AGENTS.md if it exists
+         const legacyPath = join(projectRoot, '.codex', 'AGENTS.md');
+
+         if (existsSync(legacyPath)) {
+            changes.push({ path: legacyPath, action: 'delete', content: '', category: 'rule' });
+         }
       }
 
       // Add skill changes
@@ -87,9 +107,30 @@ export class CodexAdapter extends BaseEditorAdapter {
    }
 
    /**
-    * Format all rules into a single AGENTS.md file.
+    * Group rules by target directory. Glob-activation rules with a clear single-directory prefix go
+    * into that subdirectory; everything else goes to root (empty string key).
     */
-   private formatAgentsMd(rules: EditorConfig['rules']): string {
+   private bucketRulesByDirectory(rules: EditorRule[]): Map<string, EditorRule[]> {
+      const buckets = new Map<string, EditorRule[]>();
+
+      for (const rule of rules) {
+         const dir = extractGlobDirectoryPrefix(rule);
+         let bucket = buckets.get(dir);
+
+         if (!bucket) {
+            bucket = [];
+            buckets.set(dir, bucket);
+         }
+         bucket.push(rule);
+      }
+
+      return buckets;
+   }
+
+   /**
+    * Format rules into an AGENTS.md file body.
+    */
+   private formatAgentsMd(rules: EditorRule[]): string {
       const lines: string[] = ['# AGENTS.md', ''];
 
       for (const rule of rules) {
@@ -98,4 +139,50 @@ export class CodexAdapter extends BaseEditorAdapter {
 
       return lines.join('\n');
    }
+}
+
+/**
+ * Extract a common directory prefix from a glob-activation rule's globs. Returns the shared
+ * leading directory when all globs point into the same subtree (e.g. `src/utils/`). Returns `''`
+ * (root) for non-glob rules or when no unambiguous prefix exists.
+ */
+export function extractGlobDirectoryPrefix(rule: EditorRule): string {
+   if (rule.activation.type !== 'glob' || !rule.activation.globs?.length) {
+      return '';
+   }
+
+   const prefixes = rule.activation.globs.map(extractStaticPrefix);
+
+   // All globs must share the same non-empty prefix
+   const first = prefixes[0];
+
+   if (!first) {
+      return '';
+   }
+
+   for (let i = 1; i < prefixes.length; i++) {
+      if (prefixes[i] !== first) {
+         return '';
+      }
+   }
+
+   return first;
+}
+
+/**
+ * Extract the static directory prefix from a single glob pattern — the leading path segments that
+ * contain no wildcard or brace characters. Returns `''` if the first segment is already a wildcard.
+ */
+function extractStaticPrefix(glob: string): string {
+   const segments = glob.split('/'),
+         staticSegments: string[] = [];
+
+   for (const seg of segments) {
+      if (/[*?{}[\]]/.test(seg)) {
+         break;
+      }
+      staticSegments.push(seg);
+   }
+
+   return staticSegments.join('/');
 }

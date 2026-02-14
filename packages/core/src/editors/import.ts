@@ -283,6 +283,11 @@ async function importLocalRules(
    editor: EditorName,
    projectRoot: string,
 ): Promise<{ rules: NamedRule[]; warnings: string[] }> {
+   // Codex uses AGENTS.md at the project root (not inside .codex/), so use a dedicated reader
+   if (editor === 'codex') {
+      return importCodexLocalRules(projectRoot);
+   }
+
    const warnings: string[] = [],
          configDir = EDITOR_CONFIG_DIRS[editor],
          rulesDir = strategy.getRulesDir(),
@@ -310,6 +315,31 @@ async function importLocalRules(
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read local rules from ${fullPath}: ${(err as Error).message}`);
+      }
+   }
+
+   return { rules: [], warnings };
+}
+
+/**
+ * Import Codex rules from AGENTS.md at the project root. Codex discovers one AGENTS.md per
+ * directory from root→CWD, so we read the root file and tag it accordingly.
+ */
+async function importCodexLocalRules(
+   projectRoot: string,
+): Promise<{ rules: NamedRule[]; warnings: string[] }> {
+   const warnings: string[] = [],
+         agentsPath = join(projectRoot, 'AGENTS.md');
+
+   try {
+      const content = await readFile(agentsPath, 'utf-8');
+
+      if (content.trim()) {
+         return { rules: [{ content: content.trim(), name: 'AGENTS' }], warnings };
+      }
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+         warnings.push(`Failed to read Codex rules from ${agentsPath}: ${(err as Error).message}`);
       }
    }
 

@@ -11,6 +11,7 @@
    "dependencies": {
       "@4hse/astro-llms-txt": "^1.0.0",
       "@astrojs/starlight": "^0.37.6",
+      "@astrojs/vercel": "9.0.4",
       "@fontsource/cormorant-garamond": "^5.2.11",
       "@fontsource/instrument-sans": "^5.2.8",
       "@iconify-json/lucide": "^1.2.90",

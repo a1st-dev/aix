@@ -1,10 +1,12 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import vercel from "@astrojs/vercel";
 import icon from "astro-icon";
 import astroLlmsTxt from "@4hse/astro-llms-txt";
 
 export default defineConfig({
   site: "https://aix.a1st.dev",
+  adapter: vercel(),
   integrations: [
     icon(),
     astroLlmsTxt({

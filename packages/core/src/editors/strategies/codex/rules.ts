@@ -2,13 +2,14 @@ import type { RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 
 /**
- * Codex CLI rules strategy. Uses a single `AGENTS.md` file at the repo root (plain markdown, no
- * frontmatter). All rules are concatenated into this single file.
+ * Codex CLI rules strategy. Uses `AGENTS.md` files at the project root (and optionally in
+ * subdirectories for glob-scoped rules). Plain markdown, no frontmatter. The adapter handles
+ * bucketing rules into per-directory files.
  */
 export class CodexRulesStrategy implements RulesStrategy {
    getRulesDir(): string {
-      // Codex uses AGENTS.md at the config dir root, not a subdirectory
-      return '';
+      // Codex uses AGENTS.md at the project root, one level above the .codex config dir
+      return '..';
    }
 
    getFileExtension(): string {

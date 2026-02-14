@@ -14,7 +14,7 @@ aix currently supports 6 AI code editors.
 | **Prompts** |   ✅   |   ✅    |     ✅      |    ✅    | ❌  |  ✅   |
 | **MCP**     |   ✅   |   ✅    |     ✅      |    ✅    | ✅  |  ✅   |
 | **Skills**  |   ✅   |   ✅    |     ✅      |    ✅    | ⚠️  |  ✅   |
-| **Hooks**   |   ✅   |   ❌    |     ✅      |    ✅    | ❌  |  ❌   |
+| **Hooks**   |   ✅   |   ✅    |     ✅      |    ✅    | ❌  |  ❌   |
 
 ⚠️ = supported via pointer rules (no native Agent Skills)
 
@@ -36,12 +36,14 @@ How `ai.json` concepts map to each editor:
 - **MCP**: `.vscode/mcp.json`.
 - **Prompts**: `.github/prompts/*.prompt.md`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.github/skills/`.
+- **Hooks**: `.github/hooks/*.json`. Supports `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `SubagentStart`, `SubagentStop`, and `Stop`.
 
 ### Claude Code
 
 - **Rules**: `.claude/rules/*.md`.
 - **MCP**: `.mcp.json` at project root.
 - **Prompts**: `.claude/commands/`.
+- **Skills**: `.aix/skills/{name}/` with symlinks from `.claude/skills/`.
 - **Hooks**: `.claude/settings.json`. Supports `pre_tool_use`, `post_tool_use`, `pre_file_read`, `post_file_read`, `pre_file_write`, `post_file_write`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `pre_prompt`, `session_start`, `session_end`, and `agent_stop`.
 
 ### Windsurf
@@ -49,6 +51,7 @@ How `ai.json` concepts map to each editor:
 - **Rules**: `.windsurf/rules/*.md`. Supports Cascade's "auto" activation natively.
 - **MCP**: Global config at `~/.codeium/windsurf/mcp_config.json`.
 - **Prompts**: Cascade prompts.
+- **Skills**: `.aix/skills/{name}/` with symlinks from `.windsurf/skills/`.
 - **Hooks**: `.windsurf/hooks.json`. Supports `pre_file_read`, `post_file_read`, `pre_file_write`, `post_file_write`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `pre_prompt`, and `agent_stop`.
 
 ### Zed
@@ -60,7 +63,7 @@ How `ai.json` concepts map to each editor:
 
 ### Codex
 
-- **Rules**: `.codex/AGENTS.md` (single file, all rules concatenated).
+- **Rules**: `AGENTS.md` at project root (and in subdirectories for glob-scoped rules).
 - **MCP**: Global config at `~/.codex/config.toml`.
 - **Prompts**: Global at `~/.codex/prompts/`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.codex/skills/`.
