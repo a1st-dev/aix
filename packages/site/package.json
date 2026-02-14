@@ -1,0 +1,24 @@
+{
+   "name": "@a1st/aix-site",
+   "version": "0.0.1",
+   "private": true,
+   "type": "module",
+   "scripts": {
+      "dev": "astro dev",
+      "build": "astro build",
+      "preview": "astro preview"
+   },
+   "dependencies": {
+      "@4hse/astro-llms-txt": "^1.0.0",
+      "@astrojs/starlight": "^0.37.6",
+      "@fontsource/cormorant-garamond": "^5.2.11",
+      "@fontsource/instrument-sans": "^5.2.8",
+      "@iconify-json/lucide": "^1.2.90",
+      "@iconify-json/simple-icons": "^1.2.70",
+      "astro": "^5.17.1",
+      "astro-icon": "^1.1.5",
+      "astro-og-canvas": "0.10.1",
+      "astro-seo": "1.1.0",
+      "sharp": "^0.34.5"
+   }
+}

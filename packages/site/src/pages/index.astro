@@ -1,4 +1,5 @@
 ---
+import { SEO } from 'astro-seo';
 import { Icon } from 'astro-icon/components';
 import TerminalBlock from '../components/TerminalBlock.astro';
 import EditorGrid from '../components/EditorGrid.astro';
@@ -20,14 +21,45 @@ import '../styles/landing.css';
 const title = 'aix — One config file. Every AI editor.';
 const description =
   'Define your skills, rules, prompts, and MCP servers once in ai.json. Install to Cursor, VS Code, Claude Code, Windsurf, Zed, and Codex with one command.';
+const siteUrl = 'https://aix.a1st.dev';
+const ogImageUrl = `${siteUrl}/og/index.png`;
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <SEO
+      title={title}
+      description={description}
+      canonical={siteUrl}
+      openGraph={{
+        basic: {
+          title,
+          type: 'website',
+          image: ogImageUrl,
+          url: siteUrl,
+        },
+        optional: {
+          description,
+          siteName: 'aix',
+          locale: 'en_US',
+        },
+        image: {
+          alt: 'aix — One config file. Every AI editor.',
+          width: 1200,
+          height: 630,
+        },
+      }}
+      twitter={{
+        card: 'summary_large_image',
+        title,
+        description,
+        image: ogImageUrl,
+        imageAlt: 'aix — One config file. Every AI editor.',
+      }}
+    />
   </head>
 
   <body>
