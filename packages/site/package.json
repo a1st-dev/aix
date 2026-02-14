@@ -16,6 +16,7 @@
       "@fontsource/instrument-sans": "^5.2.8",
       "@iconify-json/lucide": "^1.2.90",
       "@iconify-json/simple-icons": "^1.2.70",
+      "@yeskunall/astro-umami": "0.0.7",
       "astro": "^5.17.1",
       "astro-icon": "^1.1.5",
       "astro-og-canvas": "0.10.1",

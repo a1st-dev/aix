@@ -2,13 +2,17 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import vercel from "@astrojs/vercel";
 import icon from "astro-icon";
+import umami from "@yeskunall/astro-umami";
 import astroLlmsTxt from "@4hse/astro-llms-txt";
+
+const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
 
 export default defineConfig({
   site: "https://aix.a1st.dev",
   adapter: vercel(),
   integrations: [
     icon(),
+    ...(umamiWebsiteId ? [umami({ id: umamiWebsiteId })] : []),
     astroLlmsTxt({
       title: "aix",
       description: "One config file for every AI editor. Define skills, rules, prompts, and MCP servers in ai.json.",
