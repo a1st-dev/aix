@@ -33,7 +33,7 @@
    },
    "scripts": {
       "build": "tsc -p tsconfig.build.json && npm run generate-schema",
-      "generate-schema": "node --import=@poppinss/ts-exec scripts/generate-schema.ts",
+      "generate-schema": "node --import=@poppinss/ts-exec scripts/generate-schema.ts && oxfmt schema.json",
       "test": "vitest run",
       "test:watch": "vitest"
    },

@@ -16,6 +16,7 @@
    "scripts": {
       "prepack": "npm run build",
       "build": "npm run build -w @a1st/aix-schema -w @a1st/aix-core -w @a1st/mcp-registry-client -w @a1st/aix -w @a1st/aix-site",
+      "build:lib": "npm run build -w @a1st/aix-schema -w @a1st/aix-core -w @a1st/mcp-registry-client -w @a1st/aix",
       "test": "npm run test -ws --if-present",
       "standards": "npm run lint && npm run format:check && npm run typecheck",
       "lint": "oxlint",

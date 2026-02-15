@@ -28,7 +28,7 @@ jobs:
            run: npm ci
 
          - name: Build packages
-           run: npm run build
+           run: npm run build:lib
 
          - name: Run standards
            run: npm run standards
@@ -55,7 +55,7 @@ jobs:
            run: npm ci
 
          - name: Build packages
-           run: npm run build
+           run: npm run build:lib
 
          - name: Run tests
            run: npm test
