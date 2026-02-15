@@ -24,6 +24,7 @@
       "format": "npm run lint:fix && oxfmt '**/*.{css,json,md,yml,yaml}'",
       "format:check": "oxfmt --check '**/*.{css,json,md,yml,yaml}'",
       "typecheck": "tsc --noEmit",
+      "version:bump": "node ./scripts/version-bump.mjs",
       "qa:sandbox": "./scripts/qa-sandbox.sh",
       "qa:clean": "./scripts/qa-sandbox.sh --clean"
    },
