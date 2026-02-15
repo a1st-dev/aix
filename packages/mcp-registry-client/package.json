@@ -1,6 +1,6 @@
 {
    "name": "@a1st/mcp-registry-client",
-   "version": "0.0.4",
+   "version": "0.0.5",
    "description": "TypeScript client for the official MCP Registry API",
    "keywords": [
       "api-client",
