@@ -1,44 +1,16 @@
 name: Release Packages
 
 on:
-   push:
-      tags:
-         - 'v*'
+   workflow_call:
+      inputs:
+         tag:
+            description: Release tag (for example, v1.2.3)
+            required: true
+            type: string
 
 jobs:
-   test:
-      name: Test before release (Node ${{ matrix.node }}, ${{ matrix.os }})
-      runs-on: ${{ matrix.os }}
-      strategy:
-         fail-fast: false
-         matrix:
-            os: [ubuntu-latest, windows-latest]
-            node: [lts/*, 22]
-      steps:
-         - name: Checkout code
-           uses: actions/checkout@v4
-
-         - name: Setup Node.js
-           uses: actions/setup-node@v4
-           with:
-              node-version: ${{ matrix.node }}
-              cache: npm
-
-         - name: Install dependencies
-           run: npm ci
-
-         - name: Build
-           run: npm run build
-
-         - name: Run standards
-           run: npm run standards
-
-         - name: Run tests
-           run: npm test
-
    publish:
       name: Publish to npm
-      needs: test
       runs-on: ubuntu-latest
       permissions:
          contents: write
@@ -46,6 +18,8 @@ jobs:
       steps:
          - name: Checkout code
            uses: actions/checkout@v4
+           with:
+              ref: refs/tags/${{ inputs.tag }}
 
          - name: Setup Node.js
            uses: actions/setup-node@v4
@@ -55,8 +29,10 @@ jobs:
 
          - name: Extract version from tag
            id: version
+           env:
+              TAG: ${{ inputs.tag }}
            run: |
-              VERSION=${GITHUB_REF#refs/tags/v}
+              VERSION=${TAG#v}
               echo "version=$VERSION" >> $GITHUB_OUTPUT
 
          - name: Ensure npm supports trusted publishers
@@ -90,19 +66,18 @@ jobs:
       permissions:
          contents: write
       steps:
-         - name: Checkout code
-           uses: actions/checkout@v4
-
          - name: Extract version from tag
            id: version
+           env:
+              TAG: ${{ inputs.tag }}
            run: |
-              VERSION=${GITHUB_REF#refs/tags/v}
+              VERSION=${TAG#v}
               echo "version=$VERSION" >> $GITHUB_OUTPUT
 
          - name: Create GitHub Release
            uses: softprops/action-gh-release@v2
            with:
-              tag_name: ${{ github.ref_name }}
+              tag_name: ${{ inputs.tag }}
               name: Release ${{ steps.version.outputs.version }}
               generate_release_notes: true
               draft: false
