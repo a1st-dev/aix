@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix-core",
-   "version": "0.0.5",
+   "version": "0.0.10",
    "description": "Core utilities for aix configuration loading and management",
    "keywords": [
       "ai-agent",

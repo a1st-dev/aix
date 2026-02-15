@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix-site",
-   "version": "0.0.2",
+   "version": "0.0.10",
    "private": true,
    "type": "module",
    "scripts": {

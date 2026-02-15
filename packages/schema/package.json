@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix-schema",
-   "version": "0.0.5",
+   "version": "0.0.10",
    "description": "JSON Schema and validation for aix configuration",
    "keywords": [
       "ai-config",
