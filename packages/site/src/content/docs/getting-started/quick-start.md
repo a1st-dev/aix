@@ -75,6 +75,7 @@ Your `ai.json` now looks something like:
 }
 ```
 
+
 ## 3. Install to your editors
 
 ```bash
@@ -91,13 +92,13 @@ aix detects which AI editors you have installed and syncs the config to each one
 
 Run `aix install` again whenever you change `ai.json`.
 
-## 4. Preview before applying
-
+:::tip[Preview before applying]
 Use `--dry-run` to see what aix would write without making any changes:
 
 ```bash
 aix install --dry-run
 ```
+:::
 
 ## What's next
 
