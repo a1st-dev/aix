@@ -17,6 +17,8 @@ export interface GlobalChangeRequest {
    skipReason?: string;
    /** Path to global config file */
    globalPath: string;
+   /** File format for MCP config files (defaults to 'json') */
+   format?: 'json' | 'toml';
    /** The new config to add (for MCP) */
    mcpConfig?: McpServerConfig;
    /** The new content to add (for prompts) */

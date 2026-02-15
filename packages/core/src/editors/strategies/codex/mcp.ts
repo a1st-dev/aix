@@ -1,4 +1,5 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
+import { parseTOML, stringifyTOML } from 'confbox';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
 
 /**
@@ -6,52 +7,46 @@ import { GlobalMcpStrategy } from '../shared/global-mcp.js';
  * Codex uses TOML with [mcp_servers.name] sections.
  */
 function formatCodexMcp(mcp: Record<string, McpServerConfig>): string {
-   const lines: string[] = [];
+   const mcpServers: Record<string, unknown> = {};
 
    for (const [name, serverConfig] of Object.entries(mcp)) {
       if (serverConfig.enabled === false) {
          continue;
       }
 
-      lines.push(`[mcp_servers.${name}]`);
+      const server: Record<string, unknown> = {};
 
       if ('command' in serverConfig) {
-         lines.push(`command = "${serverConfig.command}"`);
+         server.command = serverConfig.command;
          if (serverConfig.args && serverConfig.args.length > 0) {
-            const argsStr = serverConfig.args.map((a) => `"${a}"`).join(', ');
-
-            lines.push(`args = [${argsStr}]`);
+            server.args = serverConfig.args;
          }
          if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-            lines.push('[mcp_servers.' + name + '.env]');
-            for (const [key, value] of Object.entries(serverConfig.env)) {
-               lines.push(`${key} = "${value}"`);
-            }
+            server.env = serverConfig.env;
          }
       } else if ('url' in serverConfig) {
-         lines.push(`url = "${serverConfig.url}"`);
+         server.url = serverConfig.url;
       }
 
-      lines.push('');
+      mcpServers[name] = server;
    }
 
-   return lines.join('\n');
+   return stringifyTOML({ mcp_servers: mcpServers });
 }
 
 /**
  * Parse Codex's config.toml format for MCP servers.
- * Uses confbox for TOML parsing. Outputs shorthand config without defaults.
+ * Outputs shorthand config without defaults.
  */
-async function parseCodexMcp(content: string): Promise<{
+function parseCodexMcp(content: string): {
    mcp: Record<string, McpServerConfig>;
    warnings: string[];
-}> {
+} {
    const mcp: Record<string, McpServerConfig> = {},
          warnings: string[] = [];
 
    try {
-      const { parseTOML } = await import('confbox'),
-            config = parseTOML(content) as { mcp_servers?: Record<string, unknown> },
+      const config = parseTOML(content) as { mcp_servers?: Record<string, unknown> },
             servers = config.mcp_servers ?? {};
 
       for (const [name, server] of Object.entries(servers)) {
@@ -86,20 +81,6 @@ async function parseCodexMcp(content: string): Promise<{
 }
 
 /**
- * Synchronous wrapper for parseCodexMcp that returns empty on parse failure.
- * Used for the McpStrategy interface which expects sync parsing.
- */
-function parseCodexMcpSync(_content: string): {
-   mcp: Record<string, McpServerConfig>;
-   warnings: string[];
-} {
-   return {
-      mcp: {},
-      warnings: ['Codex TOML parsing requires async - use parseCodexMcp instead'],
-   };
-}
-
-/**
  * Codex MCP strategy. Uses global-only config at ~/.codex/config.toml.
  */
 export class CodexMcpStrategy extends GlobalMcpStrategy {
@@ -109,9 +90,7 @@ export class CodexMcpStrategy extends GlobalMcpStrategy {
          globalConfigPath: '.codex/config.toml',
          format: 'toml',
          formatFn: formatCodexMcp,
-         parseFn: parseCodexMcpSync,
+         parseFn: parseCodexMcp,
       });
    }
 }
-
-export { parseCodexMcp };

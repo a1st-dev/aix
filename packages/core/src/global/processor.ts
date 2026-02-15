@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
+import { parseTOML, stringifyTOML } from 'confbox';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName, EditorConfig } from '../editors/types.js';
 import type { McpStrategy, PromptsStrategy } from '../editors/strategies/types.js';
@@ -10,6 +11,11 @@ import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
 import { getTransport } from '../mcp/normalize.js';
+
+/** Derive config file format from path extension. */
+function getFileFormat(filePath: string): 'json' | 'toml' {
+   return filePath.endsWith('.toml') ? 'toml' : 'json';
+}
 
 /** Set of global config paths that have been backed up in this session */
 const backedUpPaths = new Set<string>();
@@ -54,7 +60,8 @@ export async function analyzeGlobalChanges(
 
    // Analyze MCP servers if strategy is global-only
    if (mcpStrategy.isGlobalOnly?.() && Object.keys(editorConfig.mcp).length > 0) {
-      const globalPath = join(homedir(), mcpStrategy.getGlobalMcpConfigPath() ?? '');
+      const globalPath = join(homedir(), mcpStrategy.getGlobalMcpConfigPath() ?? ''),
+            format = getFileFormat(globalPath);
 
       // Read existing global config
       let existingMcp: Record<string, McpServerConfig> = {};
@@ -84,6 +91,7 @@ export async function analyzeGlobalChanges(
                   action: 'skip',
                   skipReason: 'Already configured identically',
                   globalPath,
+                  format,
                   mcpConfig: config,
                   existingMcpConfig: existing,
                   configsMatch: true,
@@ -97,6 +105,7 @@ export async function analyzeGlobalChanges(
                   action: 'skip',
                   skipReason: 'Existing config differs from ai.json - not modifying',
                   globalPath,
+                  format,
                   mcpConfig: config,
                   existingMcpConfig: existing,
                   configsMatch: false,
@@ -110,6 +119,7 @@ export async function analyzeGlobalChanges(
                name,
                action: 'add',
                globalPath,
+               format,
                mcpConfig: config,
             });
          }
@@ -317,7 +327,8 @@ export async function applyGlobalChanges(
  * Apply an MCP change by merging with existing config.
  */
 async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
-   const globalPath = change.globalPath;
+   const globalPath = change.globalPath,
+         format = change.format ?? getFileFormat(globalPath);
    let existingConfig: Record<string, unknown> = {};
 
    // Backup before modifying
@@ -328,14 +339,15 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
       try {
          const content = await readFile(globalPath, 'utf-8');
 
-         existingConfig = JSON.parse(content) as Record<string, unknown>;
+         existingConfig = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>;
       } catch {
          // Start fresh if parse fails
       }
    }
 
-   // Merge the new server into existing config
-   const mcpServers = (existingConfig.mcpServers ?? {}) as Record<string, unknown>;
+   // MCP server key differs by format: TOML uses mcp_servers, JSON uses mcpServers
+   const mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
+         mcpServers = (existingConfig[mcpKey] ?? {}) as Record<string, unknown>;
 
    if (change.mcpConfig) {
       const transport = getTransport(change.mcpConfig),
@@ -359,11 +371,15 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
       mcpServers[change.name] = serverConfig;
    }
 
-   existingConfig.mcpServers = mcpServers;
+   existingConfig[mcpKey] = mcpServers;
 
-   // Write back
+   // Write back in the correct format
    await mkdir(dirname(globalPath), { recursive: true });
-   await writeFile(globalPath, JSON.stringify(existingConfig, null, 2) + '\n', 'utf-8');
+   const output = format === 'toml'
+      ? stringifyTOML(existingConfig)
+      : JSON.stringify(existingConfig, null, 2) + '\n';
+
+   await writeFile(globalPath, output, 'utf-8');
 }
 
 /**
@@ -393,10 +409,13 @@ export async function removeFromGlobalMcpConfig(
       return false;
    }
 
+   const format = getFileFormat(globalPath);
+
    try {
       const content = await readFile(globalPath, 'utf-8'),
-            config = JSON.parse(content) as Record<string, unknown>,
-            mcpServers = config.mcpServers as Record<string, unknown> | undefined;
+            config = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>,
+            mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
+            mcpServers = config[mcpKey] as Record<string, unknown> | undefined;
 
       if (!mcpServers || !(serverName in mcpServers)) {
          return false;
@@ -407,10 +426,14 @@ export async function removeFromGlobalMcpConfig(
 
       // Remove the server
       delete mcpServers[serverName];
-      config.mcpServers = mcpServers;
+      config[mcpKey] = mcpServers;
 
-      // Write back
-      await writeFile(globalPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      // Write back in the correct format
+      const output = format === 'toml'
+         ? stringifyTOML(config)
+         : JSON.stringify(config, null, 2) + '\n';
+
+      await writeFile(globalPath, output, 'utf-8');
       return true;
    } catch {
       return false;
