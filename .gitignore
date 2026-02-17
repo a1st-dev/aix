@@ -21,8 +21,10 @@ ai.local.json
 .cursor
 .kiro
 .vscode
-.github
 .claude
+.github/instructions
+.github/prompts
+.github/skills
 
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)

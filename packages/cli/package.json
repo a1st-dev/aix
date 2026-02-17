@@ -39,8 +39,9 @@
       "registry": "https://registry.npmjs.org/"
    },
    "scripts": {
-      "prepack": "npm run build",
-      "build": "tsc -p tsconfig.build.json && npm run manifest",
+      "prepack": "npm run build && npm run manifest",
+      "postpack": "rm -f oclif.manifest.json",
+      "build": "tsc -p tsconfig.build.json",
       "manifest": "oclif manifest",
       "dev": "node --loader ts-node/esm bin/dev.js",
       "test": "vitest run",
