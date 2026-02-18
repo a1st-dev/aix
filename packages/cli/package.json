@@ -1,6 +1,6 @@
 {
    "name": "@a1st/aix",
-   "version": "0.0.11",
+   "version": "0.0.12",
    "description": "CLI for aix - unified AI agent configuration",
    "keywords": [
       "agents",
