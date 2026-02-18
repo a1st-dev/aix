@@ -14,8 +14,7 @@ oclif.manifest.json
 .astro/
 
 # AIX and other editor config flies
-.aix/.tmp
-.aix/extends/
+.aix/
 ai.local.json
 .codex/
 
