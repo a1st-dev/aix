@@ -15,7 +15,9 @@ oclif.manifest.json
 
 # AIX and other editor config flies
 .aix/.tmp
+.aix/extends/
 ai.local.json
+.codex/
 
 .windsurf
 .cursor
