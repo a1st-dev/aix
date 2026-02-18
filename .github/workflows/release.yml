@@ -27,6 +27,45 @@ jobs:
               node-version: lts/*
               registry-url: https://registry.npmjs.org
 
+         - name: Verify release tag is signed and GitHub-verified
+           uses: actions/github-script@v7
+           env:
+              TAG: ${{ inputs.tag }}
+           with:
+              script: |
+                 const tag = process.env.TAG;
+                 const owner = context.repo.owner;
+                 const repo = context.repo.repo;
+
+                 const ref = await github.rest.git.getRef({
+                   owner,
+                   repo,
+                   ref: `tags/${tag}`,
+                 });
+
+                 if (ref.data.object.type !== "tag") {
+                   core.setFailed(
+                     `Tag ${tag} is lightweight (${ref.data.object.type}). Release tags must be signed annotated tags.`
+                   );
+                   return;
+                 }
+
+                 const annotatedTag = await github.rest.git.getTag({
+                   owner,
+                   repo,
+                   tag_sha: ref.data.object.sha,
+                 });
+
+                 const verification = annotatedTag.data.verification;
+                 if (!verification?.verified) {
+                   core.setFailed(
+                     `Tag ${tag} is not GitHub-verified. Reason: ${verification?.reason ?? "unknown"}`
+                   );
+                   return;
+                 }
+
+                 core.info(`Tag ${tag} signature verified (${verification.reason}).`);
+
          - name: Extract version from tag
            id: version
            env:
@@ -44,26 +83,26 @@ jobs:
          - name: Update package versions
            run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version --workspaces --include-workspace-root
 
-          - name: Build all packages
-            run: npm run build
+         - name: Build all packages
+           run: npm run build
 
-          - name: Remove stale oclif manifest (CLI)
-            run: rm -f packages/cli/oclif.manifest.json || true
+         - name: Remove stale oclif manifest (CLI)
+           run: rm -f packages/cli/oclif.manifest.json || true
 
-          - name: Generate fresh oclif manifest (CLI)
-            run: npm run --workspace @a1st/aix manifest
+         - name: Generate fresh oclif manifest (CLI)
+           run: npm run --workspace @a1st/aix manifest
 
-          - name: Verify manifest version matches package version (CLI)
-            run: |
-              PKG_VER=$(jq -r .version packages/cli/package.json)
-              MAN_VER=$(jq -r .version packages/cli/oclif.manifest.json)
-              echo "package.json version: $PKG_VER"
-              echo "manifest version:     $MAN_VER"
-              test "$PKG_VER" = "$MAN_VER"
-              test "$PKG_VER" = "${{ steps.version.outputs.version }}"
+         - name: Verify manifest version matches package version (CLI)
+           run: |
+             PKG_VER=$(jq -r .version packages/cli/package.json)
+             MAN_VER=$(jq -r .version packages/cli/oclif.manifest.json)
+             echo "package.json version: $PKG_VER"
+             echo "manifest version:     $MAN_VER"
+             test "$PKG_VER" = "$MAN_VER"
+             test "$PKG_VER" = "${{ steps.version.outputs.version }}"
 
-          - name: Publish @a1st/aix-schema
-            run: npm publish --workspace @a1st/aix-schema --provenance --access public
+         - name: Publish @a1st/aix-schema
+           run: npm publish --workspace @a1st/aix-schema --provenance --access public
 
          - name: Publish @a1st/aix-core
            run: npm publish --workspace @a1st/aix-core --provenance --access public
@@ -71,8 +110,8 @@ jobs:
          - name: Publish @a1st/mcp-registry-client
            run: npm publish --workspace @a1st/mcp-registry-client --provenance --access public
 
-          - name: Publish @a1st/aix
-            run: npm publish --workspace @a1st/aix --provenance --access public
+         - name: Publish @a1st/aix
+           run: npm publish --workspace @a1st/aix --provenance --access public
 
    create-release:
       name: Create GitHub Release
