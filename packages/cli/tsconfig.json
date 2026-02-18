@@ -5,6 +5,9 @@
       "outDir": "dist",
       "jsx": "react-jsx"
    },
+   "ts-node": {
+      "experimentalResolver": true
+   },
    "include": ["src"],
    "references": [{ "path": "../schema" }, { "path": "../core" }]
 }

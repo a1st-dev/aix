@@ -7,7 +7,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { runCommand } from '@oclif/test';
 
 const __dirname = dirname(fileURLToPath(import.meta.url)),
-      root = join(__dirname, '../..');
+      root = join(__dirname, '../..'),
+      loadOpts = { root, devPlugins: false };
+const runCli = (args: string[] | string, _unused?: unknown) =>
+   runCommand(args, loadOpts, { testNodeEnv: 'production' });
 
 /**
  * Helper to create a valid ai.json config
@@ -63,14 +66,14 @@ describe('CLI Commands', () => {
          await writeValidConfig(configPath);
 
          // Spinner output goes to stderr, so check there
-         const { stderr } = await runCommand(['validate', '--config', configPath], { root });
+         const { stderr } = await runCli(['validate', '--config', configPath]);
 
          expect(stderr).toContain('valid');
       });
 
       it('reports error when no config found', async () => {
          const configPath = join(testDir, 'nonexistent.json');
-         const { error } = await runCommand(['validate', '--config', configPath], { root });
+         const { error } = await runCli(['validate', '--config', configPath]);
 
          expect(error).toBeDefined();
       });
@@ -80,7 +83,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(['validate', '--config', configPath, '--json'], {
+         const { stdout } = await runCli(['validate', '--config', configPath, '--json'], {
             root,
          });
          const result = JSON.parse(stdout);
@@ -95,7 +98,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath, { skills: { typescript: '*' } });
 
-         const { stdout } = await runCommand(['list', '--config', configPath], { root });
+         const { stdout } = await runCli(['list', '--config', configPath]);
 
          expect(stdout).toContain('Skills');
          expect(stdout).toContain('typescript');
@@ -109,7 +112,7 @@ describe('CLI Commands', () => {
             mcp: { github: { command: 'test' } },
          });
 
-         const { stdout } = await runCommand(['list', '--config', configPath, '--scope', 'skills'], {
+         const { stdout } = await runCli(['list', '--config', configPath, '--scope', 'skills'], {
             root,
          });
 
@@ -123,7 +126,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath, { skills: { typescript: '*' } });
 
-         const { stdout } = await runCommand(['list', '--config', configPath, '--json'], { root });
+         const { stdout } = await runCli(['list', '--config', configPath, '--json']);
          const result = JSON.parse(stdout);
 
          expect(result.skills).toEqual({ typescript: '*' });
@@ -136,7 +139,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(['add', 'skill', 'typescript', '--config', configPath], {
+         const { stdout } = await runCli(['add', 'skill', 'typescript', '--config', configPath], {
             root,
          });
 
@@ -153,9 +156,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['add', 'skill', './skills/custom', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -171,7 +173,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             [
                'add',
                'skill',
@@ -179,7 +181,6 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
             ],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -199,9 +200,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['add', 'skill', 'https://github.com/a1st/aix-skill-react', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -219,9 +219,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['add', 'skill', 'github:a1st/aix-skill-vue#v2.0.0', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -240,9 +239,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['add', 'skill', '@a1st/aix-skill-react', '--name', 'react', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -258,7 +256,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             [
                'add',
                'skill',
@@ -268,7 +266,6 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
             ],
-            { root },
          );
 
          expect(stdout).toContain('Added skill');
@@ -291,7 +288,7 @@ describe('CLI Commands', () => {
          await writeValidConfig(configPath);
 
          // Note: command value without spaces to avoid oclif/test argument parsing issues
-         await runCommand(['add', 'mcp', 'github', '--command', 'npx', '--config', configPath], {
+         await runCli(['add', 'mcp', 'github', '--command', 'npx', '--config', configPath], {
             root,
          });
 
@@ -307,9 +304,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         await runCommand(
+         await runCli(
             ['add', 'mcp', 'custom', '--url', 'http://localhost:3000/mcp', '--config', configPath],
-            { root },
          );
 
          // Verify the config was updated correctly
@@ -333,9 +329,8 @@ describe('CLI Commands', () => {
          });
 
          try {
-            const { error } = await runCommand(
+            const { error } = await runCli(
                ['add', 'mcp', 'nonexistent-server', '--config', configPath],
-               { root },
             );
 
             expect(error?.message).toContain('No MCP servers found');
@@ -351,9 +346,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath, { skills: { typescript: '*', react: '^1.0.0' } });
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['remove', 'skill', 'typescript', '--yes', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Removed skill');
@@ -370,9 +364,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { error } = await runCommand(
+         const { error } = await runCli(
             ['remove', 'skill', 'nonexistent', '--yes', '--config', configPath],
-            { root },
          );
 
          expect(error?.message).toContain('not found');
@@ -390,7 +383,7 @@ describe('CLI Commands', () => {
             },
          });
 
-         await runCommand(['remove', 'mcp', 'github', '--yes', '--config', configPath], { root });
+         await runCli(['remove', 'mcp', 'github', '--yes', '--config', configPath]);
 
          // Verify the config was updated correctly
          const content = await readFile(configPath, 'utf-8');
@@ -407,7 +400,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath, { skills: { typescript: '*' } });
 
-         const { stdout } = await runCommand(['config', 'get', 'skills', '--config', configPath], {
+         const { stdout } = await runCli(['config', 'get', 'skills', '--config', configPath], {
             root,
          });
 
@@ -421,7 +414,7 @@ describe('CLI Commands', () => {
             rules: { typescript: { content: 'Use TypeScript' } },
          });
 
-         const { stdout } = await runCommand(['config', 'get', 'rules', '--config', configPath], {
+         const { stdout } = await runCli(['config', 'get', 'rules', '--config', configPath], {
             root,
          });
 
@@ -433,7 +426,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { error } = await runCommand(['config', 'get', 'nonexistent', '--config', configPath], {
+         const { error } = await runCli(['config', 'get', 'nonexistent', '--config', configPath], {
             root,
          });
 
@@ -447,9 +440,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['config', 'set', 'skills.typescript', '"^1.0.0"', '--config', configPath],
-            { root },
          );
 
          expect(stdout).toContain('Set skills.typescript');
@@ -466,7 +458,7 @@ describe('CLI Commands', () => {
          await writeValidConfig(configPath);
 
          // Note: JSON value without spaces to avoid oclif/test argument parsing issues
-         await runCommand(
+         await runCli(
             [
                'config',
                'set',
@@ -475,7 +467,6 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
             ],
-            { root },
          );
 
          // Verify the config was updated correctly
@@ -497,9 +488,8 @@ describe('CLI Commands', () => {
          });
 
          // Spinner output goes to stderr
-         const { stderr } = await runCommand(
+         const { stderr } = await runCli(
             ['install', '--dry-run', '--target', 'windsurf', '--config', configPath],
-            { root },
          );
 
          expect(stderr).toContain('windsurf');
@@ -514,9 +504,8 @@ describe('CLI Commands', () => {
             rules: { typescript: { content: 'Use TypeScript' } },
          });
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['install', '--dry-run', '--target', 'windsurf', '--scope', 'mcp', '--config', configPath],
-            { root },
          );
 
          // Should show MCP section, not rules
@@ -529,9 +518,8 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { stdout } = await runCommand(
+         const { stdout } = await runCli(
             ['install', '--dry-run', '--target', 'windsurf', '--json', '--config', configPath],
-            { root },
          );
          const result = JSON.parse(stdout);
 
@@ -557,7 +545,7 @@ describe('CLI Commands', () => {
 
          // Run install --save from testDir
          process.chdir(testDir);
-         await runCommand(['install', remoteConfigPath, '--save'], { root });
+         await runCli(['install', remoteConfigPath, '--save']);
 
          // Verify the file was created with remote content
          const content = await readFile(localConfigPath, 'utf-8');
@@ -586,7 +574,7 @@ describe('CLI Commands', () => {
 
          // Run install --save (not dry-run) from testDir
          process.chdir(testDir);
-         await runCommand(['install', remoteConfigPath, '--save'], { root });
+         await runCli(['install', remoteConfigPath, '--save']);
 
          // Verify merged config
          const content = await readFile(localConfigPath, 'utf-8');
@@ -618,7 +606,7 @@ describe('CLI Commands', () => {
 
          // Run install --save --overwrite from testDir
          process.chdir(testDir);
-         await runCommand(['install', remoteConfigPath, '--save', '--overwrite'], { root });
+         await runCli(['install', remoteConfigPath, '--save', '--overwrite']);
 
          // Verify overwritten config
          const content = await readFile(localConfigPath, 'utf-8');
@@ -649,7 +637,7 @@ describe('CLI Commands', () => {
 
          // Run install --save --scope mcp (only save mcp section)
          process.chdir(testDir);
-         await runCommand(['install', remoteConfigPath, '--save', '--scope', 'mcp'], { root });
+         await runCli(['install', remoteConfigPath, '--save', '--scope', 'mcp']);
 
          // Verify only mcp was merged
          const content = await readFile(localConfigPath, 'utf-8');
@@ -672,7 +660,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         const { error } = await runCommand(['install', '--save', '--config', configPath], {
+         const { error } = await runCli(['install', '--save', '--config', configPath], {
             root,
          });
 
@@ -696,9 +684,8 @@ describe('CLI Commands', () => {
 
          // Run install --save --scope mcp --scope skills
          process.chdir(testDir);
-         await runCommand(
+         await runCli(
             ['install', remoteConfigPath, '--save', '--scope', 'mcp', '--scope', 'skills'],
-            { root },
          );
 
          // Verify mcp and skills were merged, but not rules
