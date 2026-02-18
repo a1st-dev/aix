@@ -9,12 +9,12 @@ description: Feature support matrix for all editors detected by aix.
 aix currently supports 6 AI code editors.
 
 | Feature     | Cursor | GitHub Copilot | Claude Code | Windsurf | Zed | Codex |
-| ----------- | :----: | :-----: | :---------: | :------: | :-: | :---: |
-| **Rules**   |   ✅   |   ✅    |     ✅      |    ✅    | ✅  |  ✅   |
-| **Prompts** |   ✅   |   ✅    |     ✅      |    ✅    | ❌  |  ✅   |
-| **MCP**     |   ✅   |   ✅    |     ✅      |    ✅    | ✅  |  ✅   |
-| **Skills**  |   ✅   |   ✅    |     ✅      |    ✅    | ⚠️  |  ✅   |
-| **Hooks**   |   ✅   |   ✅    |     ✅      |    ✅    | ❌  |  ❌   |
+| ----------- | :----: | :------------: | :---------: | :------: | :-: | :---: |
+| **Rules**   |   ✅   |       ✅       |     ✅      |    ✅    | ✅  |  ✅   |
+| **Prompts** |   ✅   |       ✅       |     ✅      |    ✅    | ❌  |  ✅   |
+| **MCP**     |   ✅   |       ✅       |     ✅      |    ✅    | ✅  |  ✅   |
+| **Skills**  |   ✅   |       ✅       |     ✅      |    ✅    | ⚠️  |  ✅   |
+| **Hooks**   |   ✅   |       ✅       |     ✅      |    ✅    | ❌  |  ❌   |
 
 ⚠️ = supported via pointer rules (no native Agent Skills)
 

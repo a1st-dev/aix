@@ -96,12 +96,12 @@ jobs:
 
          - name: Verify manifest version matches package version (CLI)
            run: |
-             PKG_VER=$(jq -r .version packages/cli/package.json)
-             MAN_VER=$(jq -r .version packages/cli/oclif.manifest.json)
-             echo "package.json version: $PKG_VER"
-             echo "manifest version:     $MAN_VER"
-             test "$PKG_VER" = "$MAN_VER"
-             test "$PKG_VER" = "${{ steps.version.outputs.version }}"
+              PKG_VER=$(jq -r .version packages/cli/package.json)
+              MAN_VER=$(jq -r .version packages/cli/oclif.manifest.json)
+              echo "package.json version: $PKG_VER"
+              echo "manifest version:     $MAN_VER"
+              test "$PKG_VER" = "$MAN_VER"
+              test "$PKG_VER" = "${{ steps.version.outputs.version }}"
 
          - name: Publish @a1st/aix-schema
            run: npm publish --workspace @a1st/aix-schema --provenance --access public

@@ -75,7 +75,6 @@ Your `ai.json` now looks something like:
 }
 ```
 
-
 ## 3. Install to your editors
 
 ```bash
@@ -98,6 +97,7 @@ Use `--dry-run` to see what aix would write without making any changes:
 ```bash
 aix install --dry-run
 ```
+
 :::
 
 ## What's next

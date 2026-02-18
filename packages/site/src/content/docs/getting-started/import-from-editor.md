@@ -16,14 +16,14 @@ aix init --from <editor>
 
 Supported editors:
 
-| Editor      | Flag value    |
-| ----------- | ------------- |
-| Cursor      | `cursor`      |
-| GitHub Copilot     | `copilot`      |
-| Claude Code | `claude-code` |
-| Windsurf    | `windsurf`    |
-| Zed         | `zed`         |
-| Codex       | `codex`       |
+| Editor         | Flag value    |
+| -------------- | ------------- |
+| Cursor         | `cursor`      |
+| GitHub Copilot | `copilot`     |
+| Claude Code    | `claude-code` |
+| Windsurf       | `windsurf`    |
+| Zed            | `zed`         |
+| Codex          | `codex`       |
 
 ## What gets imported
 
