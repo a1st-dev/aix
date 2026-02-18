@@ -2,11 +2,11 @@ import type { AiJsonConfig } from '@a1st/aix-schema';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
 import {
-   VSCodeRulesStrategy,
-   VSCodeMcpStrategy,
-   VSCodePromptsStrategy,
-   VSCodeHooksStrategy,
-} from '../strategies/vscode/index.js';
+   CopilotRulesStrategy,
+   CopilotMcpStrategy,
+   CopilotPromptsStrategy,
+   CopilotHooksStrategy,
+} from '../strategies/copilot/index.js';
 import { NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
@@ -17,13 +17,13 @@ import type {
 } from '../strategies/types.js';
 
 /**
- * VS Code (GitHub Copilot) editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
+ * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
  * MCP config to `.vscode/mcp.json`, skills to `.github/skills/`, and hooks to `.github/hooks/hooks.json`.
- * Skills are installed to `.aix/skills/{name}/` with symlinks from `.github/skills/` since VS Code
+ * Skills are installed to `.aix/skills/{name}/` with symlinks from `.github/skills/` since GitHub Copilot
  * has native Agent Skills support.
  */
-export class VSCodeAdapter extends BaseEditorAdapter {
-   readonly name = 'vscode' as const;
+export class CopilotAdapter extends BaseEditorAdapter {
+   readonly name = 'copilot' as const;
    readonly configDir = '.vscode';
 
    getGlobalDataPaths(): Record<string, string[]> {
@@ -34,13 +34,13 @@ export class VSCodeAdapter extends BaseEditorAdapter {
       };
    }
 
-   protected readonly rulesStrategy: RulesStrategy = new VSCodeRulesStrategy();
-   protected readonly mcpStrategy: McpStrategy = new VSCodeMcpStrategy();
+   protected readonly rulesStrategy: RulesStrategy = new CopilotRulesStrategy();
+   protected readonly mcpStrategy: McpStrategy = new CopilotMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.github/skills',
    });
-   protected readonly promptsStrategy: PromptsStrategy = new VSCodePromptsStrategy();
-   protected readonly hooksStrategy: HooksStrategy = new VSCodeHooksStrategy();
+   protected readonly promptsStrategy: PromptsStrategy = new CopilotPromptsStrategy();
+   protected readonly hooksStrategy: HooksStrategy = new CopilotHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 

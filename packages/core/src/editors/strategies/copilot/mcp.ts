@@ -4,10 +4,10 @@ import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
 
 /**
- * VS Code MCP strategy. VS Code uses `mcp.json` with a `servers` object (not `mcpServers`).
+ * GitHub Copilot MCP strategy. GitHub Copilot uses `mcp.json` with a `servers` object (not `mcpServers`).
  * Project-level config goes to `.vscode/mcp.json`.
  */
-export class VSCodeMcpStrategy implements McpStrategy {
+export class CopilotMcpStrategy implements McpStrategy {
    isSupported(): boolean {
       return true;
    }
@@ -90,11 +90,11 @@ export class VSCodeMcpStrategy implements McpStrategy {
                   maxRestarts: 3,
                };
             } else {
-               warnings.push(`Skipping VS Code MCP server "${name}": unknown format`);
+               warnings.push(`Skipping GitHub Copilot MCP server "${name}": unknown format`);
             }
          }
       } catch (err) {
-         warnings.push(`Failed to parse VS Code MCP config: ${(err as Error).message}`);
+         warnings.push(`Failed to parse GitHub Copilot MCP config: ${(err as Error).message}`);
       }
 
       return { mcp, warnings };

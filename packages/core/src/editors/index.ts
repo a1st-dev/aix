@@ -15,7 +15,7 @@ export {
    WindsurfAdapter,
    CursorAdapter,
    ClaudeCodeAdapter,
-   VSCodeAdapter,
+   CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
 } from './adapters/index.js';

@@ -104,7 +104,7 @@ export class CodexPromptsStrategy implements PromptsStrategy {
 
    /**
     * Detect if content appears to be in Codex's prompt frontmatter format.
-    * Codex prompts use `description:` and optionally `argument-hint:` fields (similar to VS Code).
+    * Codex prompts use `description:` and optionally `argument-hint:` fields (similar to GitHub Copilot).
     */
    detectFormat(content: string): boolean {
       const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
@@ -115,7 +115,7 @@ export class CodexPromptsStrategy implements PromptsStrategy {
 
       const lines = frontmatter.split('\n');
 
-      // Codex uses description/argument-hint but NOT mode/tools (VS Code) or allowed-tools (Claude)
+      // Codex uses description/argument-hint but NOT mode/tools (GitHub Copilot) or allowed-tools (Claude)
       return parseYamlValue(lines, 'description') !== undefined
          && parseYamlValue(lines, 'mode') === undefined
          && parseYamlValue(lines, 'tools') === undefined

@@ -34,7 +34,7 @@ aix maps these prompts to the native feature in each editor:
 
 - **Cursor**: Maps to `.cursor/prompts/` (accessible via `/`).
 - **Claude Code**: Maps to `.claude/commands/`.
-- **VS Code**: Maps to `.github/prompts/*.prompt.md`.
+- **GitHub Copilot**: Maps to `.github/prompts/*.prompt.md`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Maps to global prompts at `~/.codex/prompts/`.
 - **Zed**: Not supported.

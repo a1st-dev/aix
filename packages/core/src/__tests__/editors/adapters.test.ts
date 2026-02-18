@@ -8,7 +8,7 @@ import {
    WindsurfAdapter,
    CursorAdapter,
    ClaudeCodeAdapter,
-   VSCodeAdapter,
+   CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
    getAdapter,
@@ -54,7 +54,7 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('windsurf');
          expect(editors).toContain('cursor');
          expect(editors).toContain('claude-code');
-         expect(editors).toContain('vscode');
+         expect(editors).toContain('copilot');
          expect(editors).toContain('zed');
          expect(editors).toContain('codex');
          expect(editors).toHaveLength(6);
@@ -66,7 +66,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('windsurf')).toBeInstanceOf(WindsurfAdapter);
          expect(getAdapter('cursor')).toBeInstanceOf(CursorAdapter);
          expect(getAdapter('claude-code')).toBeInstanceOf(ClaudeCodeAdapter);
-         expect(getAdapter('vscode')).toBeInstanceOf(VSCodeAdapter);
+         expect(getAdapter('copilot')).toBeInstanceOf(CopilotAdapter);
          expect(getAdapter('zed')).toBeInstanceOf(ZedAdapter);
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
       });
@@ -250,28 +250,28 @@ describe('Editor Adapters', () => {
       });
    });
 
-   describe('VSCodeAdapter', () => {
-      const adapter = new VSCodeAdapter();
+   describe('CopilotAdapter', () => {
+      const adapter = new CopilotAdapter();
 
       it('has correct name and configDir', () => {
-         expect(adapter.name).toBe('vscode');
+         expect(adapter.name).toBe('copilot');
          // configDir is .vscode for MCP; rules/prompts use relative paths to .github/
          expect(adapter.configDir).toBe('.vscode');
       });
 
       it('writes rules to .github/instructions/', async () => {
          const config = createConfig({
-            rules: { 'vscode-rule': { content: 'VS Code rule' } },
+            rules: { 'copilot-rule': { content: 'GitHub Copilot rule' } },
          });
 
-         await installToEditor('vscode', config, testDir);
+         await installToEditor('copilot', config, testDir);
 
          const ruleContent = await readFile(
-            join(testDir, '.github/instructions/vscode-rule.instructions.md'),
+            join(testDir, '.github/instructions/copilot-rule.instructions.md'),
             'utf-8',
          );
 
-         expect(ruleContent).toContain('VS Code rule');
+         expect(ruleContent).toContain('GitHub Copilot rule');
       });
    });
 
@@ -665,7 +665,7 @@ describe('Editor Adapters', () => {
    });
 
    describe('Unsupported feature detection', () => {
-      it('VS Code reports unsupported hooks events but supports hooks overall', async () => {
+      it('GitHub Copilot reports unsupported hooks events but supports hooks overall', async () => {
          const config = createConfig({
             mcp: {
                server1: createMcpServer('cmd1'),
@@ -677,9 +677,9 @@ describe('Editor Adapters', () => {
             },
          });
 
-         const result = await installToEditor('vscode', config, testDir);
+         const result = await installToEditor('copilot', config, testDir);
 
-         // VS Code supports MCP and hooks (but not session_end)
+         // GitHub Copilot supports MCP and hooks (but not session_end)
          expect(result.unsupportedFeatures?.mcp).toBeUndefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBeUndefined();
          expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('session_end');
@@ -756,7 +756,7 @@ describe('Editor Adapters', () => {
       it('returns empty unsupportedFeatures when config has no features', async () => {
          const config = createConfig({});
 
-         const result = await installToEditor('vscode', config, testDir);
+         const result = await installToEditor('copilot', config, testDir);
 
          // No features configured, so nothing to report as unsupported
          expect(result.unsupportedFeatures).toBeUndefined();

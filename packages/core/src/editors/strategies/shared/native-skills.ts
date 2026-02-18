@@ -8,7 +8,7 @@ import type { EditorRule, FileChange } from '../../types.js';
 import { safeRm } from '../../../fs/safe-rm.js';
 
 /**
- * Native skills strategy for editors that support Agent Skills natively (Claude Code, VS Code,
+ * Native skills strategy for editors that support Agent Skills natively (Claude Code, GitHub Copilot,
  * Cursor). Copies skills to `.aix/skills/` as the source of truth and creates symlinks from the
  * editor's skills directory.
  */

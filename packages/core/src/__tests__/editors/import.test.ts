@@ -22,8 +22,8 @@ describe('Editor Config Import', () => {
          expect(path).toContain('Claude');
       });
 
-      it('returns path for vscode', () => {
-         const path = getGlobalConfigPath('vscode');
+      it('returns path for copilot', () => {
+         const path = getGlobalConfigPath('copilot');
 
          expect(path).toContain('Code');
       });
@@ -54,10 +54,10 @@ describe('Editor Config Import', () => {
          expect(Array.isArray(result.warnings)).toBe(true);
       });
 
-      it('imports MCP from vscode if config exists', async () => {
-         const result = await importFromEditor('vscode');
+      it('imports MCP from copilot if config exists', async () => {
+         const result = await importFromEditor('copilot');
 
-         // VS Code supports MCP - result depends on whether config file exists
+         // GitHub Copilot supports MCP - result depends on whether config file exists
          expect(result).toHaveProperty('mcp');
          expect(typeof result.mcp).toBe('object');
       });

@@ -2,7 +2,7 @@ import type { HooksConfig } from '@a1st/aix-schema';
 import type { HooksStrategy } from '../types.js';
 
 /**
- * No-op hooks strategy for editors that don't support hooks (VS Code, Zed, Codex).
+ * No-op hooks strategy for editors that don't support hooks (GitHub Copilot, Zed, Codex).
  * Returns unsupported for all hook events.
  */
 export class NoHooksStrategy implements HooksStrategy {

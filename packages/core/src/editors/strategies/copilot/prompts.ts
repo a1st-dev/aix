@@ -5,16 +5,16 @@ import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
 import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
- * VS Code prompts strategy. Uses markdown files with YAML frontmatter in `.github/prompts/`.
+ * GitHub Copilot prompts strategy. Uses markdown files with YAML frontmatter in `.github/prompts/`.
  * Files use `.prompt.md` extension. Supports `description` and `argument-hint` frontmatter fields.
  */
-export class VSCodePromptsStrategy implements PromptsStrategy {
+export class CopilotPromptsStrategy implements PromptsStrategy {
    isSupported(): boolean {
       return true;
    }
 
    getPromptsDir(): string {
-      // VS Code prompt files go in .github/prompts/, not in .vscode/
+      // GitHub Copilot prompt files go in .github/prompts/, not in .vscode/
       return '../.github/prompts';
    }
 
@@ -110,8 +110,8 @@ export class VSCodePromptsStrategy implements PromptsStrategy {
    }
 
    /**
-    * Detect if content appears to be in VS Code's prompt frontmatter format.
-    * VS Code prompts use `mode:` or `tools:` fields.
+    * Detect if content appears to be in GitHub Copilot's prompt frontmatter format.
+    * GitHub Copilot prompts use `mode:` or `tools:` fields.
     */
    detectFormat(content: string): boolean {
       const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
@@ -128,7 +128,7 @@ export class VSCodePromptsStrategy implements PromptsStrategy {
    }
 
    /**
-    * Parse VS Code-specific frontmatter into unified format.
+    * Parse GitHub Copilot-specific frontmatter into unified format.
     * Extracts `description` and `argument-hint` fields.
     */
    parseFrontmatter(rawContent: string): ParsedPromptFrontmatter {

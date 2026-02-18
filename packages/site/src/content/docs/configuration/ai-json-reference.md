@@ -288,7 +288,7 @@ Configure which editors to install to and provide editor-specific settings.
 
 ```json
 {
-   "editors": ["cursor", "vscode", "claude-code"]
+   "editors": ["cursor", "copilot", "claude-code"]
 }
 ```
 

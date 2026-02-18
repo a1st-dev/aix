@@ -37,7 +37,7 @@ Define rules in `ai.json`:
 | Mode     | Description                                                        | Editor Support             |
 | -------- | ------------------------------------------------------------------ | -------------------------- |
 | `always` | Active for every request.                                          | All editors                |
-| `glob`   | Active only when editing files matching the glob pattern.          | Cursor, VS Code, Windsurf  |
+| `glob`   | Active only when editing files matching the glob pattern.          | Cursor, GitHub Copilot, Windsurf  |
 | `auto`   | The AI decides when to activate the rule based on its description. | Cursor, Windsurf (Cascade) |
 | `manual` | Must be explicitly referenced by the user.                         | None (future support)      |
 

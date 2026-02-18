@@ -3,7 +3,7 @@ import type { EditorPrompt } from '../../editors/types.js';
 import { ClaudeCodePromptsStrategy } from '../../editors/strategies/claude-code/prompts.js';
 import { CursorPromptsStrategy } from '../../editors/strategies/cursor/prompts.js';
 import { WindsurfPromptsStrategy } from '../../editors/strategies/windsurf/prompts.js';
-import { VSCodePromptsStrategy } from '../../editors/strategies/vscode/prompts.js';
+import { CopilotPromptsStrategy } from '../../editors/strategies/copilot/prompts.js';
 import { CodexPromptsStrategy } from '../../editors/strategies/codex/prompts.js';
 import { ZedPromptsStrategy } from '../../editors/strategies/zed/prompts.js';
 import { NoPromptsStrategy } from '../../editors/strategies/shared/no-prompts.js';
@@ -103,8 +103,8 @@ describe('PromptsStrategy implementations', () => {
       });
    });
 
-   describe('VSCodePromptsStrategy', () => {
-      const strategy = new VSCodePromptsStrategy();
+   describe('CopilotPromptsStrategy', () => {
+      const strategy = new CopilotPromptsStrategy();
 
       it('is supported', () => {
          expect(strategy.isSupported()).toBe(true);

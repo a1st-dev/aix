@@ -2,7 +2,7 @@ import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 
 /**
- * No-op MCP strategy for editors that don't support MCP (e.g., VS Code with GitHub Copilot).
+ * No-op MCP strategy for editors that don't support MCP (e.g., GitHub Copilot without MCP support).
  */
 export class NoMcpStrategy implements McpStrategy {
    isSupported(): boolean {

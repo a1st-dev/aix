@@ -71,4 +71,4 @@ Hooks rely on the underlying editor's support for event callbacks.
 - **Claude Code**: Supports all hook events. Written to `.claude/settings.json`.
 - **Cursor**: Supports `pre_tool_use`, `post_tool_use`, `pre_file_read`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `post_file_write`, `pre_prompt`, `session_start`, `session_end`, and `agent_stop`. Written to `.cursor/hooks.json`.
 - **Windsurf**: Supports `pre_file_read`, `post_file_read`, `pre_file_write`, `post_file_write`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `pre_prompt`, and `agent_stop`. Written to `.windsurf/hooks.json`.
-- **Other Editors**: VS Code, Zed, and Codex do not support hooks. aix will warn if you define hooks that aren't supported by your target editors.
+- **Other Editors**: GitHub Copilot, Zed, and Codex do not support hooks. aix will warn if you define hooks that aren't supported by your target editors.

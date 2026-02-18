@@ -36,10 +36,10 @@ If `source` is provided (git URL, file path), it installs directly from that sou
 aix install
 ```
 
-**Install only to VS Code:**
+**Install only to GitHub Copilot:**
 
 ```bash
-aix install --target vscode
+aix install --target copilot
 ```
 
 **Install a remote config directly:**

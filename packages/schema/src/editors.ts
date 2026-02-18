@@ -19,7 +19,7 @@ export const claudeCodeConfigSchema = baseEditorConfigSchema.extend({
 });
 
 export const editorEnum = z
-   .enum(['windsurf', 'cursor', 'claude-code', 'vscode', 'zed', 'neovim'])
+   .enum(['windsurf', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim'])
    .describe('Supported editor/agent');
 
 /**

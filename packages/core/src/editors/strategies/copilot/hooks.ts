@@ -2,8 +2,8 @@ import type { HooksConfig, HookMatcher } from '@a1st/aix-schema';
 import type { HooksStrategy } from '../types.js';
 
 /**
- * Map from generic ai.json hook events to VS Code's PascalCase event names.
- * VS Code supports 8 events: SessionStart, UserPromptSubmit, PreToolUse,
+ * Map from generic ai.json hook events to GitHub Copilot's PascalCase event names.
+ * GitHub Copilot supports 8 events: SessionStart, UserPromptSubmit, PreToolUse,
  * PostToolUse, PreCompact, SubagentStart, SubagentStop, Stop.
  */
 const EVENT_MAP: Record<string, string> = {
@@ -23,8 +23,8 @@ const EVENT_MAP: Record<string, string> = {
 };
 
 /**
- * Tool-name matchers to inject for events that target a specific VS Code tool.
- * VS Code uses the same tool naming convention as Claude Code for hook matchers.
+ * Tool-name matchers to inject for events that target a specific GitHub Copilot tool.
+ * GitHub Copilot uses the same tool naming convention as Claude Code for hook matchers.
  * Events not listed here use the user-supplied matcher (or empty string for all tools).
  */
 const TOOL_MATCHER_MAP: Record<string, string> = {
@@ -39,8 +39,8 @@ const TOOL_MATCHER_MAP: Record<string, string> = {
 };
 
 /**
- * Events that VS Code supports.
- * VS Code does not support `session_end`.
+ * Events that GitHub Copilot supports.
+ * GitHub Copilot does not support `session_end`.
  */
 const SUPPORTED_EVENTS = new Set([
    'pre_tool_use',
@@ -59,17 +59,17 @@ const SUPPORTED_EVENTS = new Set([
 ]);
 
 /**
- * VS Code (GitHub Copilot) hooks strategy. Writes hooks to `.github/hooks/hooks.json`.
- * Translates generic ai.json event names to VS Code's PascalCase format.
+ * GitHub Copilot hooks strategy. Writes hooks to `.github/hooks/hooks.json`.
+ * Translates generic ai.json event names to GitHub Copilot's PascalCase format.
  * Uses the same matcher-based structure as Claude Code hooks.
  */
-export class VSCodeHooksStrategy implements HooksStrategy {
+export class CopilotHooksStrategy implements HooksStrategy {
    isSupported(): boolean {
       return true;
    }
 
    getConfigPath(): string {
-      // VS Code hooks live in .github/hooks/, not in .vscode/
+      // GitHub Copilot hooks live in .github/hooks/, not in .vscode/
       return '../.github/hooks/hooks.json';
    }
 
@@ -78,12 +78,12 @@ export class VSCodeHooksStrategy implements HooksStrategy {
    }
 
    formatConfig(hooks: HooksConfig): string {
-      const vscodeHooks: Record<string, unknown[]> = {};
+      const copilotHooks: Record<string, unknown[]> = {};
 
       for (const [event, matchers] of Object.entries(hooks)) {
-         const vscodeEvent = EVENT_MAP[event];
+         const copilotEvent = EVENT_MAP[event];
 
-         if (!vscodeEvent) {
+         if (!copilotEvent) {
             continue;
          }
 
@@ -97,12 +97,12 @@ export class VSCodeHooksStrategy implements HooksStrategy {
             })),
          }));
 
-         if (!vscodeHooks[vscodeEvent]) {
-            vscodeHooks[vscodeEvent] = [];
+         if (!copilotHooks[copilotEvent]) {
+            copilotHooks[copilotEvent] = [];
          }
-         vscodeHooks[vscodeEvent].push(...mapped);
+         copilotHooks[copilotEvent].push(...mapped);
       }
 
-      return JSON.stringify({ hooks: vscodeHooks }, null, 2) + '\n';
+      return JSON.stringify({ hooks: copilotHooks }, null, 2) + '\n';
    }
 }

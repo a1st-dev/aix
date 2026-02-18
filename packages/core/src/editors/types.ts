@@ -26,7 +26,7 @@ export interface UnsupportedFeatures {
    };
 }
 
-export type EditorName = 'windsurf' | 'cursor' | 'claude-code' | 'vscode' | 'zed' | 'codex';
+export type EditorName = 'windsurf' | 'cursor' | 'claude-code' | 'copilot' | 'zed' | 'codex';
 
 /**
  * Editor-specific rule format after translation from ai.json rules.

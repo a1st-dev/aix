@@ -14,7 +14,7 @@ To only install to specific editors, provide an array of strings:
 
 ```json
 {
-   "editors": ["cursor", "vscode"]
+   "editors": ["cursor", "copilot"]
 }
 ```
 
@@ -24,7 +24,7 @@ Or use the object form:
 {
    "editors": {
       "cursor": { "enabled": true },
-      "vscode": { "enabled": true },
+      "copilot": { "enabled": true },
       "windsurf": { "enabled": false }
    }
 }

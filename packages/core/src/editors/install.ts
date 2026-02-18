@@ -8,7 +8,7 @@ import {
    WindsurfAdapter,
    CursorAdapter,
    ClaudeCodeAdapter,
-   VSCodeAdapter,
+   CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
 } from './adapters/index.js';
@@ -21,7 +21,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    windsurf: WindsurfAdapter,
    cursor: CursorAdapter,
    'claude-code': ClaudeCodeAdapter,
-   vscode: VSCodeAdapter,
+   copilot: CopilotAdapter,
    zed: ZedAdapter,
    codex: CodexAdapter,
 };

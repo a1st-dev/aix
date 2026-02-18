@@ -28,6 +28,6 @@ export {
    ClaudeCodeMcpStrategy,
    ClaudeCodePromptsStrategy,
 } from './claude-code/index.js';
-export { VSCodeRulesStrategy, VSCodeMcpStrategy, VSCodePromptsStrategy } from './vscode/index.js';
+export { CopilotRulesStrategy, CopilotMcpStrategy, CopilotPromptsStrategy } from './copilot/index.js';
 export { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from './zed/index.js';
 export { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy } from './codex/index.js';

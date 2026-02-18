@@ -8,7 +8,7 @@ description: Feature support matrix for all editors detected by aix.
 
 aix currently supports 6 AI code editors.
 
-| Feature     | Cursor | VS Code | Claude Code | Windsurf | Zed | Codex |
+| Feature     | Cursor | GitHub Copilot | Claude Code | Windsurf | Zed | Codex |
 | ----------- | :----: | :-----: | :---------: | :------: | :-: | :---: |
 | **Rules**   |   ✅   |   ✅    |     ✅      |    ✅    | ✅  |  ✅   |
 | **Prompts** |   ✅   |   ✅    |     ✅      |    ✅    | ❌  |  ✅   |
@@ -30,7 +30,7 @@ How `ai.json` concepts map to each editor:
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.cursor/skills/`.
 - **Hooks**: `.cursor/hooks.json`. Supports `pre_tool_use`, `post_tool_use`, `pre_file_read`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `post_file_write`, `pre_prompt`, `session_start`, `session_end`, and `agent_stop`.
 
-### VS Code (GitHub Copilot)
+### GitHub Copilot
 
 - **Rules**: `.github/instructions/*.instructions.md`.
 - **MCP**: `.vscode/mcp.json`.

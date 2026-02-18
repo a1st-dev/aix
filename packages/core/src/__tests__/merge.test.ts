@@ -160,7 +160,7 @@ describe('mergeConfigs', () => {
          const remote: Partial<AiJsonConfig> = {
             editors: {
                windsurf: { enabled: false },
-               vscode: { enabled: true },
+               copilot: { enabled: true },
             },
          };
 
@@ -169,7 +169,7 @@ describe('mergeConfigs', () => {
          expect(result.editors).toEqual({
             windsurf: { enabled: false },
             cursor: { enabled: false },
-            vscode: { enabled: true },
+            copilot: { enabled: true },
          });
       });
 
@@ -181,7 +181,7 @@ describe('mergeConfigs', () => {
 
          const remote: Partial<AiJsonConfig> = {
             editors: {
-               vscode: { enabled: true },
+               copilot: { enabled: true },
             },
          };
 
@@ -190,7 +190,7 @@ describe('mergeConfigs', () => {
          expect(result.editors).toEqual({
             windsurf: { enabled: true },
             cursor: { enabled: true },
-            vscode: { enabled: true },
+            copilot: { enabled: true },
          });
       });
    });

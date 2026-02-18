@@ -2,10 +2,10 @@ import type { RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 
 /**
- * VS Code (GitHub Copilot) rules strategy. Uses `.instructions.md` files with YAML frontmatter
+ * GitHub Copilot rules strategy. Uses `.instructions.md` files with YAML frontmatter
  * containing an `applyTo` field for glob patterns. Rules go to `.github/instructions/` directory.
  */
-export class VSCodeRulesStrategy implements RulesStrategy {
+export class CopilotRulesStrategy implements RulesStrategy {
    getRulesDir(): string {
       // Rules go to .github/instructions/, not .vscode/
       return '../.github/instructions';
@@ -16,7 +16,7 @@ export class VSCodeRulesStrategy implements RulesStrategy {
    }
 
    getGlobalRulesPath(): string | null {
-      // VS Code doesn't have global rules file
+      // GitHub Copilot doesn't have global rules file
       return null;
    }
 
@@ -27,10 +27,10 @@ export class VSCodeRulesStrategy implements RulesStrategy {
    formatRule(rule: EditorRule): string {
       const lines: string[] = [];
 
-      // VS Code uses applyTo for glob patterns, otherwise rules apply to all files
+      // GitHub Copilot uses applyTo for glob patterns, otherwise rules apply to all files
       if (rule.activation.type === 'glob' && rule.activation.globs?.length) {
          lines.push('---');
-         // VS Code expects a single glob pattern string
+         // GitHub Copilot expects a single glob pattern string
          lines.push(`applyTo: "${rule.activation.globs.join(', ')}"`);
          lines.push('---', '');
       }

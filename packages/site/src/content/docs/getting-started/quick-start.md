@@ -86,7 +86,7 @@ aix detects which AI editors you have installed and syncs the config to each one
 
 ```
 ✓ Cursor — 1 rule, 1 prompt, 1 MCP server
-✓ VS Code — 1 rule, 1 prompt, 1 MCP server
+✓ GitHub Copilot — 1 rule, 1 prompt, 1 MCP server
 ✓ Claude Code — 1 rule, 1 prompt, 1 MCP server
 ```
 

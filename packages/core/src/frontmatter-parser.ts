@@ -1,6 +1,6 @@
 /**
  * Auto-detecting frontmatter parser that uses editor-specific strategies to parse frontmatter.
- * Uses ordered priority for detection: Windsurf → Cursor → Claude Code → VS Code.
+ * Uses ordered priority for detection: Windsurf → Cursor → Claude Code → GitHub Copilot.
  */
 
 import type { ActivationMode } from '@a1st/aix-schema';
@@ -10,7 +10,7 @@ import { WindsurfPromptsStrategy } from './editors/strategies/windsurf/prompts.j
 import { CursorRulesStrategy } from './editors/strategies/cursor/rules.js';
 import { ClaudeCodeRulesStrategy } from './editors/strategies/claude-code/rules.js';
 import { ClaudeCodePromptsStrategy } from './editors/strategies/claude-code/prompts.js';
-import { VSCodePromptsStrategy } from './editors/strategies/vscode/prompts.js';
+import { CopilotPromptsStrategy } from './editors/strategies/copilot/prompts.js';
 import { CodexPromptsStrategy } from './editors/strategies/codex/prompts.js';
 import { extractFrontmatter, parseYamlValue } from './frontmatter-utils.js';
 
@@ -25,7 +25,7 @@ const RULES_STRATEGIES: RulesStrategy[] = [
 const PROMPTS_STRATEGIES: PromptsStrategy[] = [
    new WindsurfPromptsStrategy(),
    new ClaudeCodePromptsStrategy(),
-   new VSCodePromptsStrategy(),
+   new CopilotPromptsStrategy(),
    new CodexPromptsStrategy(),
 ];
 

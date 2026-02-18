@@ -28,7 +28,7 @@ export default defineConfig({
     starlight({
       title: "aix",
       description:
-        "One config file. Every AI editor. Define skills, rules, prompts, and MCP servers in ai.json — install to Cursor, VS Code, Claude Code, Windsurf, Zed, and Codex.",
+        "One config file. Every AI editor. Define skills, rules, prompts, and MCP servers in ai.json — install to Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, and Codex.",
       logo: {
         light: "./src/assets/logo-light.svg",
         dark: "./src/assets/logo-dark.svg",

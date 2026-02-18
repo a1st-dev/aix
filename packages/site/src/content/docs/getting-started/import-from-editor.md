@@ -19,7 +19,7 @@ Supported editors:
 | Editor      | Flag value    |
 | ----------- | ------------- |
 | Cursor      | `cursor`      |
-| VS Code     | `vscode`      |
+| GitHub Copilot     | `copilot`      |
 | Claude Code | `claude-code` |
 | Windsurf    | `windsurf`    |
 | Zed         | `zed`         |

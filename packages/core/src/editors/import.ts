@@ -14,9 +14,9 @@ import { CursorPromptsStrategy } from './strategies/cursor/prompts.js';
 import { ClaudeCodeMcpStrategy } from './strategies/claude-code/mcp.js';
 import { ClaudeCodeRulesStrategy } from './strategies/claude-code/rules.js';
 import { ClaudeCodePromptsStrategy } from './strategies/claude-code/prompts.js';
-import { VSCodeMcpStrategy } from './strategies/vscode/mcp.js';
-import { VSCodeRulesStrategy } from './strategies/vscode/rules.js';
-import { VSCodePromptsStrategy } from './strategies/vscode/prompts.js';
+import { CopilotMcpStrategy } from './strategies/copilot/mcp.js';
+import { CopilotRulesStrategy } from './strategies/copilot/rules.js';
+import { CopilotPromptsStrategy } from './strategies/copilot/prompts.js';
 import { ZedMcpStrategy } from './strategies/zed/mcp.js';
 import { ZedRulesStrategy } from './strategies/zed/rules.js';
 import { ZedPromptsStrategy } from './strategies/zed/prompts.js';
@@ -71,11 +71,11 @@ function getImportStrategies(editor: EditorName): ImportStrategies {
          rules: new ClaudeCodeRulesStrategy(),
          prompts: new ClaudeCodePromptsStrategy(),
       };
-   case 'vscode':
+   case 'copilot':
       return {
-         mcp: new VSCodeMcpStrategy(),
-         rules: new VSCodeRulesStrategy(),
-         prompts: new VSCodePromptsStrategy(),
+         mcp: new CopilotMcpStrategy(),
+         rules: new CopilotRulesStrategy(),
+         prompts: new CopilotPromptsStrategy(),
       };
    case 'zed':
       return {
@@ -172,7 +172,7 @@ const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
    windsurf: '.windsurf',
    cursor: '.cursor',
    'claude-code': '.claude',
-   vscode: '.vscode',
+   copilot: '.vscode',
    zed: '.zed',
    codex: '.codex',
 };

@@ -26,7 +26,7 @@ aix init [flags]
 The `--from` flag allows you to bootstrap `ai.json` from:
 
 - `cursor`
-- `vscode`
+- `copilot`
 - `windsurf`
 - `claude-code`
 - `zed`

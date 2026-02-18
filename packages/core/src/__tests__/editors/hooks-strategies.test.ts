@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CursorHooksStrategy } from '../../editors/strategies/cursor/hooks.js';
 import { ClaudeCodeHooksStrategy } from '../../editors/strategies/claude-code/hooks.js';
 import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.js';
-import { VSCodeHooksStrategy } from '../../editors/strategies/vscode/hooks.js';
+import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js';
 import type { HooksConfig } from '@a1st/aix-schema';
 
 describe('CursorHooksStrategy', () => {
@@ -359,8 +359,8 @@ describe('WindsurfHooksStrategy', () => {
    });
 });
 
-describe('VSCodeHooksStrategy', () => {
-   const strategy = new VSCodeHooksStrategy();
+describe('CopilotHooksStrategy', () => {
+   const strategy = new CopilotHooksStrategy();
 
    it('reports itself as supported', () => {
       expect(strategy.isSupported()).toBe(true);
@@ -430,7 +430,7 @@ describe('VSCodeHooksStrategy', () => {
       ]);
    });
 
-   it('accumulates multiple events into the same VS Code event', () => {
+   it('accumulates multiple events into the same GitHub Copilot event', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{ matcher: '.*', hooks: [{ command: 'generic' }] }],
          pre_command: [{ hooks: [{ command: 'bash-specific' }] }],

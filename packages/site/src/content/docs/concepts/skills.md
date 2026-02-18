@@ -58,7 +58,7 @@ When you run `aix install`, skills are:
 1. Resolved and downloaded (if remote) to `.aix/skills/{name}/`.
 2. Symlinked or copied to the appropriate location for each editor:
    - **Cursor**: Symlinked from `.cursor/skills/`.
-   - **VS Code**: Symlinked from `.github/skills/` (native Agent Skills support).
+   - **GitHub Copilot**: Symlinked from `.github/skills/` (native Agent Skills support).
    - **Claude Code**: Symlinked from `.claude/skills/`.
    - **Codex**: Symlinked from `.codex/skills/`.
    - **Windsurf**: Symlinked from `.windsurf/skills/`.
