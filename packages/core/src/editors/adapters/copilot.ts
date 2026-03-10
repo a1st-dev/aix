@@ -19,8 +19,8 @@ import type {
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
  * MCP config to `.vscode/mcp.json`, skills to `.github/skills/`, and hooks to `.github/hooks/hooks.json`.
- * Skills are installed to `.agents/skills/{name}/` with symlinks from `.github/skills/` since GitHub Copilot
- * has native Agent Skills support.
+ * Skills are installed to `.agents/skills/{name}/` and physically copied to `.github/skills/`
+ * since GitHub Copilot has native Agent Skills support.
  */
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;

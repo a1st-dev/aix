@@ -62,7 +62,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
       try {
          // Build command arguments
-         const skillsArgs = ['add', args.source, '-y'];
+         const skillsArgs = ['add', args.source, '--mode', 'copy', '-y'];
 
          if (this.flags.name) {
             skillsArgs.push('--skill', this.flags.name);

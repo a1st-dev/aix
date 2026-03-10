@@ -47,7 +47,7 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
 
       // Build command arguments
       // If the source is from skills-library, it should be the ID (e.g. vercel-labs/agent-skills)
-      const skillsArgs = ['add', source, '-y'];
+      const skillsArgs = ['add', source, '--mode', 'copy', '-y'];
 
       // If we have a specific name, try to add just that skill
       if (name && name !== source) {

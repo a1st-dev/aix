@@ -18,7 +18,7 @@ import type {
 
 /**
  * Windsurf editor adapter. Writes rules to `.windsurf/rules/*.md`. Skills are installed
- * natively to `.windsurf/skills/{name}/` via symlinks from `.agents/skills/{name}/`.
+ * natively to `.windsurf/skills/{name}/` via physical copies from `.agents/skills/{name}/`.
  * Hooks are written to `.windsurf/hooks.json`. MCP is global-only
  * (`~/.codeium/windsurf/mcp_config.json`) and requires user confirmation to modify.
  */

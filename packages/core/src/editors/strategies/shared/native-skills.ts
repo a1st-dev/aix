@@ -8,6 +8,7 @@ import type { EditorRule, FileChange } from '../../types.js';
  * Native skills strategy for editors that support Agent Skills natively (Claude Code, GitHub Copilot,
  * Cursor). Uses the `skills` CLI (vercel-labs/skills) to handle robust multi-agent installation.
  * The source of truth is aligned with the industry-standard `.agents/skills/` directory.
+ * Skills are physically copied to the agent's skills directory to ensure maximum compatibility.
  */
 export class NativeSkillsStrategy implements SkillsStrategy {
    private editorName: string;
@@ -46,7 +47,7 @@ export class NativeSkillsStrategy implements SkillsStrategy {
          return skillNames.map((name) => ({
             path: join('.agents/skills', name),
             action: 'update',
-            content: `[npx skills experimental_install --agent ${this.editorName}]`,
+            content: `[npx skills experimental_install --agent ${this.editorName} --mode copy]`,
             isDirectory: true,
             category: 'skill',
          }));
@@ -54,12 +55,14 @@ export class NativeSkillsStrategy implements SkillsStrategy {
 
       try {
          // Use the skills CLI from node_modules to handle the entire installation process.
-         // This is more robust as it supports 40+ agents and handles complex symlinking.
+         // This is more robust as it supports 40+ agents.
+         // We use --mode copy to ensure files are physically copied instead of symlinked.
          const binPath = join(projectRoot, 'node_modules', '.bin', 'skills');
 
-         await execa(binPath, ['experimental_install', '--agent', this.editorName, '-y'], {
+         await execa(binPath, ['experimental_install', '--agent', this.editorName, '--mode', 'copy', '-y'], {
             cwd: projectRoot,
          });
+
 
          return skillNames.map((name) => ({
             path: join('.agents/skills', name),

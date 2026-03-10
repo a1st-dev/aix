@@ -17,8 +17,8 @@ import type {
 
 /**
  * Cursor editor adapter. Writes rules to `.cursor/rules/*.mdc` (with YAML frontmatter) and MCP
- * config to `.cursor/mcp.json`. Skills are installed to `.agents/skills/{name}/` with symlinks from
- * `.cursor/skills/` since Cursor supports the Agent Skills open standard.
+ * config to `.cursor/mcp.json`. Skills are installed to `.agents/skills/{name}/` and
+ * physically copied to `.cursor/skills/` since Cursor supports the Agent Skills open standard.
  * Hooks are written to `.cursor/hooks.json`.
  */
 export class CursorAdapter extends BaseEditorAdapter {
