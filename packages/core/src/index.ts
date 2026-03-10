@@ -12,6 +12,7 @@ export * from './mcp/index.js';
 export * from './rules/index.js';
 export * from './editors/index.js';
 export * from './url-parsing.js';
+export * from './frontmatter-utils.js';
 export * from './remote-loader.js';
 export * from './merge.js';
 export * from './prompts/index.js';

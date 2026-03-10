@@ -6,10 +6,13 @@ import {
    buildGitHubUrl,
    buildGitLabUrl,
    buildProviderUrl,
+   convertBlobToRawUrl,
+   extractFrontmatter,
    getLocalConfigPath,
    inferNameFromPath,
    isGenericGitUrl,
    isLocalPath,
+   parseAllFrontmatter,
    parseGitHubRepoUrl,
    parseGitHubTreeUrl,
    parseGitLabTreeUrl,
@@ -39,12 +42,57 @@ function normalizeSkillName(name: string): string {
 }
 
 /**
+ * Try to fetch skill name from remote SKILL.md frontmatter.
+ */
+async function fetchSkillNameFromRemote(url: string): Promise<string | undefined> {
+   try {
+      const rawUrl = convertBlobToRawUrl(url),
+            response = await fetch(rawUrl);
+
+      if (!response.ok) {
+         return undefined;
+      }
+
+      const content = await response.text(),
+            { frontmatter } = extractFrontmatter(content);
+
+      if (!frontmatter) {
+         return undefined;
+      }
+
+      const parsed = parseAllFrontmatter(frontmatter);
+
+      return typeof parsed.name === 'string' ? parsed.name : undefined;
+   } catch {
+      return undefined;
+   }
+}
+
+/**
+ * Infer name from path, but if it's SKILL.md, use the parent directory name.
+ */
+function inferSkillName(path: string): string | undefined {
+   if (path.toLowerCase().endsWith('skill.md')) {
+      const segments = path.split('/').filter(Boolean);
+
+      // Remove SKILL.md
+      segments.pop();
+      const parentDir = segments.pop();
+
+      if (parentDir) {
+         return parentDir;
+      }
+   }
+   return inferNameFromPath(path, ['.md']);
+}
+
+/**
  * Detect source type and parse into a structured reference.
  */
-function parseSource(source: string, refOverride?: string): ParsedSource {
+async function parseSource(source: string, refOverride?: string): Promise<ParsedSource> {
    // Local paths
    if (isLocalPath(source)) {
-      const name = inferNameFromPath(source) ?? 'skill';
+      const name = inferSkillName(source) ?? 'skill';
 
       return {
          type: 'local',
@@ -57,7 +105,10 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
    const ghTree = parseGitHubTreeUrl(source);
 
    if (ghTree) {
-      const name = inferNameFromPath(ghTree.subdir) ?? ghTree.repo;
+      // Try to fetch name from SKILL.md in that directory
+      const skillMdUrl = `${source.replace(/\/$/, '')}/SKILL.md`,
+            remoteName = await fetchSkillNameFromRemote(skillMdUrl),
+            name = remoteName ?? (inferSkillName(ghTree.subdir) ?? ghTree.repo);
 
       return {
          type: 'git',
@@ -65,6 +116,25 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
             git: buildGitHubUrl(ghTree.owner, ghTree.repo),
             ref: refOverride ?? ghTree.ref,
             path: ghTree.subdir,
+         },
+         inferredName: normalizeSkillName(name),
+      };
+   }
+
+   // GitHub web URL with /blob/ref/path
+   const ghBlob = source.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
+
+   if (ghBlob) {
+      const [, owner, repo, ref, path] = ghBlob,
+            remoteName = await fetchSkillNameFromRemote(source),
+            name = remoteName ?? (inferSkillName(path!) ?? repo!);
+
+      return {
+         type: 'git',
+         ref: {
+            git: buildGitHubUrl(owner!, repo!),
+            ref: refOverride ?? ref!,
+            path: path!,
          },
          inferredName: normalizeSkillName(name),
       };
@@ -81,10 +151,15 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
       if (refOverride) {
          gitRef.ref = refOverride;
       }
+
+      // Try repo root SKILL.md
+      const skillMdUrl = `${source.replace(/\/$/, '')}/blob/main/SKILL.md`,
+            remoteName = await fetchSkillNameFromRemote(skillMdUrl);
+
       return {
          type: 'git',
          ref: gitRef,
-         inferredName: normalizeSkillName(ghRepo.repo),
+         inferredName: normalizeSkillName(remoteName ?? ghRepo.repo),
       };
    }
 
@@ -92,7 +167,9 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
    const glTree = parseGitLabTreeUrl(source);
 
    if (glTree) {
-      const name = inferNameFromPath(glTree.subdir) ?? glTree.project;
+      const skillMdUrl = `${source.replace(/\/$/, '')}/SKILL.md`,
+            remoteName = await fetchSkillNameFromRemote(skillMdUrl),
+            name = remoteName ?? (inferSkillName(glTree.subdir) ?? glTree.project);
 
       return {
          type: 'git',
@@ -112,7 +189,7 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
       const gitUrl = buildProviderUrl(shorthand.provider, shorthand.user, shorthand.repo),
             effectiveRef = refOverride ?? shorthand.ref,
             gitRefObj: { git: string; ref?: string; path?: string } = { git: gitUrl },
-            name = shorthand.subpath ? (inferNameFromPath(shorthand.subpath) ?? 'skill') : shorthand.repo;
+            name = shorthand.subpath ? (inferSkillName(shorthand.subpath) ?? 'skill') : shorthand.repo;
 
       if (effectiveRef) {
          gitRefObj.ref = effectiveRef;
@@ -120,6 +197,9 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
       if (shorthand.subpath) {
          gitRefObj.path = shorthand.subpath;
       }
+
+      // Note: we don't fetch for shorthand yet to keep it simple,
+      // but we could build the web URL and call fetchSkillNameFromRemote
 
       return {
          type: 'git',
@@ -130,7 +210,7 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
 
    // Generic https git URL (not GitHub/GitLab web UI)
    if (isGenericGitUrl(source)) {
-      const name = inferNameFromPath(source.replace(/\.git$/, '')) ?? 'skill',
+      const name = inferSkillName(source.replace(/\.git$/, '')) ?? 'skill',
             gitRefObj: { git: string; ref?: string } = { git: source };
 
       if (refOverride) {
@@ -170,7 +250,7 @@ function parseSource(source: string, refOverride?: string): ParsedSource {
    }
 
    // Fallback: treat as npm package name
-   const name = inferNameFromPath(source) ?? source;
+   const name = inferSkillName(source) ?? source;
 
    return {
       type: 'npm',
@@ -215,10 +295,10 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
    };
 
    async run(): Promise<void> {
-      const { args, flags } = await this.parse(AddSkill),
+      const { args } = await this.parse(AddSkill),
             loaded = await this.loadConfig(),
-            parsed = parseSource(args.source, flags.ref),
-            skillName = flags.name ?? parsed.inferredName;
+            parsed = await parseSource(args.source, this.flags.ref),
+            skillName = this.flags.name ?? parsed.inferredName;
 
       // Validate skill name
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(skillName)) {
@@ -230,7 +310,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
       }
 
       // Determine target file based on --local flag
-      if (flags.local) {
+      if (this.flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => ({
@@ -257,7 +337,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
          this.output.success(`Added skill "${skillName}"`);
 
          // Auto-install to configured editors unless --no-install
-         if (!flags['no-install']) {
+         if (!this.flags['no-install']) {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                scopes: ['skills'],

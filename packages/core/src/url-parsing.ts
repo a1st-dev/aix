@@ -269,16 +269,43 @@ export function bitbucketBlobToRaw(url: string): string | undefined {
 }
 
 /**
- * Convert any supported git host blob URL to a raw URL. Returns the original URL if not a recognized blob URL.
+ * Convert a GitHub tree URL to a raw content URL by assuming the directory might contain a file.
+ * NOTE: This is speculative as directories don't have "raw" content, but used for SKILL.md discovery.
+ * `https://github.com/org/repo/tree/main/path` → `https://raw.githubusercontent.com/org/repo/main/path`
+ */
+export function githubTreeToRaw(url: string): string | undefined {
+   const parsed = parseGitHubTreeUrl(url);
+
+   if (!parsed) {
+      return undefined;
+   }
+   return `https://raw.githubusercontent.com/${parsed.owner}/${parsed.repo}/${parsed.ref}/${parsed.subdir}`;
+}
+
+/**
+ * Convert a GitLab tree URL to a raw content URL.
+ * `https://gitlab.com/group/project/-/tree/main/path` → `https://gitlab.com/group/project/-/raw/main/path`
+ */
+export function gitlabTreeToRaw(url: string): string | undefined {
+   const parsed = parseGitLabTreeUrl(url);
+
+   if (!parsed) {
+      return undefined;
+   }
+   return `https://gitlab.com/${parsed.group}/${parsed.project}/-/raw/${parsed.ref}/${parsed.subdir}`;
+}
+
+/**
+ * Convert any supported git host blob or tree URL to a raw URL. Returns the original URL if not recognized.
  */
 export function convertBlobToRawUrl(url: string): string {
-   const githubRaw = githubBlobToRaw(url);
+   const githubRaw = githubBlobToRaw(url) ?? githubTreeToRaw(url);
 
    if (githubRaw) {
       return githubRaw;
    }
 
-   const gitlabRaw = gitlabBlobToRaw(url);
+   const gitlabRaw = gitlabBlobToRaw(url) ?? gitlabTreeToRaw(url);
 
    if (gitlabRaw) {
       return gitlabRaw;
