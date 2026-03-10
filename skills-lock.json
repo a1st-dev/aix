@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "mastering-typescript": {
+      "source": "spillwavesolutions/mastering-typescript-skill",
+      "sourceType": "github",
+      "computedHash": "1cba0ac27ae3ceb517b93bb6ccf053607b8ba939a1c1c9d4716eed7e4d9175b2"
+    }
+  }
+}

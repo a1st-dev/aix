@@ -34,7 +34,7 @@ export function computeFilesToDelete(
             files: string[] = [];
 
       if (itemType === 'skill') {
-         // Skills are installed to .aix/skills/{name}/ (shared across editors)
+         // Skills are installed to .agents/skills/{name}/ (shared across editors)
          // Plus any pointer rules in the editor's rules directory
          const skillDir = join(projectRoot, '.aix', 'skills', itemName);
 
