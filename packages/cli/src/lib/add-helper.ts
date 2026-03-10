@@ -2,12 +2,24 @@ import { updateConfig, loadConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse, type Package } from '@a1st/mcp-registry-client';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import { installAfterAdd } from './install-helper.js';
+import { execa } from 'execa';
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 
 export interface AddSkillOptions {
    configPath: string;
    name: string;
    source: string;
    skipInstall?: boolean;
+}
+
+interface SkillsLock {
+   skills: Record<string, {
+      source: string;
+      sourceType: string;
+      path?: string;
+      ref?: string;
+   }>;
 }
 
 export interface AddMcpOptions {
@@ -23,34 +35,56 @@ export interface AddResult {
 }
 
 /**
- * Normalize a string to a valid skill name (lowercase alphanumeric with hyphens).
- */
-function normalizeSkillName(name: string): string {
-   return name
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-}
-
-/**
- * Add a skill to ai.json programmatically.
- * For npm packages, the source should be the package name (e.g., "aix-skill-typescript" or just "typescript").
+ * Add a skill to ai.json programmatically using the skills CLI.
  */
 export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
-   const { configPath, source, skipInstall } = options;
+   const { configPath, source, skipInstall, name } = options;
 
    try {
-      // Determine if it's a short name or full package name
-      const isFullPkgName = source.startsWith('aix-skill-') || source.startsWith('@'),
-            packageName = isFullPkgName ? source : `aix-skill-${source}`,
-            skillName = options.name || normalizeSkillName(source.replace(/^aix-skill-/, ''));
+      // Run skills CLI from node_modules
+      const binPath = join(process.cwd(), 'node_modules', '.bin', 'skills'),
+            configDir = dirname(configPath);
+
+      // Build command arguments
+      // If the source is from skills-library, it should be the ID (e.g. vercel-labs/agent-skills)
+      const skillsArgs = ['add', source, '-y'];
+
+      // If we have a specific name, try to add just that skill
+      if (name && name !== source) {
+         skillsArgs.push('--skill', name);
+      }
+
+      await execa(binPath, skillsArgs, {
+         cwd: configDir,
+      });
+
+      // Read skills-lock.json to see what was added and update ai.json
+      const lockPath = join(configDir, 'skills-lock.json'),
+            lockContent = await readFile(lockPath, 'utf8'),
+            lockData = JSON.parse(lockContent) as SkillsLock;
+
+      // Update ai.json with the new skill references from the lock file
+      const skillMap: Record<string, any> = {};
+
+      for (const [skillName, info] of Object.entries(lockData.skills)) {
+         if (info.sourceType === 'github' || info.sourceType === 'git') {
+            skillMap[skillName] = {
+               git: info.source.startsWith('http') ? info.source : `https://github.com/${info.source}`,
+               path: info.path,
+               ref: info.ref,
+            };
+         } else if (info.sourceType === 'local') {
+            skillMap[skillName] = { path: info.source };
+         } else {
+            skillMap[skillName] = info.source;
+         }
+      }
 
       await updateConfig(configPath, (config) => ({
          ...config,
          skills: {
             ...config.skills,
-            [skillName]: packageName,
+            ...skillMap,
          },
       }));
 
@@ -61,11 +95,11 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
          });
       }
 
-      return { success: true, name: skillName };
+      return { success: true, name: name || source };
    } catch (error) {
       return {
          success: false,
-         name: options.name || source,
+         name: name || source,
          error: error instanceof Error ? error.message : String(error),
       };
    }

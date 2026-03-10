@@ -4,6 +4,7 @@
       "module": "ESNext",
       "lib": ["ES2023"],
       "moduleResolution": "bundler",
+      "rewriteRelativeImportExtensions": true,
       "jsx": "react-jsx",
       "resolveJsonModule": true,
       "allowJs": false,

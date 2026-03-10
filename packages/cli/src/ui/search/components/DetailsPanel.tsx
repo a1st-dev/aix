@@ -33,6 +33,11 @@ export function DetailsPanel({ result, width }: DetailsPanelProps): React.ReactE
          <Text>
             📦 Source: <Text color="yellow">{sanitizeForTerminal(result.source)}</Text>
          </Text>
+         {meta?.installs !== undefined && (
+            <Text>
+               ⬇️  Installs: <Text color="green">{sanitizeForTerminal(String(meta.installs))}</Text>
+            </Text>
+         )}
          {meta?.author !== undefined && (
             <Text>
                👤 Author: <Text>{sanitizeForTerminal(String(meta.author))}</Text>

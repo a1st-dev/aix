@@ -1,26 +1,34 @@
-import pMap from 'p-map';
-import { mkdir, cp, symlink, lstat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, dirname, relative } from 'pathe';
+import { execa } from 'execa';
+import { join } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy, NativeSkillsConfig } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
-import { safeRm } from '../../../fs/safe-rm.js';
 
 /**
  * Native skills strategy for editors that support Agent Skills natively (Claude Code, GitHub Copilot,
- * Cursor). Copies skills to `.aix/skills/` as the source of truth and creates symlinks from the
- * editor's skills directory.
+ * Cursor). Uses the `skills` CLI (vercel-labs/skills) to handle robust multi-agent installation.
+ * The source of truth is aligned with the industry-standard `.agents/skills/` directory.
  */
 export class NativeSkillsStrategy implements SkillsStrategy {
-   private editorSkillsDir: string;
+   private editorName: string;
 
    constructor(config: NativeSkillsConfig) {
-      this.editorSkillsDir = config.editorSkillsDir;
+      // Map aix editor names to skills CLI agent names
+      const mapping: Record<string, string> = {
+         'claude-code': 'claude-code',
+         cursor: 'cursor',
+         windsurf: 'windsurf',
+         copilot: 'github-copilot',
+         'github-copilot': 'github-copilot',
+         zed: 'zed',
+         codex: 'codex',
+      };
+
+      this.editorName = mapping[config.editorName] || config.editorName;
    }
 
    getSkillsDir(): string {
-      return '.aix/skills';
+      return '.agents/skills';
    }
 
    isNative(): boolean {
@@ -32,66 +40,38 @@ export class NativeSkillsStrategy implements SkillsStrategy {
       projectRoot: string,
       options: { dryRun?: boolean } = {},
    ): Promise<FileChange[]> {
-      const entries = Array.from(skills.entries());
+      const skillNames = Array.from(skills.keys());
 
-      const nestedChanges = await pMap(
-         entries,
-         async ([name, skill]) => {
-            const changes: FileChange[] = [];
+      if (options.dryRun) {
+         return skillNames.map((name) => ({
+            path: join('.agents/skills', name),
+            action: 'update',
+            content: `[npx skills experimental_install --agent ${this.editorName}]`,
+            isDirectory: true,
+            category: 'skill',
+         }));
+      }
 
-            // 1. Copy to .aix/skills/{name}/ (source of truth)
-            const aixSkillDir = join(projectRoot, '.aix', 'skills', name),
-                  aixExists = existsSync(aixSkillDir);
+      try {
+         // Use the skills CLI from node_modules to handle the entire installation process.
+         // This is more robust as it supports 40+ agents and handles complex symlinking.
+         const binPath = join(projectRoot, 'node_modules', '.bin', 'skills');
 
-            if (!options.dryRun) {
-               await mkdir(dirname(aixSkillDir), { recursive: true });
-               await cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
-            }
+         await execa(binPath, ['experimental_install', '--agent', this.editorName, '-y'], {
+            cwd: projectRoot,
+         });
 
-            changes.push({
-               path: aixSkillDir,
-               action: aixExists ? 'update' : 'create',
-               content: `[skill directory: ${skill.basePath}]`,
-               isDirectory: true,
-               category: 'skill',
-            });
-
-            // 2. Create symlink from editor skills dir to .aix/skills/{name}
-            const editorSkillPath = join(projectRoot, this.editorSkillsDir, name),
-                  relativePath = relative(dirname(editorSkillPath), aixSkillDir);
-
-            let symlinkExists = false;
-
-            try {
-               const stats = await lstat(editorSkillPath);
-
-               symlinkExists = stats.isSymbolicLink() || stats.isDirectory();
-            } catch {
-               // Path doesn't exist
-            }
-
-            if (!options.dryRun) {
-               await mkdir(dirname(editorSkillPath), { recursive: true });
-               if (symlinkExists) {
-                  await safeRm(editorSkillPath, { force: true });
-               }
-               await symlink(relativePath, editorSkillPath);
-            }
-
-            changes.push({
-               path: editorSkillPath,
-               action: symlinkExists ? 'update' : 'create',
-               content: `[symlink → ${relativePath}]`,
-               isDirectory: true,
-               category: 'skill',
-            });
-
-            return changes;
-         },
-         { concurrency: 5 },
-      );
-
-      return nestedChanges.flat();
+         return skillNames.map((name) => ({
+            path: join('.agents/skills', name),
+            action: 'update',
+            content: `[Synced via skills CLI]`,
+            isDirectory: true,
+            category: 'skill',
+         }));
+      } catch (error) {
+         console.warn(`Failed to install skills for ${this.editorName} using skills CLI:`, error);
+         return [];
+      }
    }
 
    generateSkillRules(_skills: Map<string, ParsedSkill>): EditorRule[] {

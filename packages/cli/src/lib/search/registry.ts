@@ -3,22 +3,18 @@ import type {
    SearchResult,
    SearchType,
    SearchOptions,
-   ExperimentalSourceId,
 } from './types.js';
 import {
-   NpmSearchSource,
    McpRegistrySearchSource,
-   ClaudePluginsDevSearchSource,
+   SkillsLibrarySearchSource,
 } from './sources/index.js';
 
 /**
  * Options for creating a SearchRegistry.
  */
 export interface SearchRegistryOptions {
-   /** NPM registry URL for skill searches */
+   /** NPM registry URL for skill searches (currently unused as skills.sh is used) */
    npmRegistry?: string;
-   /** Set of experimental source IDs to enable */
-   experimentalSources?: Set<ExperimentalSourceId>;
 }
 
 /**
@@ -27,17 +23,10 @@ export interface SearchRegistryOptions {
 export class SearchRegistry {
    private readonly sources: SearchSource[] = [];
 
-   constructor(options: SearchRegistryOptions = {}) {
-      // MCP registry is always available
+   constructor(_options: SearchRegistryOptions = {}) {
+      // MCP registry and Skills Library are always available
       this.sources.push(new McpRegistrySearchSource());
-
-      // Register experimental sources if enabled
-      if (options.experimentalSources?.has('claude-plugins-dev')) {
-         // NPM skill search only makes sense alongside claude-plugins-dev for now
-         // (there are no aix-skill-* packages published yet)
-         this.sources.push(new NpmSearchSource(options.npmRegistry));
-         this.sources.push(new ClaudePluginsDevSearchSource());
-      }
+      this.sources.push(new SkillsLibrarySearchSource());
    }
 
    /**
@@ -63,7 +52,7 @@ export class SearchRegistry {
 
    /**
     * Search across all sources for a given type, aggregating results.
-    * Results are deduplicated by name, preferring results from non-experimental sources.
+    * Results are deduplicated by name.
     */
    async search(type: SearchType, options: SearchOptions): Promise<SearchResult[]> {
       const sources = this.getSourcesForType(type);
@@ -95,7 +84,6 @@ export class SearchRegistry {
             if (!existing) {
                seen.set(result.name, result);
             }
-            // If we already have this result from a non-experimental source, keep that one
          }
       }
 

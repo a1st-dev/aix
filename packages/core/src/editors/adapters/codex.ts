@@ -39,8 +39,10 @@ export class CodexAdapter extends BaseEditorAdapter {
    protected readonly rulesStrategy: RulesStrategy = new CodexRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new CodexMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
-      editorSkillsDir: '.codex/skills',
+      editorSkillsDir: '.agents/skills',
+      editorName: 'codex',
    });
+
    protected readonly promptsStrategy: PromptsStrategy = new CodexPromptsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
 

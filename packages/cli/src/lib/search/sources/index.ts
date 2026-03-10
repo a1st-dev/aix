@@ -1,3 +1,2 @@
-export { NpmSearchSource } from './npm.js';
 export { McpRegistrySearchSource } from './mcp-registry.js';
-export { ClaudePluginsDevSearchSource } from './claude-plugins-dev.js';
+export { SkillsLibrarySearchSource } from './skills-library.js';

@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rm, access, constants, chmod } from 'node:fs/promises';
 import { join, dirname, basename } from 'pathe';
 import { existsSync } from 'node:fs';
-import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
    EditorConfig,
@@ -245,16 +245,28 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // Resolve skills and use the skills strategy to install them (only if skills scope is included)
       if (scopes.includes('skills') && config.skills && Object.keys(config.skills).length > 0) {
-         const resolvedSkills = await resolveAllSkills(config.skills, {
-            baseDir: configBaseDir,
-            projectRoot,
-         });
+         if (this.skillsStrategy.isNative()) {
+            // For native strategies, we use the skills CLI which handles its own resolution.
+            // We pass a map with just the names so the strategy can return granular changes for reporting.
+            const skillNames = new Map<string, ParsedSkill>();
 
-         // Install skills using the strategy (handles copying and symlinks/pointer rules)
-         skillChanges = await this.skillsStrategy.installSkills(resolvedSkills, projectRoot, options);
+            for (const name of Object.keys(config.skills)) {
+               skillNames.set(name, {} as ParsedSkill);
+            }
+            skillChanges = await this.skillsStrategy.installSkills(skillNames, projectRoot, options);
+         } else {
+            // For non-native (pointer) strategies, we still need to resolve skills to generate rules
+            const resolvedSkills = await resolveAllSkills(config.skills, {
+               baseDir: configBaseDir,
+               projectRoot,
+            });
 
-         // Generate skill rules (empty for native, pointer rules for non-native)
-         skillRules = this.skillsStrategy.generateSkillRules(resolvedSkills);
+            // Install skills using the strategy (handles copying and generating pointer rules)
+            skillChanges = await this.skillsStrategy.installSkills(resolvedSkills, projectRoot, options);
+
+            // Generate skill rules (pointer rules for non-native)
+            skillRules = this.skillsStrategy.generateSkillRules(resolvedSkills);
+         }
       }
 
       // Merge config rules with skill rules

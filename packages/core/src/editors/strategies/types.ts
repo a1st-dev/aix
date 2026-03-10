@@ -105,7 +105,7 @@ export interface McpStrategy {
  */
 export interface SkillsStrategy {
    /**
-    * Install skills to the project. All strategies copy skills to `.aix/skills/{name}/` as the
+    * Install skills to the project. All strategies copy skills to `.agents/skills/{name}/` as the
     * source of truth. Native strategies also create symlinks; pointer strategies generate rules.
     *
     * @returns File changes for skill directories and any symlinks created
@@ -135,6 +135,8 @@ export interface SkillsStrategy {
 export interface NativeSkillsConfig {
    /** The editor's native skills directory (e.g., '.claude/skills' or '.github/skills') */
    editorSkillsDir: string;
+   /** The normalized editor name (e.g., 'claude-code', 'cursor') */
+   editorName: string;
 }
 
 /**

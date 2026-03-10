@@ -2,7 +2,6 @@ import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../base-command.js';
 import {
    SearchRegistry,
-   parseExperimentalFlags,
    type SearchResult,
    type SearchType,
 } from '../lib/search/index.js';
@@ -32,7 +31,6 @@ export default class Search extends BaseCommand<typeof Search> {
       '<%= config.bin %> <%= command.id %> playwright --type mcp',
       '<%= config.bin %> <%= command.id %> react --type skills',
       '<%= config.bin %> <%= command.id %> github --type skills --type mcp',
-      '<%= config.bin %> <%= command.id %> testing -x source:claude-plugins-dev',
    ];
 
    static override args = {
@@ -55,12 +53,6 @@ export default class Search extends BaseCommand<typeof Search> {
          options: ['skills', 'mcp'],
          multiple: true,
       }),
-      experimental: Flags.string({
-         char: 'x',
-         description: 'Enable experimental features (e.g., source:claude-plugins-dev)',
-         multiple: true,
-         default: [],
-      }),
       plain: Flags.boolean({
          char: 'p',
          description: 'Force plain text output (non-interactive)',
@@ -76,19 +68,10 @@ export default class Search extends BaseCommand<typeof Search> {
 
       const outputMode = getOutputMode({ json: this.flags.json, plain: this.flags.plain });
 
-      // Parse experimental flags and create registry with enabled sources
-      const experimentalSources = parseExperimentalFlags(this.flags.experimental as string[]);
+      // Create registry
       const registry = new SearchRegistry({
          npmRegistry: this.flags.registry,
-         experimentalSources,
       });
-
-      // Log which experimental sources are enabled
-      if (experimentalSources.size > 0 && outputMode !== 'json') {
-         const sourceNames = Array.from(experimentalSources).join(', ');
-
-         this.output.info(`Experimental sources enabled: ${sourceNames}`);
-      }
 
       // Interactive mode
       if (outputMode === 'interactive') {
@@ -155,17 +138,19 @@ export default class Search extends BaseCommand<typeof Search> {
 
       const handleInstall = async (item: InstallItem): Promise<boolean> => {
          const itemName = item.result.name;
+         // Use the ID from meta if available (for skills-library results)
+         const source = item.type === 'skills' ? (item.result.meta?.id as string || itemName) : itemName;
 
          if (!configPath) {
             const cmd = item.type === 'skills' ? 'skill' : 'mcp';
 
-            this.output.info(`Would run: aix add ${cmd} ${itemName}`);
+            this.output.info(`Would run: aix add ${cmd} ${source}`);
             return false;
          }
 
          const result =
             item.type === 'skills'
-               ? await addSkill({ configPath, name: itemName, source: itemName })
+               ? await addSkill({ configPath, name: itemName, source })
                : await addMcp({ configPath, name: itemName });
 
          return result.success;

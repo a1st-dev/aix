@@ -31,7 +31,7 @@ describe('WindsurfSkillsStrategy', () => {
    });
 
    it('returns correct skills directory', () => {
-      expect(strategy.getSkillsDir()).toBe('.aix/skills');
+      expect(strategy.getSkillsDir()).toBe('.agents/skills');
    });
 
    it('installs skills with symlinks to .windsurf/skills/', async () => {
@@ -58,10 +58,10 @@ describe('WindsurfSkillsStrategy', () => {
 
       const changes = await strategy.installSkills(skills, testDir, { dryRun: false });
 
-      // Should have 2 changes: .aix/skills/test-skill (copy) and .windsurf/skills/test-skill (symlink)
+      // Should have 2 changes: .agents/skills/test-skill (copy) and .windsurf/skills/test-skill (symlink)
       expect(changes).toHaveLength(2);
 
-      const aixChange = changes.find((c) => c.path.includes('.aix/skills/test-skill'));
+      const aixChange = changes.find((c) => c.path.includes('.agents/skills/test-skill'));
       const windsurfChange = changes.find((c) => c.path.includes('.windsurf/skills/test-skill'));
 
       expect(aixChange).toBeDefined();
@@ -81,7 +81,7 @@ describe('WindsurfSkillsStrategy', () => {
       // Verify symlink points to correct location (normalize for Windows backslashes)
       const linkTarget = (await readlink(symlinkPath)).replace(/\\/g, '/');
 
-      expect(linkTarget).toContain('.aix/skills/test-skill');
+      expect(linkTarget).toContain('.agents/skills/test-skill');
    });
 
    it('reports update action when skill already exists', async () => {
@@ -91,7 +91,7 @@ describe('WindsurfSkillsStrategy', () => {
       await mkdir(skillSourceDir, { recursive: true });
       await writeFile(join(skillSourceDir, 'SKILL.md'), '---\nname: existing\ndescription: Existing\n---\n');
 
-      await mkdir(join(testDir, '.aix/skills/existing'), { recursive: true });
+      await mkdir(join(testDir, '.agents/skills/existing'), { recursive: true });
       await mkdir(join(testDir, '.windsurf/skills'), { recursive: true });
 
       const mockSkill: ParsedSkill = {
@@ -105,7 +105,7 @@ describe('WindsurfSkillsStrategy', () => {
 
       const changes = await strategy.installSkills(skills, testDir, { dryRun: false });
 
-      const aixChange = changes.find((c) => c.path.includes('.aix/skills/existing'));
+      const aixChange = changes.find((c) => c.path.includes('.agents/skills/existing'));
 
       expect(aixChange?.action).toBe('update');
    });
@@ -131,7 +131,7 @@ describe('WindsurfSkillsStrategy', () => {
       expect(changes).toHaveLength(2);
 
       // But directories should not exist
-      await expect(lstat(join(testDir, '.aix/skills/dry-test'))).rejects.toThrow();
+      await expect(lstat(join(testDir, '.agents/skills/dry-test'))).rejects.toThrow();
       await expect(lstat(join(testDir, '.windsurf/skills/dry-test'))).rejects.toThrow();
    });
 });

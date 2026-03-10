@@ -14,7 +14,7 @@ import type {
 
 /**
  * Zed editor adapter. Writes rules to `.rules` at project root and MCP config to
- * `.zed/settings.json`. Skills are installed to `.aix/skills/{name}/` with pointer rules since Zed
+ * `.zed/settings.json`. Skills are installed to `.agents/skills/{name}/` with pointer rules since Zed
  * doesn't have native Agent Skills support. Zed does not support hooks or prompts.
  */
 export class ZedAdapter extends BaseEditorAdapter {

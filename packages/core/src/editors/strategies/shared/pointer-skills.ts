@@ -8,12 +8,12 @@ import type { EditorRule, FileChange } from '../../types.js';
 
 /**
  * Pointer skills strategy for editors without native Agent Skills support (Windsurf, Cursor, Zed).
- * Copies skills to `.aix/skills/` and generates pointer rules that tell the AI where to find the
+ * Copies skills to `.agents/skills/` and generates pointer rules that tell the AI where to find the
  * skill.
  */
 export class PointerSkillsStrategy implements SkillsStrategy {
    getSkillsDir(): string {
-      return '.aix/skills';
+      return '.agents/skills';
    }
 
    isNative(): boolean {
@@ -92,13 +92,13 @@ export class PointerSkillsStrategy implements SkillsStrategy {
             '',
             '## Location',
             '',
-            `This skill is installed at \`.aix/skills/${skillName}/\`. Read the \`SKILL.md\` file there for full instructions.`,
+            `This skill is installed at \`.agents/skills/${skillName}/\`. Read the \`SKILL.md\` file there for full instructions.`,
             '',
             '## Quick Reference',
             '',
-            `- **Instructions**: \`.aix/skills/${skillName}/SKILL.md\``,
-            `- **Scripts**: \`.aix/skills/${skillName}/scripts/\` (if available)`,
-            `- **References**: \`.aix/skills/${skillName}/references/\` (if available)`,
+            `- **Instructions**: \`.agents/skills/${skillName}/SKILL.md\``,
+            `- **Scripts**: \`.agents/skills/${skillName}/scripts/\` (if available)`,
+            `- **References**: \`.agents/skills/${skillName}/references/\` (if available)`,
             '',
             'When you need to use this skill, read the SKILL.md file for detailed instructions.',
          );

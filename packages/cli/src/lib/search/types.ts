@@ -46,23 +46,3 @@ export interface SearchSource {
    search(type: SearchType, options: SearchOptions): Promise<SearchResult[]>;
 }
 
-/**
- * Experimental source identifiers that can be enabled via --experimental flag.
- */
-export type ExperimentalSourceId = 'claude-plugins-dev';
-
-/**
- * Parse experimental flag values like "source:claude-plugins-dev".
- */
-export function parseExperimentalFlags(flags: string[]): Set<ExperimentalSourceId> {
-   const sources = new Set<ExperimentalSourceId>();
-
-   for (const flag of flags) {
-      if (flag.startsWith('source:')) {
-         const sourceId = flag.slice('source:'.length) as ExperimentalSourceId;
-
-         sources.add(sourceId);
-      }
-   }
-   return sources;
-}
