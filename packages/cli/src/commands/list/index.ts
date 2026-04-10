@@ -31,6 +31,9 @@ export default class List extends BaseCommand<typeof List> {
       if (includesScope(scopes, 'rules')) {
          result.rules = config.rules ?? {};
       }
+      if (includesScope(scopes, 'prompts')) {
+         result.prompts = config.prompts ?? {};
+      }
       if (includesScope(scopes, 'editors')) {
          result.editors = config.editors ?? {};
       }
@@ -65,6 +68,7 @@ export default class List extends BaseCommand<typeof List> {
          skills: 'Skills',
          mcp: 'MCP Servers',
          rules: 'Rules',
+         prompts: 'Prompts',
          editors: 'Editors',
       };
 

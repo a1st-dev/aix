@@ -13,11 +13,11 @@ aix init
 # Add config for an MCP server from the official registry
 aix add mcp playwright
 # Add a skill from GitHub, local path, or npm package
-aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging
+aix add skill https://github.com/a1st-dev/aix-skill-react
 # Add a rule from GitHub, local path, or npm package
 aix add rule ../rules/typescript-rules.md
 # Add a prompt (also known as a workflow or slash command)
-aix add prompt ../prompts/typescript-prompts.md
+aix add prompt ../prompts/review.md
 # Install all of the above to any supported editor. Outputs workspace-specific config
 aix install --target claude-code --target cursor
 ```
@@ -41,7 +41,7 @@ Then, use that config with any supported agent/editor: claude-code, cursor, copi
 Standardize your AI config. Share it with your team. Check it into version control.
 
 - **Discover new MCP servers and skills** - Use `aix search` to find and add new MCP servers and skills
-- **Stop duplicating config** — Define skills, MCP servers, and rules once instead of per-editor
+- **Stop duplicating config** — Define skills, MCP servers, rules, and prompts once instead of per-editor
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
 - **Safe updates** — Atomic writes with automatic backup and rollback
@@ -62,13 +62,25 @@ aix init --from <editor>
 
 ```bash
 aix init                              # Create ai.json
-aix search                            # Search for MCP servers and skills
+aix search <query>                    # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install --save --scope mcp        # Merge specific sections
-aix add skill https://github.com/obra/superpowers/tree/main/skills/systematic-debugging # Add a skill
-aix add mcp playwright                # Add MCP server from registry
-aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
-aix list skills                       # List configured skills
+aix add skill <source>                # Add a skill from GitHub, npm, or local path
+aix add mcp <name>                    # Add MCP server from registry or manual config
+aix add rule <source>                 # Add a rule from file or URL
+aix add prompt <source>               # Add a prompt/command from file or URL
+aix remove skill <name>               # Remove a skill and its files
+aix remove mcp <name>                 # Remove an MCP server
+aix list [scope]                      # List skills, mcp, rules, prompts, or editors
+```
+
+### Utility Commands
+
+```bash
+aix validate                          # Validate ai.json configuration
+aix config show                       # Show current CLI configuration
+aix backups                           # List configuration backups
+aix cache clear                       # Clear the local cache
 ```
 
 ## License
