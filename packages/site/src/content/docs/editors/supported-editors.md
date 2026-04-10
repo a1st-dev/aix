@@ -28,7 +28,7 @@ How `ai.json` concepts map to each editor:
 - **MCP**: `.cursor/mcp.json`.
 - **Prompts**: `.cursor/prompts/`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.cursor/skills/`.
-- **Hooks**: `.cursor/hooks.json`. Supports `pre_tool_use`, `post_tool_use`, `pre_file_read`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `post_file_write`, `pre_prompt`, `session_start`, `session_end`, and `agent_stop`.
+- **Hooks**: `.cursor/hooks.json`. Supports `sessionStart`, `sessionEnd`, `preToolUse`, `postToolUse`, `beforeReadFile`, `beforeShellExecution`, `afterShellExecution`, `beforeMCPExecution`, `afterMCPExecution`, `afterFileEdit`, `beforeSubmitPrompt`, and `stop`.
 
 ### GitHub Copilot
 
@@ -36,7 +36,7 @@ How `ai.json` concepts map to each editor:
 - **MCP**: `.vscode/mcp.json`.
 - **Prompts**: `.github/prompts/*.prompt.md`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.github/skills/`.
-- **Hooks**: `.github/hooks/*.json`. Supports `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `SubagentStart`, `SubagentStop`, and `Stop`.
+- **Hooks**: `.github/hooks/*.json`. Supports `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `preCompact`, `subagentStart`, `subagentStop`, and `stop`.
 
 ### Claude Code
 
@@ -44,7 +44,7 @@ How `ai.json` concepts map to each editor:
 - **MCP**: `.mcp.json` at project root.
 - **Prompts**: `.claude/commands/`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.claude/skills/`.
-- **Hooks**: `.claude/settings.json`. Supports `pre_tool_use`, `post_tool_use`, `pre_file_read`, `post_file_read`, `pre_file_write`, `post_file_write`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `pre_prompt`, `session_start`, `session_end`, and `agent_stop`.
+- **Hooks**: `.claude/settings.json`. Supports `SessionStart`, `SessionEnd`, `InstructionsLoaded`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest`, `PermissionDenied`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `Stop`, `StopFailure`, `TeammateIdle`, `ConfigChange`, `CwdChanged`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `PreCompact`, `PostCompact`, `Elicitation`, and `ElicitationResult`.
 
 ### Windsurf
 
@@ -52,7 +52,7 @@ How `ai.json` concepts map to each editor:
 - **MCP**: Global config at `~/.codeium/windsurf/mcp_config.json`.
 - **Prompts**: Cascade prompts.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.windsurf/skills/`.
-- **Hooks**: `.windsurf/hooks.json`. Supports `pre_file_read`, `post_file_read`, `pre_file_write`, `post_file_write`, `pre_command`, `post_command`, `pre_mcp_tool`, `post_mcp_tool`, `pre_prompt`, and `agent_stop`.
+- **Hooks**: `.windsurf/hooks.json`. Supports `pre_read_code`, `post_read_code`, `pre_write_code`, `post_write_code`, `pre_run_command`, `post_run_command`, `pre_mcp_tool_use`, `post_mcp_tool_use`, `pre_user_prompt`, `post_cascade_response`, `post_cascade_response_with_transcript`, and `post_setup_worktree`.
 
 ### Zed
 

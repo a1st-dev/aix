@@ -15,6 +15,7 @@ const EVENT_MAP: Record<string, string> = {
    post_mcp_tool: 'post_mcp_tool_use',
    pre_prompt: 'pre_user_prompt',
    agent_stop: 'post_cascade_response',
+   worktree_setup: 'post_setup_worktree',
 };
 
 /**
@@ -31,6 +32,7 @@ const SUPPORTED_EVENTS = new Set([
    'post_mcp_tool',
    'pre_prompt',
    'agent_stop',
+   'worktree_setup',
 ]);
 
 /**

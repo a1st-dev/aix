@@ -2,24 +2,27 @@ import type { HooksConfig, HookMatcher } from '@a1st/aix-schema';
 import type { HooksStrategy } from '../types.js';
 
 /**
- * Map from generic ai.json hook events to GitHub Copilot's PascalCase event names.
- * GitHub Copilot supports 8 events: SessionStart, UserPromptSubmit, PreToolUse,
- * PostToolUse, PreCompact, SubagentStart, SubagentStop, Stop.
+ * Map from generic ai.json hook events to GitHub Copilot's camelCase event names.
+ * GitHub Copilot supports these events as per official documentation.
  */
 const EVENT_MAP: Record<string, string> = {
-   pre_tool_use: 'PreToolUse',
-   post_tool_use: 'PostToolUse',
-   pre_file_read: 'PreToolUse',
-   post_file_read: 'PostToolUse',
-   pre_file_write: 'PreToolUse',
-   post_file_write: 'PostToolUse',
-   pre_command: 'PreToolUse',
-   post_command: 'PostToolUse',
-   pre_mcp_tool: 'PreToolUse',
-   post_mcp_tool: 'PostToolUse',
-   session_start: 'SessionStart',
-   agent_stop: 'Stop',
-   pre_prompt: 'UserPromptSubmit',
+   pre_tool_use: 'preToolUse',
+   post_tool_use: 'postToolUse',
+   pre_file_read: 'preToolUse',
+   post_file_read: 'postToolUse',
+   pre_file_write: 'preToolUse',
+   post_file_write: 'postToolUse',
+   pre_command: 'preToolUse',
+   post_command: 'postToolUse',
+   pre_mcp_tool: 'preToolUse',
+   post_mcp_tool: 'postToolUse',
+   session_start: 'sessionStart',
+   session_end: 'sessionEnd',
+   agent_stop: 'stop',
+   pre_prompt: 'userPromptSubmitted',
+   pre_compact: 'preCompact',
+   subagent_start: 'subagentStart',
+   subagent_stop: 'subagentStop',
 };
 
 /**
@@ -40,7 +43,6 @@ const TOOL_MATCHER_MAP: Record<string, string> = {
 
 /**
  * Events that GitHub Copilot supports.
- * GitHub Copilot does not support `session_end`.
  */
 const SUPPORTED_EVENTS = new Set([
    'pre_tool_use',
@@ -54,13 +56,17 @@ const SUPPORTED_EVENTS = new Set([
    'pre_mcp_tool',
    'post_mcp_tool',
    'session_start',
+   'session_end',
    'agent_stop',
    'pre_prompt',
+   'pre_compact',
+   'subagent_start',
+   'subagent_stop',
 ]);
 
 /**
  * GitHub Copilot hooks strategy. Writes hooks to `.github/hooks/hooks.json`.
- * Translates generic ai.json event names to GitHub Copilot's PascalCase format.
+ * Translates generic ai.json event names to GitHub Copilot's camelCase format.
  * Uses the same matcher-based structure as Claude Code hooks.
  */
 export class CopilotHooksStrategy implements HooksStrategy {
