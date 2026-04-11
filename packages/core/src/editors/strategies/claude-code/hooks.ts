@@ -19,6 +19,13 @@ const EVENT_MAP: Record<string, string> = {
    session_end: 'SessionEnd',
    agent_stop: 'Stop',
    pre_prompt: 'UserPromptSubmit',
+   pre_compact: 'PreCompact',
+   post_compact: 'PostCompact',
+   subagent_start: 'SubagentStart',
+   subagent_stop: 'SubagentStop',
+   task_created: 'TaskCreated',
+   task_completed: 'TaskCompleted',
+   worktree_setup: 'WorktreeCreate',
 };
 
 /**
@@ -54,6 +61,13 @@ const SUPPORTED_EVENTS = new Set([
    'session_end',
    'agent_stop',
    'pre_prompt',
+   'pre_compact',
+   'post_compact',
+   'subagent_start',
+   'subagent_stop',
+   'task_created',
+   'task_completed',
+   'worktree_setup',
 ]);
 
 /**

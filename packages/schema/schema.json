@@ -1277,6 +1277,13 @@
                      "pre_mcp_tool",
                      "post_mcp_tool",
                      "pre_prompt",
+                     "pre_compact",
+                     "post_compact",
+                     "subagent_start",
+                     "subagent_stop",
+                     "task_created",
+                     "task_completed",
+                     "worktree_setup",
                      "session_start",
                      "session_end",
                      "agent_stop"

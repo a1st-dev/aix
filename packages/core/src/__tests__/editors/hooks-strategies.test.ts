@@ -259,7 +259,7 @@ describe('ClaudeCodeHooksStrategy', () => {
       expect(output.hooks.SessionStart[0].hooks[0].timeout).toBe(60);
    });
 
-   it('reports no unsupported events for all 14 schema events', () => {
+   it('reports no unsupported events for all schema events', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{ hooks: [{ command: 'c' }] }],
          post_tool_use: [{ hooks: [{ command: 'c' }] }],
@@ -275,9 +275,38 @@ describe('ClaudeCodeHooksStrategy', () => {
          session_start: [{ hooks: [{ command: 'c' }] }],
          session_end: [{ hooks: [{ command: 'c' }] }],
          agent_stop: [{ hooks: [{ command: 'c' }] }],
+         pre_compact: [{ hooks: [{ command: 'c' }] }],
+         post_compact: [{ hooks: [{ command: 'c' }] }],
+         subagent_start: [{ hooks: [{ command: 'c' }] }],
+         subagent_stop: [{ hooks: [{ command: 'c' }] }],
+         task_created: [{ hooks: [{ command: 'c' }] }],
+         task_completed: [{ hooks: [{ command: 'c' }] }],
+         worktree_setup: [{ hooks: [{ command: 'c' }] }],
       };
 
       expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('maps new generic events correctly', () => {
+      const hooks: HooksConfig = {
+         pre_compact: [{ hooks: [{ command: 'c1' }] }],
+         post_compact: [{ hooks: [{ command: 'c2' }] }],
+         subagent_start: [{ hooks: [{ command: 'c3' }] }],
+         subagent_stop: [{ hooks: [{ command: 'c4' }] }],
+         task_created: [{ hooks: [{ command: 'c5' }] }],
+         task_completed: [{ hooks: [{ command: 'c6' }] }],
+         worktree_setup: [{ hooks: [{ command: 'c7' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.PreCompact).toBeDefined();
+      expect(output.hooks.PostCompact).toBeDefined();
+      expect(output.hooks.SubagentStart).toBeDefined();
+      expect(output.hooks.SubagentStop).toBeDefined();
+      expect(output.hooks.TaskCreated).toBeDefined();
+      expect(output.hooks.TaskCompleted).toBeDefined();
+      expect(output.hooks.WorktreeCreate).toBeDefined();
    });
 });
 
@@ -314,6 +343,7 @@ describe('WindsurfHooksStrategy', () => {
          post_mcp_tool: [{ hooks: [{ command: 'c8' }] }],
          pre_prompt: [{ hooks: [{ command: 'c9' }] }],
          agent_stop: [{ hooks: [{ command: 'c10' }] }],
+         worktree_setup: [{ hooks: [{ command: 'c11' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
@@ -328,6 +358,7 @@ describe('WindsurfHooksStrategy', () => {
       expect(output.hooks.post_mcp_tool_use).toBeDefined();
       expect(output.hooks.pre_user_prompt).toBeDefined();
       expect(output.hooks.post_cascade_response).toBeDefined();
+      expect(output.hooks.post_setup_worktree).toBeDefined();
    });
 
    it('includes show_output and working_directory when specified', () => {
@@ -370,62 +401,62 @@ describe('CopilotHooksStrategy', () => {
       expect(strategy.getConfigPath()).toBe('../.github/hooks/hooks.json');
    });
 
-   it('maps session_start to SessionStart with matcher structure', () => {
+   it('maps session_start to sessionStart with matcher structure', () => {
       const hooks: HooksConfig = {
          session_start: [{ matcher: '.*', hooks: [{ command: 'echo start' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.SessionStart).toEqual([
+      expect(output.hooks.sessionStart).toEqual([
          { matcher: '.*', hooks: [{ type: 'command', command: 'echo start' }] },
       ]);
    });
 
-   it('maps pre_command to PreToolUse with Bash tool matcher', () => {
+   it('maps pre_command to preToolUse with Bash tool matcher', () => {
       const hooks: HooksConfig = {
          pre_command: [{ hooks: [{ command: 'echo pre' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toEqual([
+      expect(output.hooks.preToolUse).toEqual([
          { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo pre' }] },
       ]);
    });
 
-   it('maps pre_file_read to PreToolUse with Read matcher', () => {
+   it('maps pre_file_read to preToolUse with Read matcher', () => {
       const hooks: HooksConfig = {
          pre_file_read: [{ hooks: [{ command: 'echo read' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toEqual([
+      expect(output.hooks.preToolUse).toEqual([
          { matcher: 'Read', hooks: [{ type: 'command', command: 'echo read' }] },
       ]);
    });
 
-   it('maps pre_file_write to PreToolUse with Write|Edit matcher', () => {
+   it('maps pre_file_write to preToolUse with Write|Edit matcher', () => {
       const hooks: HooksConfig = {
          pre_file_write: [{ hooks: [{ command: 'echo write' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toEqual([
+      expect(output.hooks.preToolUse).toEqual([
          { matcher: 'Write|Edit', hooks: [{ type: 'command', command: 'echo write' }] },
       ]);
    });
 
-   it('maps pre_mcp_tool to PreToolUse with mcp__.* matcher', () => {
+   it('maps pre_mcp_tool to preToolUse with mcp__.* matcher', () => {
       const hooks: HooksConfig = {
          pre_mcp_tool: [{ hooks: [{ command: 'echo mcp' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toEqual([
+      expect(output.hooks.preToolUse).toEqual([
          { matcher: 'mcp__.*', hooks: [{ type: 'command', command: 'echo mcp' }] },
       ]);
    });
@@ -439,13 +470,13 @@ describe('CopilotHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toHaveLength(3);
-      expect(output.hooks.PreToolUse[0].matcher).toBe('.*');
-      expect(output.hooks.PreToolUse[0].hooks[0].command).toBe('generic');
-      expect(output.hooks.PreToolUse[1].matcher).toBe('Bash');
-      expect(output.hooks.PreToolUse[1].hooks[0].command).toBe('bash-specific');
-      expect(output.hooks.PreToolUse[2].matcher).toBe('Read');
-      expect(output.hooks.PreToolUse[2].hooks[0].command).toBe('read-specific');
+      expect(output.hooks.preToolUse).toHaveLength(3);
+      expect(output.hooks.preToolUse[0].matcher).toBe('.*');
+      expect(output.hooks.preToolUse[0].hooks[0].command).toBe('generic');
+      expect(output.hooks.preToolUse[1].matcher).toBe('Bash');
+      expect(output.hooks.preToolUse[1].hooks[0].command).toBe('bash-specific');
+      expect(output.hooks.preToolUse[2].matcher).toBe('Read');
+      expect(output.hooks.preToolUse[2].hooks[0].command).toBe('read-specific');
    });
 
    it('maps post events with correct tool matchers', () => {
@@ -458,11 +489,11 @@ describe('CopilotHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PostToolUse).toHaveLength(4);
-      expect(output.hooks.PostToolUse[0].matcher).toBe('Read');
-      expect(output.hooks.PostToolUse[1].matcher).toBe('Write|Edit');
-      expect(output.hooks.PostToolUse[2].matcher).toBe('Bash');
-      expect(output.hooks.PostToolUse[3].matcher).toBe('mcp__.*');
+      expect(output.hooks.postToolUse).toHaveLength(4);
+      expect(output.hooks.postToolUse[0].matcher).toBe('Read');
+      expect(output.hooks.postToolUse[1].matcher).toBe('Write|Edit');
+      expect(output.hooks.postToolUse[2].matcher).toBe('Bash');
+      expect(output.hooks.postToolUse[3].matcher).toBe('mcp__.*');
    });
 
    it('uses user matcher for pre_tool_use (generic event)', () => {
@@ -472,7 +503,7 @@ describe('CopilotHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse[0].matcher).toBe('Write');
+      expect(output.hooks.preToolUse[0].matcher).toBe('Write');
    });
 
    it('uses empty string for pre_tool_use without matcher', () => {
@@ -482,7 +513,7 @@ describe('CopilotHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse[0].matcher).toBe('');
+      expect(output.hooks.preToolUse[0].matcher).toBe('');
    });
 
    it('includes timeout when specified', () => {
@@ -492,46 +523,34 @@ describe('CopilotHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.SessionStart[0].hooks[0].timeout).toBe(60);
+      expect(output.hooks.sessionStart[0].hooks[0].timeout).toBe(60);
    });
 
-   it('maps pre_prompt to UserPromptSubmit', () => {
+   it('maps pre_prompt to userPromptSubmitted', () => {
       const hooks: HooksConfig = {
          pre_prompt: [{ hooks: [{ command: 'echo prompt' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.UserPromptSubmit).toEqual([
+      expect(output.hooks.userPromptSubmitted).toEqual([
          { matcher: '', hooks: [{ type: 'command', command: 'echo prompt' }] },
       ]);
    });
 
-   it('maps agent_stop to Stop', () => {
+   it('maps agent_stop to stop', () => {
       const hooks: HooksConfig = {
          agent_stop: [{ hooks: [{ command: 'echo stop' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.Stop).toEqual([
+      expect(output.hooks.stop).toEqual([
          { matcher: '', hooks: [{ type: 'command', command: 'echo stop' }] },
       ]);
    });
 
-   it('reports session_end as unsupported', () => {
-      const hooks: HooksConfig = {
-         session_end: [{ hooks: [{ command: 'cmd' }] }],
-         pre_command: [{ hooks: [{ command: 'cmd' }] }],
-      };
-
-      const unsupported = strategy.getUnsupportedEvents(hooks);
-
-      expect(unsupported).toContain('session_end');
-      expect(unsupported).not.toContain('pre_command');
-   });
-
-   it('reports supported events correctly for all 13 except session_end', () => {
+   it('reports supported events correctly for all schema events except some', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{ hooks: [{ command: 'c' }] }],
          post_tool_use: [{ hooks: [{ command: 'c' }] }],
@@ -545,21 +564,25 @@ describe('CopilotHooksStrategy', () => {
          post_mcp_tool: [{ hooks: [{ command: 'c' }] }],
          pre_prompt: [{ hooks: [{ command: 'c' }] }],
          session_start: [{ hooks: [{ command: 'c' }] }],
+         session_end: [{ hooks: [{ command: 'c' }] }],
          agent_stop: [{ hooks: [{ command: 'c' }] }],
+         pre_compact: [{ hooks: [{ command: 'c' }] }],
+         subagent_start: [{ hooks: [{ command: 'c' }] }],
+         subagent_stop: [{ hooks: [{ command: 'c' }] }],
       };
 
       expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
    });
 
-   it('skips session_end in output', () => {
+   it('skips unsupported in output', () => {
       const hooks: HooksConfig = {
          pre_command: [{ hooks: [{ command: 'cmd' }] }],
-         session_end: [{ hooks: [{ command: 'cmd' }] }],
+         task_created: [{ hooks: [{ command: 'cmd' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.PreToolUse).toBeDefined();
+      expect(output.hooks.preToolUse).toBeDefined();
       expect(Object.keys(output.hooks)).toHaveLength(1);
    });
 });

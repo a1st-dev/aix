@@ -673,16 +673,16 @@ describe('Editor Adapters', () => {
             },
             hooks: {
                pre_command: [{ hooks: [{ command: 'echo pre' }] }],
-               session_end: [{ hooks: [{ command: 'echo end' }] }],
+               task_created: [{ hooks: [{ command: 'echo task' }] }],
             },
          });
 
          const result = await installToEditor('copilot', config, testDir);
 
-         // GitHub Copilot supports MCP and hooks (but not session_end)
+         // GitHub Copilot supports MCP and hooks (but not task_created)
          expect(result.unsupportedFeatures?.mcp).toBeUndefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBeUndefined();
-         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('session_end');
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('task_created');
       });
 
       it('Zed reports unsupported hooks but not MCP', async () => {
