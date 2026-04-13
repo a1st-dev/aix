@@ -14,9 +14,10 @@ oclif.manifest.json
 .astro/
 
 # AIX and other editor config flies
-.aix/
+.aix
 ai.local.json
 .codex/
+.continue
 
 .windsurf
 .cursor
