@@ -13,7 +13,7 @@ aix init
 # Add config for an MCP server from the official registry
 aix add mcp playwright
 # Add a skill from GitHub, local path, or npm package
-aix add skill https://github.com/a1st-dev/aix-skill-react
+aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging
 # Add a rule from GitHub, local path, or npm package
 aix add rule ../rules/typescript-rules.md
 # Add a prompt (also known as a workflow or slash command)
@@ -62,16 +62,17 @@ aix init --from <editor>
 
 ```bash
 aix init                              # Create ai.json
-aix search <query>                    # Search for MCP servers and skills
+aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install --save --scope mcp        # Merge specific sections
-aix add skill <source>                # Add a skill from GitHub, npm, or local path
-aix add mcp <name>                    # Add MCP server from registry or manual config
-aix add rule <source>                 # Add a rule from file or URL
-aix add prompt <source>               # Add a prompt/command from file or URL
-aix remove skill <name>               # Remove a skill and its files
-aix remove mcp <name>                 # Remove an MCP server
-aix list [scope]                      # List skills, mcp, rules, prompts, or editors
+aix add skill ./skills/custom         # Add a skill from GitHub, npm, or local path
+aix add mcp playwright                # Add MCP server from registry
+aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
+aix add rule ./rules/typescript.md    # Add a rule from file or URL
+aix add prompt ./prompts/review.md    # Add a prompt/command from file or URL
+aix remove skill typescript           # Remove a skill and its files
+aix remove mcp playwright             # Remove an MCP server
+aix list skills                       # List configured skills (or mcp, rules, prompts, editors)
 ```
 
 ### Utility Commands
