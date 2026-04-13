@@ -15,11 +15,11 @@ npm install -g @a1st/aix
 
 ```bash
 aix init                              # Create ai.json
-aix search                            # Search for MCP servers and skills
+aix search <query>                    # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix add skill <source>                # Add a skill
 aix add mcp <name>                    # Add MCP server from registry
-aix list skills                       # List configured skills
+aix list [scope]                      # List skills, mcp, rules, prompts, or editors
 ```
 
 ## Documentation
