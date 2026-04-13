@@ -84,6 +84,10 @@ aix backups                           # List configuration backups
 aix cache clear                       # Clear the local cache
 ```
 
+## Other Notes
+
+This project is tested with BrowserStack.
+
 ## License
 
 MIT
