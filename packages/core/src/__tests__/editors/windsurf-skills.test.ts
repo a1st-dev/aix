@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdir, writeFile, lstat } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
 import type { ParsedSkill } from '@a1st/aix-schema';

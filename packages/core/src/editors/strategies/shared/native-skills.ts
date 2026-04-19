@@ -67,7 +67,7 @@ export class NativeSkillsStrategy implements SkillsStrategy {
          return skillNames.map((name) => ({
             path: join('.agents/skills', name),
             action: 'update',
-            content: `[Synced via skills CLI]`,
+            content: '[Synced via skills CLI]',
             isDirectory: true,
             category: 'skill',
          }));
