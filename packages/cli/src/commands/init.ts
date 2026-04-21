@@ -4,12 +4,14 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BaseCommand } from '../base-command.js';
 import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
+import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
    importFromEditor,
    getAvailableEditors,
    writeImportedContent,
    commitImport,
    rollbackImport,
+   validateReference,
    type EditorName,
 } from '@a1st/aix-core';
 
@@ -21,9 +23,13 @@ export default class Init extends BaseCommand<typeof Init> {
       '<%= config.bin %> <%= command.id %> --force',
       '<%= config.bin %> <%= command.id %> --from windsurf',
       '<%= config.bin %> <%= command.id %> --from cursor --force',
+      '<%= config.bin %> <%= command.id %> --extends github:org/shared-config',
+      '<%= config.bin %> <%= command.id %> --extends ./configs/base.json',
+      '<%= config.bin %> <%= command.id %> --scope user',
    ];
 
    static override flags = {
+      ...configScopeFlags,
       force: Flags.boolean({
          char: 'f',
          description: 'Overwrite existing ai.json',
@@ -32,6 +38,10 @@ export default class Init extends BaseCommand<typeof Init> {
       from: Flags.string({
          description: `Import global config from an editor (${getAvailableEditors().join(', ')})`,
          options: getAvailableEditors(),
+      }),
+      extends: Flags.string({
+         char: 'e',
+         description: 'Extend from another ai.json (local path, URL, git shorthand)',
       }),
    };
 
@@ -42,12 +52,38 @@ export default class Init extends BaseCommand<typeof Init> {
          this.error('ai.json already exists. Use --force to overwrite.');
       }
 
+      const scopeFlag = resolveConfigScope(
+         this.flags as { scope?: string; user?: boolean; project?: boolean },
+         'project',
+      );
+      // Only pass scope when user explicitly asked for "user"
+      const scope = scopeFlag === 'user' ? 'user' : undefined;
+
       let config: AiJsonConfig;
       const editor = this.flags.from as EditorName | undefined;
+
+      // Validate and normalize --extends value
+      let extendsValue: string | undefined;
+
+      if (this.flags.extends) {
+         try {
+            const validated = validateReference(this.flags.extends, '--extends');
+
+            extendsValue = validated.normalized;
+         } catch (error) {
+            this.error(error instanceof Error ? error.message : String(error));
+         }
+      }
 
       if (editor) {
          try {
             config = await this.importFromEditorConfig(editor);
+            if (extendsValue) {
+               config.extends = extendsValue;
+            }
+            if (scope) {
+               (config as Record<string, unknown>).scope = scope;
+            }
             await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
             await commitImport(process.cwd());
          } catch (error) {
@@ -55,7 +91,10 @@ export default class Init extends BaseCommand<typeof Init> {
             throw error;
          }
       } else {
-         config = createEmptyConfig();
+         config = createEmptyConfig(scope);
+         if (extendsValue) {
+            config.extends = extendsValue;
+         }
          await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
       }
 

@@ -1,15 +1,15 @@
 import { Args, Flags } from '@oclif/core';
 import { homedir } from 'node:os';
-import { dirname, join } from 'pathe';
+import { join } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { localFlag } from '../../flags/local.js';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
    updateConfig,
    updateLocalConfig,
    getLocalConfigPath,
-   GlobalTrackingService,
-   makeTrackingKey,
    removeFromGlobalMcpConfig,
+   trackRemoval,
 } from '@a1st/aix-core';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
@@ -38,6 +38,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
 
    static override flags = {
       ...localFlag,
+      ...configScopeFlags,
       yes: Flags.boolean({
          char: 'y',
          description: 'Skip confirmation prompt',
@@ -52,9 +53,10 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveMcp);
       const loaded = await this.loadConfig();
+      const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
 
-      // Check if MCP server exists in merged config
-      if (!loaded?.config.mcp?.[args.name]) {
+      // Check if MCP server exists in merged config (if we have one)
+      if (loaded && !loaded.config.mcp?.[args.name]) {
          this.error(`MCP server "${args.name}" not found in configuration`);
       }
 
@@ -62,7 +64,9 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       if (!flags.yes) {
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json';
          const confirmed = await confirm({
-            message: `Remove MCP server "${args.name}" from ${targetFile}?`,
+            message: loaded
+               ? `Remove MCP server "${args.name}" from ${targetFile}?`
+               : `Remove MCP server "${args.name}" from editor configs?`,
             default: false,
          });
 
@@ -72,7 +76,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
          }
       }
 
-      // Determine target file based on --local flag
+      // Update ai.json / ai.local.json if it exists
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -85,10 +89,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             };
          });
          this.output.success(`Removed MCP server "${args.name}" from ai.local.json`);
-      } else {
-         if (!loaded) {
-            this.error('No ai.json found. Use --local to modify ai.local.json instead.');
-         }
+      } else if (loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [args.name]: _, ...remainingMcp } = config.mcp ?? {};
 
@@ -98,21 +99,11 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             };
          });
          this.output.success(`Removed MCP server "${args.name}"`);
+      }
 
-         // Update global tracking for editors with global-only MCP (Windsurf, Codex)
-         const projectPath = dirname(loaded.path),
-               tracking = new GlobalTrackingService();
-
+      // Remove from global MCP configs for editors with global-only MCP (Windsurf, Codex)
+      if (!flags['no-sync']) {
          for (const editor of ['windsurf', 'codex']) {
-            const key = makeTrackingKey(editor, 'mcp', args.name),
-                  // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-                  remaining = await tracking.removeProjectDependency(key, projectPath);
-
-            if (remaining.length > 0) {
-               continue;
-            }
-
-            // No other projects depend on this - remove from global config
             const globalPath = GLOBAL_MCP_PATHS[editor];
 
             if (!globalPath) {
@@ -129,10 +120,10 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
          }
 
          // Re-install MCP config to update editor configs (regenerates without the removed server)
-         if (!flags['no-sync']) {
+         if (loaded && !flags.local) {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
-               scopes: ['mcp'],
+               sections: ['mcp'],
             });
 
             if (installResult.installed) {
@@ -146,6 +137,9 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             }
          }
       }
+
+      // Track the removal in state
+      await trackRemoval(targetScope, 'mcp', args.name, process.cwd());
 
       if (this.flags.json) {
          this.output.json({

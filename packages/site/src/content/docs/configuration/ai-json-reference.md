@@ -20,17 +20,32 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 
 ## Top-level fields
 
-| Field     | Type                 | Description                                   |
-| --------- | -------------------- | --------------------------------------------- |
-| `$schema` | `string`             | JSON Schema URL for IDE validation            |
-| `extends` | `string \| string[]` | Inherit from other configs                    |
-| `skills`  | `object`             | Map of skill names to skill references        |
-| `mcp`     | `object`             | Map of server names to MCP server configs     |
-| `rules`   | `object`             | Map of rule names to rule definitions         |
-| `prompts` | `object`             | Map of prompt names to prompt definitions     |
-| `editors` | `object \| string[]` | Editor targeting and editor-specific settings |
-| `hooks`   | `object`             | Lifecycle hooks for AI agent events           |
-| `aix`     | `object`             | aix tool settings (cache, backups)            |
+| Field     | Type                 | Description                                                                 |
+| --------- | -------------------- | --------------------------------------------------------------------------- |
+| `$schema` | `string`             | JSON Schema URL for IDE validation                                          |
+| `scope`   | `string`             | `"project"` (default) or `"user"`. Sets whether this is a project or user config |
+| `extends` | `string \| string[]` | Inherit from other configs                                                  |
+| `skills`  | `object`             | Map of skill names to skill references                                      |
+| `mcp`     | `object`             | Map of server names to MCP server configs                                   |
+| `rules`   | `object`             | Map of rule names to rule definitions                                       |
+| `prompts` | `object`             | Map of prompt names to prompt definitions                                   |
+| `editors` | `object \| string[]` | Editor targeting and editor-specific settings                               |
+| `hooks`   | `object`             | Lifecycle hooks for AI agent events                                         |
+| `aix`     | `object`             | aix tool settings (cache, backups)                                          |
+
+---
+
+## `scope`
+
+Sets whether this config manages project-level or user-level AI configuration. Defaults to `"project"` when omitted.
+
+```json
+{
+   "scope": "user"
+}
+```
+
+When `scope` is `"user"`, aix writes to user-level editor config locations (e.g., global MCP settings). When `"project"` (or omitted), aix writes to project-local config files.
 
 ---
 

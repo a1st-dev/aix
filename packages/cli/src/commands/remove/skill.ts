@@ -2,7 +2,8 @@ import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { localFlag } from '../../flags/local.js';
-import { updateConfig, updateLocalConfig, getLocalConfigPath, type EditorName } from '@a1st/aix-core';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval, type EditorName } from '@a1st/aix-core';
 import { normalizeEditors } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import {
@@ -30,6 +31,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
 
    static override flags = {
       ...localFlag,
+      ...configScopeFlags,
       yes: Flags.boolean({
          char: 'y',
          description: 'Skip confirmation prompt',
@@ -44,15 +46,16 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveSkill);
       const loaded = await this.loadConfig();
+      const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
 
-      // Check if skill exists in merged config
-      if (!loaded?.config.skills?.[args.name]) {
+      // Check if skill exists in merged config (if we have one)
+      if (loaded && !loaded.config.skills?.[args.name]) {
          this.error(`Skill "${args.name}" not found in configuration`);
       }
 
       // Compute files to delete
-      const projectRoot = dirname(loaded.path),
-            configuredEditors = loaded.config.editors,
+      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+            configuredEditors = loaded?.config.editors,
             editors = configuredEditors
                ? (Object.keys(normalizeEditors(configuredEditors)) as EditorName[])
                : [];
@@ -79,9 +82,11 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          const existingFiles = getExistingFiles(filesToDelete),
                hasFiles = existingFiles.length > 0,
                targetFile = flags.local ? 'ai.local.json' : 'ai.json',
-               message = hasFiles
-                  ? `Remove skill "${args.name}" from ${targetFile} and delete ${existingFiles.length} file(s)?`
-                  : `Remove skill "${args.name}" from ${targetFile}?`;
+               message = loaded
+                  ? hasFiles
+                     ? `Remove skill "${args.name}" from ${targetFile} and delete ${existingFiles.length} file(s)?`
+                     : `Remove skill "${args.name}" from ${targetFile}?`
+                  : `Remove skill "${args.name}" from editor configs?`;
 
          const confirmed = await confirm({
             message,
@@ -97,7 +102,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          shouldDeleteFiles = getExistingFiles(filesToDelete).length > 0;
       }
 
-      // Determine target file based on --local flag
+      // Update ai.json / ai.local.json if present
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -110,10 +115,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             };
          });
          this.output.success(`Removed skill "${args.name}" from ai.local.json`);
-      } else {
-         if (!loaded) {
-            this.error('No ai.json found. Use --local to modify ai.local.json instead.');
-         }
+      } else if (loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [args.name]: _, ...remainingSkills } = config.skills ?? {};
 
@@ -123,14 +125,17 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             };
          });
          this.output.success(`Removed skill "${args.name}"`);
-
-         // Delete files from editors
-         if (shouldDeleteFiles && filesToDelete.length > 0) {
-            const deleteResults = await deleteFiles(filesToDelete);
-
-            this.logDeleteResults(deleteResults);
-         }
       }
+
+      // Delete files from editors
+      if (shouldDeleteFiles && filesToDelete.length > 0) {
+         const deleteResults = await deleteFiles(filesToDelete);
+
+         this.logDeleteResults(deleteResults);
+      }
+
+      // Track the removal in state
+      await trackRemoval(targetScope, 'skills', args.name, process.cwd());
 
       if (this.flags.json) {
          this.output.json({

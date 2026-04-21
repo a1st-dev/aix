@@ -1,8 +1,9 @@
 import { Args, Flags } from '@oclif/core';
 import { select } from '@inquirer/prompts';
 import { BaseCommand } from '../../base-command.js';
-import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
+import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
 import { localFlag } from '../../flags/local.js';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse, type Package } from '@a1st/mcp-registry-client';
 import type { McpServerConfig } from '@a1st/aix-schema';
@@ -28,6 +29,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
 
    static override flags = {
       ...localFlag,
+      ...configScopeFlags,
       command: Flags.string({
          description: 'Command to run (stdio transport)',
       }),
@@ -49,6 +51,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(AddMcp);
       const loaded = await this.loadConfig();
+      const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
 
       let serverConfig: McpServerConfig;
       let serverName = args.name;
@@ -85,7 +88,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          serverName = result.name;
       }
 
-      // Determine target file based on --local flag
+      // Update ai.json if it exists (or ai.local.json with --local)
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -97,12 +100,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
             },
          }));
          this.output.success(`Added MCP server "${serverName}" to ai.local.json`);
-      } else {
-         if (!loaded) {
-            this.error(
-               'No ai.json found. Run `aix init` to create one, or use --local to write to ai.local.json.',
-            );
-         }
+      } else if (loaded) {
          await updateConfig(loaded.path, (config) => ({
             ...config,
             mcp: {
@@ -111,12 +109,28 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
             },
          }));
          this.output.success(`Added MCP server "${serverName}"`);
+      } else {
+         this.output.info('No ai.json found — installing directly to editors');
+      }
 
-         // Auto-install to configured editors unless --no-install
-         if (!flags['no-install']) {
+      // Install to editors unless --no-install
+      if (!flags['no-install']) {
+         if (loaded && !flags.local) {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
-               scopes: ['mcp'],
+               sections: ['mcp'],
+            });
+
+            if (installResult.installed) {
+               this.logInstallResults(formatInstallResults(installResult.results));
+            }
+         } else {
+            const installResult = await installSingleItem({
+               section: 'mcp',
+               name: serverName,
+               value: serverConfig,
+               scope: targetScope,
+               projectRoot: process.cwd(),
             });
 
             if (installResult.installed) {

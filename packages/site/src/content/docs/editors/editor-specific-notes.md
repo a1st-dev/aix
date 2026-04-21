@@ -14,13 +14,13 @@ Cursor supports hooks via `.cursor/hooks.json`. aix translates generic event nam
 
 Windsurf does not support project-specific MCP configuration files yet. All MCP configuration is global.
 
-When you install an MCP server to Windsurf, `aix` modifies your global Windsurf config (`~/.codeium/windsurf/mcp_config.json`). It tracks this addition in `~/.aix/global-tracking.json` so that if you remove the server (or delete the project), aix knows whether it's safe to remove it from the global config.
+When you install an MCP server to Windsurf, `aix` modifies your global Windsurf config (`~/.codeium/windsurf/mcp_config.json`). It tracks this in `~/.aix/state.json` so that if you remove the server (or delete the project), aix knows whether it's safe to remove it from the global config.
 
 ## Zed
 
-Zed supports rules via a single `.rules` file at the project root. All rules are concatenated into this file. Prompts and hooks are not supported.
+Zed supports rules via a single `.rules` file at the project root. All rules are concatenated into this file. Zed also auto-detects other common rules files (`.cursorrules`, `AGENTS.md`, `CLAUDE.md`, etc.) but only the first match is used. Hooks are not supported.
 
-Zed only supports global MCP configuration via `.zed/settings.json`. Similar to Windsurf, `aix` manages the settings file and tracks usage.
+Zed supports MCP configuration at both project level (`.zed/settings.json`) and global level (`~/.config/zed/settings.json`). `aix` writes project-level MCP config to `.zed/settings.json` using the `context_servers` key. Zed also supports MCP Prompts (server-side prompt templates), though file-based user prompts are not supported.
 
 ## Claude Code
 
@@ -38,4 +38,18 @@ The only scoping aix can provide is directory-based placement: rules with `glob`
 
 Skills are installed to `.codex/skills/`.
 
-MCP servers are global-only, configured at `~/.codex/config.toml`. Prompts are also global, stored at `~/.codex/prompts/`. aix tracks global entries in `~/.aix/global-tracking.json` the same way it does for Windsurf and Zed.
+MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page. Prompts are global-only, stored at `~/.codex/prompts/`.
+
+---
+
+## Potential Code Changes
+
+The following upstream changes have been identified but are **not yet reflected in the aix codebase**:
+
+### Codex: Project-scoped MCP
+
+Codex now supports project-scoped MCP configuration via `.codex/config.toml` alongside the existing global `~/.codex/config.toml`. The aix `CodexMcpStrategy` currently extends `GlobalMcpStrategy`, treating Codex MCP as global-only. To support project-scoped MCP:
+
+- Refactor `CodexMcpStrategy` to no longer extend `GlobalMcpStrategy`.
+- Add a project-level config path (`.codex/config.toml`) alongside the global path.
+- The TOML format (`[mcp_servers.<name>]` sections) remains the same for both scopes.

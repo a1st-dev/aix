@@ -74,7 +74,7 @@ aix handles this complexity for you:
 
 - For project-specific editors, it writes to the project config.
 - For global-only editors, it **merges** your project's MCP config into the global config and tracks which project added which server.
-- When you remove a server or delete the project, `aix global cleanup` keeps the global config tidy.
+- When you remove a server or delete the project, aix automatically cleans up the global config using its state tracking system.
 
 ## Finding Servers
 

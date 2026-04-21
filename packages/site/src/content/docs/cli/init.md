@@ -16,10 +16,25 @@ aix init [flags]
 
 ## Flags
 
-| Flag              | Description                                   |
-| ----------------- | --------------------------------------------- |
-| `--force` / `-f`  | Overwrite existing `ai.json` if it exists.    |
-| `--from <editor>` | Import configuration from an existing editor. |
+| Flag                                          | Description                                       |
+| --------------------------------------------- | ------------------------------------------------- |
+| `--force` / `-f`                              | Overwrite existing `ai.json` if it exists.        |
+| `--from <editor>`                             | Import configuration from an existing editor.     |
+| `--extends <ref>`                             | Set the `extends` reference in the new `ai.json`. |
+| `--scope <scope>` / `--user` / `--project`    | Set the `scope` field (`user` or `project`).      |
+
+The `--extends` flag accepts any reference type: local paths, URLs, git repos, or npm packages.
+
+```bash
+# Initialize with an extends reference
+aix init --extends github:company/ai-config
+
+# Initialize a user-scoped config
+aix init --scope user
+
+# Combine both
+aix init --extends github:company/ai-config --scope user
+```
 
 ## Importing Config
 

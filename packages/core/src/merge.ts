@@ -2,28 +2,31 @@ import type { AiJsonConfig, RulesConfig, PromptsConfig } from '@a1st/aix-schema'
 import { deepMergeJson } from './json.js';
 
 /**
- * Valid scopes for filtering config sections.
+ * Valid section names for filtering config sections.
  */
-export type ConfigScope = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts';
+export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts';
+
+/** @deprecated Use `ConfigSection` instead. */
+export type ConfigScope = ConfigSection;
 
 /**
- * Filter a config to only include the specified scopes.
+ * Filter a config to only include the specified sections.
  * @param config - Full config
- * @param scopes - Scopes to include (if empty, returns empty partial)
+ * @param sections - Sections to include (if empty, returns empty partial)
  * @returns Partial config with only specified sections
  */
-export function filterConfigByScopes(
+export function filterConfigBySections(
    config: AiJsonConfig,
-   scopes: ConfigScope[],
+   sections: ConfigSection[],
 ): Partial<AiJsonConfig> {
-   if (scopes.length === 0) {
+   if (sections.length === 0) {
       return {};
    }
 
    const result: Partial<AiJsonConfig> = {};
 
-   for (const scope of scopes) {
-      switch (scope) {
+   for (const section of sections) {
+      switch (section) {
       case 'rules':
          if (config.rules) {
             result.rules = config.rules;
@@ -54,6 +57,9 @@ export function filterConfigByScopes(
 
    return result;
 }
+
+/** @deprecated Use `filterConfigBySections` instead. */
+export const filterConfigByScopes = filterConfigBySections;
 
 /**
  * Remove entries set to false from an object.

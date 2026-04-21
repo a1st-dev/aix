@@ -1,9 +1,15 @@
 import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
-import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
+import {
+   installAfterAdd,
+   installSingleItem,
+   formatInstallResults,
+} from '../../lib/install-helper.js';
 import { localFlag } from '../../flags/local.js';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
    getLocalConfigPath,
+   treeUrlToSkillsCliFormat,
    updateConfig,
    updateLocalConfig,
 } from '@a1st/aix-core';
@@ -12,12 +18,15 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 
 interface SkillsLock {
-   skills: Record<string, {
-      source: string;
-      sourceType: string;
-      path?: string;
-      ref?: string;
-   }>;
+   skills: Record<
+      string,
+      {
+         source: string;
+         sourceType: string;
+         path?: string;
+         ref?: string;
+      }
+   >;
 }
 
 export default class AddSkill extends BaseCommand<typeof AddSkill> {
@@ -40,6 +49,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
    static override flags = {
       ...localFlag,
+      ...configScopeFlags,
       name: Flags.string({
          char: 'n',
          description: 'Specific skill name to add from the source',
@@ -56,13 +66,29 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
    async run(): Promise<void> {
       const { args } = await this.parse(AddSkill),
-            loaded = await this.loadConfig();
+            loaded = await this.loadConfig(),
+            targetScope = resolveConfigScope(
+               this.flags as { scope?: string; user?: boolean; project?: boolean },
+            );
 
       this.output.startSpinner(`Adding skill from "${args.source}"...`);
 
       try {
+         // Pre-process GitHub tree URLs: convert to owner/repo/subpath format
+         // that the skills CLI handles natively via its own GitHub detection
+         let effectiveSource = args.source;
+         const treeFormat = treeUrlToSkillsCliFormat(args.source);
+
+         if (treeFormat) {
+            effectiveSource = treeFormat.source;
+            // Use the ref from tree URL if no --ref flag provided
+            if (!this.flags.ref && treeFormat.ref) {
+               this.flags.ref = treeFormat.ref;
+            }
+         }
+
          // Build command arguments
-         const skillsArgs = ['add', args.source, '--mode', 'copy', '-y'];
+         const skillsArgs = ['add', effectiveSource, '--mode', 'copy', '-y'];
 
          if (this.flags.name) {
             skillsArgs.push('--skill', this.flags.name);
@@ -78,6 +104,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
          await execa(binPath, skillsArgs, {
             cwd: loaded ? dirname(loaded.path) : process.cwd(),
+            env: { DO_NOT_TRACK: '1' },
          });
 
          // Read skills-lock.json to see what was added
@@ -92,14 +119,16 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
             throw new Error('No skills were added to skills-lock.json');
          }
 
-         // Update ai.json (or ai.local.json)
+         // Update ai.json / ai.local.json if present
          const skillMap: Record<string, any> = {};
 
          for (const [name, info] of addedSkillEntries) {
             // Convert to aix-compatible reference format
             if (info.sourceType === 'github' || info.sourceType === 'git') {
                skillMap[name] = {
-                  git: info.source.startsWith('http') ? info.source : `https://github.com/${info.source}`,
+                  git: info.source.startsWith('http')
+                     ? info.source
+                     : `https://github.com/${info.source}`,
                   path: info.path,
                   ref: info.ref,
                };
@@ -121,10 +150,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                   ...skillMap,
                },
             }));
-         } else {
-            if (!loaded) {
-               throw new Error('No ai.json found. Run `aix init` to create one.');
-            }
+         } else if (loaded) {
             await updateConfig(loaded.path, (config) => ({
                ...config,
                skills: {
@@ -136,20 +162,44 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
          this.output.stopSpinner(true, `Successfully added ${addedSkillEntries.length} skill(s)`);
 
-         // Auto-install to configured editors unless --no-install
+         // Install to editors unless --no-install
          if (!this.flags['no-install']) {
-            const installResult = await installAfterAdd({
-               configPath: loaded?.path ?? 'ai.json',
-               scopes: ['skills'],
-            });
+            if (loaded && !this.flags.local) {
+               const installResult = await installAfterAdd({
+                  configPath: loaded.path,
+                  sections: ['skills'],
+               });
 
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
+               if (installResult.installed) {
+                  this.logInstallResults(formatInstallResults(installResult.results));
+               }
+            } else {
+               await this.installSkillsDirectly(skillMap, targetScope);
             }
          }
       } catch (error) {
          this.output.stopSpinner(false, 'Failed to add skill');
          this.error(error instanceof Error ? error.message : String(error));
+      }
+   }
+
+   private async installSkillsDirectly(
+      skillMap: Record<string, unknown>,
+      targetScope: import('@a1st/aix-schema').ConfigScope,
+   ): Promise<void> {
+      for (const [name, value] of Object.entries(skillMap)) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
+         const installResult = await installSingleItem({
+            section: 'skills',
+            name,
+            value,
+            scope: targetScope,
+            projectRoot: process.cwd(),
+         });
+
+         if (installResult.installed) {
+            this.logInstallResults(formatInstallResults(installResult.results));
+         }
       }
    }
 }

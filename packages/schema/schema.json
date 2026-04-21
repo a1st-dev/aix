@@ -29,6 +29,11 @@
                ],
                "description": "Extend from other ai.json configs"
             },
+            "scope": {
+               "type": "string",
+               "enum": ["project", "user"],
+               "description": "Config scope: \"project\" (default) or \"user\""
+            },
             "skills": {
                "type": "object",
                "additionalProperties": {

@@ -56,6 +56,7 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
 
       await execa(binPath, skillsArgs, {
          cwd: configDir,
+         env: { DO_NOT_TRACK: '1' },
       });
 
       // Read skills-lock.json to see what was added and update ai.json
@@ -91,7 +92,7 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
       if (!skipInstall) {
          await installAfterAdd({
             configPath,
-            scopes: ['skills'],
+            sections: ['skills'],
          });
       }
 
@@ -187,7 +188,7 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
       if (!skipInstall) {
          await installAfterAdd({
             configPath,
-            scopes: ['mcp'],
+            sections: ['mcp'],
          });
       }
 

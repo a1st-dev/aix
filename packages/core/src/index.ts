@@ -19,5 +19,7 @@ export * from './prompts/index.js';
 export * from './npm/index.js';
 export * from './import-writer.js';
 export * from './global/index.js';
+export * from './state/index.js';
 export * from './env/index.js';
+export * from './reference-resolver.js';
 export { safeRm, UnsafePathError } from './fs/safe-rm.js';

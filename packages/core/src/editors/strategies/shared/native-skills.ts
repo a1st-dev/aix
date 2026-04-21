@@ -61,6 +61,7 @@ export class NativeSkillsStrategy implements SkillsStrategy {
 
          await execa(binPath, ['experimental_install', '--agent', this.editorName, '--mode', 'copy', '-y'], {
             cwd: projectRoot,
+            env: { DO_NOT_TRACK: '1' },
          });
 
 

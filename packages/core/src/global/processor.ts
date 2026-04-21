@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
@@ -6,7 +6,6 @@ import { parseTOML, stringifyTOML } from 'confbox';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName, EditorConfig } from '../editors/types.js';
 import type { McpStrategy, PromptsStrategy } from '../editors/strategies/types.js';
-import { GlobalTrackingService, makeTrackingKey } from './tracking.js';
 import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
@@ -15,35 +14,6 @@ import { getTransport } from '../mcp/normalize.js';
 /** Derive config file format from path extension. */
 function getFileFormat(filePath: string): 'json' | 'toml' {
    return filePath.endsWith('.toml') ? 'toml' : 'json';
-}
-
-/** Set of global config paths that have been backed up in this session */
-const backedUpPaths = new Set<string>();
-
-/**
- * Backup a global config file before modifying it.
- * Backups are stored in ~/.aix/backups/ with timestamps.
- * Only backs up once per path per session to avoid excessive backups.
- */
-async function backupGlobalConfig(globalPath: string): Promise<void> {
-   if (!existsSync(globalPath) || backedUpPaths.has(globalPath)) {
-      return;
-   }
-
-   const backupDir = join(homedir(), '.aix', 'backups'),
-         timestamp = new Date().toISOString().replace(/[:.]/g, '-'),
-         // Include relative path from home to preserve context (e.g., .codeium/windsurf/mcp_config.json)
-         relativePath = globalPath.replace(homedir(), '').replace(/^\//, ''),
-         safeRelativePath = relativePath.replace(/\//g, '_'),
-         backupPath = join(backupDir, `${safeRelativePath}.${timestamp}.bak`);
-
-   try {
-      await mkdir(backupDir, { recursive: true });
-      await copyFile(globalPath, backupPath);
-      backedUpPaths.add(globalPath);
-   } catch {
-      // Silently fail backup - don't block the operation
-   }
 }
 
 /**
@@ -229,8 +199,7 @@ export async function applyGlobalChanges(
    changes: GlobalChangeRequest[],
    options: GlobalChangeOptions,
 ): Promise<GlobalChangeResult> {
-   const tracking = new GlobalTrackingService(),
-         applied: GlobalChangeRequest[] = [],
+   const applied: GlobalChangeRequest[] = [],
          skipped: GlobalChangeRequest[] = [],
          warnings: string[] = [];
 
@@ -281,29 +250,14 @@ export async function applyGlobalChanges(
       if (!options.dryRun) {
          try {
             if (change.type === 'mcp' && change.mcpConfig) {
-               // For MCP, we need to merge with existing config
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
                await applyMcpChange(change);
             } else if (change.type === 'prompt' && change.promptContent) {
-               // Backup before modifying
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await backupGlobalConfig(change.globalPath);
-               // For prompts, just write the file
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
                await mkdir(dirname(change.globalPath), { recursive: true });
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
                await writeFile(change.globalPath, change.promptContent, 'utf-8');
             }
-
-            // Update tracking
-            const key = makeTrackingKey(change.editor, change.type, change.name);
-
-            // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-            await tracking.addProjectDependency(
-               key,
-               { type: change.type, editor: change.editor, name: change.name },
-               options.projectPath,
-            );
          } catch (error) {
             warnings.push(
                `[${change.editor}] Failed to apply ${change.type} "${change.name}": ${(error as Error).message}`,
@@ -330,9 +284,6 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
    const globalPath = change.globalPath,
          format = change.format ?? getFileFormat(globalPath);
    let existingConfig: Record<string, unknown> = {};
-
-   // Backup before modifying
-   await backupGlobalConfig(globalPath);
 
    // Read existing config if it exists
    if (existsSync(globalPath)) {
@@ -420,9 +371,6 @@ export async function removeFromGlobalMcpConfig(
       if (!mcpServers || !(serverName in mcpServers)) {
          return false;
       }
-
-      // Backup before modifying
-      await backupGlobalConfig(globalPath);
 
       // Remove the server
       delete mcpServers[serverName];

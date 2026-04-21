@@ -57,7 +57,7 @@ describe('WindsurfSkillsStrategy', () => {
       expect(execa).toHaveBeenCalledWith(
          expect.stringContaining('node_modules/.bin/skills'),
          ['experimental_install', '--agent', 'windsurf', '--mode', 'copy', '-y'],
-         { cwd: testDir },
+         { cwd: testDir, env: { DO_NOT_TRACK: '1' } },
       );
 
       // Should return a change for the skill

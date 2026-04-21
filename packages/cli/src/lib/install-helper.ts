@@ -2,16 +2,18 @@ import { dirname } from 'pathe';
 import pMap from 'p-map';
 import {
    installToEditor,
+   detectEditors,
    loadConfig,
+   trackInstall,
    type EditorName,
    type ApplyResult,
-   type ConfigScope,
+   type ConfigSection,
 } from '@a1st/aix-core';
-import { normalizeEditors } from '@a1st/aix-schema';
+import { normalizeEditors, createEmptyConfig, type ConfigScope, type AiJsonConfig } from '@a1st/aix-schema';
 
 export interface InstallAfterAddOptions {
    configPath: string;
-   scopes: ConfigScope[];
+   sections: ConfigSection[];
    quiet?: boolean;
 }
 
@@ -77,11 +79,76 @@ export async function installAfterAdd(options: InstallAfterAddOptions): Promise<
          results = await pMap(
             editors,
             (editor) => installToEditor(editor, loaded.config, projectRoot, {
-               scopes: options.scopes,
+               scopes: options.sections,
                configBaseDir: loaded.configBaseDir,
             }),
             { concurrency: 2 },
          );
+
+   return { installed: true, results, editors };
+}
+
+export interface InstallItemOptions {
+   /** Section type being installed */
+   section: ConfigSection;
+   /** Name of the item (e.g. MCP server name, rule name) */
+   name: string;
+   /** The item config value */
+   value: unknown;
+   /** Target scope for installation */
+   scope: ConfigScope;
+   /** Project root for project-scoped installs */
+   projectRoot: string;
+   /** Editors to install to. If not provided, detects installed editors. */
+   editors?: EditorName[];
+}
+
+/**
+ * Install a single item directly to editor configs.
+ * Used by add/remove commands for immediate installation without requiring ai.json editors config.
+ */
+export async function installSingleItem(options: InstallItemOptions): Promise<InstallAfterAddResult> {
+   const { section, name, value, scope, projectRoot } = options;
+
+   // Detect editors if not explicitly provided
+   const editors = options.editors ?? await detectEditors(projectRoot);
+
+   if (editors.length === 0) {
+      return { installed: false, results: [], editors: [] };
+   }
+
+   // Build a minimal config containing only the item to install
+   const config = createEmptyConfig() as AiJsonConfig & Record<string, unknown>;
+
+   switch (section) {
+   case 'mcp':
+      (config as any).mcp = { [name]: value };
+      break;
+   case 'skills':
+      (config as any).skills = { [name]: value };
+      break;
+   case 'rules':
+      (config as any).rules = { [name]: value };
+      break;
+   case 'prompts':
+      (config as any).prompts = { [name]: value };
+      break;
+   default:
+      return { installed: false, results: [], editors: [] };
+   }
+
+   const results = await pMap(
+      editors,
+      (editor) => installToEditor(editor, config, projectRoot, { scopes: [section] }),
+      { concurrency: 2 },
+   );
+
+   // Track the installation in state
+   const installedEditors = results.filter((r) => r.success).map((r) => r.editor);
+
+   if (installedEditors.length > 0) {
+      await trackInstall(scope, section, name, installedEditors, projectRoot);
+   }
 
    return { installed: true, results, editors };
 }

@@ -32,9 +32,16 @@ export const extendsSchema = z
    .optional()
    .describe('Extend from other ai.json configs');
 
+export const configScopeSchema = z
+   .enum(['project', 'user'])
+   .describe('Whether this ai.json manages project-level or user-level configuration');
+
+export type ConfigScope = z.infer<typeof configScopeSchema>;
+
 export const configMetaSchema = z.object({
    $schema: z.string().url().optional().describe('URL to JSON Schema for validation'),
    extends: extendsSchema,
+   scope: configScopeSchema.optional().describe('Config scope: "project" (default) or "user"'),
 });
 
 export { SCHEMA_BASE_URL };

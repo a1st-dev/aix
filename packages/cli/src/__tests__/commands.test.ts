@@ -58,7 +58,7 @@ if (source === 'typescript') {
          sourceType: 'local'
       }
    };
-} else if (source === 'https://github.com/anthropics/skills/tree/main/skills/pdf') {
+} else if (source === 'anthropics/skills/skills/pdf' || source === 'https://github.com/anthropics/skills/tree/main/skills/pdf') {
    skills = {
       pdf: {
          source: 'https://github.com/anthropics/skills',

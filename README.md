@@ -62,18 +62,22 @@ aix init --from <editor>
 
 ```bash
 aix init                              # Create ai.json
+aix init --extends github:company/cfg # Create with an extends reference
 aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
-aix install --save --scope mcp        # Merge specific sections
-aix add skill ./skills/custom         # Add a skill from GitHub, npm, or local path
+aix install --save --only mcp         # Merge specific sections
+aix add skill ./skills/custom         # Add a skill and install to editors
 aix add mcp playwright                # Add MCP server from registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix add rule ./rules/typescript.md    # Add a rule from file or URL
 aix add prompt ./prompts/review.md    # Add a prompt/command from file or URL
-aix remove skill typescript           # Remove a skill and its files
+aix remove skill typescript           # Remove a skill and uninstall from editors
 aix remove mcp playwright             # Remove an MCP server
 aix list skills                       # List configured skills (or mcp, rules, prompts, editors)
+aix list --scope user                 # List user-scoped config only
 ```
+
+Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to target user-level or project-level config.
 
 ### Utility Commands
 

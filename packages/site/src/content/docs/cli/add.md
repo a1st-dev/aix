@@ -6,7 +6,7 @@ title: aix add
 description: Add items to your configuration.
 ---
 
-Adds skills, MCP servers, rules, or prompts to `ai.json` (or `ai.local.json`).
+Adds skills, MCP servers, rules, or prompts to `ai.json` (or `ai.local.json`) and installs them to editors in one step. If no `ai.json` exists in the current directory, the item is installed directly to editors without modifying any config file.
 
 ## Commands
 
@@ -20,8 +20,9 @@ aix add skill <source> [flags]
 
 - `--name <name>` / `-n`: Override skill name.
 - `--ref <ref>` / `-r`: Git branch/tag/commit.
-- `--no-install`: Skip `aix install` after adding.
+- `--no-install`: Skip the install step after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
 **Sources:**
 
@@ -44,8 +45,9 @@ If no command/url is provided, it searches the registry.
 - `--args <args>`: Command arguments.
 - `--url <url>`: HTTP/SSE URL.
 - `--env <vars>`: Environment variables (`KEY=val,KEY2=val`).
-- `--no-install`: Skip `aix install` after adding.
+- `--no-install`: Skip the install step after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
 ### `aix add rule`
 
@@ -60,8 +62,9 @@ aix add rule <source> [flags]
 - `--globs <patterns>` / `-g`: Glob patterns (comma separated).
 - `--description <desc>` / `-d`: Description for auto-activation.
 - `--ref <ref>` / `-r`: Git branch/tag/commit.
-- `--no-install`: Skip `aix install` after adding.
+- `--no-install`: Skip the install step after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
 ### `aix add prompt`
 
@@ -75,5 +78,6 @@ aix add prompt <source> [flags]
 - `--description <desc>` / `-d`: Command description.
 - `--argument-hint <hint>`: Hint for user arguments.
 - `--ref <ref>` / `-r`: Git branch/tag/commit.
-- `--no-install`: Skip `aix install` after adding.
+- `--no-install`: Skip the install step after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.

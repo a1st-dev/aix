@@ -1,122 +1,17 @@
 import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
-import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
+import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
+import { localFlag } from '../../flags/local.js';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
-   buildGitHubUrl,
-   buildProviderUrl,
    getLocalConfigPath,
-   inferNameFromPath,
-   isGenericGitUrl,
-   isLocalPath,
    loadPrompt,
-   parseGitHubBlobUrl,
-   parseGitHubRepoUrl,
-   parseGitShorthand,
+   parseSourceReference,
    updateConfig,
    updateLocalConfig,
 } from '@a1st/aix-core';
 import type { PromptValue } from '@a1st/aix-schema';
-import { localFlag } from '../../flags/local.js';
-
-interface ParsedPrompt {
-   /** The prompt value (string shorthand or object) */
-   value: PromptValue;
-   /** Inferred name from the source path/URL */
-   inferredName?: string;
-}
-
-const PROMPT_EXTENSIONS = ['.md', '.prompt.md', '.txt'];
-
-/**
- * Detect source type and parse into a structured prompt reference.
- * Returns a string shorthand when possible, object when metadata is needed.
- */
-function parseSource(source: string, refOverride?: string): ParsedPrompt {
-   // Local file paths - return string shorthand
-   if (isLocalPath(source)) {
-      return {
-         value: source,
-         inferredName: inferNameFromPath(source, PROMPT_EXTENSIONS),
-      };
-   }
-
-   // GitHub web URL with /blob/branch/path
-   const ghBlob = parseGitHubBlobUrl(source);
-
-   if (ghBlob) {
-      return {
-         value: {
-            git: {
-               url: buildGitHubUrl(ghBlob.owner, ghBlob.repo),
-               ref: refOverride ?? ghBlob.ref,
-               path: ghBlob.path,
-            },
-         },
-         inferredName: inferNameFromPath(ghBlob.path, PROMPT_EXTENSIONS),
-      };
-   }
-
-   // GitHub repo URL (no blob path)
-   const ghRepo = parseGitHubRepoUrl(source);
-
-   if (ghRepo) {
-      const gitRef: { url: string; ref?: string } = {
-         url: buildGitHubUrl(ghRepo.owner, ghRepo.repo),
-      };
-
-      if (refOverride) {
-         gitRef.ref = refOverride;
-      }
-      return {
-         value: { git: gitRef },
-         inferredName: ghRepo.repo,
-      };
-   }
-
-   // Git shorthand: github:user/repo/path#ref
-   const shorthand = parseGitShorthand(source);
-
-   if (shorthand) {
-      const gitUrl = buildProviderUrl(shorthand.provider, shorthand.user, shorthand.repo),
-            effectiveRef = refOverride ?? shorthand.ref,
-            gitRefObj: { url: string; ref?: string; path?: string } = { url: gitUrl };
-
-      if (effectiveRef) {
-         gitRefObj.ref = effectiveRef;
-      }
-      if (shorthand.subpath) {
-         gitRefObj.path = shorthand.subpath;
-      }
-
-      return {
-         value: { git: gitRefObj },
-         inferredName: shorthand.subpath
-            ? inferNameFromPath(shorthand.subpath, PROMPT_EXTENSIONS)
-            : shorthand.repo,
-      };
-   }
-
-   // Generic https git URL - return string shorthand
-   if (isGenericGitUrl(source)) {
-      if (refOverride) {
-         return {
-            value: { git: { url: source, ref: refOverride } },
-            inferredName: inferNameFromPath(source.replace(/\.git$/, ''), PROMPT_EXTENSIONS),
-         };
-      }
-      return {
-         value: source,
-         inferredName: inferNameFromPath(source.replace(/\.git$/, ''), PROMPT_EXTENSIONS),
-      };
-   }
-
-   // Treat as inline prompt content
-   return {
-      value: { content: source },
-      inferredName: undefined,
-   };
-}
 
 export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    static override description = 'Add a prompt/command to ai.json';
@@ -139,6 +34,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
 
    static override flags = {
       ...localFlag,
+      ...configScopeFlags,
       name: Flags.string({
          char: 'n',
          description: 'Prompt name (inferred from source if not provided)',
@@ -164,7 +60,8 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(AddPrompt),
             loaded = await this.loadConfig(),
-            parsed = parseSource(args.source, flags.ref),
+            targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
+            parsed = parseSourceReference(args.source, { type: 'prompt', refOverride: flags.ref }),
             promptName = flags.name ?? parsed.inferredName;
 
       if (!promptName) {
@@ -172,7 +69,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       }
 
       // Build the prompt value
-      let promptValue: PromptValue = parsed.value;
+      let promptValue: PromptValue = parsed.value as PromptValue;
 
       // Add metadata if provided (convert string shorthand to object if needed)
       if (flags.description || flags['argument-hint']) {
@@ -200,7 +97,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          this.error(`Failed to load prompt: ${message}`);
       }
 
-      // Determine target file based on --local flag
+      // Update ai.json / ai.local.json if present
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -211,12 +108,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             };
          });
          this.output.success(`Added prompt "${promptName}" to ai.local.json`);
-      } else {
-         if (!loaded) {
-            this.error(
-               'No ai.json found. Run `aix init` to create one, or use --local to write to ai.local.json.',
-            );
-         }
+      } else if (loaded) {
          await updateConfig(loaded.path, (config) => {
             return {
                ...config,
@@ -224,12 +116,28 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             };
          });
          this.output.success(`Added prompt "${promptName}"`);
+      } else {
+         this.output.info('No ai.json found — installing directly to editors');
+      }
 
-         // Auto-install to configured editors unless --no-install
-         if (!flags['no-install']) {
+      // Install to editors unless --no-install
+      if (!flags['no-install']) {
+         if (loaded && !flags.local) {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
-               scopes: ['editors'], // prompts are under editors scope
+               sections: ['editors'], // prompts are under editors scope
+            });
+
+            if (installResult.installed) {
+               this.logInstallResults(formatInstallResults(installResult.results));
+            }
+         } else {
+            const installResult = await installSingleItem({
+               section: 'prompts',
+               name: promptName,
+               value: promptValue,
+               scope: targetScope,
+               projectRoot: process.cwd(),
             });
 
             if (installResult.installed) {

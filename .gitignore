@@ -31,3 +31,8 @@ ai.local.json
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)
 plans/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

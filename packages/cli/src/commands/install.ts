@@ -3,10 +3,10 @@ import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
-import { parseConfig, normalizeEditors, parseJsonc, type AiJsonConfig } from '@a1st/aix-schema';
+import { parseConfig, normalizeEditors, parseJsonc, resolveScope, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import { ConfigParseError } from '@a1st/aix-core';
-import { scopeFlag, parseScopes } from '../flags/scope.js';
+import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
    installToEditor,
    getAvailableEditors,
@@ -15,7 +15,7 @@ import {
    loadConfig,
    createBackup,
    mergeConfigs,
-   filterConfigByScopes,
+   filterConfigBySections,
    cleanStaleCache,
    localizeRemoteConfig,
    commitImport,
@@ -24,7 +24,7 @@ import {
    type EditorName,
    type ApplyResult,
    type LoadedConfig,
-   type ConfigScope,
+   type ConfigSection,
    type UnsupportedFeatures,
    type FileChange,
    type FileChangeCategory,
@@ -46,10 +46,10 @@ export default class Install extends BaseCommand<typeof Install> {
       '<%= config.bin %> <%= command.id %> --target windsurf',
       '<%= config.bin %> <%= command.id %> -t cursor -t windsurf',
       '<%= config.bin %> <%= command.id %> --dry-run',
-      '<%= config.bin %> <%= command.id %> --scope mcp',
+      '<%= config.bin %> <%= command.id %> --only mcp',
       '<%= config.bin %> <%= command.id %> github:org/shared-config --save',
       '<%= config.bin %> <%= command.id %> github:org/shared-config --save --overwrite',
-      '<%= config.bin %> <%= command.id %> github:org/shared-config --save --scope mcp --scope rules',
+      '<%= config.bin %> <%= command.id %> github:org/shared-config --save --only mcp --only rules',
    ];
 
    static override args = {
@@ -61,7 +61,8 @@ export default class Install extends BaseCommand<typeof Install> {
    };
 
    static override flags = {
-      ...scopeFlag,
+      ...onlyFlag,
+      ...configScopeFlags,
       target: Flags.string({
          char: 't',
          description: 'Target specific editor (repeatable, case-insensitive)',
@@ -108,10 +109,18 @@ export default class Install extends BaseCommand<typeof Install> {
          loaded = await this.requireConfig();
       }
 
-      const scopes = parseScopes(this.flags as { scope?: string[] }),
+      const sections = parseSections(this.flags as { only?: string[] }),
             projectRoot = args.source ? process.cwd() : dirname(loaded.path),
             isSaveMode = this.flags.save,
             isDryRun = this.flags['dry-run'];
+
+      // Resolve target scope: CLI flags override ai.json scope
+      const flagScope = resolveConfigScope(this.flags as { scope?: string; user?: boolean; project?: boolean }, undefined),
+            targetScope: ConfigScope = flagScope ?? resolveScope(loaded.config);
+
+      if (flagScope) {
+         this.output.info(`Scope override: installing to ${targetScope} scope`);
+      }
 
       // When installing from a remote source, check local ai.json for editor preferences
       let localEditors: AiJsonConfig['editors'] | undefined;
@@ -134,7 +143,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
          await this.saveRemoteConfig({
             remoteConfig: loaded.config,
-            scopes: scopes as ConfigScope[],
+            sections: sections as ConfigSection[],
             overwrite: this.flags.overwrite,
             dryRun: isDryRun,
             configBaseDir: loaded.configBaseDir,
@@ -174,9 +183,10 @@ export default class Install extends BaseCommand<typeof Install> {
          // eslint-disable-next-line no-await-in-loop -- Sequential for user feedback and file safety
          const result = await this.installToSingleEditor(editor, loaded.config, projectRoot, {
             isDryRun,
-            scopes,
+            sections,
             clean: this.flags.clean,
             configBaseDir: loaded.configBaseDir,
+            targetScope,
          });
 
          results.push(result);
@@ -242,7 +252,7 @@ export default class Install extends BaseCommand<typeof Install> {
       if (this.flags.json) {
          this.output.json({
             dryRun: isDryRun,
-            scopes,
+            sections,
             results,
          });
       }
@@ -319,16 +329,16 @@ export default class Install extends BaseCommand<typeof Install> {
       editor: EditorName,
       config: AiJsonConfig,
       projectRoot: string,
-      options: { isDryRun: boolean; scopes: ConfigScope[]; clean?: boolean; configBaseDir?: string },
+      options: { isDryRun: boolean; sections: ConfigSection[]; clean?: boolean; configBaseDir?: string; targetScope?: ConfigScope },
    ): Promise<ApplyResult> {
-      const { isDryRun, scopes, clean, configBaseDir } = options;
+      const { isDryRun, sections, clean, configBaseDir, targetScope: _targetScope } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
       try {
          const result = await installToEditor(editor, config, projectRoot, {
             dryRun: isDryRun,
-            scopes,
+            scopes: sections,
             overwrite: this.flags.overwrite,
             clean,
             configBaseDir,
@@ -407,20 +417,20 @@ export default class Install extends BaseCommand<typeof Install> {
     */
    private async saveRemoteConfig(opts: {
       remoteConfig: AiJsonConfig;
-      scopes: ConfigScope[];
+      sections: ConfigSection[];
       overwrite: boolean;
       dryRun: boolean;
       configBaseDir?: string;
       gitSource?: GitSourceInfo;
       forceCopy?: boolean;
    }): Promise<void> {
-      const { remoteConfig, scopes, overwrite, dryRun, configBaseDir, gitSource, forceCopy } = opts;
+      const { remoteConfig, sections, overwrite, dryRun, configBaseDir, gitSource, forceCopy } = opts;
       const localPath = join(process.cwd(), 'ai.json'),
             localExists = existsSync(localPath),
             projectRoot = process.cwd();
 
-      // Filter remote config by scopes
-      let filteredRemote = filterConfigByScopes(remoteConfig, scopes);
+      // Filter remote config by sections
+      let filteredRemote = filterConfigBySections(remoteConfig, sections);
 
       // Track what we did for output
       let filesCopied = 0;
@@ -505,7 +515,7 @@ export default class Install extends BaseCommand<typeof Install> {
       if (dryRun) {
          this.output.info(`Would ${action === 'created' ? 'create' : action} ./ai.json`);
          if (action === 'merged') {
-            this.output.info('  Sections merged: ' + scopes.join(', '));
+            this.output.info('  Sections merged: ' + sections.join(', '));
          }
          if (gitRefsCreated.length > 0) {
             this.output.info(`  Would create ${gitRefsCreated.length} git reference${gitRefsCreated.length === 1 ? '' : 's'}`);
@@ -546,7 +556,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
       this.output.success(`${actionVerb} ./ai.json`);
       if (action === 'merged') {
-         this.output.info('  Sections merged: ' + scopes.join(', '));
+         this.output.info('  Sections merged: ' + sections.join(', '));
       }
       if (gitRefsCreated.length > 0) {
          this.output.info(`  Created ${gitRefsCreated.length} git reference${gitRefsCreated.length === 1 ? '' : 's'}:`);

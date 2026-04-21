@@ -56,14 +56,14 @@ How `ai.json` concepts map to each editor:
 
 ### Zed
 
-- **Rules**: `.rules` file at project root (all rules concatenated).
-- **MCP**: `.zed/settings.json`.
-- **Prompts**: Not supported.
+- **Rules**: `.rules` file at project root (all rules concatenated). Zed also auto-detects `.cursorrules`, `AGENTS.md`, `CLAUDE.md`, and other common rules files for compatibility.
+- **MCP**: `.zed/settings.json` (project-level, using `context_servers` key). Also supports global config at `~/.config/zed/settings.json`.
+- **Prompts**: Not supported (file-based user prompts). Zed supports MCP server-side prompts natively.
 - **Skills**: Pointer rules (no native Agent Skills support).
 
 ### Codex
 
 - **Rules**: `AGENTS.md` at project root (and in subdirectories for glob-scoped rules).
-- **MCP**: Global config at `~/.codex/config.toml`.
+- **MCP**: Global config at `~/.codex/config.toml`. Also supports project-scoped config at `.codex/config.toml` (trusted projects only). aix currently only writes to the global config.
 - **Prompts**: Global at `~/.codex/prompts/`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.codex/skills/`.

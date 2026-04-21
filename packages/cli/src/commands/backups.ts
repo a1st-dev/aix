@@ -63,7 +63,6 @@ When aix modifies editor configuration files (e.g., during install), it automati
    ];
 
    async run(): Promise<void> {
-      // Match the backup location used by global/processor.ts: ~/.aix/backups/
       const backups: BackupInfo[] = [],
             globalBackupDir = join(homedir(), '.aix', 'backups'),
             localBackupDir = join(process.cwd(), '.aix', 'backups');

@@ -1,5 +1,25 @@
+import { Flags } from '@oclif/core';
+import chalk from 'chalk';
 import { BaseCommand } from '../../base-command.js';
-import { scopeFlag, parseScopes, includesScope } from '../../flags/scope.js';
+import {
+   onlyFlag,
+   parseSections,
+   includesSection,
+   configScopeFlags,
+   resolveConfigScope,
+   type Section,
+} from '../../flags/scope.js';
+import {
+   readState,
+   importFromEditor,
+   getAvailableEditors,
+   type StateFile,
+   type StateSection,
+   type EditorName,
+} from '@a1st/aix-core';
+import { resolveScope } from '@a1st/aix-schema';
+
+const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts'];
 
 export default class List extends BaseCommand<typeof List> {
    static override aliases = ['ls'];
@@ -8,45 +28,133 @@ export default class List extends BaseCommand<typeof List> {
 
    static override examples = [
       '<%= config.bin %> <%= command.id %>',
-      '<%= config.bin %> <%= command.id %> --scope skills',
-      '<%= config.bin %> <%= command.id %> -s rules -s mcp',
+      '<%= config.bin %> <%= command.id %> --only skills',
+      '<%= config.bin %> <%= command.id %> --only rules --only mcp',
+      '<%= config.bin %> <%= command.id %> --scope user',
+      '<%= config.bin %> <%= command.id %> --project',
+      '<%= config.bin %> <%= command.id %> --all',
+      '<%= config.bin %> <%= command.id %> --all --scope user --only mcp',
    ];
 
    static override flags = {
-      ...scopeFlag,
+      ...onlyFlag,
+      ...configScopeFlags,
+      all: Flags.boolean({
+         description: 'List all AI config from editors (including non-aix managed)',
+         default: false,
+      }),
    };
 
    async run(): Promise<void> {
-      const loaded = await this.requireConfig();
-      const scopes = parseScopes(this.flags as { scope?: string[] }),
-            config = loaded.config,
-            result: Record<string, unknown> = {};
+      const sections = parseSections(this.flags as { only?: string[] }),
+            scopeFilter = resolveConfigScope(
+               this.flags as { scope?: string; user?: boolean; project?: boolean },
+               undefined,
+            );
 
-      if (includesScope(scopes, 'skills')) {
-         result.skills = config.skills ?? {};
+      // If --all flag is set, show all editor config
+      if (this.flags.all) {
+         await this.listAllEditorConfig(sections, scopeFilter);
+         return;
       }
-      if (includesScope(scopes, 'mcp')) {
-         result.mcp = config.mcp ?? {};
-      }
-      if (includesScope(scopes, 'rules')) {
-         result.rules = config.rules ?? {};
-      }
-      if (includesScope(scopes, 'prompts')) {
-         result.prompts = config.prompts ?? {};
-      }
-      if (includesScope(scopes, 'editors')) {
-         result.editors = config.editors ?? {};
-      }
+
+      // Load ai.json config if available
+      const loaded = await this.loadConfig();
+
+      // Load state for both scopes
+      const projectState = await readState('project', process.cwd()),
+            userState = await readState('user');
 
       if (this.flags.json) {
+         const result: Record<string, unknown> = {};
+
+         if (loaded) {
+            const configScope = resolveScope(loaded.config);
+
+            if (!scopeFilter || scopeFilter === configScope) {
+               result.config = {
+                  scope: configScope,
+                  ...this.getConfigSections(loaded.config, sections),
+               };
+            }
+         }
+         result.state = {
+            ...((!scopeFilter || scopeFilter === 'project') && {
+               project: this.getStateSections(projectState, sections),
+            }),
+            ...((!scopeFilter || scopeFilter === 'user') && {
+               user: this.getStateSections(userState, sections),
+            }),
+         };
          this.output.json(result);
          return;
       }
 
-      for (const [scope, items] of Object.entries(result)) {
-         const entries = Object.entries(items as Record<string, unknown>);
+      // Show ai.json config
+      if (loaded) {
+         const configScope = resolveScope(loaded.config);
 
-         this.output.header(this.formatScopeName(scope));
+         if (!scopeFilter || scopeFilter === configScope) {
+            this.output.log('');
+            this.output.log(chalk.bold(`📄 ai.json config (scope: ${configScope})`));
+            this.output.log('');
+            this.printConfigSections(loaded.config, sections);
+         }
+      }
+
+      // Show state-tracked items
+      const showProject = !scopeFilter || scopeFilter === 'project',
+            showUser = !scopeFilter || scopeFilter === 'user';
+
+      if (showProject) {
+         this.printStateSections(projectState, sections, 'project');
+      }
+      if (showUser) {
+         this.printStateSections(userState, sections, 'user');
+      }
+
+      if (!loaded && !this.hasStateItems(projectState) && !this.hasStateItems(userState)) {
+         this.output.info(
+            'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
+         );
+      }
+   }
+
+   private getConfigSections(
+      config: Record<string, unknown>,
+      sections: Section[],
+   ): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'editors'] as const) {
+         if (includesSection(sections, section)) {
+            result[section] = (config as any)[section] ?? {};
+         }
+      }
+      return result;
+   }
+
+   private getStateSections(state: StateFile, sections: Section[]): Record<string, unknown> {
+      const result: Record<string, unknown> = {};
+
+      for (const section of STATE_SECTIONS) {
+         if (includesSection(sections, section)) {
+            result[section] = state.installed[section];
+         }
+      }
+      return result;
+   }
+
+   private printConfigSections(config: Record<string, unknown>, sections: Section[]): void {
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'editors'] as const) {
+         if (!includesSection(sections, section)) {
+            continue;
+         }
+
+         const items = (config as any)[section] ?? {};
+         const entries = Object.entries(items);
+
+         this.output.header(this.formatSectionName(section));
 
          if (entries.length === 0) {
             this.output.log(this.output.dim('  (none)'));
@@ -63,7 +171,48 @@ export default class List extends BaseCommand<typeof List> {
       }
    }
 
-   private formatScopeName(scope: string): string {
+   private printStateSections(
+      state: StateFile,
+      sections: Section[],
+      scope: 'project' | 'user',
+   ): void {
+      const hasItems = STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
+
+      if (!hasItems) {
+         return;
+      }
+
+      this.output.log('');
+      this.output.log(chalk.bold(`📦 Installed items (scope: ${scope})`));
+      this.output.log('');
+
+      for (const section of STATE_SECTIONS) {
+         if (!includesSection(sections, section)) {
+            continue;
+         }
+
+         const items = state.installed[section],
+               entries = Object.entries(items);
+
+         if (entries.length === 0) {
+            continue;
+         }
+
+         this.output.header(this.formatSectionName(section));
+
+         for (const [name, meta] of entries) {
+            const editors = meta.editors.length > 0 ? ` → ${meta.editors.join(', ')}` : '';
+
+            this.output.log(`  ${this.output.cyan(name)}${this.output.dim(editors)}`);
+         }
+      }
+   }
+
+   private hasStateItems(state: StateFile): boolean {
+      return STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
+   }
+
+   private formatSectionName(section: string): string {
       const names: Record<string, string> = {
          skills: 'Skills',
          mcp: 'MCP Servers',
@@ -72,6 +221,299 @@ export default class List extends BaseCommand<typeof List> {
          editors: 'Editors',
       };
 
-      return names[scope] ?? scope;
+      return names[section] ?? section;
+   }
+
+   /**
+    * List all AI config from editors (both aix-managed and externally managed).
+    * Scans actual editor config directories to discover what's installed.
+    */
+   private async listAllEditorConfig(
+      sections: Section[],
+      scopeFilter: 'user' | 'project' | undefined,
+   ): Promise<void> {
+      const editors = getAvailableEditors() as EditorName[];
+      const projectRoot = process.cwd();
+
+      // Load state to identify aix-managed items
+      const projectState = await readState('project', projectRoot);
+      const userState = await readState('user');
+
+      const allResults: Array<{
+         editor: EditorName;
+         result: Awaited<ReturnType<typeof importFromEditor>>;
+      }> = [];
+
+      for (const editor of editors) {
+         try {
+            // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
+            const result = await importFromEditor(editor, { projectRoot });
+
+            if (this.hasEditorItems(result)) {
+               allResults.push({ editor, result });
+            }
+         } catch {
+            // Skip editors that fail to import (not installed, etc.)
+         }
+      }
+
+      if (allResults.length === 0) {
+         this.output.info('No AI configuration found in any editor.');
+         return;
+      }
+
+      if (this.flags.json) {
+         const jsonResult: Record<string, unknown> = {};
+
+         for (const { editor, result } of allResults) {
+            jsonResult[editor] = this.buildEditorJson(
+               result,
+               sections,
+               scopeFilter,
+               projectState,
+               userState,
+            );
+         }
+         this.output.json(jsonResult);
+         return;
+      }
+
+      for (const { editor, result } of allResults) {
+         this.printEditorConfig(editor, result, sections, scopeFilter, projectState, userState);
+      }
+   }
+
+   private hasEditorItems(result: Awaited<ReturnType<typeof importFromEditor>>): boolean {
+      return (
+         Object.keys(result.mcp).length > 0 ||
+         result.rules.length > 0 ||
+         Object.keys(result.skills).length > 0 ||
+         Object.keys(result.prompts).length > 0
+      );
+   }
+
+   private buildEditorJson(
+      result: Awaited<ReturnType<typeof importFromEditor>>,
+      sections: Section[],
+      scopeFilter: 'user' | 'project' | undefined,
+      projectState: StateFile,
+      userState: StateFile,
+   ): Record<string, unknown> {
+      const out: Record<string, unknown> = {};
+
+      if (includesSection(sections, 'mcp') && Object.keys(result.mcp).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const [name] of Object.entries(result.mcp)) {
+            const managed = this.isAixManaged(name, 'mcp', projectState, userState);
+            const scope = managed?.scope;
+
+            if (scopeFilter && scope && scope !== scopeFilter) {
+               continue;
+            }
+            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+         }
+         if (Object.keys(items).length > 0) {
+            out.mcp = items;
+         }
+      }
+
+      if (includesSection(sections, 'rules') && result.rules.length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const rule of result.rules) {
+            const managed = this.isAixManaged(rule.name, 'rules', projectState, userState);
+            const scope = managed?.scope;
+
+            if (scopeFilter && scope && scope !== scopeFilter) {
+               continue;
+            }
+            items[rule.name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+         }
+         if (Object.keys(items).length > 0) {
+            out.rules = items;
+         }
+      }
+
+      if (includesSection(sections, 'skills') && Object.keys(result.skills).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const [name] of Object.entries(result.skills)) {
+            const managed = this.isAixManaged(name, 'skills', projectState, userState);
+            const scope = managed?.scope;
+
+            if (scopeFilter && scope && scope !== scopeFilter) {
+               continue;
+            }
+            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+         }
+         if (Object.keys(items).length > 0) {
+            out.skills = items;
+         }
+      }
+
+      if (includesSection(sections, 'prompts') && Object.keys(result.prompts).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const [name] of Object.entries(result.prompts)) {
+            const managed = this.isAixManaged(name, 'prompts', projectState, userState);
+            const scope = managed?.scope;
+
+            if (scopeFilter && scope && scope !== scopeFilter) {
+               continue;
+            }
+            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+         }
+         if (Object.keys(items).length > 0) {
+            out.prompts = items;
+         }
+      }
+
+      return out;
+   }
+
+   private printEditorConfig(
+      editor: EditorName,
+      result: Awaited<ReturnType<typeof importFromEditor>>,
+      sections: Section[],
+      scopeFilter: 'user' | 'project' | undefined,
+      projectState: StateFile,
+      userState: StateFile,
+   ): void {
+      const lines: string[] = [];
+
+      // MCP Servers
+      if (includesSection(sections, 'mcp') && Object.keys(result.mcp).length > 0) {
+         const filtered = this.filterByScope(
+            Object.keys(result.mcp),
+            'mcp',
+            scopeFilter,
+            projectState,
+            userState,
+         );
+
+         if (filtered.length > 0) {
+            lines.push(`  ${chalk.underline('MCP Servers')}`);
+            for (const name of filtered) {
+               const managed = this.isAixManaged(name, 'mcp', projectState, userState);
+               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
+               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
+
+               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
+            }
+         }
+      }
+
+      // Rules
+      if (includesSection(sections, 'rules') && result.rules.length > 0) {
+         const ruleNames = result.rules.map((r) => r.name);
+         const filtered = this.filterByScope(
+            ruleNames,
+            'rules',
+            scopeFilter,
+            projectState,
+            userState,
+         );
+
+         if (filtered.length > 0) {
+            lines.push(`  ${chalk.underline('Rules')}`);
+            for (const name of filtered) {
+               const managed = this.isAixManaged(name, 'rules', projectState, userState);
+               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
+               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
+
+               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
+            }
+         }
+      }
+
+      // Skills
+      if (includesSection(sections, 'skills') && Object.keys(result.skills).length > 0) {
+         const filtered = this.filterByScope(
+            Object.keys(result.skills),
+            'skills',
+            scopeFilter,
+            projectState,
+            userState,
+         );
+
+         if (filtered.length > 0) {
+            lines.push(`  ${chalk.underline('Skills')}`);
+            for (const name of filtered) {
+               const managed = this.isAixManaged(name, 'skills', projectState, userState);
+               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
+               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
+
+               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
+            }
+         }
+      }
+
+      // Prompts
+      if (includesSection(sections, 'prompts') && Object.keys(result.prompts).length > 0) {
+         const filtered = this.filterByScope(
+            Object.keys(result.prompts),
+            'prompts',
+            scopeFilter,
+            projectState,
+            userState,
+         );
+
+         if (filtered.length > 0) {
+            lines.push(`  ${chalk.underline('Prompts')}`);
+            for (const name of filtered) {
+               const managed = this.isAixManaged(name, 'prompts', projectState, userState);
+               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
+               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
+
+               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
+            }
+         }
+      }
+
+      if (lines.length > 0) {
+         this.output.log('');
+         this.output.log(chalk.bold(`🔧 ${editor}`));
+         for (const line of lines) {
+            this.output.log(line);
+         }
+      }
+   }
+
+   private isAixManaged(
+      name: string,
+      section: StateSection,
+      projectState: StateFile,
+      userState: StateFile,
+   ): { scope: 'project' | 'user' } | undefined {
+      if (projectState.installed[section][name]) {
+         return { scope: 'project' };
+      }
+      if (userState.installed[section][name]) {
+         return { scope: 'user' };
+      }
+      return undefined;
+   }
+
+   private filterByScope(
+      names: string[],
+      section: StateSection,
+      scopeFilter: 'user' | 'project' | undefined,
+      projectState: StateFile,
+      userState: StateFile,
+   ): string[] {
+      if (!scopeFilter) {
+         return names;
+      }
+
+      return names.filter((name) => {
+         const managed = this.isAixManaged(name, section, projectState, userState);
+
+         // If not aix-managed, include (can't determine scope)
+         if (!managed) {
+            return true;
+         }
+         return managed.scope === scopeFilter;
+      });
    }
 }

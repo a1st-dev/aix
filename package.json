@@ -7,7 +7,9 @@
       "ai-agent",
       "ai-configuration",
       "mcp",
-      "model-context-protocol"
+      "model-context-protocol",
+      "ai-skills",
+      "skills"
    ],
    "workspaces": [
       "packages/*"
