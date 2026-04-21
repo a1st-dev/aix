@@ -331,7 +331,7 @@ export default class Install extends BaseCommand<typeof Install> {
       projectRoot: string,
       options: { isDryRun: boolean; sections: ConfigSection[]; clean?: boolean; configBaseDir?: string; targetScope?: ConfigScope },
    ): Promise<ApplyResult> {
-      const { isDryRun, sections, clean, configBaseDir, targetScope: _targetScope } = options;
+      const { isDryRun, sections, clean, configBaseDir, targetScope } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
@@ -342,6 +342,7 @@ export default class Install extends BaseCommand<typeof Install> {
             overwrite: this.flags.overwrite,
             clean,
             configBaseDir,
+            targetScope,
          });
 
          this.handleInstallResult(editor, result, projectRoot, isDryRun);

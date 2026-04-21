@@ -71,6 +71,8 @@ export interface EditorConfig {
 export interface ApplyOptions {
    dryRun?: boolean;
    scopes?: ConfigScope[];
+   /** Whether to target project-local or user-level editor config where supported. */
+   targetScope?: 'project' | 'user';
    /**
     * If true, overwrite existing JSON config files entirely instead of merging. Default is false,
     * which means JSON files in editor config folders are recursively merged with existing content.

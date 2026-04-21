@@ -126,6 +126,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                sections: ['editors'], // prompts are under editors scope
+               scope: targetScope,
             });
 
             if (installResult.installed) {

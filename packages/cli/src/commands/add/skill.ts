@@ -168,6 +168,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                const installResult = await installAfterAdd({
                   configPath: loaded.path,
                   sections: ['skills'],
+                  scope: targetScope,
                });
 
                if (installResult.installed) {

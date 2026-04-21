@@ -9,11 +9,18 @@ import {
    type ApplyResult,
    type ConfigSection,
 } from '@a1st/aix-core';
-import { normalizeEditors, createEmptyConfig, type ConfigScope, type AiJsonConfig } from '@a1st/aix-schema';
+import {
+   normalizeEditors,
+   createEmptyConfig,
+   resolveScope,
+   type ConfigScope,
+   type AiJsonConfig,
+} from '@a1st/aix-schema';
 
 export interface InstallAfterAddOptions {
    configPath: string;
    sections: ConfigSection[];
+   scope?: ConfigScope;
    quiet?: boolean;
 }
 
@@ -76,11 +83,13 @@ export async function installAfterAdd(options: InstallAfterAddOptions): Promise<
    }
 
    const projectRoot = dirname(options.configPath),
+         targetScope = options.scope ?? resolveScope(loaded.config),
          results = await pMap(
             editors,
             (editor) => installToEditor(editor, loaded.config, projectRoot, {
                scopes: options.sections,
                configBaseDir: loaded.configBaseDir,
+               targetScope,
             }),
             { concurrency: 2 },
          );
@@ -139,7 +148,7 @@ export async function installSingleItem(options: InstallItemOptions): Promise<In
 
    const results = await pMap(
       editors,
-      (editor) => installToEditor(editor, config, projectRoot, { scopes: [section] }),
+      (editor) => installToEditor(editor, config, projectRoot, { scopes: [section], targetScope: scope }),
       { concurrency: 2 },
    );
 

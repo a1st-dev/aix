@@ -1,5 +1,6 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
@@ -74,30 +75,39 @@ export class CodexAdapter extends BaseEditorAdapter {
       editorConfig: EditorConfig,
       projectRoot: string,
       scopes: string[],
-      _options: ApplyOptions = {},
+      options: ApplyOptions = {},
    ): Promise<FileChange[]> {
       const changes: FileChange[] = [];
 
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
-         // Bucket rules by target directory
-         const buckets = this.bucketRulesByDirectory(editorConfig.rules);
-
-         for (const [dir, rules] of buckets) {
-            const agentsPath = dir === '' ? join(projectRoot, 'AGENTS.md') : join(projectRoot, dir, 'AGENTS.md'),
-                  content = this.formatAgentsMd(rules),
-                  // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
+         if (options.targetScope === 'user') {
+            const agentsPath = join(homedir(), this.rulesStrategy.getGlobalRulesPath() ?? '.codex/AGENTS.md'),
+                  content = this.formatAgentsMd(editorConfig.rules),
                   existing = await this.readExisting(agentsPath),
                   action = this.determineAction(existing, content);
 
-            // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
             changes.push({ path: agentsPath, action, content, category: 'rule' });
-         }
+         } else {
+            // Bucket rules by target directory
+            const buckets = this.bucketRulesByDirectory(editorConfig.rules);
 
-         // Clean up legacy .codex/AGENTS.md if it exists
-         const legacyPath = join(projectRoot, '.codex', 'AGENTS.md');
+            for (const [dir, rules] of buckets) {
+               const agentsPath = dir === '' ? join(projectRoot, 'AGENTS.md') : join(projectRoot, dir, 'AGENTS.md'),
+                     content = this.formatAgentsMd(rules),
+                     // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
+                     existing = await this.readExisting(agentsPath),
+                     action = this.determineAction(existing, content);
 
-         if (existsSync(legacyPath)) {
-            changes.push({ path: legacyPath, action: 'delete', content: '', category: 'rule' });
+               // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
+               changes.push({ path: agentsPath, action, content, category: 'rule' });
+            }
+
+            // Clean up legacy .codex/AGENTS.md if it exists
+            const legacyPath = join(projectRoot, '.codex', 'AGENTS.md');
+
+            if (existsSync(legacyPath)) {
+               changes.push({ path: legacyPath, action: 'delete', content: '', category: 'rule' });
+            }
          }
       }
 

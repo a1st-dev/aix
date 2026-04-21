@@ -128,6 +128,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                sections: ['rules'],
+               scope: targetScope,
             });
 
             if (installResult.installed) {

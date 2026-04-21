@@ -96,10 +96,53 @@ export class CodexPromptsStrategy implements PromptsStrategy {
    }
 
    async parseGlobalPrompts(
-      _files: string[],
-      _readFile: (filename: string) => Promise<string>,
+      files: string[],
+      readFile: (filename: string) => Promise<string>,
    ): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
-      return { prompts: {}, warnings: [] };
+      const mdFiles = files.filter((f) => f.endsWith('.md'));
+
+      type ParseResult =
+         | { type: 'prompt'; name: string; content: string }
+         | { type: 'warning'; message: string }
+         | null;
+
+      const results = await Promise.all(
+         mdFiles.map(async (file): Promise<ParseResult> => {
+            try {
+               const content = await readFile(file);
+
+               if (content.trim()) {
+                  return {
+                     type: 'prompt',
+                     name: file.replace(/\.md$/, ''),
+                     content: content.trim(),
+                  };
+               }
+               return null;
+            } catch (err) {
+               return {
+                  type: 'warning',
+                  message: `Failed to read prompt ${file}: ${(err as Error).message}`,
+               };
+            }
+         }),
+      );
+
+      const prompts: Record<string, string> = {},
+            warnings: string[] = [];
+
+      for (const result of results) {
+         if (!result) {
+            continue;
+         }
+         if (result.type === 'warning') {
+            warnings.push(result.message);
+         } else {
+            prompts[result.name] = result.content;
+         }
+      }
+
+      return { prompts, warnings };
    }
 
    /**

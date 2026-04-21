@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { importFromEditor, getGlobalConfigPath } from '../../editors/import.js';
 
 describe('Editor Config Import', () => {
@@ -60,6 +63,43 @@ describe('Editor Config Import', () => {
          // GitHub Copilot supports MCP - result depends on whether config file exists
          expect(result).toHaveProperty('mcp');
          expect(typeof result.mcp).toBe('object');
+      });
+
+      it('imports Zed project rules with a display name and path', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-zed-rules-'));
+
+         try {
+            const rulesPath = join(projectRoot, '.rules');
+
+            await writeFile(rulesPath, 'Use short names.', 'utf-8');
+
+            const result = await importFromEditor('zed', { projectRoot });
+
+            expect(result.rules).toEqual([{ name: 'project rules', content: 'Use short names.' }]);
+            expect(result.paths.rules['project rules']).toBe(rulesPath);
+            expect(result.scopes.rules['project rules']).toBe('project');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports project skills from editor skill directories', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-codex-skills-'));
+
+         try {
+            const skillPath = join(projectRoot, '.agents', 'skills', 'typescript');
+
+            await mkdir(skillPath, { recursive: true });
+            await writeFile(join(skillPath, 'SKILL.md'), '# TypeScript', 'utf-8');
+
+            const result = await importFromEditor('codex', { projectRoot });
+
+            expect(result.skills.typescript).toBe(skillPath);
+            expect(result.paths.skills.typescript).toBe(skillPath);
+            expect(result.scopes.skills.typescript).toBe('project');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
       });
    });
 

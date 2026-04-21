@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile, rm, access, constants, chmod } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join, dirname, basename } from 'pathe';
 import { existsSync } from 'node:fs';
 import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
@@ -300,26 +301,38 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       options: ApplyOptions = {},
    ): Promise<FileChange[]> {
       const changes: FileChange[] = [],
-            configDir = join(projectRoot, this.configDir);
+            configDir = join(projectRoot, this.configDir),
+            targetScope = options.targetScope ?? 'project';
 
       // Rules (markdown files - always overwrite, no merge)
-      if (scopes.includes('rules')) {
-         const rulesDir = join(configDir, this.rulesStrategy.getRulesDir()),
-               ext = this.rulesStrategy.getFileExtension();
+      if (scopes.includes('rules') && editorConfig.rules.length > 0) {
+         const globalRulesPath = this.rulesStrategy.getGlobalRulesPath();
 
-         const ruleChanges = await Promise.all(
-            editorConfig.rules.map(async (rule) => {
-               const fileName = this.sanitizeFileName(this.deriveRuleName(rule)) + ext,
-                     filePath = join(rulesDir, fileName),
-                     content = this.rulesStrategy.formatRule(rule),
-                     existing = await this.readExisting(filePath),
-                     action = this.determineAction(existing, content);
+         if (targetScope === 'user' && globalRulesPath) {
+            const filePath = join(homedir(), globalRulesPath),
+                  content = editorConfig.rules.map((rule) => this.rulesStrategy.formatRule(rule)).join('\n\n'),
+                  existing = await this.readExisting(filePath),
+                  action = this.determineAction(existing, content);
 
-               return { path: filePath, action, content, category: 'rule' as const };
-            }),
-         );
+            changes.push({ path: filePath, action, content, category: 'rule' });
+         } else if (targetScope === 'project') {
+            const rulesDir = join(configDir, this.rulesStrategy.getRulesDir()),
+                  ext = this.rulesStrategy.getFileExtension();
 
-         changes.push(...ruleChanges);
+            const ruleChanges = await Promise.all(
+               editorConfig.rules.map(async (rule) => {
+                  const fileName = this.sanitizeFileName(this.deriveRuleName(rule)) + ext,
+                        filePath = join(rulesDir, fileName),
+                        content = this.rulesStrategy.formatRule(rule),
+                        existing = await this.readExisting(filePath),
+                        action = this.determineAction(existing, content);
+
+                  return { path: filePath, action, content, category: 'rule' as const };
+               }),
+            );
+
+            changes.push(...ruleChanges);
+         }
       }
 
       // MCP config (JSON file - merge by default unless overwrite is set)
@@ -328,8 +341,13 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const mcpEntries = Object.keys(editorConfig.mcp);
 
          if (mcpEntries.length > 0) {
-            const mcpBaseDir = this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
-                  mcpPath = join(mcpBaseDir, this.mcpStrategy.getConfigPath());
+            const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
+                  mcpPath = targetScope === 'user' && globalMcpPath
+                     ? join(homedir(), globalMcpPath)
+                     : join(
+                        this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
+                        this.mcpStrategy.getConfigPath(),
+                     );
 
             // Only merge JSON files that we directly write to (MCP config files)
             if (this.isJsonFile(mcpPath)) {
@@ -352,8 +370,15 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       // Prompts/commands (markdown files - always overwrite, no merge)
-      if (scopes.includes('editors') && this.promptsStrategy.isSupported()) {
-         const promptsDir = join(configDir, this.promptsStrategy.getPromptsDir()),
+      if (
+         (scopes.includes('editors') || scopes.includes('prompts')) &&
+         this.promptsStrategy.isSupported() &&
+         !this.promptsStrategy.isGlobalOnly?.()
+      ) {
+         const globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
+               promptsDir = targetScope === 'user' && globalPromptsPath
+                  ? join(homedir(), globalPromptsPath)
+                  : join(configDir, this.promptsStrategy.getPromptsDir()),
                ext = this.promptsStrategy.getFileExtension();
 
          const promptChanges = await Promise.all(

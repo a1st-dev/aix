@@ -119,6 +119,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                sections: ['mcp'],
+               scope: targetScope,
             });
 
             if (installResult.installed) {

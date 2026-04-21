@@ -124,6 +124,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                sections: ['mcp'],
+               scope: targetScope,
             });
 
             if (installResult.installed) {

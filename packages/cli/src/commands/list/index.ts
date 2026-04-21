@@ -20,6 +20,15 @@ import {
 import { resolveScope } from '@a1st/aix-schema';
 
 const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts'];
+const VALID_EDITORS = getAvailableEditors() as EditorName[];
+
+type EditorItemRow = {
+   type: 'mcp' | 'rule' | 'skill' | 'prompt';
+   name: string;
+   source: 'aix' | 'external';
+   scope: 'project' | 'user' | undefined;
+   path: string | undefined;
+};
 
 export default class List extends BaseCommand<typeof List> {
    static override aliases = ['ls'];
@@ -33,6 +42,8 @@ export default class List extends BaseCommand<typeof List> {
       '<%= config.bin %> <%= command.id %> --scope user',
       '<%= config.bin %> <%= command.id %> --project',
       '<%= config.bin %> <%= command.id %> --all',
+      '<%= config.bin %> <%= command.id %> --all --editor codex',
+      '<%= config.bin %> <%= command.id %> --all --editor codex --editor zed',
       '<%= config.bin %> <%= command.id %> --all --scope user --only mcp',
    ];
 
@@ -42,6 +53,11 @@ export default class List extends BaseCommand<typeof List> {
       all: Flags.boolean({
          description: 'List all AI config from editors (including non-aix managed)',
          default: false,
+      }),
+      editor: Flags.string({
+         char: 'e',
+         description: 'Only show config from a specific editor (repeatable, case-insensitive)',
+         multiple: true,
       }),
    };
 
@@ -54,7 +70,7 @@ export default class List extends BaseCommand<typeof List> {
 
       // If --all flag is set, show all editor config
       if (this.flags.all) {
-         await this.listAllEditorConfig(sections, scopeFilter);
+         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
          return;
       }
 
@@ -212,6 +228,24 @@ export default class List extends BaseCommand<typeof List> {
       return STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
    }
 
+   private resolveEditorFilter(): EditorName[] | undefined {
+      const editors = this.flags.editor;
+
+      if (!editors || editors.length === 0) {
+         return undefined;
+      }
+
+      const normalized = editors.map((editor) => editor.toLowerCase() as EditorName);
+
+      for (const editor of normalized) {
+         if (!VALID_EDITORS.includes(editor)) {
+            this.error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
+         }
+      }
+
+      return [...new Set(normalized)];
+   }
+
    private formatSectionName(section: string): string {
       const names: Record<string, string> = {
          skills: 'Skills',
@@ -231,8 +265,9 @@ export default class List extends BaseCommand<typeof List> {
    private async listAllEditorConfig(
       sections: Section[],
       scopeFilter: 'user' | 'project' | undefined,
+      editorFilter: EditorName[] | undefined,
    ): Promise<void> {
-      const editors = getAvailableEditors() as EditorName[];
+      const editors = editorFilter ?? VALID_EDITORS;
       const projectRoot = process.cwd();
 
       // Load state to identify aix-managed items
@@ -278,8 +313,22 @@ export default class List extends BaseCommand<typeof List> {
          return;
       }
 
+      let printed = 0;
+
       for (const { editor, result } of allResults) {
-         this.printEditorConfig(editor, result, sections, scopeFilter, projectState, userState);
+         const didPrint = this.printEditorConfig(
+            editor,
+            result,
+            sections,
+            scopeFilter,
+            projectState,
+            userState,
+            printed > 0,
+         );
+
+         if (didPrint) {
+            printed++;
+         }
       }
    }
 
@@ -306,12 +355,16 @@ export default class List extends BaseCommand<typeof List> {
 
          for (const [name] of Object.entries(result.mcp)) {
             const managed = this.isAixManaged(name, 'mcp', projectState, userState);
-            const scope = managed?.scope;
+            const scope = managed?.scope ?? result.scopes.mcp[name];
 
-            if (scopeFilter && scope && scope !== scopeFilter) {
+            if (scopeFilter && scope !== scopeFilter) {
                continue;
             }
-            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+            items[name] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.mcp[name],
+            };
          }
          if (Object.keys(items).length > 0) {
             out.mcp = items;
@@ -323,12 +376,16 @@ export default class List extends BaseCommand<typeof List> {
 
          for (const rule of result.rules) {
             const managed = this.isAixManaged(rule.name, 'rules', projectState, userState);
-            const scope = managed?.scope;
+            const scope = managed?.scope ?? result.scopes.rules[rule.name];
 
-            if (scopeFilter && scope && scope !== scopeFilter) {
+            if (scopeFilter && scope !== scopeFilter) {
                continue;
             }
-            items[rule.name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+            items[rule.name] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.rules[rule.name],
+            };
          }
          if (Object.keys(items).length > 0) {
             out.rules = items;
@@ -340,12 +397,16 @@ export default class List extends BaseCommand<typeof List> {
 
          for (const [name] of Object.entries(result.skills)) {
             const managed = this.isAixManaged(name, 'skills', projectState, userState);
-            const scope = managed?.scope;
+            const scope = managed?.scope ?? result.scopes.skills[name];
 
-            if (scopeFilter && scope && scope !== scopeFilter) {
+            if (scopeFilter && scope !== scopeFilter) {
                continue;
             }
-            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+            items[name] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.skills[name],
+            };
          }
          if (Object.keys(items).length > 0) {
             out.skills = items;
@@ -357,12 +418,16 @@ export default class List extends BaseCommand<typeof List> {
 
          for (const [name] of Object.entries(result.prompts)) {
             const managed = this.isAixManaged(name, 'prompts', projectState, userState);
-            const scope = managed?.scope;
+            const scope = managed?.scope ?? result.scopes.prompts[name];
 
-            if (scopeFilter && scope && scope !== scopeFilter) {
+            if (scopeFilter && scope !== scopeFilter) {
                continue;
             }
-            items[name] = { source: managed ? 'aix' : 'external', scope: scope ?? 'unknown' };
+            items[name] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.prompts[name],
+            };
          }
          if (Object.keys(items).length > 0) {
             out.prompts = items;
@@ -379,104 +444,155 @@ export default class List extends BaseCommand<typeof List> {
       scopeFilter: 'user' | 'project' | undefined,
       projectState: StateFile,
       userState: StateFile,
-   ): void {
-      const lines: string[] = [];
+      addLeadingBlankLine: boolean,
+   ): boolean {
+      const rows = this.getEditorItemRows(
+         result,
+         sections,
+         scopeFilter,
+         projectState,
+         userState,
+      );
 
-      // MCP Servers
-      if (includesSection(sections, 'mcp') && Object.keys(result.mcp).length > 0) {
-         const filtered = this.filterByScope(
-            Object.keys(result.mcp),
-            'mcp',
-            scopeFilter,
-            projectState,
-            userState,
-         );
-
-         if (filtered.length > 0) {
-            lines.push(`  ${chalk.underline('MCP Servers')}`);
-            for (const name of filtered) {
-               const managed = this.isAixManaged(name, 'mcp', projectState, userState);
-               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
-               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
-
-               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
-            }
-         }
+      if (rows.length === 0) {
+         return false;
       }
 
-      // Rules
-      if (includesSection(sections, 'rules') && result.rules.length > 0) {
-         const ruleNames = result.rules.map((r) => r.name);
-         const filtered = this.filterByScope(
-            ruleNames,
-            'rules',
-            scopeFilter,
-            projectState,
-            userState,
-         );
-
-         if (filtered.length > 0) {
-            lines.push(`  ${chalk.underline('Rules')}`);
-            for (const name of filtered) {
-               const managed = this.isAixManaged(name, 'rules', projectState, userState);
-               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
-               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
-
-               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
-            }
-         }
-      }
-
-      // Skills
-      if (includesSection(sections, 'skills') && Object.keys(result.skills).length > 0) {
-         const filtered = this.filterByScope(
-            Object.keys(result.skills),
-            'skills',
-            scopeFilter,
-            projectState,
-            userState,
-         );
-
-         if (filtered.length > 0) {
-            lines.push(`  ${chalk.underline('Skills')}`);
-            for (const name of filtered) {
-               const managed = this.isAixManaged(name, 'skills', projectState, userState);
-               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
-               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
-
-               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
-            }
-         }
-      }
-
-      // Prompts
-      if (includesSection(sections, 'prompts') && Object.keys(result.prompts).length > 0) {
-         const filtered = this.filterByScope(
-            Object.keys(result.prompts),
-            'prompts',
-            scopeFilter,
-            projectState,
-            userState,
-         );
-
-         if (filtered.length > 0) {
-            lines.push(`  ${chalk.underline('Prompts')}`);
-            for (const name of filtered) {
-               const managed = this.isAixManaged(name, 'prompts', projectState, userState);
-               const tag = managed ? chalk.green(' [aix]') : chalk.dim(' [external]');
-               const scope = managed ? chalk.dim(` (${managed.scope})`) : '';
-
-               lines.push(`    ${this.output.cyan(name)}${tag}${scope}`);
-            }
-         }
-      }
-
-      if (lines.length > 0) {
+      if (addLeadingBlankLine) {
          this.output.log('');
-         this.output.log(chalk.bold(`🔧 ${editor}`));
-         for (const line of lines) {
-            this.output.log(line);
-         }
+      }
+      this.output.log(`${chalk.bold(editor)} ${chalk.dim(`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`)}`);
+      this.printEditorRows(rows);
+      return true;
+   }
+
+   private getEditorItemRows(
+      result: Awaited<ReturnType<typeof importFromEditor>>,
+      sections: Section[],
+      scopeFilter: 'user' | 'project' | undefined,
+      projectState: StateFile,
+      userState: StateFile,
+   ): EditorItemRow[] {
+      const rows: EditorItemRow[] = [];
+
+      if (includesSection(sections, 'mcp')) {
+         rows.push(
+            ...Object.keys(result.mcp).flatMap((name) =>
+               this.toEditorItemRow(
+                  'mcp',
+                  name,
+                  'mcp',
+                  result.paths.mcp[name],
+                  result.scopes.mcp[name],
+                  scopeFilter,
+                  projectState,
+                  userState,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'rules')) {
+         rows.push(
+            ...result.rules.flatMap((rule) =>
+               this.toEditorItemRow(
+                  'rule',
+                  rule.name,
+                  'rules',
+                  result.paths.rules[rule.name],
+                  result.scopes.rules[rule.name],
+                  scopeFilter,
+                  projectState,
+                  userState,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'skills')) {
+         rows.push(
+            ...Object.keys(result.skills).flatMap((name) =>
+               this.toEditorItemRow(
+                  'skill',
+                  name,
+                  'skills',
+                  result.paths.skills[name],
+                  result.scopes.skills[name],
+                  scopeFilter,
+                  projectState,
+                  userState,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'prompts')) {
+         rows.push(
+            ...Object.keys(result.prompts).flatMap((name) =>
+               this.toEditorItemRow(
+                  'prompt',
+                  name,
+                  'prompts',
+                  result.paths.prompts[name],
+                  result.scopes.prompts[name],
+                  scopeFilter,
+                  projectState,
+                  userState,
+               ),
+            ),
+         );
+      }
+
+      return rows;
+   }
+
+   private toEditorItemRow(
+      type: EditorItemRow['type'],
+      name: string,
+      section: StateSection,
+      path: string | undefined,
+      detectedScope: 'project' | 'user' | undefined,
+      scopeFilter: 'user' | 'project' | undefined,
+      projectState: StateFile,
+      userState: StateFile,
+   ): EditorItemRow[] {
+      const managed = this.isAixManaged(name, section, projectState, userState),
+            scope = managed?.scope ?? detectedScope;
+
+      if (scopeFilter && scope !== scopeFilter) {
+         return [];
+      }
+
+      return [{
+         type,
+         name,
+         source: managed ? 'aix' : 'external',
+         scope,
+         path,
+      }];
+   }
+
+   private printEditorRows(rows: EditorItemRow[]): void {
+      const typeWidth = Math.max('type'.length, ...rows.map((row) => row.type.length)),
+            scopeWidth = Math.max('scope'.length, ...rows.map((row) => (row.scope ?? 'unknown').length)),
+            sourceWidth = Math.max('source'.length, ...rows.map((row) => row.source.length)),
+            nameWidth = Math.max('name'.length, ...rows.map((row) => row.name.length));
+
+      const header = `  ${'type'.padEnd(typeWidth)}  ${'scope'.padEnd(scopeWidth)}  ${'source'.padEnd(sourceWidth)}  ${'name'.padEnd(nameWidth)}  path`;
+
+      this.output.log(chalk.dim(header));
+      this.output.log(chalk.dim(`  ${'-'.repeat(header.length - 2)}`));
+
+      for (const row of rows) {
+         const type = row.type.padEnd(typeWidth),
+               scope = (row.scope ?? 'unknown').padEnd(scopeWidth),
+               source = row.source.padEnd(sourceWidth),
+               name = row.name.padEnd(nameWidth),
+               sourceColor = row.source === 'aix' ? chalk.green : chalk.dim;
+
+         this.output.log(
+            `  ${chalk.magenta(type)}  ${chalk.dim(scope)}  ${sourceColor(source)}  ${this.output.cyan(name)}  ${chalk.dim(row.path ?? '')}`,
+         );
       }
    }
 
@@ -493,27 +609,5 @@ export default class List extends BaseCommand<typeof List> {
          return { scope: 'user' };
       }
       return undefined;
-   }
-
-   private filterByScope(
-      names: string[],
-      section: StateSection,
-      scopeFilter: 'user' | 'project' | undefined,
-      projectState: StateFile,
-      userState: StateFile,
-   ): string[] {
-      if (!scopeFilter) {
-         return names;
-      }
-
-      return names.filter((name) => {
-         const managed = this.isAixManaged(name, section, projectState, userState);
-
-         // If not aix-managed, include (can't determine scope)
-         if (!managed) {
-            return true;
-         }
-         return managed.scope === scopeFilter;
-      });
    }
 }

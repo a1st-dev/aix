@@ -1,4 +1,5 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
+import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
@@ -81,7 +82,10 @@ export class ZedAdapter extends BaseEditorAdapter {
          const mcpEntries = Object.keys(editorConfig.mcp);
 
          if (mcpEntries.length > 0) {
-            const mcpPath = join(configDir, this.mcpStrategy.getConfigPath()),
+            const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
+                  mcpPath = _options.targetScope === 'user' && globalMcpPath
+                     ? join(homedir(), globalMcpPath)
+                     : join(configDir, this.mcpStrategy.getConfigPath()),
                   change = await this.planJsonFileChange(
                      mcpPath,
                      this.mcpStrategy.formatConfig(editorConfig.mcp),

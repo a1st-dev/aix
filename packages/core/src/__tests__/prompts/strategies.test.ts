@@ -32,6 +32,10 @@ describe('PromptsStrategy implementations', () => {
          expect(strategy.getFileExtension()).toBe('.md');
       });
 
+      it('returns global commands directory', () => {
+         expect(strategy.getGlobalPromptsPath()).toBe('.claude/commands');
+      });
+
       it('formats prompt with frontmatter', () => {
          const prompt = createPrompt();
          const formatted = strategy.formatPrompt(prompt);
@@ -48,6 +52,18 @@ describe('PromptsStrategy implementations', () => {
 
          expect(formatted).not.toContain('---');
          expect(formatted).toBe('Review the code for potential issues.');
+      });
+
+      it('parses global command files', async () => {
+         const result = await strategy.parseGlobalPrompts(
+            ['review.md', 'empty.md', 'notes.txt'],
+            async (filename) => filename === 'review.md' ? 'Review this.' : '',
+         );
+
+         expect(result).toEqual({
+            prompts: { review: 'Review this.' },
+            warnings: [],
+         });
       });
    });
 
@@ -148,6 +164,21 @@ describe('PromptsStrategy implementations', () => {
 
       it('returns global prompts path', () => {
          expect(strategy.getGlobalPromptsPath()).toBe('.codex/prompts');
+      });
+
+      it('parses global prompt files', async () => {
+         const files = ['review.md', 'notes.txt', 'empty.md'];
+         const contents: Record<string, string> = {
+            'review.md': 'Review this change.',
+            'empty.md': '',
+         };
+
+         const result = await strategy.parseGlobalPrompts(files, async (filename) => contents[filename] ?? '');
+
+         expect(result.prompts).toEqual({
+            review: 'Review this change.',
+         });
+         expect(result.warnings).toEqual([]);
       });
    });
 

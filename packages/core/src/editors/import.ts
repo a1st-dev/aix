@@ -1,4 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
 import type { McpServerConfig } from '@a1st/aix-schema';
@@ -24,11 +25,25 @@ import { CodexRulesStrategy } from './strategies/codex/rules.js';
 import { CodexPromptsStrategy } from './strategies/codex/prompts.js';
 import { CodexMcpStrategy } from './strategies/codex/mcp.js';
 
+type ImportScope = 'project' | 'user';
+
 export interface ImportResult {
    mcp: Record<string, McpServerConfig>;
    rules: NamedRule[];
    skills: Record<string, string>;
    prompts: Record<string, string>;
+   paths: {
+      mcp: Record<string, string>;
+      rules: Record<string, string>;
+      skills: Record<string, string>;
+      prompts: Record<string, string>;
+   };
+   scopes: {
+      mcp: Record<string, ImportScope>;
+      rules: Record<string, ImportScope>;
+      skills: Record<string, ImportScope>;
+      prompts: Record<string, ImportScope>;
+   };
    warnings: string[];
    /** Sources that were found and imported from */
    sources: {
@@ -108,6 +123,8 @@ export async function importFromEditor(
             rules: [],
             skills: {},
             prompts: {},
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {} },
             warnings: [],
             sources: { global: false, local: false },
          },
@@ -121,14 +138,18 @@ export async function importFromEditor(
       result.sources.global = true;
    }
    Object.assign(result.mcp, globalMcp.mcp);
+   Object.assign(result.paths.mcp, globalMcp.paths);
+   Object.assign(result.scopes.mcp, globalMcp.scopes);
    result.warnings.push(...globalMcp.warnings);
 
-   const globalRules = await importGlobalRules(strategies.rules);
+   const globalRules = await importGlobalRules(strategies.rules, editor);
 
    if (globalRules.rules.length > 0) {
       result.sources.global = true;
    }
    result.rules.push(...globalRules.rules);
+   Object.assign(result.paths.rules, globalRules.paths);
+   Object.assign(result.scopes.rules, globalRules.scopes);
    result.warnings.push(...globalRules.warnings);
 
    const globalPrompts = await importPrompts(strategies.prompts, 'global');
@@ -137,7 +158,19 @@ export async function importFromEditor(
       result.sources.global = true;
    }
    Object.assign(result.prompts, globalPrompts.prompts);
+   Object.assign(result.paths.prompts, globalPrompts.paths);
+   Object.assign(result.scopes.prompts, globalPrompts.scopes);
    result.warnings.push(...globalPrompts.warnings);
+
+   const globalSkills = await importGlobalSkills(editor);
+
+   if (Object.keys(globalSkills.skills).length > 0) {
+      result.sources.global = true;
+   }
+   Object.assign(result.skills, globalSkills.skills);
+   Object.assign(result.paths.skills, globalSkills.paths);
+   Object.assign(result.scopes.skills, globalSkills.scopes);
+   result.warnings.push(...globalSkills.warnings);
 
    // 2. Import from LOCAL editor config (overlay - overrides global)
    const localMcp = await importLocalMcpConfig(strategies.mcp, editor, projectRoot);
@@ -146,6 +179,8 @@ export async function importFromEditor(
       result.sources.local = true;
    }
    Object.assign(result.mcp, localMcp.mcp);
+   Object.assign(result.paths.mcp, localMcp.paths);
+   Object.assign(result.scopes.mcp, localMcp.scopes);
    result.warnings.push(...localMcp.warnings);
 
    const localRules = await importLocalRules(strategies.rules, editor, projectRoot);
@@ -154,6 +189,8 @@ export async function importFromEditor(
       result.sources.local = true;
    }
    result.rules.push(...localRules.rules);
+   Object.assign(result.paths.rules, localRules.paths);
+   Object.assign(result.scopes.rules, localRules.scopes);
    result.warnings.push(...localRules.warnings);
 
    const localPrompts = await importLocalPrompts(strategies.prompts, editor, projectRoot);
@@ -162,7 +199,19 @@ export async function importFromEditor(
       result.sources.local = true;
    }
    Object.assign(result.prompts, localPrompts.prompts);
+   Object.assign(result.paths.prompts, localPrompts.paths);
+   Object.assign(result.scopes.prompts, localPrompts.scopes);
    result.warnings.push(...localPrompts.warnings);
+
+   const localSkills = await importLocalSkills(editor, projectRoot);
+
+   if (Object.keys(localSkills.skills).length > 0) {
+      result.sources.local = true;
+   }
+   Object.assign(result.skills, localSkills.skills);
+   Object.assign(result.paths.skills, localSkills.paths);
+   Object.assign(result.scopes.skills, localSkills.scopes);
+   result.warnings.push(...localSkills.warnings);
 
    return result;
 }
@@ -177,6 +226,27 @@ const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
    codex: '.codex',
 };
 
+const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
+   windsurf: ['.windsurf/skills'],
+   cursor: ['.cursor/skills'],
+   'claude-code': ['.claude/skills'],
+   copilot: ['.github/skills'],
+   zed: ['.aix/skills'],
+   codex: ['.agents/skills'],
+};
+
+const EDITOR_GLOBAL_RULE_DIRS: Partial<Record<EditorName, string[]>> = {
+   'claude-code': ['.claude/rules'],
+};
+
+const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
+   windsurf: ['.windsurf/skills'],
+   cursor: ['.cursor/skills'],
+   'claude-code': ['.claude/skills'],
+   copilot: ['.github/skills'],
+   codex: ['.codex/skills'],
+};
+
 /**
  * Import MCP configuration from an editor's global config.
  */
@@ -184,13 +254,18 @@ async function importMcpConfig(
    strategy: McpStrategy,
    _editor: EditorName,
    _source: 'global',
-): Promise<{ mcp: Record<string, McpServerConfig>; warnings: string[] }> {
+): Promise<{
+   mcp: Record<string, McpServerConfig>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
          configPath = strategy.getGlobalMcpConfigPath();
 
    if (!configPath) {
       // Not a warning - some editors don't have global MCP config
-      return { mcp: {}, warnings };
+      return { mcp: {}, paths: {}, scopes: {}, warnings };
    }
 
    const fullPath = join(homedir(), configPath);
@@ -199,14 +274,18 @@ async function importMcpConfig(
       const content = await readFile(fullPath, 'utf-8'),
             result = strategy.parseGlobalMcpConfig(content);
 
-      return result;
+      return {
+         ...result,
+         paths: pathMapForNames(Object.keys(result.mcp), fullPath),
+         scopes: scopeMapForNames(Object.keys(result.mcp), 'user'),
+      };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read global MCP config at ${fullPath}: ${(err as Error).message}`);
       }
    }
 
-   return { mcp: {}, warnings };
+   return { mcp: {}, paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -216,7 +295,12 @@ async function importLocalMcpConfig(
    strategy: McpStrategy,
    editor: EditorName,
    projectRoot: string,
-): Promise<{ mcp: Record<string, McpServerConfig>; warnings: string[] }> {
+): Promise<{
+   mcp: Record<string, McpServerConfig>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
          configDir = EDITOR_CONFIG_DIRS[editor],
          mcpConfigPath = strategy.getConfigPath(),
@@ -225,14 +309,18 @@ async function importLocalMcpConfig(
 
    // Skip if MCP is not supported for project-local config (e.g., global-only editors)
    if (!strategy.isSupported() || strategy.isGlobalOnly?.()) {
-      return { mcp: {}, warnings };
+      return { mcp: {}, paths: {}, scopes: {}, warnings };
    }
 
    try {
       const content = await readFile(fullPath, 'utf-8'),
             result = strategy.parseGlobalMcpConfig(content);
 
-      return result;
+      return {
+         ...result,
+         paths: pathMapForNames(Object.keys(result.mcp), fullPath),
+         scopes: scopeMapForNames(Object.keys(result.mcp), 'project'),
+      };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT' &&
           (err as NodeJS.ErrnoException).code !== 'EISDIR') {
@@ -240,7 +328,7 @@ async function importLocalMcpConfig(
       }
    }
 
-   return { mcp: {}, warnings };
+   return { mcp: {}, paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -248,31 +336,78 @@ async function importLocalMcpConfig(
  */
 async function importGlobalRules(
    strategy: RulesStrategy,
-): Promise<{ rules: NamedRule[]; warnings: string[] }> {
+   editor: EditorName,
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
-         rulesPath = strategy.getGlobalRulesPath();
+         rulesPath = strategy.getGlobalRulesPath(),
+         rules: NamedRule[] = [],
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {};
 
-   if (!rulesPath) {
-      return { rules: [], warnings };
-   }
+   if (rulesPath) {
+      const fullPath = join(homedir(), rulesPath);
 
-   const fullPath = join(homedir(), rulesPath);
+      try {
+         const content = await readFile(fullPath, 'utf-8'),
+               parsed = strategy.parseGlobalRules(content);
 
-   try {
-      const content = await readFile(fullPath, 'utf-8'),
-            parsed = strategy.parseGlobalRules(content);
+         for (const [index, rule] of parsed.rules.entries()) {
+            const name = index === 0 ? 'global' : `global-${index + 1}`;
 
-      return {
-         rules: parsed.rules.map((r) => ({ content: r, name: 'global' })),
-         warnings: parsed.warnings,
-      };
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
+            rules.push({ content: rule, name });
+            paths[name] = fullPath;
+            scopes[name] = 'user';
+         }
+         warnings.push(...parsed.warnings);
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
+         }
       }
    }
 
-   return { rules: [], warnings };
+   const ruleDirs = EDITOR_GLOBAL_RULE_DIRS[editor] ?? [];
+
+   for (const ruleDir of ruleDirs) {
+      const fullPath = join(homedir(), ruleDir);
+
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const files = await readdir(fullPath),
+               ext = strategy.getFileExtension(),
+               ruleFiles = files.filter((file) => file.endsWith(ext)).toSorted();
+
+         for (const file of ruleFiles) {
+            const path = join(fullPath, file),
+                  name = file.slice(0, -ext.length);
+
+            try {
+               // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+               const content = await readFile(path, 'utf-8');
+
+               if (!content.trim()) {
+                  continue;
+               }
+               rules.push({ content: content.trim(), name });
+               paths[name] = path;
+               scopes[name] = 'user';
+            } catch (err) {
+               warnings.push(`Failed to read global rule ${path}: ${(err as Error).message}`);
+            }
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
+         }
+      }
+   }
+
+   return { rules, paths, scopes, warnings };
 }
 
 /**
@@ -282,10 +417,19 @@ async function importLocalRules(
    strategy: RulesStrategy,
    editor: EditorName,
    projectRoot: string,
-): Promise<{ rules: NamedRule[]; warnings: string[] }> {
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    // Codex uses AGENTS.md at the project root (not inside .codex/), so use a dedicated reader
    if (editor === 'codex') {
       return importCodexLocalRules(projectRoot);
+   }
+
+   if (editor === 'zed') {
+      return importZedLocalRules(projectRoot);
    }
 
    const warnings: string[] = [],
@@ -297,28 +441,64 @@ async function importLocalRules(
       const files = await readdir(fullPath),
             ext = strategy.getFileExtension(),
             ruleFiles = files.filter((f) => f.endsWith(ext)),
-            rules: NamedRule[] = [];
+            rules: NamedRule[] = [],
+            paths: Record<string, string> = {},
+            scopes: Record<string, ImportScope> = {};
 
       for (const file of ruleFiles) {
          try {
+            const path = join(fullPath, file);
             // eslint-disable-next-line no-await-in-loop -- Sequential for simplicity
-            const content = await readFile(join(fullPath, file), 'utf-8'),
+            const content = await readFile(path, 'utf-8'),
                   name = file.endsWith(ext) ? file.slice(0, -ext.length) : file;
 
             rules.push({ content, name });
+            paths[name] = path;
+            scopes[name] = 'project';
          } catch {
             // Skip files that can't be read
          }
       }
 
-      return { rules, warnings };
+      return { rules, paths, scopes, warnings };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read local rules from ${fullPath}: ${(err as Error).message}`);
       }
    }
 
-   return { rules: [], warnings };
+   return { rules: [], paths: {}, scopes: {}, warnings };
+}
+
+async function importZedLocalRules(
+   projectRoot: string,
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         rulesPath = join(projectRoot, '.rules');
+
+   try {
+      const content = await readFile(rulesPath, 'utf-8');
+
+      if (content.trim()) {
+         return {
+            rules: [{ content: content.trim(), name: 'project rules' }],
+            paths: { 'project rules': rulesPath },
+            scopes: { 'project rules': 'project' },
+            warnings,
+         };
+      }
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+         warnings.push(`Failed to read Zed rules from ${rulesPath}: ${(err as Error).message}`);
+      }
+   }
+
+   return { rules: [], paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -327,7 +507,12 @@ async function importLocalRules(
  */
 async function importCodexLocalRules(
    projectRoot: string,
-): Promise<{ rules: NamedRule[]; warnings: string[] }> {
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
          agentsPath = join(projectRoot, 'AGENTS.md');
 
@@ -335,7 +520,12 @@ async function importCodexLocalRules(
       const content = await readFile(agentsPath, 'utf-8');
 
       if (content.trim()) {
-         return { rules: [{ content: content.trim(), name: 'AGENTS' }], warnings };
+         return {
+            rules: [{ content: content.trim(), name: 'AGENTS' }],
+            paths: { AGENTS: agentsPath },
+            scopes: { AGENTS: 'project' },
+            warnings,
+         };
       }
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -343,7 +533,7 @@ async function importCodexLocalRules(
       }
    }
 
-   return { rules: [], warnings };
+   return { rules: [], paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -352,12 +542,17 @@ async function importCodexLocalRules(
 async function importPrompts(
    strategy: PromptsStrategy,
    _source: 'global',
-): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
+): Promise<{
+   prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
          promptsPath = strategy.getGlobalPromptsPath();
 
    if (!promptsPath) {
-      return { prompts: {}, warnings };
+      return { prompts: {}, paths: {}, scopes: {}, warnings };
    }
 
    const fullPath = join(homedir(), promptsPath);
@@ -366,16 +561,21 @@ async function importPrompts(
       const files = await readdir(fullPath),
             fileReader = async (filename: string): Promise<string> => {
                return readFile(join(fullPath, filename), 'utf-8');
-            };
+            },
+            result = await strategy.parseGlobalPrompts(files, fileReader);
 
-      return strategy.parseGlobalPrompts(files, fileReader);
+      return {
+         ...result,
+         paths: promptPathMap(Object.keys(result.prompts), files, fullPath),
+         scopes: scopeMapForNames(Object.keys(result.prompts), 'user'),
+      };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read global prompts from ${fullPath}: ${(err as Error).message}`);
       }
    }
 
-   return { prompts: {}, warnings };
+   return { prompts: {}, paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -385,30 +585,149 @@ async function importLocalPrompts(
    strategy: PromptsStrategy,
    editor: EditorName,
    projectRoot: string,
-): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
+): Promise<{
+   prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
    const warnings: string[] = [],
          configDir = EDITOR_CONFIG_DIRS[editor],
          promptsDir = strategy.getPromptsDir(),
          fullPath = join(projectRoot, configDir, promptsDir);
 
    if (!strategy.isSupported()) {
-      return { prompts: {}, warnings };
+      return { prompts: {}, paths: {}, scopes: {}, warnings };
    }
 
    try {
       const files = await readdir(fullPath),
             fileReader = async (filename: string): Promise<string> => {
                return readFile(join(fullPath, filename), 'utf-8');
-            };
+            },
+            result = await strategy.parseGlobalPrompts(files, fileReader);
 
-      return strategy.parseGlobalPrompts(files, fileReader);
+      return {
+         ...result,
+         paths: promptPathMap(Object.keys(result.prompts), files, fullPath),
+         scopes: scopeMapForNames(Object.keys(result.prompts), 'project'),
+      };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read local prompts from ${fullPath}: ${(err as Error).message}`);
       }
    }
 
-   return { prompts: {}, warnings };
+   return { prompts: {}, paths: {}, scopes: {}, warnings };
+}
+
+async function importLocalSkills(
+   editor: EditorName,
+   projectRoot: string,
+): Promise<{
+   skills: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         skills: Record<string, string> = {},
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {};
+
+   for (const skillDir of EDITOR_SKILL_DIRS[editor]) {
+      const fullPath = join(projectRoot, skillDir);
+
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const entries = await readdir(fullPath, { withFileTypes: true });
+
+         for (const entry of entries) {
+            if (!entry.isDirectory()) {
+               continue;
+            }
+
+            const path = join(fullPath, entry.name);
+
+            if (!existsSync(join(path, 'SKILL.md'))) {
+               continue;
+            }
+            skills[entry.name] = path;
+            paths[entry.name] = path;
+            scopes[entry.name] = 'project';
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read skills from ${fullPath}: ${(err as Error).message}`);
+         }
+      }
+   }
+
+   return { skills, paths, scopes, warnings };
+}
+
+async function importGlobalSkills(
+   editor: EditorName,
+): Promise<{
+   skills: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         skills: Record<string, string> = {},
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {};
+
+   for (const skillDir of EDITOR_GLOBAL_SKILL_DIRS[editor] ?? []) {
+      const fullPath = join(homedir(), skillDir);
+
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const entries = await readdir(fullPath, { withFileTypes: true });
+
+         for (const entry of entries) {
+            if (!entry.isDirectory()) {
+               continue;
+            }
+
+            const path = join(fullPath, entry.name);
+
+            if (!existsSync(join(path, 'SKILL.md'))) {
+               continue;
+            }
+            skills[entry.name] = path;
+            paths[entry.name] = path;
+            scopes[entry.name] = 'user';
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read global skills from ${fullPath}: ${(err as Error).message}`);
+         }
+      }
+   }
+
+   return { skills, paths, scopes, warnings };
+}
+
+function pathMapForNames(names: string[], path: string): Record<string, string> {
+   return Object.fromEntries(names.map((name) => [name, path]));
+}
+
+function scopeMapForNames(names: string[], scope: ImportScope): Record<string, ImportScope> {
+   return Object.fromEntries(names.map((name) => [name, scope]));
+}
+
+function promptPathMap(names: string[], files: string[], basePath: string): Record<string, string> {
+   const fileByName = new Map(files.map((file) => [file.replace(/\.md$/, ''), file]));
+
+   return Object.fromEntries(
+      names.flatMap((name) => {
+         const file = fileByName.get(name);
+
+         return file ? [[name, join(basePath, file)]] : [];
+      }),
+   );
 }
 
 /**

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
 import {
    WindsurfAdapter,
@@ -448,6 +448,71 @@ describe('Editor Adapters', () => {
 
          expect(mcpChanges.length).toBe(0);
          expect(ruleChanges.length).toBeGreaterThan(0);
+      });
+
+      it('installs prompts when scope is prompts', async () => {
+         const config = createConfig({
+            prompts: {
+               review: { content: 'Review this change.' },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir, {
+            dryRun: true,
+            scopes: ['prompts'],
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(testDir, '.claude/commands/review.md'));
+      });
+
+      it('uses user-level prompt paths when targetScope is user', async () => {
+         const config = createConfig({
+            prompts: {
+               review: { content: 'Review this change.' },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir, {
+            dryRun: true,
+            scopes: ['prompts'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.claude/commands/review.md'));
+      });
+
+      it('uses user-level MCP paths when targetScope is user', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         const result = await installToEditor('cursor', config, testDir, {
+            dryRun: true,
+            scopes: ['mcp'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.cursor/mcp.json'));
+      });
+
+      it('uses user-level Codex rules path when targetScope is user', async () => {
+         const config = createConfig({
+            rules: { global: { content: 'Use project conventions.' } },
+         });
+
+         const result = await installToEditor('codex', config, testDir, {
+            dryRun: true,
+            scopes: ['rules'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.codex/AGENTS.md'));
       });
    });
 
