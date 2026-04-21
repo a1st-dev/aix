@@ -75,7 +75,12 @@ describe('Editor Config Import', () => {
 
             const result = await importFromEditor('zed', { projectRoot });
 
-            expect(result.rules).toEqual([{ name: 'project rules', content: 'Use short names.' }]);
+            expect(result.rules).toEqual([{
+               name: 'project rules',
+               content: 'Use short names.',
+               path: rulesPath,
+               scope: 'project',
+            }]);
             expect(result.paths.rules['project rules']).toBe(rulesPath);
             expect(result.scopes.rules['project rules']).toBe('project');
          } finally {

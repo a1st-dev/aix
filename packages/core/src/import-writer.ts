@@ -19,6 +19,8 @@ export interface WrittenImports {
 export interface NamedRule {
    content: string;
    name: string;
+   path?: string;
+   scope?: 'project' | 'user';
 }
 
 export interface ImportContent {

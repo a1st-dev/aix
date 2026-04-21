@@ -359,7 +359,7 @@ async function importGlobalRules(
          for (const [index, rule] of parsed.rules.entries()) {
             const name = index === 0 ? 'global' : `global-${index + 1}`;
 
-            rules.push({ content: rule, name });
+            rules.push({ content: rule, name, path: fullPath, scope: 'user' });
             paths[name] = fullPath;
             scopes[name] = 'user';
          }
@@ -393,7 +393,7 @@ async function importGlobalRules(
                if (!content.trim()) {
                   continue;
                }
-               rules.push({ content: content.trim(), name });
+               rules.push({ content: content.trim(), name, path, scope: 'user' });
                paths[name] = path;
                scopes[name] = 'user';
             } catch (err) {
@@ -452,7 +452,7 @@ async function importLocalRules(
             const content = await readFile(path, 'utf-8'),
                   name = file.endsWith(ext) ? file.slice(0, -ext.length) : file;
 
-            rules.push({ content, name });
+            rules.push({ content, name, path, scope: 'project' });
             paths[name] = path;
             scopes[name] = 'project';
          } catch {
@@ -486,7 +486,7 @@ async function importZedLocalRules(
 
       if (content.trim()) {
          return {
-            rules: [{ content: content.trim(), name: 'project rules' }],
+            rules: [{ content: content.trim(), name: 'project rules', path: rulesPath, scope: 'project' }],
             paths: { 'project rules': rulesPath },
             scopes: { 'project rules': 'project' },
             warnings,
@@ -521,7 +521,7 @@ async function importCodexLocalRules(
 
       if (content.trim()) {
          return {
-            rules: [{ content: content.trim(), name: 'AGENTS' }],
+            rules: [{ content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' }],
             paths: { AGENTS: agentsPath },
             scopes: { AGENTS: 'project' },
             warnings,

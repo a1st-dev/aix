@@ -376,7 +376,7 @@ export default class List extends BaseCommand<typeof List> {
 
          for (const rule of result.rules) {
             const managed = this.isAixManaged(rule.name, 'rules', projectState, userState);
-            const scope = managed?.scope ?? result.scopes.rules[rule.name];
+            const scope = rule.scope ?? result.scopes.rules[rule.name] ?? managed?.scope;
 
             if (scopeFilter && scope !== scopeFilter) {
                continue;
@@ -384,7 +384,7 @@ export default class List extends BaseCommand<typeof List> {
             items[rule.name] = {
                source: managed ? 'aix' : 'external',
                scope,
-               path: result.paths.rules[rule.name],
+               path: rule.path ?? result.paths.rules[rule.name],
             };
          }
          if (Object.keys(items).length > 0) {
@@ -499,8 +499,8 @@ export default class List extends BaseCommand<typeof List> {
                   'rule',
                   rule.name,
                   'rules',
-                  result.paths.rules[rule.name],
-                  result.scopes.rules[rule.name],
+                  rule.path ?? result.paths.rules[rule.name],
+                  rule.scope ?? result.scopes.rules[rule.name],
                   scopeFilter,
                   projectState,
                   userState,
@@ -557,7 +557,7 @@ export default class List extends BaseCommand<typeof List> {
       userState: StateFile,
    ): EditorItemRow[] {
       const managed = this.isAixManaged(name, section, projectState, userState),
-            scope = managed?.scope ?? detectedScope;
+            scope = detectedScope ?? managed?.scope;
 
       if (scopeFilter && scope !== scopeFilter) {
          return [];
