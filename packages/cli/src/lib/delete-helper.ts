@@ -1,7 +1,8 @@
 import pMap from 'p-map';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'pathe';
-import { getAdapter, safeRm, type EditorName } from '@a1st/aix-core';
+import { safeRm, type EditorName } from '@a1st/aix-core';
 
 export type RemovableItemType = 'skill' | 'mcp';
 
@@ -17,6 +18,11 @@ export interface DeleteResult {
    errors: string[];
 }
 
+export interface DeleteTargetOptions {
+   projectRoot: string;
+   targetScope?: 'project' | 'user';
+}
+
 /**
  * Compute files that would be deleted for a given item removal.
  */
@@ -24,27 +30,34 @@ export function computeFilesToDelete(
    editors: EditorName[],
    itemType: RemovableItemType,
    itemName: string,
-   projectRoot: string,
+   options: DeleteTargetOptions,
 ): FilesToDelete[] {
-   const results: FilesToDelete[] = [];
+   const results: FilesToDelete[] = [],
+         targetScope = options.targetScope ?? 'project',
+         installRoot = targetScope === 'user' ? homedir() : options.projectRoot;
 
    for (const editor of editors) {
-      const adapter = getAdapter(editor),
-            configDir = join(projectRoot, adapter.configDir),
-            files: string[] = [];
+      const files: string[] = [];
 
       if (itemType === 'skill') {
-         // Skills are installed to .agents/skills/{name}/ (shared across editors)
-         // Plus any pointer rules in the editor's rules directory
-         const skillDir = join(projectRoot, '.aix', 'skills', itemName);
+         const skillDir = join(installRoot, '.aix', 'skills', itemName);
 
          files.push(skillDir);
 
-         // Pointer rule file (if editor uses pointer strategy)
-         // Format: {configDir}/rules/skill-{name}.md
-         const pointerRule = join(configDir, 'rules', `skill-${itemName}.md`);
+         const editorSkillDirs: Record<EditorName, { project: string; user: string }> = {
+            windsurf: { project: '.windsurf/skills', user: '.windsurf/skills' },
+            cursor: { project: '.cursor/skills', user: '.cursor/skills' },
+            'claude-code': { project: '.claude/skills', user: '.claude/skills' },
+            copilot: { project: '.github/skills', user: '.github/skills' },
+            zed: { project: '.zed/skills', user: '.zed/skills' },
+            codex: { project: '.agents/skills', user: '.codex/skills' },
+         };
 
-         files.push(pointerRule);
+         const skillDirConfig = editorSkillDirs[editor];
+
+         if (skillDirConfig) {
+            files.push(join(installRoot, targetScope === 'user' ? skillDirConfig.user : skillDirConfig.project, itemName));
+         }
       }
       // Note: MCP removal doesn't delete individual files - it re-installs to regenerate config
 

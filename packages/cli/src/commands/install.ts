@@ -678,11 +678,13 @@ export default class Install extends BaseCommand<typeof Install> {
    }
 
    /**
-    * Extract skill name from path like .agents/skills/pdf or .windsurf/skills/pdf -> pdf
+    * Extract skill name from paths like .aix/skills/pdf or .windsurf/skills/pdf -> pdf
     */
    private extractSkillName(path: string): string {
-      // Match both .agents/skills/{name} and editor skills dirs like .windsurf/skills/{name}
-      const match = path.match(/(?:\.agents|\.windsurf|\.cursor|\.claude|\.vscode)\/skills\/([^/]+)/);
+      // Match shared .aix skill storage plus editor-native skill directories.
+      const match = path.match(
+         /(?:\.aix|\.agents|\.windsurf|\.cursor|\.claude|\.github|\.codex)\/skills\/([^/]+)/,
+      );
 
       return match?.[1] ?? this.extractFileName(path);
    }

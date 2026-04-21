@@ -16,6 +16,10 @@ Windsurf does not support project-specific MCP configuration files yet. All MCP 
 
 When you install an MCP server to Windsurf, `aix` modifies your global Windsurf config (`~/.codeium/windsurf/mcp_config.json`). It tracks this in `~/.aix/state.json` so that if you remove the server (or delete the project), aix knows whether it's safe to remove it from the global config.
 
+## Skills
+
+For native-skill editors, aix keeps its managed copy of every installed skill in `.aix/skills/{name}/` and then symlinks that directory into the editor's native skills location. This keeps installs, removals, and `aix list --all` consistent across editors while still using each editor's expected directory layout.
+
 ## Zed
 
 Zed supports rules via a single `.rules` file at the project root. All rules are concatenated into this file. Zed also auto-detects other common rules files (`.cursorrules`, `AGENTS.md`, `CLAUDE.md`, etc.) but only the first match is used. Hooks are not supported.
@@ -36,7 +40,7 @@ Codex reads `AGENTS.md` files from the project root down to the current working 
 
 The only scoping aix can provide is directory-based placement: rules with `glob` activation and a clear single-directory prefix (e.g. `src/utils/**/*.ts`) are placed in that subdirectory's `AGENTS.md` instead. This way, they only apply when Codex runs from that directory context. Rules without a clear prefix (like `**/*.test.ts`) go to the root file.
 
-Skills are installed to `.codex/skills/`.
+Project-installed Codex skills are exposed through `.agents/skills/`. Global/personal Codex skills still live under `~/.codex/skills/`.
 
 MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page. Prompts are global-only, stored at `~/.codex/prompts/`.
 

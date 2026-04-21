@@ -16,7 +16,8 @@ import type {
 
 /**
  * Codex CLI editor adapter. Writes rules to `AGENTS.md` at the project root (and optionally in
- * subdirectories for glob-scoped rules). Skills go to `.codex/skills/{name}/`. MCP config is
+ * subdirectories for glob-scoped rules). Project skills go to `.agents/skills/{name}/`, while
+ * user-scoped skills go to `~/.codex/skills/{name}/`. MCP config is
  * global-only (`~/.codex/config.toml`). Prompts are also global-only (`~/.codex/prompts/`). Codex
  * does not support hooks.
  *
@@ -41,7 +42,7 @@ export class CodexAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new CodexMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.agents/skills',
-      editorName: 'codex',
+      userEditorSkillsDir: '.codex/skills',
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new CodexPromptsStrategy();
@@ -58,6 +59,7 @@ export class CodexAdapter extends BaseEditorAdapter {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
+               targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp);

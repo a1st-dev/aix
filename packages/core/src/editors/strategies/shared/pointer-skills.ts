@@ -1,19 +1,21 @@
 import pMap from 'p-map';
 import { mkdir, cp } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
+import { safeRm } from '../../../fs/safe-rm.js';
 
 /**
- * Pointer skills strategy for editors without native Agent Skills support (Windsurf, Cursor, Zed).
- * Copies skills to `.agents/skills/` and generates pointer rules that tell the AI where to find the
+ * Pointer skills strategy for editors without native Agent Skills support (currently Zed).
+ * Copies skills to `.aix/skills/` and generates pointer rules that tell the AI where to find the
  * skill.
  */
 export class PointerSkillsStrategy implements SkillsStrategy {
    getSkillsDir(): string {
-      return '.agents/skills';
+      return '.aix/skills';
    }
 
    isNative(): boolean {
@@ -23,18 +25,22 @@ export class PointerSkillsStrategy implements SkillsStrategy {
    async installSkills(
       skills: Map<string, ParsedSkill>,
       projectRoot: string,
-      options: { dryRun?: boolean } = {},
+      options: { dryRun?: boolean; targetScope?: 'project' | 'user' } = {},
    ): Promise<FileChange[]> {
-      const entries = Array.from(skills.entries());
+      const entries = Array.from(skills.entries()),
+            installRoot = options.targetScope === 'user' ? homedir() : projectRoot;
 
       const changes = await pMap(
          entries,
          async ([name, skill]) => {
-            const aixSkillDir = join(projectRoot, '.aix', 'skills', name),
+            const aixSkillDir = join(installRoot, '.aix', 'skills', name),
                   exists = existsSync(aixSkillDir);
 
             if (!options.dryRun) {
                await mkdir(dirname(aixSkillDir), { recursive: true });
+               if (exists) {
+                  await safeRm(aixSkillDir, { force: true });
+               }
                await cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
             }
 
@@ -52,13 +58,19 @@ export class PointerSkillsStrategy implements SkillsStrategy {
       return changes;
    }
 
-   generateSkillRules(skills: Map<string, ParsedSkill>): EditorRule[] {
+   generateSkillRules(
+      skills: Map<string, ParsedSkill>,
+      options: { targetScope?: 'project' | 'user' } = {},
+   ): EditorRule[] {
       const rules: EditorRule[] = [];
 
       for (const [name, skill] of skills) {
          const { frontmatter } = skill,
-               skillName = frontmatter.name,
-               description = frontmatter.description || 'No description provided';
+               description = frontmatter.description || 'No description provided',
+               skillPath =
+                  options.targetScope === 'user'
+                     ? join(homedir(), '.aix', 'skills', name)
+                     : `.aix/skills/${name}`;
 
          // Build contextual sections from frontmatter
          // Note: Don't add a header here - the editor's rules strategy will add one based on rule.name
@@ -92,13 +104,13 @@ export class PointerSkillsStrategy implements SkillsStrategy {
             '',
             '## Location',
             '',
-            `This skill is installed at \`.agents/skills/${skillName}/\`. Read the \`SKILL.md\` file there for full instructions.`,
+            `This skill is installed at \`${skillPath}/\`. Read the \`SKILL.md\` file there for full instructions.`,
             '',
             '## Quick Reference',
             '',
-            `- **Instructions**: \`.agents/skills/${skillName}/SKILL.md\``,
-            `- **Scripts**: \`.agents/skills/${skillName}/scripts/\` (if available)`,
-            `- **References**: \`.agents/skills/${skillName}/references/\` (if available)`,
+            `- **Instructions**: \`${skillPath}/SKILL.md\``,
+            `- **Scripts**: \`${skillPath}/scripts/\` (if available)`,
+            `- **References**: \`${skillPath}/references/\` (if available)`,
             '',
             'When you need to use this skill, read the SKILL.md file for detailed instructions.',
          );

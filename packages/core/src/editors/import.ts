@@ -643,7 +643,7 @@ async function importLocalSkills(
          const entries = await readdir(fullPath, { withFileTypes: true });
 
          for (const entry of entries) {
-            if (!entry.isDirectory()) {
+            if (!entry.isDirectory() && !entry.isSymbolicLink()) {
                continue;
             }
 
@@ -687,7 +687,7 @@ async function importGlobalSkills(
          const entries = await readdir(fullPath, { withFileTypes: true });
 
          for (const entry of entries) {
-            if (!entry.isDirectory()) {
+            if (!entry.isDirectory() && !entry.isSymbolicLink()) {
                continue;
             }
 

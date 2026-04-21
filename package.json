@@ -6,9 +6,9 @@
       "ai",
       "ai-agent",
       "ai-configuration",
+      "ai-skills",
       "mcp",
       "model-context-protocol",
-      "ai-skills",
       "skills"
    ],
    "workspaces": [

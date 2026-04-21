@@ -38,8 +38,11 @@ Add skills to the `skills` object in `ai.json`:
 ```json
 {
    "skills": {
-      "react": "^1.0.0",
-      "tailwindcss": "github:tailwindlabs/ai-skills",
+      "react": "aix-skill-react",
+      "tailwindcss": {
+         "git": "https://github.com/tailwindlabs/ai-skills",
+         "path": "skills/tailwindcss"
+      },
       "local-utils": "./skills/utils"
    }
 }
@@ -47,8 +50,8 @@ Add skills to the `skills` object in `ai.json`:
 
 ### Source Types
 
-- **npm**: A package name (e.g. `aix-skill-react` or `@scope/skill`).
-- **git**: A git URL or shorthand (`github:user/repo`). To target a subfolder, use the `path` option in the object form.
+- **npm**: An installed package name (e.g. `aix-skill-react` or `@scope/skill`).
+- **git**: A git URL, shorthand (`github:user/repo`), or repo-path source like `owner/repo/path-to-skill`. To target a subfolder explicitly, use the `path` option in the object form.
 - **local**: A relative path to a directory containing a `SKILL.md`.
 
 ## Installing Skills
@@ -60,9 +63,13 @@ When you run `aix install`, skills are:
    - **Cursor**: Symlinked from `.cursor/skills/`.
    - **GitHub Copilot**: Symlinked from `.github/skills/` (native Agent Skills support).
    - **Claude Code**: Symlinked from `.claude/skills/`.
-   - **Codex**: Symlinked from `.codex/skills/`.
+   - **Codex**: Project skills are symlinked from `.agents/skills/`.
    - **Windsurf**: Symlinked from `.windsurf/skills/`.
    - **Zed**: Skill content added as pointer rules (no native Agent Skills).
+
+`aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory before saving the reference.
+
+When you install with `--user`, the canonical managed copy lives under `~/.aix/skills/{name}/` instead of the project-local `.aix/skills/{name}/`.
 
 ## Creating a Skill
 

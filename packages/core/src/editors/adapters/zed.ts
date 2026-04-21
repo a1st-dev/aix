@@ -15,7 +15,7 @@ import type {
 
 /**
  * Zed editor adapter. Writes rules to `.rules` at project root and MCP config to
- * `.zed/settings.json`. Skills are installed to `.agents/skills/{name}/` with pointer rules since Zed
+ * `.zed/settings.json`. Skills are installed to `.aix/skills/{name}/` with pointer rules since Zed
  * doesn't have native Agent Skills support. Zed does not support hooks or prompts.
  */
 export class ZedAdapter extends BaseEditorAdapter {
@@ -47,6 +47,7 @@ export class ZedAdapter extends BaseEditorAdapter {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
+               targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp);
@@ -67,8 +68,9 @@ export class ZedAdapter extends BaseEditorAdapter {
       const changes: FileChange[] = [],
             configDir = join(projectRoot, this.configDir);
 
-      // Rules - Zed uses a single .rules file at project root
-      if (scopes.includes('rules') && editorConfig.rules.length > 0) {
+      // Rules - Zed uses a single .rules file at project root. Skill installs for Zed also need
+      // pointer rules, so skills-only flows still write `.rules` when skill-derived rules exist.
+      if ((scopes.includes('rules') || scopes.includes('skills')) && editorConfig.rules.length > 0) {
          const rulesPath = join(projectRoot, '.rules'),
                content = this.formatRulesFile(editorConfig.rules),
                existing = await this.readExisting(rulesPath),

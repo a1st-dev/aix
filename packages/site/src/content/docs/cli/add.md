@@ -29,7 +29,12 @@ aix add skill <source> [flags]
 - `react` (npm package `aix-skill-react`)
 - `@scope/pkg`
 - `github:user/repo`
+- `owner/repo/path-to-skill`
+- `https://github.com/org/repo/tree/main/skills/my-skill`
+- `https://github.com/org/repo/blob/main/skills/my-skill/SKILL.md`
 - `./local/path`
+
+`aix add skill` stores native aix skill references in `ai.json` and installs skills through aix's own resolver/installer flow. Skills are copied into `.aix/skills/{name}/`, then symlinked into editors with native skill support.
 
 ### `aix add mcp`
 

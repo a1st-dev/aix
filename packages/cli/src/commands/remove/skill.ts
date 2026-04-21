@@ -4,14 +4,16 @@ import { BaseCommand } from '../../base-command.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval, type EditorName } from '@a1st/aix-core';
-import { normalizeEditors } from '@a1st/aix-schema';
+import { normalizeEditors, resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
+import { installAfterAdd } from '../../lib/install-helper.js';
 import {
    computeFilesToDelete,
    deleteFiles,
    getExistingFiles,
    type FilesToDelete,
 } from '../../lib/delete-helper.js';
+import { isValidSkillName, normalizeSkillName } from '../../lib/skill-source.js';
 
 export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
    static override description = 'Remove a skill from ai.json';
@@ -46,10 +48,20 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveSkill);
       const loaded = await this.loadConfig();
-      const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
+      const normalizedName = isValidSkillName(args.name) ? args.name : normalizeSkillName(args.name);
+      const resolvedName =
+         loaded?.config.skills?.[args.name] !== undefined
+            ? args.name
+            : loaded?.config.skills?.[normalizedName] !== undefined
+               ? normalizedName
+               : args.name;
+      const targetScope = resolveConfigScope(
+         flags as { scope?: string; user?: boolean; project?: boolean },
+         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
+      );
 
       // Check if skill exists in merged config (if we have one)
-      if (loaded && !loaded.config.skills?.[args.name]) {
+      if (loaded && !loaded.config.skills?.[resolvedName]) {
          this.error(`Skill "${args.name}" not found in configuration`);
       }
 
@@ -64,7 +76,10 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
           shouldDeleteFiles = false;
 
       if (!flags['no-delete'] && editors.length > 0) {
-         filesToDelete = computeFilesToDelete(editors, 'skill', args.name, projectRoot);
+         filesToDelete = computeFilesToDelete(editors, 'skill', resolvedName, {
+            projectRoot,
+            targetScope,
+         });
          const existingFiles = getExistingFiles(filesToDelete);
 
          if (existingFiles.length > 0) {
@@ -107,7 +122,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
-            const { [args.name]: _, ...remainingSkills } = config.skills ?? {};
+            const { [resolvedName]: _, ...remainingSkills } = config.skills ?? {};
 
             return {
                ...config,
@@ -117,7 +132,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          this.output.success(`Removed skill "${args.name}" from ai.local.json`);
       } else if (loaded) {
          await updateConfig(loaded.path, (config) => {
-            const { [args.name]: _, ...remainingSkills } = config.skills ?? {};
+            const { [resolvedName]: _, ...remainingSkills } = config.skills ?? {};
 
             return {
                ...config,
@@ -132,16 +147,25 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          const deleteResults = await deleteFiles(filesToDelete);
 
          this.logDeleteResults(deleteResults);
+
+         if (loaded) {
+            await installAfterAdd({
+               configPath: loaded.path,
+               sections: ['skills', 'rules'],
+               scope: targetScope,
+               quiet: true,
+            });
+         }
       }
 
       // Track the removal in state
-      await trackRemoval(targetScope, 'skills', args.name, process.cwd());
+      await trackRemoval(targetScope, 'skills', resolvedName, process.cwd());
 
       if (this.flags.json) {
          this.output.json({
             action: 'remove',
             type: 'skill',
-            name: args.name,
+            name: resolvedName,
          });
       }
    }

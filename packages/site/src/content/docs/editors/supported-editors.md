@@ -66,4 +66,4 @@ How `ai.json` concepts map to each editor:
 - **Rules**: `AGENTS.md` at project root (and in subdirectories for glob-scoped rules).
 - **MCP**: Global config at `~/.codex/config.toml`. Also supports project-scoped config at `.codex/config.toml` (trusted projects only). aix currently only writes to the global config.
 - **Prompts**: Global at `~/.codex/prompts/`.
-- **Skills**: `.aix/skills/{name}/` with symlinks from `.codex/skills/`.
+- **Skills**: `.aix/skills/{name}/` with project symlinks from `.agents/skills/`. Global/personal Codex skills live under `~/.codex/skills/`.

@@ -1,90 +1,142 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdir } from 'node:fs/promises';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdir, writeFile, readlink, lstat, unlink } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import { WindsurfSkillsStrategy } from '../../editors/strategies/windsurf/skills.js';
 import { safeRm } from '../../fs/safe-rm.js';
-import { execa } from 'execa';
-
-// Mock execa
-vi.mock('execa', () => ({
-   execa: vi.fn().mockResolvedValue({ stdout: '', stderr: '' }),
-}));
 
 describe('WindsurfSkillsStrategy', () => {
    let testDir: string;
+   let skillSourceDir: string;
    let strategy: WindsurfSkillsStrategy;
+   let originalHome: string | undefined;
 
    beforeEach(async () => {
       testDir = join(tmpdir(), `aix-windsurf-skills-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      await mkdir(testDir, { recursive: true });
+      skillSourceDir = join(testDir, 'source-skill');
+      await mkdir(skillSourceDir, { recursive: true });
+      await writeFile(
+         join(skillSourceDir, 'SKILL.md'),
+         `---
+name: test-skill
+description: A test skill
+---
+
+# Test Skill
+`,
+      );
       strategy = new WindsurfSkillsStrategy();
-      vi.clearAllMocks();
+      originalHome = process.env.HOME;
    });
 
    afterEach(async () => {
+      if (originalHome === undefined) {
+         delete process.env.HOME;
+      } else {
+         process.env.HOME = originalHome;
+      }
       await safeRm(testDir, { force: true });
    });
+
+   function buildSkill(name: string = 'test-skill'): ParsedSkill {
+      return {
+         frontmatter: { name, description: 'A test skill' },
+         body: '# Test Skill',
+         basePath: skillSourceDir,
+         source: 'local',
+      };
+   }
 
    it('is a native skills strategy', () => {
       expect(strategy.isNative()).toBe(true);
    });
 
-   it('returns empty array for generateSkillRules (native strategies do not need pointer rules)', () => {
-      const mockSkills = new Map<string, ParsedSkill>();
-
-      expect(strategy.generateSkillRules(mockSkills)).toEqual([]);
+   it('returns empty array for generateSkillRules', () => {
+      expect(strategy.generateSkillRules(new Map())).toEqual([]);
    });
 
-   it('returns correct skills directory', () => {
-      expect(strategy.getSkillsDir()).toBe('.agents/skills');
+   it('uses .aix as the canonical skills directory', () => {
+      expect(strategy.getSkillsDir()).toBe('.aix/skills');
    });
 
-   it('calls skills CLI with correct arguments including --mode copy', async () => {
-      const mockSkill: ParsedSkill = {
-         frontmatter: { name: 'test-skill', description: 'A test skill' },
-         body: '# Test Skill',
-         basePath: '/some/path',
-         source: 'local',
-      };
-
-      const skills = new Map<string, ParsedSkill>([['test-skill', mockSkill]]);
-
-      const changes = await strategy.installSkills(skills, testDir, { dryRun: false });
-
-      // Should call execa with the skills binary and --mode copy
-      expect(execa).toHaveBeenCalledWith(
-         expect.stringContaining('node_modules/.bin/skills'),
-         ['experimental_install', '--agent', 'windsurf', '--mode', 'copy', '-y'],
-         { cwd: testDir, env: { DO_NOT_TRACK: '1' } },
+   it('copies skills into .aix/skills and links them into the editor directory', async () => {
+      const changes = await strategy.installSkills(
+         new Map<string, ParsedSkill>([['test-skill', buildSkill()]]),
+         testDir,
+         { dryRun: false },
       );
 
-      // Should return a change for the skill
-      expect(changes).toHaveLength(1);
-      expect(changes[0]?.path).toBe(join('.agents/skills', 'test-skill'));
-      expect(changes[0]?.action).toBe('update');
-      expect(changes[0]?.content).toContain('Synced via skills CLI');
+      expect(changes).toHaveLength(2);
+      expect(changes[0]?.path).toBe(join(testDir, '.aix', 'skills', 'test-skill'));
+      expect(changes[1]?.path).toBe(join(testDir, '.windsurf', 'skills', 'test-skill'));
+
+      const copiedSkillPath = join(testDir, '.aix', 'skills', 'test-skill', 'SKILL.md'),
+            linkedSkillPath = join(testDir, '.windsurf', 'skills', 'test-skill');
+
+      expect(existsSync(copiedSkillPath)).toBe(true);
+      expect(existsSync(linkedSkillPath)).toBe(true);
+
+      const linkStats = await lstat(linkedSkillPath),
+            linkTarget = await readlink(linkedSkillPath);
+
+      expect(linkStats.isSymbolicLink()).toBe(true);
+      expect(linkTarget).toBe(join('..', '..', '.aix', 'skills', 'test-skill'));
    });
 
-   it('respects dry-run option without calling CLI', async () => {
-      const mockSkill: ParsedSkill = {
-         frontmatter: { name: 'dry-test', description: 'Dry' },
-         body: '',
-         basePath: '/some/path',
-         source: 'local',
-      };
+   it('returns planned changes in dry-run mode without writing files', async () => {
+      const changes = await strategy.installSkills(
+         new Map<string, ParsedSkill>([['dry-test', buildSkill('dry-test')]]),
+         testDir,
+         { dryRun: true },
+      );
 
-      const skills = new Map<string, ParsedSkill>([['dry-test', mockSkill]]);
+      expect(changes).toHaveLength(2);
+      expect(changes[0]?.path).toBe(join(testDir, '.aix', 'skills', 'dry-test'));
+      expect(changes[0]?.content).toContain('[skill directory:');
+      expect(changes[1]?.path).toBe(join(testDir, '.windsurf', 'skills', 'dry-test'));
+      expect(changes[1]?.content).toContain('[symlink ->');
+      expect(existsSync(join(testDir, '.aix', 'skills', 'dry-test'))).toBe(false);
+      expect(existsSync(join(testDir, '.windsurf', 'skills', 'dry-test'))).toBe(false);
+   });
 
-      const changes = await strategy.installSkills(skills, testDir, { dryRun: true });
+   it('writes user-scoped installs under HOME instead of the project root', async () => {
+      const fakeHome = join(testDir, 'fake-home');
 
-      // Should NOT call execa
-      expect(execa).not.toHaveBeenCalled();
+      process.env.HOME = fakeHome;
 
-      // Should still return changes for preview with --mode copy mentioned
-      expect(changes).toHaveLength(1);
-      expect(changes[0]?.path).toBe(join('.agents/skills', 'dry-test'));
-      expect(changes[0]?.content).toContain('--mode copy');
+      const changes = await strategy.installSkills(
+         new Map<string, ParsedSkill>([['user-skill', buildSkill('user-skill')]]),
+         testDir,
+         { dryRun: false, targetScope: 'user' },
+      );
+
+      expect(changes[0]?.path).toBe(join(fakeHome, '.aix', 'skills', 'user-skill'));
+      expect(changes[1]?.path).toBe(join(fakeHome, '.windsurf', 'skills', 'user-skill'));
+      expect(existsSync(join(fakeHome, '.aix', 'skills', 'user-skill', 'SKILL.md'))).toBe(true);
+      expect(existsSync(join(fakeHome, '.windsurf', 'skills', 'user-skill'))).toBe(true);
+      expect(existsSync(join(testDir, '.aix', 'skills', 'user-skill'))).toBe(false);
+      expect(existsSync(join(testDir, '.windsurf', 'skills', 'user-skill'))).toBe(false);
+   });
+
+   it('removes stale files from the managed copy when reinstalling a skill', async () => {
+      const sourceExtraFile = join(skillSourceDir, 'extra.md'),
+            installedExtraFile = join(testDir, '.aix', 'skills', 'test-skill', 'extra.md');
+
+      await writeFile(sourceExtraFile, 'extra content');
+      await strategy.installSkills(new Map<string, ParsedSkill>([['test-skill', buildSkill()]]), testDir, {
+         dryRun: false,
+      });
+
+      expect(existsSync(installedExtraFile)).toBe(true);
+
+      await unlink(sourceExtraFile);
+      await strategy.installSkills(new Map<string, ParsedSkill>([['test-skill', buildSkill()]]), testDir, {
+         dryRun: false,
+      });
+
+      expect(existsSync(installedExtraFile)).toBe(false);
+      expect(existsSync(join(testDir, '.aix', 'skills', 'test-skill', 'SKILL.md'))).toBe(true);
    });
 });

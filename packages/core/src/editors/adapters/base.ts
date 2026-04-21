@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rm, access, constants, chmod } from 'node:f
 import { homedir } from 'node:os';
 import { join, dirname, basename } from 'pathe';
 import { existsSync } from 'node:fs';
-import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
+import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
    EditorConfig,
@@ -107,7 +107,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       try {
          // Clean the .aix folder if requested (ensures exact match with ai.json)
          if (options.clean && !options.dryRun) {
-            await this.cleanAixFolder(projectRoot);
+            await this.cleanAixFolder(projectRoot, options.targetScope);
          }
 
          // Generate file changes
@@ -134,8 +134,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     * Remove the .aix folder to ensure a clean install state.
     * Preserves .aix/.tmp if it exists (for temporary files).
     */
-   protected async cleanAixFolder(projectRoot: string): Promise<void> {
-      const aixPath = join(projectRoot, '.aix');
+   protected async cleanAixFolder(projectRoot: string, targetScope: 'project' | 'user' = 'project'): Promise<void> {
+      const aixPath = join(targetScope === 'user' ? homedir() : projectRoot, '.aix');
 
       if (!existsSync(aixPath)) {
          return;
@@ -235,7 +235,12 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    protected async loadRules(
       config: AiJsonConfig,
       projectRoot: string,
-      options: { dryRun?: boolean; scopes?: string[]; configBaseDir?: string } = {},
+      options: {
+         dryRun?: boolean;
+         scopes?: string[];
+         configBaseDir?: string;
+         targetScope?: 'project' | 'user';
+      } = {},
    ): Promise<{ rules: EditorRule[]; skillChanges: FileChange[] }> {
       // Use configBaseDir for resolving relative paths (important for remote configs)
       const configBaseDir = options.configBaseDir ?? projectRoot,
@@ -246,32 +251,19 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // Resolve skills and use the skills strategy to install them (only if skills scope is included)
       if (scopes.includes('skills') && config.skills && Object.keys(config.skills).length > 0) {
-         if (this.skillsStrategy.isNative()) {
-            // For native strategies, we use the skills CLI which handles its own resolution.
-            // We pass a map with just the names so the strategy can return granular changes for reporting.
-            const skillNames = new Map<string, ParsedSkill>();
+         const resolvedSkills = await resolveAllSkills(config.skills, {
+            baseDir: configBaseDir,
+            projectRoot,
+         });
 
-            for (const name of Object.keys(config.skills)) {
-               skillNames.set(name, {} as ParsedSkill);
-            }
-            skillChanges = await this.skillsStrategy.installSkills(skillNames, projectRoot, options);
-         } else {
-            // For non-native (pointer) strategies, we still need to resolve skills to generate rules
-            const resolvedSkills = await resolveAllSkills(config.skills, {
-               baseDir: configBaseDir,
-               projectRoot,
-            });
-
-            // Install skills using the strategy (handles copying and generating pointer rules)
-            skillChanges = await this.skillsStrategy.installSkills(resolvedSkills, projectRoot, options);
-
-            // Generate skill rules (pointer rules for non-native)
-            skillRules = this.skillsStrategy.generateSkillRules(resolvedSkills);
-         }
+         skillChanges = await this.skillsStrategy.installSkills(resolvedSkills, projectRoot, options);
+         skillRules = this.skillsStrategy.generateSkillRules(resolvedSkills, {
+            targetScope: options.targetScope,
+         });
       }
 
-      // Merge config rules with skill rules
-      const merged = await mergeRules(config.rules ?? {}, [], { basePath });
+      // Merge config rules only when rule scope is requested. Skill pointer rules are handled above.
+      const merged = scopes.includes('rules') ? await mergeRules(config.rules ?? {}, [], { basePath }) : { all: [] };
 
       const configRules = merged.all.map((rule: MergedRule) => ({
          name: rule.name,

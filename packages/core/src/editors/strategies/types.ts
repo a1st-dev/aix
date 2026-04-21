@@ -105,7 +105,7 @@ export interface McpStrategy {
  */
 export interface SkillsStrategy {
    /**
-    * Install skills to the project. All strategies copy skills to `.agents/skills/{name}/` as the
+    * Install skills to the project. All strategies copy skills to `.aix/skills/{name}/` as the
     * source of truth. Native strategies also create symlinks; pointer strategies generate rules.
     *
     * @returns File changes for skill directories and any symlinks created
@@ -113,14 +113,17 @@ export interface SkillsStrategy {
    installSkills(
       skills: Map<string, ParsedSkill>,
       projectRoot: string,
-      options: { dryRun?: boolean },
+      options: { dryRun?: boolean; targetScope?: 'project' | 'user' },
    ): Promise<FileChange[]>;
 
    /**
     * Generate pointer rules for installed skills. Native strategies return empty array since the
     * editor reads skills directly.
     */
-   generateSkillRules(skills: Map<string, ParsedSkill>): EditorRule[];
+   generateSkillRules(
+      skills: Map<string, ParsedSkill>,
+      options?: { targetScope?: 'project' | 'user' },
+   ): EditorRule[];
 
    /** Get the central skills directory path relative to project root */
    getSkillsDir(): string;
@@ -133,10 +136,10 @@ export interface SkillsStrategy {
  * Configuration for creating a skills strategy
  */
 export interface NativeSkillsConfig {
-   /** The editor's native skills directory (e.g., '.claude/skills' or '.github/skills') */
+   /** The editor's project-level native skills directory (e.g., '.claude/skills' or '.github/skills') */
    editorSkillsDir: string;
-   /** The normalized editor name (e.g., 'claude-code', 'cursor') */
-   editorName: string;
+   /** Optional user-level native skills directory when it differs from the project-level path. */
+   userEditorSkillsDir?: string;
 }
 
 /**

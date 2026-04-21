@@ -50,6 +50,7 @@ export class SkillsLibrarySearchSource implements SearchSource {
          source: this.id,
          meta: {
             id: skill.id,
+            skillId: skill.skillId,
             installs: skill.installs,
             source: skill.source,
          },

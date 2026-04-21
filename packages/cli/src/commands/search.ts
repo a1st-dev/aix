@@ -5,6 +5,7 @@ import {
    type SearchResult,
    type SearchType,
 } from '../lib/search/index.js';
+import { getSkillInstallRequest } from '../lib/search/skill-install.js';
 import { renderSearchUI, type InstallItem } from '../ui/search/index.js';
 import { addSkill, addMcp, removeSkill, removeMcp, findConfigPath } from '../lib/add-helper.js';
 
@@ -137,9 +138,10 @@ export default class Search extends BaseCommand<typeof Search> {
       }
 
       const handleInstall = async (item: InstallItem): Promise<boolean> => {
-         const itemName = item.result.name;
-         // Use the ID from meta if available (for skills-library results)
-         const source = item.type === 'skills' ? (item.result.meta?.id as string || itemName) : itemName;
+         const itemName = item.result.name,
+               skillInstallRequest =
+                  item.type === 'skills' ? await getSkillInstallRequest(item.result) : undefined,
+               source = skillInstallRequest?.source ?? itemName;
 
          if (!configPath) {
             const cmd = item.type === 'skills' ? 'skill' : 'mcp';
@@ -150,14 +152,16 @@ export default class Search extends BaseCommand<typeof Search> {
 
          const result =
             item.type === 'skills'
-               ? await addSkill({ configPath, name: itemName, source })
+               ? await addSkill({ configPath, name: skillInstallRequest?.name ?? itemName, source })
                : await addMcp({ configPath, name: itemName });
 
          return result.success;
       };
 
       const handleUninstall = async (item: InstallItem): Promise<boolean> => {
-         const itemName = item.result.name;
+         const itemName = item.result.name,
+               skillInstallRequest =
+                  item.type === 'skills' ? await getSkillInstallRequest(item.result) : undefined;
 
          if (!configPath) {
             const cmd = item.type === 'skills' ? 'skill' : 'mcp';
@@ -168,7 +172,7 @@ export default class Search extends BaseCommand<typeof Search> {
 
          const result =
             item.type === 'skills'
-               ? await removeSkill({ configPath, name: itemName })
+               ? await removeSkill({ configPath, name: skillInstallRequest?.name ?? itemName })
                : await removeMcp({ configPath, name: itemName });
 
          return result.success;

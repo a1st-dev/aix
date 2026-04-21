@@ -1,25 +1,17 @@
-import { updateConfig, loadConfig } from '@a1st/aix-core';
+import { updateConfig, loadConfig, type EditorName } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse, type Package } from '@a1st/mcp-registry-client';
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { normalizeEditors, resolveScope, type ConfigScope, type McpServerConfig } from '@a1st/aix-schema';
+import { dirname } from 'pathe';
 import { installAfterAdd } from './install-helper.js';
-import { execa } from 'execa';
-import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { isValidSkillName, normalizeSkillName, parseSkillSource } from './skill-source.js';
+import { computeFilesToDelete, deleteFiles } from './delete-helper.js';
 
 export interface AddSkillOptions {
    configPath: string;
    name: string;
    source: string;
+   ref?: string;
    skipInstall?: boolean;
-}
-
-interface SkillsLock {
-   skills: Record<string, {
-      source: string;
-      sourceType: string;
-      path?: string;
-      ref?: string;
-   }>;
 }
 
 export interface AddMcpOptions {
@@ -35,57 +27,31 @@ export interface AddResult {
 }
 
 /**
- * Add a skill to ai.json programmatically using the skills CLI.
+ * Add a skill to ai.json programmatically using aix-native source parsing.
  */
 export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
-   const { configPath, source, skipInstall, name } = options;
+   const { configPath, source, skipInstall, name, ref } = options;
 
    try {
-      // Run skills CLI from node_modules
-      const binPath = join(process.cwd(), 'node_modules', '.bin', 'skills'),
-            configDir = dirname(configPath);
+      const parsed = await parseSkillSource(source, ref),
+            requestedName = name || parsed.inferredName,
+            skillName = requestedName
+               ? (isValidSkillName(requestedName) ? requestedName : normalizeSkillName(requestedName))
+               : undefined;
 
-      // Build command arguments
-      // If the source is from skills-library, it should be the ID (e.g. vercel-labs/agent-skills)
-      const skillsArgs = ['add', source, '--mode', 'copy', '-y'];
-
-      // If we have a specific name, try to add just that skill
-      if (name && name !== source) {
-         skillsArgs.push('--skill', name);
-      }
-
-      await execa(binPath, skillsArgs, {
-         cwd: configDir,
-         env: { DO_NOT_TRACK: '1' },
-      });
-
-      // Read skills-lock.json to see what was added and update ai.json
-      const lockPath = join(configDir, 'skills-lock.json'),
-            lockContent = await readFile(lockPath, 'utf8'),
-            lockData = JSON.parse(lockContent) as SkillsLock;
-
-      // Update ai.json with the new skill references from the lock file
-      const skillMap: Record<string, any> = {};
-
-      for (const [skillName, info] of Object.entries(lockData.skills)) {
-         if (info.sourceType === 'github' || info.sourceType === 'git') {
-            skillMap[skillName] = {
-               git: info.source.startsWith('http') ? info.source : `https://github.com/${info.source}`,
-               path: info.path,
-               ref: info.ref,
-            };
-         } else if (info.sourceType === 'local') {
-            skillMap[skillName] = { path: info.source };
-         } else {
-            skillMap[skillName] = info.source;
-         }
+      if (!skillName) {
+         return {
+            success: false,
+            name: source,
+            error: 'Could not infer skill name from source',
+         };
       }
 
       await updateConfig(configPath, (config) => ({
          ...config,
          skills: {
             ...config.skills,
-            ...skillMap,
+            [skillName]: parsed.value,
          },
       }));
 
@@ -96,7 +62,7 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
          });
       }
 
-      return { success: true, name: name || source };
+      return { success: true, name: skillName };
    } catch (error) {
       return {
          success: false,
@@ -217,6 +183,30 @@ export interface RemoveResult {
    error?: string;
 }
 
+async function cleanupRemovedSkill(
+   configPath: string,
+   name: string,
+   scope: ConfigScope,
+   editors: EditorName[],
+): Promise<void> {
+   if (editors.length === 0) {
+      return;
+   }
+
+   const filesToDelete = computeFilesToDelete(editors, 'skill', name, {
+      projectRoot: dirname(configPath),
+      targetScope: scope,
+   });
+
+   await deleteFiles(filesToDelete);
+   await installAfterAdd({
+      configPath,
+      sections: ['skills', 'rules'],
+      scope,
+      quiet: true,
+   });
+}
+
 /**
  * Remove a skill from ai.json programmatically.
  */
@@ -224,13 +214,28 @@ export async function removeSkill(options: { configPath: string; name: string })
    const { configPath, name } = options;
 
    try {
+      const loaded = await loadConfig(configPath),
+            scope = loaded ? resolveScope(loaded.config) : 'user',
+            normalizedName = isValidSkillName(name) ? name : normalizeSkillName(name),
+            editors = loaded?.config.editors
+               ? (Object.keys(normalizeEditors(loaded.config.editors)) as EditorName[])
+               : [];
+
       await updateConfig(configPath, (config) => {
-         const { [name]: _, ...remainingSkills } = config.skills ?? {};
+         const keyToRemove =
+                  config.skills?.[name] !== undefined
+                     ? name
+                     : config.skills?.[normalizedName] !== undefined
+                        ? normalizedName
+                        : name,
+               { [keyToRemove]: _, ...remainingSkills } = config.skills ?? {};
 
          return { ...config, skills: remainingSkills };
       });
 
-      return { success: true, name };
+      await cleanupRemovedSkill(configPath, normalizedName, scope, editors);
+
+      return { success: true, name: normalizedName };
    } catch (error) {
       return {
          success: false,

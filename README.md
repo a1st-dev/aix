@@ -12,8 +12,8 @@
 aix init
 # Add config for an MCP server from the official registry
 aix add mcp playwright
-# Add a skill from GitHub, local path, or npm package
-aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging
+# Add a skill from GitHub, a repo path, a local path, or an installed npm package
+aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md
 # Add a rule from GitHub, local path, or npm package
 aix add rule ../rules/typescript-rules.md
 # Add a prompt (also known as a workflow or slash command)
@@ -67,6 +67,7 @@ aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install --save --only mcp         # Merge specific sections
 aix add skill ./skills/custom         # Add a skill and install to editors
+aix add skill github/awesome-copilot/typescript-mcp-server-generator # Add from a repo path
 aix add mcp playwright                # Add MCP server from registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix add rule ./rules/typescript.md    # Add a rule from file or URL
@@ -75,6 +76,7 @@ aix remove skill typescript           # Remove a skill and uninstall from editor
 aix remove mcp playwright             # Remove an MCP server
 aix list skills                       # List configured skills (or mcp, rules, prompts, editors)
 aix list --scope user                 # List user-scoped config only
+aix list --all --editor copilot       # Show actual editor config, including externally managed items
 ```
 
 Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to target user-level or project-level config.

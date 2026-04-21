@@ -17,8 +17,8 @@ import type {
 
 /**
  * Cursor editor adapter. Writes rules to `.cursor/rules/*.mdc` (with YAML frontmatter) and MCP
- * config to `.cursor/mcp.json`. Skills are installed to `.agents/skills/{name}/` and
- * physically copied to `.cursor/skills/` since Cursor supports the Agent Skills open standard.
+ * config to `.cursor/mcp.json`. Skills are installed into `.aix/skills/{name}/` and symlinked
+ * into `.cursor/skills/` since Cursor supports the Agent Skills open standard.
  * Hooks are written to `.cursor/hooks.json`.
  */
 export class CursorAdapter extends BaseEditorAdapter {
@@ -37,7 +37,6 @@ export class CursorAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new StandardMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.cursor/skills',
-      editorName: 'cursor',
    });
    protected readonly promptsStrategy: PromptsStrategy = new CursorPromptsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new CursorHooksStrategy();
@@ -53,6 +52,7 @@ export class CursorAdapter extends BaseEditorAdapter {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
+               targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),

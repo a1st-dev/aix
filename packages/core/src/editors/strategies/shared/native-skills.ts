@@ -1,35 +1,29 @@
-import { execa } from 'execa';
-import { join } from 'pathe';
+import pMap from 'p-map';
+import { mkdir, cp, symlink, lstat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join, dirname, relative } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy, NativeSkillsConfig } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
+import { safeRm } from '../../../fs/safe-rm.js';
 
 /**
  * Native skills strategy for editors that support Agent Skills natively (Claude Code, GitHub Copilot,
- * Cursor). Uses the `skills` CLI (vercel-labs/skills) to handle robust multi-agent installation.
- * The source of truth is aligned with the industry-standard `.agents/skills/` directory.
- * Skills are physically copied to the agent's skills directory to ensure maximum compatibility.
+ * Cursor, Windsurf, and Codex). Skills are copied into `.aix/skills/` as aix's canonical managed
+ * store, then linked into each editor's native skills directory.
  */
 export class NativeSkillsStrategy implements SkillsStrategy {
-   private editorName: string;
+   private readonly editorSkillsDir: string;
+   private readonly userEditorSkillsDir: string;
 
    constructor(config: NativeSkillsConfig) {
-      // Map aix editor names to skills CLI agent names
-      const mapping: Record<string, string> = {
-         'claude-code': 'claude-code',
-         cursor: 'cursor',
-         windsurf: 'windsurf',
-         copilot: 'github-copilot',
-         'github-copilot': 'github-copilot',
-         zed: 'zed',
-         codex: 'codex',
-      };
-
-      this.editorName = mapping[config.editorName] || config.editorName;
+      this.editorSkillsDir = config.editorSkillsDir;
+      this.userEditorSkillsDir = config.userEditorSkillsDir ?? config.editorSkillsDir;
    }
 
    getSkillsDir(): string {
-      return '.agents/skills';
+      return '.aix/skills';
    }
 
    isNative(): boolean {
@@ -39,47 +33,73 @@ export class NativeSkillsStrategy implements SkillsStrategy {
    async installSkills(
       skills: Map<string, ParsedSkill>,
       projectRoot: string,
-      options: { dryRun?: boolean } = {},
+      options: { dryRun?: boolean; targetScope?: 'project' | 'user' } = {},
    ): Promise<FileChange[]> {
-      const skillNames = Array.from(skills.keys());
+      const entries = Array.from(skills.entries()),
+            installRoot = options.targetScope === 'user' ? homedir() : projectRoot,
+            editorSkillsDir = options.targetScope === 'user' ? this.userEditorSkillsDir : this.editorSkillsDir;
 
-      if (options.dryRun) {
-         return skillNames.map((name) => ({
-            path: join('.agents/skills', name),
-            action: 'update',
-            content: `[npx skills experimental_install --agent ${this.editorName} --mode copy]`,
-            isDirectory: true,
-            category: 'skill',
-         }));
-      }
+      const nestedChanges = await pMap(
+         entries,
+         async ([name, skill]) => {
+            const changes: FileChange[] = [],
+                  aixSkillDir = join(installRoot, '.aix', 'skills', name),
+                  aixExists = existsSync(aixSkillDir);
 
-      try {
-         // Use the skills CLI from node_modules to handle the entire installation process.
-         // This is more robust as it supports 40+ agents.
-         // We use --mode copy to ensure files are physically copied instead of symlinked.
-         const binPath = join(projectRoot, 'node_modules', '.bin', 'skills');
+            if (!options.dryRun) {
+               await mkdir(dirname(aixSkillDir), { recursive: true });
+               if (aixExists) {
+                  await safeRm(aixSkillDir, { force: true });
+               }
+               await cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
+            }
 
-         await execa(binPath, ['experimental_install', '--agent', this.editorName, '--mode', 'copy', '-y'], {
-            cwd: projectRoot,
-            env: { DO_NOT_TRACK: '1' },
-         });
+            changes.push({
+               path: aixSkillDir,
+               action: aixExists ? 'update' : 'create',
+               content: `[skill directory: ${skill.basePath}]`,
+               isDirectory: true,
+               category: 'skill',
+            });
 
+            const editorSkillPath = join(installRoot, editorSkillsDir, name),
+                  relativePath = relative(dirname(editorSkillPath), aixSkillDir);
 
-         return skillNames.map((name) => ({
-            path: join('.agents/skills', name),
-            action: 'update',
-            content: '[Synced via skills CLI]',
-            isDirectory: true,
-            category: 'skill',
-         }));
-      } catch (error) {
-         console.warn(`Failed to install skills for ${this.editorName} using skills CLI:`, error);
-         return [];
-      }
+            let linkExists = false;
+
+            try {
+               const stats = await lstat(editorSkillPath);
+
+               linkExists = stats.isSymbolicLink() || stats.isDirectory();
+            } catch {
+               // Path does not exist yet.
+            }
+
+            if (!options.dryRun) {
+               await mkdir(dirname(editorSkillPath), { recursive: true });
+               if (linkExists) {
+                  await safeRm(editorSkillPath, { force: true });
+               }
+               await symlink(relativePath, editorSkillPath);
+            }
+
+            changes.push({
+               path: editorSkillPath,
+               action: linkExists ? 'update' : 'create',
+               content: `[symlink -> ${relativePath}]`,
+               isDirectory: true,
+               category: 'skill',
+            });
+
+            return changes;
+         },
+         { concurrency: 5 },
+      );
+
+      return nestedChanges.flat();
    }
 
-   generateSkillRules(_skills: Map<string, ParsedSkill>): EditorRule[] {
-      // Native skills don't need pointer rules - the editor reads skills directly
+   generateSkillRules(_skills: Map<string, ParsedSkill>, _options?: { targetScope?: 'project' | 'user' }): EditorRule[] {
       return [];
    }
 }

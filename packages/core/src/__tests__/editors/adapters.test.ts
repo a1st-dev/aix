@@ -37,13 +37,20 @@ const createConfig = (overrides: Partial<AiJsonConfig> = {}): AiJsonConfig =>
 
 describe('Editor Adapters', () => {
    let testDir: string;
+   let originalHome: string | undefined;
 
    beforeEach(async () => {
+      originalHome = process.env.HOME;
       testDir = join(tmpdir(), `aix-editor-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
       await mkdir(testDir, { recursive: true });
    });
 
    afterEach(async () => {
+      if (originalHome === undefined) {
+         delete process.env.HOME;
+      } else {
+         process.env.HOME = originalHome;
+      }
       await safeRm(testDir, { force: true });
    });
 
@@ -301,6 +308,69 @@ describe('Editor Adapters', () => {
 
          expect(ruleContent).toContain('# zed-rule');
          expect(ruleContent).toContain('Zed content');
+      });
+
+      it('writes pointer rules during skills-only installs', async () => {
+         const skillDir = join(testDir, 'skills', 'demo-skill');
+
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: demo-skill
+description: Demo skill
+---
+`,
+         );
+
+         await installToEditor(
+            'zed',
+            createConfig({
+               skills: {
+                  'demo-skill': './skills/demo-skill',
+               },
+            }),
+            testDir,
+            { scopes: ['skills'] },
+         );
+
+         expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill', 'SKILL.md'))).toBe(true);
+         await expect(readFile(join(testDir, '.rules'), 'utf-8')).resolves.toContain(
+            '.aix/skills/demo-skill/SKILL.md',
+         );
+      });
+
+      it('writes user-scoped pointer rules to the user-managed .aix path', async () => {
+         const skillDir = join(testDir, 'skills', 'demo-skill'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: demo-skill
+description: Demo skill
+---
+`,
+         );
+
+         await installToEditor(
+            'zed',
+            createConfig({
+               skills: {
+                  'demo-skill': './skills/demo-skill',
+               },
+            }),
+            testDir,
+            { scopes: ['skills'], targetScope: 'user' },
+         );
+
+         expect(existsSync(join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill'))).toBe(false);
+         await expect(readFile(join(testDir, '.rules'), 'utf-8')).resolves.toContain(
+            join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'),
+         );
       });
    });
 

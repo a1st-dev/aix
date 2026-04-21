@@ -1,6 +1,9 @@
 import { dirname, join } from 'node:path';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { chmod, mkdir, writeFile, readFile } from 'node:fs/promises';
+import { promisify } from 'node:util';
+import { existsSync } from 'node:fs';
+import { mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
 import { safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -9,6 +12,8 @@ import { runCommand } from '@oclif/test';
 const __dirname = dirname(fileURLToPath(import.meta.url)),
       root = join(__dirname, '../..'),
       loadOpts = { root, devPlugins: false };
+const execFileAsync = promisify(execFile),
+      binPath = join(root, 'bin', 'run.js');
 const runCli = (args: string[] | string, _unused?: unknown) =>
    runCommand(args, loadOpts, { testNodeEnv: 'production' });
 
@@ -16,64 +21,44 @@ const runCli = (args: string[] | string, _unused?: unknown) =>
  * Helper to create a valid ai.json config
  */
 function createValidConfig(overrides: Record<string, unknown> = {}): string {
-   return JSON.stringify({
-      $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
-      skills: {},
-      mcp: {},
-      rules: {},
-      prompts: {},
-      ...overrides,
-   }, null, 2);
+   return JSON.stringify(
+      {
+         $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+         skills: {},
+         mcp: {},
+         rules: {},
+         prompts: {},
+         ...overrides,
+      },
+      null,
+      2,
+   );
 }
 
 /**
  * Write a valid config to a path
  */
-async function writeValidConfig(path: string, overrides: Record<string, unknown> = {}): Promise<void> {
+async function writeValidConfig(
+   path: string,
+   overrides: Record<string, unknown> = {},
+): Promise<void> {
    await writeFile(path, createValidConfig(overrides));
 }
 
-async function writeMockSkillsCli(rootDir: string): Promise<void> {
-   const binDir = join(rootDir, 'node_modules', '.bin'),
-         binPath = join(binDir, 'skills');
+async function writeSkillDir(baseDir: string, name: string): Promise<void> {
+   const skillDir = join(baseDir, 'skills', name);
 
-   await mkdir(binDir, { recursive: true });
-   await writeFile(binPath, `#!/usr/bin/env node
-import { writeFileSync } from 'node:fs';
+   await mkdir(skillDir, { recursive: true });
+   await writeFile(
+      join(skillDir, 'SKILL.md'),
+      `---
+name: ${name}
+description: Test skill ${name}
+---
 
-const source = process.argv[3];
-let skills;
-
-if (source === 'typescript') {
-   skills = {
-      typescript: {
-         source: 'aix-skill-typescript',
-         sourceType: 'npm'
-      }
-   };
-} else if (source === './skills/custom') {
-   skills = {
-      custom: {
-         source,
-         sourceType: 'local'
-      }
-   };
-} else if (source === 'anthropics/skills/skills/pdf' || source === 'https://github.com/anthropics/skills/tree/main/skills/pdf') {
-   skills = {
-      pdf: {
-         source: 'https://github.com/anthropics/skills',
-         sourceType: 'github',
-         ref: 'main',
-         path: 'skills/pdf'
-      }
-   };
-} else {
-   throw new Error(\`Unexpected mock skills source: \${source}\`);
-}
-
-writeFileSync('skills-lock.json', JSON.stringify({ version: 1, skills }, null, 2));
-`);
-   await chmod(binPath, 0o755);
+# ${name}
+`,
+   );
 }
 
 /**
@@ -86,17 +71,23 @@ function createTestDir(): string {
 describe('CLI Commands', () => {
    let testDir: string;
    let originalCwd: string;
+   let originalHome: string | undefined;
 
    beforeEach(async () => {
       originalCwd = process.cwd();
+      originalHome = process.env.HOME;
       testDir = createTestDir();
       await mkdir(testDir, { recursive: true });
-      await writeMockSkillsCli(testDir);
       process.chdir(testDir);
    });
 
    afterEach(async () => {
       process.chdir(originalCwd);
+      if (originalHome === undefined) {
+         delete process.env.HOME;
+      } else {
+         process.env.HOME = originalHome;
+      }
       await safeRm(testDir, { force: true });
    });
 
@@ -142,6 +133,7 @@ describe('CLI Commands', () => {
          const configPath = join(testDir, 'ai.json');
 
          await writeValidConfig(configPath);
+         await writeSkillDir(testDir, 'custom');
 
          await runCli(['add', 'skill', './skills/custom', '--config', configPath], {
             root,
@@ -153,12 +145,40 @@ describe('CLI Commands', () => {
          expect(config.skills.custom).toEqual({ path: './skills/custom' });
       });
 
+      it('normalizes a direct SKILL.md path to the containing skill directory', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+         await writeSkillDir(testDir, 'directory-skill');
+
+         await runCli(
+            ['add', 'skill', './skills/directory-skill/SKILL.md', '--config', configPath],
+            {
+               root,
+            },
+         );
+
+         const content = await readFile(configPath, 'utf-8');
+         const config = JSON.parse(content);
+
+         expect(config.skills['directory-skill']).toEqual({ path: './skills/directory-skill' });
+      });
+
       it('adds a skill from GitHub tree URL and infers name/ref/path', async () => {
          const configPath = join(testDir, 'ai.json');
 
          await writeValidConfig(configPath);
 
-         await runCli(['add', 'skill', 'https://github.com/anthropics/skills/tree/main/skills/pdf', '--config', configPath], { root });
+         await runCli(
+            [
+               'add',
+               'skill',
+               'https://github.com/anthropics/skills/tree/main/skills/pdf',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
 
          const content = await readFile(configPath, 'utf-8');
          const config = JSON.parse(content);
@@ -168,6 +188,77 @@ describe('CLI Commands', () => {
             ref: 'main',
             path: 'skills/pdf',
          });
+      });
+
+      it('treats skills library ids as GitHub repo paths', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         await runCli(
+            [
+               'add',
+               'skill',
+               'github/awesome-copilot/typescript-mcp-server-generator',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         const content = await readFile(configPath, 'utf-8');
+         const config = JSON.parse(content);
+
+         expect(config.skills['typescript-mcp-server-generator']).toEqual({
+            git: 'https://github.com/github/awesome-copilot',
+            path: 'typescript-mcp-server-generator',
+         });
+      });
+
+      it('maps skills-library ids with colon separators to skills paths', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         await runCli(
+            [
+               'add',
+               'skill',
+               'google-labs-code/stitch-skills/react:components',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         const content = await readFile(configPath, 'utf-8');
+         const config = JSON.parse(content);
+
+         expect(config.skills['react-components']).toEqual({
+            git: 'https://github.com/google-labs-code/stitch-skills',
+            path: 'skills/react-components',
+         });
+      });
+
+      it('defaults project config installs to project scope', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         await writeValidConfig(configPath, {
+            editors: ['copilot'],
+         });
+         await writeSkillDir(testDir, 'project-default');
+
+         await runCli(['add', 'skill', './skills/project-default', '--config', configPath], {
+            root,
+         });
+
+         expect(existsSync(join(testDir, '.aix', 'skills', 'project-default'))).toBe(true);
+         expect(existsSync(join(testDir, '.github', 'skills', 'project-default'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.aix', 'skills', 'project-default'))).toBe(false);
+         expect(existsSync(join(fakeHome, '.github', 'skills', 'project-default'))).toBe(false);
       });
    });
 
@@ -185,6 +276,93 @@ describe('CLI Commands', () => {
          const config = JSON.parse(content);
 
          expect(config.skills.typescript).toBeUndefined();
+      });
+
+      it('removes native skill symlinks from editor directories', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               sourceSkillDir = join(testDir, '.aix', 'skills', 'demo-skill'),
+               editorSkillDir = join(testDir, '.github', 'skills');
+
+         await writeValidConfig(configPath, {
+            skills: { 'demo-skill': './skills/demo-skill' },
+            editors: ['copilot'],
+         });
+         await mkdir(sourceSkillDir, { recursive: true });
+         await mkdir(editorSkillDir, { recursive: true });
+         await writeFile(
+            join(sourceSkillDir, 'SKILL.md'),
+            `---
+name: demo-skill
+description: Demo skill
+---
+`,
+         );
+         await symlink(join('..', '..', '.aix', 'skills', 'demo-skill'), join(editorSkillDir, 'demo-skill'));
+
+         await runCli(['remove', 'skill', 'demo-skill', '--yes', '--config', configPath], {
+            root,
+         });
+
+         expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill'))).toBe(false);
+         expect(existsSync(join(testDir, '.github', 'skills', 'demo-skill'))).toBe(false);
+      });
+
+      it('removes catalog-style skill names through their normalized config key', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            skills: {
+               'react-components': {
+                  git: 'https://github.com/google-labs-code/stitch-skills',
+                  path: 'skills/react-components',
+               },
+            },
+         });
+
+         await runCli(['remove', 'skill', 'react:components', '--yes', '--config', configPath], {
+            root,
+         });
+
+         const content = await readFile(configPath, 'utf-8');
+         const config = JSON.parse(content);
+
+         expect(config.skills['react-components']).toBeUndefined();
+      });
+   });
+
+   describe('list --all', () => {
+      it('includes symlinked native editor skills', async () => {
+         const sourceSkillDir = join(testDir, '.aix', 'skills', 'copilot-skill'),
+               editorSkillDir = join(testDir, '.github', 'skills');
+
+         await mkdir(sourceSkillDir, { recursive: true });
+         await mkdir(editorSkillDir, { recursive: true });
+         await writeFile(
+            join(sourceSkillDir, 'SKILL.md'),
+            `---
+name: copilot-skill
+description: Copilot skill
+---
+`,
+         );
+         await symlink(
+            join('..', '..', '.aix', 'skills', 'copilot-skill'),
+            join(editorSkillDir, 'copilot-skill'),
+         );
+
+         const { stdout } = await execFileAsync('node', [binPath, 'list', '--all', '--editor', 'copilot', '--json'], {
+            cwd: testDir,
+         });
+
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.copilot.skills['copilot-skill']).toMatchObject({
+            source: 'external',
+            scope: 'project',
+         });
+         expect(parsed.copilot.skills['copilot-skill'].path).toContain(
+            '/.github/skills/copilot-skill',
+         );
       });
    });
 

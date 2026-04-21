@@ -134,6 +134,6 @@ Content.
 
       await mkdir(skillDir, { recursive: true });
 
-      await expect(parseSkillMd(skillDir, 'local')).rejects.toThrow();
+      await expect(parseSkillMd(skillDir, 'local')).rejects.toThrow(/SKILL.md not found/);
    });
 });

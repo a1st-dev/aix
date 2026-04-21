@@ -228,27 +228,6 @@ export function isGitReference(source: string): boolean {
    return false;
 }
 
-/**
- * Convert a GitHub tree URL to the format expected by the skills CLI: "owner/repo/subpath"
- * Returns undefined if not a tree URL.
- */
-export function treeUrlToSkillsCliFormat(
-   source: string,
-): { source: string; ref?: string } | undefined {
-   const ghTree = parseGitHubTreeUrl(source);
-
-   if (!ghTree) {
-      return undefined;
-   }
-
-   const path = ghTree.subdir ? `/${ghTree.subdir}` : '';
-
-   return {
-      source: `${ghTree.owner}/${ghTree.repo}${path}`,
-      ref: ghTree.ref !== 'main' && ghTree.ref !== 'master' ? ghTree.ref : undefined,
-   };
-}
-
 // --- Internal resolution helpers ---
 
 function resolveGitHubTree(

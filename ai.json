@@ -3,7 +3,8 @@
    "extends": "github:yokuze/aix-config",
    "skills": {
       "mastering-typescript": {
-         "git": "https://github.com/spillwavesolutions/mastering-typescript-skill"
+         "git": "https://github.com/spillwavesolutions/mastering-typescript-skill",
+         "path": "mastering-typescript"
       }
    },
    "mcp": {},

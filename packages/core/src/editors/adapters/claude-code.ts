@@ -18,8 +18,8 @@ import type {
 
 /**
  * Claude Code editor adapter. Writes rules to `.claude/rules/*.md` and MCP config to
- * `.mcp.json` (project root). Skills are installed to `.agents/skills/{name}/` and
- * physically copied to `.claude/skills/` since Claude Code has native Agent Skills support.
+ * `.mcp.json` (project root). Skills are installed into `.aix/skills/{name}/` and symlinked into
+ * `.claude/skills/` since Claude Code has native Agent Skills support.
  * Hooks are written to `.claude/settings.json`.
  */
 export class ClaudeCodeAdapter extends BaseEditorAdapter {
@@ -38,7 +38,6 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new ClaudeCodeMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.claude/skills',
-      editorName: 'claude-code',
    });
    protected readonly promptsStrategy: PromptsStrategy = new ClaudeCodePromptsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new ClaudeCodeHooksStrategy();
@@ -54,6 +53,7 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
+               targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),
