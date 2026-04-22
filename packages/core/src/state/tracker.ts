@@ -5,6 +5,30 @@ import { join, dirname } from 'pathe';
 import type { ConfigScope } from '@a1st/aix-schema';
 import type { StateFile, StateSection, InstalledItemMeta, InstalledItems } from './types.js';
 
+export interface TrackInstallOptions {
+   scope: ConfigScope;
+   section: StateSection;
+   name: string;
+   editors: string[];
+   projectRoot?: string;
+}
+
+export interface SyncSectionStateOptions {
+   scope: ConfigScope;
+   section: StateSection;
+   names: string[];
+   editors: string[];
+   projectRoot?: string;
+}
+
+type TrackInstallArgs =
+   | [options: TrackInstallOptions]
+   | [scope: ConfigScope, section: StateSection, name: string, editors: string[], projectRoot?: string];
+
+type SyncSectionStateArgs =
+   | [options: SyncSectionStateOptions]
+   | [scope: ConfigScope, section: StateSection, names: string[], editors: string[], projectRoot?: string];
+
 /**
  * Resolve the state file path for a given scope.
  * - project → `<projectRoot>/.aix/state.json`
@@ -67,13 +91,8 @@ export async function writeState(
 /**
  * Record that an item was installed. Creates or updates the entry.
  */
-export async function trackInstall(
-   scope: ConfigScope,
-   section: StateSection,
-   name: string,
-   editors: string[],
-   projectRoot?: string,
-): Promise<void> {
+export async function trackInstall(...args: TrackInstallArgs): Promise<void> {
+   const { scope, section, name, editors, projectRoot } = normalizeTrackInstallArgs(args);
    const state = await readState(scope, projectRoot),
          now = new Date().toISOString(),
          existing = state.installed[section][name];
@@ -164,13 +183,8 @@ export function detectNewItems(
 /**
  * Replace the entire installed set for a section. Useful after a full install pass.
  */
-export async function syncSectionState(
-   scope: ConfigScope,
-   section: StateSection,
-   names: string[],
-   editors: string[],
-   projectRoot?: string,
-): Promise<void> {
+export async function syncSectionState(...args: SyncSectionStateArgs): Promise<void> {
+   const { scope, section, names, editors, projectRoot } = normalizeSyncSectionStateArgs(args);
    const state = await readState(scope, projectRoot),
          now = new Date().toISOString();
 
@@ -185,4 +199,24 @@ export async function syncSectionState(
    }
    state.installed[section] = updated;
    await writeState(state, scope, projectRoot);
+}
+
+function normalizeTrackInstallArgs(args: TrackInstallArgs): TrackInstallOptions {
+   if (typeof args[0] === 'object') {
+      return args[0];
+   }
+
+   const [scope, section, name, editors, projectRoot] = args;
+
+   return { scope, section, name, editors, projectRoot };
+}
+
+function normalizeSyncSectionStateArgs(args: SyncSectionStateArgs): SyncSectionStateOptions {
+   if (typeof args[0] === 'object') {
+      return args[0];
+   }
+
+   const [scope, section, names, editors, projectRoot] = args;
+
+   return { scope, section, names, editors, projectRoot };
 }

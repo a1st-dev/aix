@@ -103,7 +103,13 @@ describe('writeState / readState roundtrip', () => {
 
 describe('trackInstall', () => {
    it('adds a new entry', async () => {
-      await trackInstall('project', 'mcp', 'my-server', ['claude-code', 'cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'my-server',
+         editors: ['claude-code', 'cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
 
@@ -112,12 +118,24 @@ describe('trackInstall', () => {
    });
 
    it('updates an existing entry and merges editors', async () => {
-      await trackInstall('project', 'mcp', 'my-server', ['claude-code'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'my-server',
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
 
       // Small delay so updatedAt differs
       await new Promise((r) => setTimeout(r, 10));
 
-      await trackInstall('project', 'mcp', 'my-server', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'my-server',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
       const item = state.installed.mcp['my-server']!;
@@ -130,7 +148,13 @@ describe('trackInstall', () => {
 
 describe('trackRemoval', () => {
    it('removes a tracked entry', async () => {
-      await trackInstall('project', 'mcp', 'my-server', ['claude-code'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'my-server',
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
       await trackRemoval('project', 'mcp', 'my-server', testDir);
 
       const state = await readState('project', testDir);
@@ -149,8 +173,20 @@ describe('trackRemoval', () => {
 
 describe('getInstalledNames / getInstalledItem', () => {
    it('lists installed names', async () => {
-      await trackInstall('project', 'mcp', 'a', ['cursor'], testDir);
-      await trackInstall('project', 'mcp', 'b', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'a',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'b',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
 
@@ -158,7 +194,13 @@ describe('getInstalledNames / getInstalledItem', () => {
    });
 
    it('returns item metadata', async () => {
-      await trackInstall('project', 'rules', 'style-guide', ['claude-code'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'rules',
+         name: 'style-guide',
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
       const item = getInstalledItem(state, 'rules', 'style-guide');
@@ -176,9 +218,27 @@ describe('getInstalledNames / getInstalledItem', () => {
 
 describe('detectRemovedItems', () => {
    it('detects items in state but not in config', async () => {
-      await trackInstall('project', 'mcp', 'a', ['cursor'], testDir);
-      await trackInstall('project', 'mcp', 'b', ['cursor'], testDir);
-      await trackInstall('project', 'mcp', 'c', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'a',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'b',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'c',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
       const removed = detectRemovedItems(state, 'mcp', ['a', 'c']);
@@ -187,7 +247,13 @@ describe('detectRemovedItems', () => {
    });
 
    it('returns empty when nothing was removed', async () => {
-      await trackInstall('project', 'mcp', 'a', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'a',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
 
@@ -197,7 +263,13 @@ describe('detectRemovedItems', () => {
 
 describe('detectNewItems', () => {
    it('detects items in config but not in state', async () => {
-      await trackInstall('project', 'mcp', 'a', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'a',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
       const newItems = detectNewItems(state, 'mcp', ['a', 'b', 'c']);
@@ -208,8 +280,20 @@ describe('detectNewItems', () => {
 
 describe('syncSectionState', () => {
    it('replaces section state with current names', async () => {
-      await trackInstall('project', 'mcp', 'old-server', ['cursor'], testDir);
-      await syncSectionState('project', 'mcp', ['new-a', 'new-b'], ['claude-code'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'old-server',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
+      await syncSectionState({
+         scope: 'project',
+         section: 'mcp',
+         names: ['new-a', 'new-b'],
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
 
@@ -218,7 +302,13 @@ describe('syncSectionState', () => {
    });
 
    it('preserves existing metadata for items that remain', async () => {
-      await trackInstall('project', 'mcp', 'keep', ['cursor'], testDir);
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'keep',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
 
       const before = await readState('project', testDir);
       const originalInstall = before.installed.mcp['keep']!.installedAt;
@@ -226,7 +316,13 @@ describe('syncSectionState', () => {
       // Small delay to ensure updatedAt differs
       await new Promise((r) => setTimeout(r, 10));
 
-      await syncSectionState('project', 'mcp', ['keep', 'new'], ['claude-code'], testDir);
+      await syncSectionState({
+         scope: 'project',
+         section: 'mcp',
+         names: ['keep', 'new'],
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
 
       const state = await readState('project', testDir);
 
