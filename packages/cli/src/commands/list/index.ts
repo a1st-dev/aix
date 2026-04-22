@@ -30,6 +30,21 @@ type EditorItemRow = {
    path: string | undefined;
 };
 
+type EditorListContext = {
+   sections: Section[];
+   scopeFilter: 'user' | 'project' | undefined;
+   projectState: StateFile;
+   userState: StateFile;
+};
+
+type EditorItemInput = {
+   type: EditorItemRow['type'];
+   name: string;
+   section: StateSection;
+   path: string | undefined;
+   detectedScope: 'project' | 'user' | undefined;
+};
+
 export default class List extends BaseCommand<typeof List> {
    static override aliases = ['ls'];
 
@@ -301,13 +316,12 @@ export default class List extends BaseCommand<typeof List> {
          const jsonResult: Record<string, unknown> = {};
 
          for (const { editor, result } of allResults) {
-            jsonResult[editor] = this.buildEditorJson(
-               result,
+            jsonResult[editor] = this.buildEditorJson(result, {
                sections,
                scopeFilter,
                projectState,
                userState,
-            );
+            });
          }
          this.output.json(jsonResult);
          return;
@@ -319,10 +333,12 @@ export default class List extends BaseCommand<typeof List> {
          const didPrint = this.printEditorConfig(
             editor,
             result,
-            sections,
-            scopeFilter,
-            projectState,
-            userState,
+            {
+               sections,
+               scopeFilter,
+               projectState,
+               userState,
+            },
             printed > 0,
          );
 
@@ -343,12 +359,10 @@ export default class List extends BaseCommand<typeof List> {
 
    private buildEditorJson(
       result: Awaited<ReturnType<typeof importFromEditor>>,
-      sections: Section[],
-      scopeFilter: 'user' | 'project' | undefined,
-      projectState: StateFile,
-      userState: StateFile,
+      context: EditorListContext,
    ): Record<string, unknown> {
       const out: Record<string, unknown> = {};
+      const { sections, scopeFilter, projectState, userState } = context;
 
       if (includesSection(sections, 'mcp') && Object.keys(result.mcp).length > 0) {
          const items: Record<string, unknown> = {};
@@ -440,19 +454,10 @@ export default class List extends BaseCommand<typeof List> {
    private printEditorConfig(
       editor: EditorName,
       result: Awaited<ReturnType<typeof importFromEditor>>,
-      sections: Section[],
-      scopeFilter: 'user' | 'project' | undefined,
-      projectState: StateFile,
-      userState: StateFile,
+      context: EditorListContext,
       addLeadingBlankLine: boolean,
    ): boolean {
-      const rows = this.getEditorItemRows(
-         result,
-         sections,
-         scopeFilter,
-         projectState,
-         userState,
-      );
+      const rows = this.getEditorItemRows(result, context);
 
       if (rows.length === 0) {
          return false;
@@ -461,32 +466,32 @@ export default class List extends BaseCommand<typeof List> {
       if (addLeadingBlankLine) {
          this.output.log('');
       }
-      this.output.log(`${chalk.bold(editor)} ${chalk.dim(`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`)}`);
+      this.output.log(
+         `${chalk.bold(editor)} ${chalk.dim(`${rows.length} ${rows.length === 1 ? 'item' : 'items'}`)}`,
+      );
       this.printEditorRows(rows);
       return true;
    }
 
    private getEditorItemRows(
       result: Awaited<ReturnType<typeof importFromEditor>>,
-      sections: Section[],
-      scopeFilter: 'user' | 'project' | undefined,
-      projectState: StateFile,
-      userState: StateFile,
+      context: EditorListContext,
    ): EditorItemRow[] {
       const rows: EditorItemRow[] = [];
+      const { sections } = context;
 
       if (includesSection(sections, 'mcp')) {
          rows.push(
             ...Object.keys(result.mcp).flatMap((name) =>
                this.toEditorItemRow(
-                  'mcp',
-                  name,
-                  'mcp',
-                  result.paths.mcp[name],
-                  result.scopes.mcp[name],
-                  scopeFilter,
-                  projectState,
-                  userState,
+                  {
+                     type: 'mcp',
+                     name,
+                     section: 'mcp',
+                     path: result.paths.mcp[name],
+                     detectedScope: result.scopes.mcp[name],
+                  },
+                  context,
                ),
             ),
          );
@@ -496,14 +501,14 @@ export default class List extends BaseCommand<typeof List> {
          rows.push(
             ...result.rules.flatMap((rule) =>
                this.toEditorItemRow(
-                  'rule',
-                  rule.name,
-                  'rules',
-                  rule.path ?? result.paths.rules[rule.name],
-                  rule.scope ?? result.scopes.rules[rule.name],
-                  scopeFilter,
-                  projectState,
-                  userState,
+                  {
+                     type: 'rule',
+                     name: rule.name,
+                     section: 'rules',
+                     path: rule.path ?? result.paths.rules[rule.name],
+                     detectedScope: rule.scope ?? result.scopes.rules[rule.name],
+                  },
+                  context,
                ),
             ),
          );
@@ -513,14 +518,14 @@ export default class List extends BaseCommand<typeof List> {
          rows.push(
             ...Object.keys(result.skills).flatMap((name) =>
                this.toEditorItemRow(
-                  'skill',
-                  name,
-                  'skills',
-                  result.paths.skills[name],
-                  result.scopes.skills[name],
-                  scopeFilter,
-                  projectState,
-                  userState,
+                  {
+                     type: 'skill',
+                     name,
+                     section: 'skills',
+                     path: result.paths.skills[name],
+                     detectedScope: result.scopes.skills[name],
+                  },
+                  context,
                ),
             ),
          );
@@ -530,14 +535,14 @@ export default class List extends BaseCommand<typeof List> {
          rows.push(
             ...Object.keys(result.prompts).flatMap((name) =>
                this.toEditorItemRow(
-                  'prompt',
-                  name,
-                  'prompts',
-                  result.paths.prompts[name],
-                  result.scopes.prompts[name],
-                  scopeFilter,
-                  projectState,
-                  userState,
+                  {
+                     type: 'prompt',
+                     name,
+                     section: 'prompts',
+                     path: result.paths.prompts[name],
+                     detectedScope: result.scopes.prompts[name],
+                  },
+                  context,
                ),
             ),
          );
@@ -546,16 +551,9 @@ export default class List extends BaseCommand<typeof List> {
       return rows;
    }
 
-   private toEditorItemRow(
-      type: EditorItemRow['type'],
-      name: string,
-      section: StateSection,
-      path: string | undefined,
-      detectedScope: 'project' | 'user' | undefined,
-      scopeFilter: 'user' | 'project' | undefined,
-      projectState: StateFile,
-      userState: StateFile,
-   ): EditorItemRow[] {
+   private toEditorItemRow(input: EditorItemInput, context: EditorListContext): EditorItemRow[] {
+      const { type, name, section, path, detectedScope } = input,
+            { scopeFilter, projectState, userState } = context;
       const managed = this.isAixManaged(name, section, projectState, userState),
             scope = detectedScope ?? managed?.scope;
 
@@ -563,18 +561,23 @@ export default class List extends BaseCommand<typeof List> {
          return [];
       }
 
-      return [{
-         type,
-         name,
-         source: managed ? 'aix' : 'external',
-         scope,
-         path,
-      }];
+      return [
+         {
+            type,
+            name,
+            source: managed ? 'aix' : 'external',
+            scope,
+            path,
+         },
+      ];
    }
 
    private printEditorRows(rows: EditorItemRow[]): void {
       const typeWidth = Math.max('type'.length, ...rows.map((row) => row.type.length)),
-            scopeWidth = Math.max('scope'.length, ...rows.map((row) => (row.scope ?? 'unknown').length)),
+            scopeWidth = Math.max(
+               'scope'.length,
+               ...rows.map((row) => (row.scope ?? 'unknown').length),
+            ),
             sourceWidth = Math.max('source'.length, ...rows.map((row) => row.source.length)),
             nameWidth = Math.max('name'.length, ...rows.map((row) => row.name.length));
 

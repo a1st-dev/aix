@@ -62,7 +62,9 @@ export function formatInstallResults(
  * Install to configured editors after an add operation. Only installs if editors are configured in
  * ai.json. Returns info about what was installed.
  */
-export async function installAfterAdd(options: InstallAfterAddOptions): Promise<InstallAfterAddResult> {
+export async function installAfterAdd(
+   options: InstallAfterAddOptions,
+): Promise<InstallAfterAddResult> {
    const loaded = await loadConfig(options.configPath);
 
    if (!loaded) {
@@ -86,11 +88,12 @@ export async function installAfterAdd(options: InstallAfterAddOptions): Promise<
          targetScope = options.scope ?? resolveScope(loaded.config),
          results = await pMap(
             editors,
-            (editor) => installToEditor(editor, loaded.config, projectRoot, {
-               scopes: options.sections,
-               configBaseDir: loaded.configBaseDir,
-               targetScope,
-            }),
+            (editor) =>
+               installToEditor(editor, loaded.config, projectRoot, {
+                  scopes: options.sections,
+                  configBaseDir: loaded.configBaseDir,
+                  targetScope,
+               }),
             { concurrency: 2 },
          );
 
@@ -116,11 +119,13 @@ export interface InstallItemOptions {
  * Install a single item directly to editor configs.
  * Used by add/remove commands for immediate installation without requiring ai.json editors config.
  */
-export async function installSingleItem(options: InstallItemOptions): Promise<InstallAfterAddResult> {
+export async function installSingleItem(
+   options: InstallItemOptions,
+): Promise<InstallAfterAddResult> {
    const { section, name, value, scope, projectRoot } = options;
 
    // Detect editors if not explicitly provided
-   const editors = options.editors ?? await detectEditors(projectRoot);
+   const editors = options.editors ?? (await detectEditors(projectRoot));
 
    if (editors.length === 0) {
       return { installed: false, results: [], editors: [] };
@@ -148,7 +153,8 @@ export async function installSingleItem(options: InstallItemOptions): Promise<In
 
    const results = await pMap(
       editors,
-      (editor) => installToEditor(editor, config, projectRoot, { scopes: [section], targetScope: scope }),
+      (editor) =>
+         installToEditor(editor, config, projectRoot, { scopes: [section], targetScope: scope }),
       { concurrency: 2 },
    );
 
