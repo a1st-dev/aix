@@ -29,6 +29,7 @@ Supported editors:
 - `copilot`
 - `windsurf`
 - `codex`
+- `gemini`
 - `zed`
 
 ## Why aix?

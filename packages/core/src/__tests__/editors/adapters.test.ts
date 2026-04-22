@@ -11,6 +11,7 @@ import {
    CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
+   GeminiAdapter,
    getAdapter,
    getAvailableEditors,
    detectEditors,
@@ -64,7 +65,8 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('copilot');
          expect(editors).toContain('zed');
          expect(editors).toContain('codex');
-         expect(editors).toHaveLength(6);
+         expect(editors).toContain('gemini');
+         expect(editors).toHaveLength(7);
       });
    });
 
@@ -76,6 +78,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('copilot')).toBeInstanceOf(CopilotAdapter);
          expect(getAdapter('zed')).toBeInstanceOf(ZedAdapter);
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
+         expect(getAdapter('gemini')).toBeInstanceOf(GeminiAdapter);
       });
 
       it('throws for unknown editor', () => {
@@ -933,6 +936,111 @@ description: Demo skill
 
          // No features configured, so nothing to report as unsupported
          expect(result.unsupportedFeatures).toBeUndefined();
+      });
+   });
+
+   describe('GeminiAdapter', () => {
+      const adapter = new GeminiAdapter();
+
+      it('has correct name and configDir', () => {
+         expect(adapter.name).toBe('gemini');
+         expect(adapter.configDir).toBe('.gemini');
+      });
+
+      it('detects when .gemini directory exists', async () => {
+         await mkdir(join(testDir, '.gemini'), { recursive: true });
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('does not detect when .gemini directory is missing', async () => {
+         expect(await adapter.detect(testDir)).toBe(false);
+      });
+
+      it('writes rules to GEMINI.md with section markers', async () => {
+         const config = createConfig({
+            rules: {
+               'gemini-rule': { activation: 'always', content: 'Gemini rule content' },
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
+
+         expect(geminiContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
+         expect(geminiContent).toContain('## gemini-rule');
+         expect(geminiContent).toContain('Gemini rule content');
+         expect(geminiContent).toContain('<!-- END AIX MANAGED SECTION -->');
+      });
+
+      it('preserves existing GEMINI.md user content on install', async () => {
+         // Create a pre-existing GEMINI.md with user content
+         await writeFile(join(testDir, 'GEMINI.md'), '# GEMINI.md\n\nProject conventions here.\n');
+
+         const config = createConfig({
+            rules: {
+               'managed-rule': { activation: 'always', content: 'Managed content' },
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
+
+         // User content is preserved
+         expect(geminiContent).toContain('# GEMINI.md');
+         expect(geminiContent).toContain('Project conventions here.');
+         // Managed content is present
+         expect(geminiContent).toContain('## managed-rule');
+         expect(geminiContent).toContain('Managed content');
+      });
+
+      it('writes MCP config to .gemini/settings.json', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd', ['--arg']),
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const mcpContent = await readFile(join(testDir, '.gemini/settings.json'), 'utf-8');
+         const mcpConfig = JSON.parse(mcpContent);
+
+         expect(mcpConfig.mcpServers.server).toBeDefined();
+         expect(mcpConfig.mcpServers.server.command).toBe('cmd');
+         expect(mcpConfig.mcpServers.server.args).toEqual(['--arg']);
+      });
+
+      it('writes prompts as TOML to .gemini/commands/', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review code',
+                  content: 'Please review this code.',
+               },
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const promptContent = await readFile(join(testDir, '.gemini/commands/review.toml'), 'utf-8');
+
+         expect(promptContent).toContain('description = "Review code"');
+         expect(promptContent).toContain('prompt = "Please review this code."');
+      });
+
+      it('reports unsupported hooks', async () => {
+         const config = createConfig({
+            hooks: {
+               session_end: [{ hooks: [{ command: 'echo end' }] }],
+            },
+         });
+
+         const result = await installToEditor('gemini', config, testDir);
+
+         expect(result.unsupportedFeatures?.hooks).toBeDefined();
+         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
       });
    });
 });

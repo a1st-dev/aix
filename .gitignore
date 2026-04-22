@@ -24,6 +24,7 @@ ai.local.json
 .kiro
 .vscode
 .claude
+.gemini
 .github/instructions
 .github/prompts
 .github/skills

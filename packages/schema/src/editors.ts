@@ -18,8 +18,12 @@ export const claudeCodeConfigSchema = baseEditorConfigSchema.extend({
    permissions: z.record(z.unknown()).optional().describe('Claude Code permissions'),
 });
 
+export const geminiConfigSchema = baseEditorConfigSchema.extend({
+   geminiSettings: z.record(z.unknown()).optional().describe('Gemini CLI settings'),
+});
+
 export const editorEnum = z
-   .enum(['windsurf', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim'])
+   .enum(['windsurf', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'gemini'])
    .describe('Supported editor/agent');
 
 /**
@@ -31,6 +35,7 @@ const editorsObjectSchema = z
       windsurf: windsurfConfigSchema.optional(),
       cursor: cursorConfigSchema.optional(),
       'claude-code': claudeCodeConfigSchema.optional(),
+      gemini: geminiConfigSchema.optional(),
    })
    .catchall(baseEditorConfigSchema);
 

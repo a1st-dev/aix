@@ -24,6 +24,9 @@ import { ZedPromptsStrategy } from './strategies/zed/prompts.js';
 import { CodexRulesStrategy } from './strategies/codex/rules.js';
 import { CodexPromptsStrategy } from './strategies/codex/prompts.js';
 import { CodexMcpStrategy } from './strategies/codex/mcp.js';
+import { GeminiRulesStrategy } from './strategies/gemini/rules.js';
+import { GeminiPromptsStrategy } from './strategies/gemini/prompts.js';
+import { GeminiMcpStrategy } from './strategies/gemini/mcp.js';
 
 type ImportScope = 'project' | 'user';
 
@@ -103,6 +106,12 @@ function getImportStrategies(editor: EditorName): ImportStrategies {
          mcp: new CodexMcpStrategy(),
          rules: new CodexRulesStrategy(),
          prompts: new CodexPromptsStrategy(),
+      };
+   case 'gemini':
+      return {
+         mcp: new GeminiMcpStrategy(),
+         rules: new GeminiRulesStrategy(),
+         prompts: new GeminiPromptsStrategy(),
       };
    }
 }
@@ -224,6 +233,7 @@ const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
    copilot: '.vscode',
    zed: '.zed',
    codex: '.codex',
+   gemini: '.gemini',
 };
 
 const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
@@ -233,6 +243,7 @@ const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
    copilot: ['.github/skills'],
    zed: ['.aix/skills'],
    codex: ['.agents/skills'],
+   gemini: ['.gemini/skills'],
 };
 
 const EDITOR_GLOBAL_RULE_DIRS: Partial<Record<EditorName, string[]>> = {
@@ -245,6 +256,7 @@ const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
    'claude-code': ['.claude/skills'],
    copilot: ['.github/skills'],
    codex: ['.codex/skills'],
+   gemini: ['.gemini/skills'],
 };
 
 /**
@@ -281,7 +293,9 @@ async function importMcpConfig(
       };
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read global MCP config at ${fullPath}: ${(err as Error).message}`);
+         warnings.push(
+            `Failed to read global MCP config at ${fullPath}: ${(err as Error).message}`,
+         );
       }
    }
 
@@ -322,8 +336,10 @@ async function importLocalMcpConfig(
          scopes: scopeMapForNames(Object.keys(result.mcp), 'project'),
       };
    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT' &&
-          (err as NodeJS.ErrnoException).code !== 'EISDIR') {
+      if (
+         (err as NodeJS.ErrnoException).code !== 'ENOENT' &&
+         (err as NodeJS.ErrnoException).code !== 'EISDIR'
+      ) {
          warnings.push(`Failed to read local MCP config at ${fullPath}: ${(err as Error).message}`);
       }
    }
@@ -366,7 +382,9 @@ async function importGlobalRules(
          warnings.push(...parsed.warnings);
       } catch (err) {
          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
+            warnings.push(
+               `Failed to read global rules from ${fullPath}: ${(err as Error).message}`,
+            );
          }
       }
    }
@@ -386,28 +404,45 @@ async function importGlobalRules(
             const path = join(fullPath, file),
                   name = file.slice(0, -ext.length);
 
-            try {
-               // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
-               const content = await readFile(path, 'utf-8');
+            // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+            const rule = await readGlobalRuleFile(path, name, warnings);
 
-               if (!content.trim()) {
-                  continue;
-               }
-               rules.push({ content: content.trim(), name, path, scope: 'user' });
+            if (rule) {
+               rules.push(rule);
                paths[name] = path;
                scopes[name] = 'user';
-            } catch (err) {
-               warnings.push(`Failed to read global rule ${path}: ${(err as Error).message}`);
             }
          }
       } catch (err) {
          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            warnings.push(`Failed to read global rules from ${fullPath}: ${(err as Error).message}`);
+            warnings.push(
+               `Failed to read global rules from ${fullPath}: ${(err as Error).message}`,
+            );
          }
       }
    }
 
    return { rules, paths, scopes, warnings };
+}
+
+async function readGlobalRuleFile(
+   path: string,
+   name: string,
+   warnings: string[],
+): Promise<NamedRule | undefined> {
+   try {
+      const content = await readFile(path, 'utf-8'),
+            trimmed = content.trim();
+
+      if (!trimmed) {
+         return undefined;
+      }
+
+      return { content: trimmed, name, path, scope: 'user' };
+   } catch (err) {
+      warnings.push(`Failed to read global rule ${path}: ${(err as Error).message}`);
+      return undefined;
+   }
 }
 
 /**
@@ -426,6 +461,11 @@ async function importLocalRules(
    // Codex uses AGENTS.md at the project root (not inside .codex/), so use a dedicated reader
    if (editor === 'codex') {
       return importCodexLocalRules(projectRoot);
+   }
+
+   // Gemini uses GEMINI.md at the project root (not inside .gemini/), similar to Codex
+   if (editor === 'gemini') {
+      return importGeminiLocalRules(projectRoot);
    }
 
    if (editor === 'zed') {
@@ -470,9 +510,7 @@ async function importLocalRules(
    return { rules: [], paths: {}, scopes: {}, warnings };
 }
 
-async function importZedLocalRules(
-   projectRoot: string,
-): Promise<{
+async function importZedLocalRules(projectRoot: string): Promise<{
    rules: NamedRule[];
    paths: Record<string, string>;
    scopes: Record<string, ImportScope>;
@@ -486,7 +524,14 @@ async function importZedLocalRules(
 
       if (content.trim()) {
          return {
-            rules: [{ content: content.trim(), name: 'project rules', path: rulesPath, scope: 'project' }],
+            rules: [
+               {
+                  content: content.trim(),
+                  name: 'project rules',
+                  path: rulesPath,
+                  scope: 'project',
+               },
+            ],
             paths: { 'project rules': rulesPath },
             scopes: { 'project rules': 'project' },
             warnings,
@@ -505,9 +550,7 @@ async function importZedLocalRules(
  * Import Codex rules from AGENTS.md at the project root. Codex discovers one AGENTS.md per
  * directory from root→CWD, so we read the root file and tag it accordingly.
  */
-async function importCodexLocalRules(
-   projectRoot: string,
-): Promise<{
+async function importCodexLocalRules(projectRoot: string): Promise<{
    rules: NamedRule[];
    paths: Record<string, string>;
    scopes: Record<string, ImportScope>;
@@ -521,7 +564,9 @@ async function importCodexLocalRules(
 
       if (content.trim()) {
          return {
-            rules: [{ content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' }],
+            rules: [
+               { content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' },
+            ],
             paths: { AGENTS: agentsPath },
             scopes: { AGENTS: 'project' },
             warnings,
@@ -530,6 +575,41 @@ async function importCodexLocalRules(
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read Codex rules from ${agentsPath}: ${(err as Error).message}`);
+      }
+   }
+
+   return { rules: [], paths: {}, scopes: {}, warnings };
+}
+
+/**
+ * Import Gemini rules from GEMINI.md at the project root. Gemini CLI reads GEMINI.md for
+ * project-level context and instructions.
+ */
+async function importGeminiLocalRules(projectRoot: string): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         geminiPath = join(projectRoot, 'GEMINI.md');
+
+   try {
+      const content = await readFile(geminiPath, 'utf-8');
+
+      if (content.trim()) {
+         return {
+            rules: [
+               { content: content.trim(), name: 'GEMINI', path: geminiPath, scope: 'project' },
+            ],
+            paths: { GEMINI: geminiPath },
+            scopes: { GEMINI: 'project' },
+            warnings,
+         };
+      }
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+         warnings.push(`Failed to read Gemini rules from ${geminiPath}: ${(err as Error).message}`);
       }
    }
 
@@ -666,9 +746,7 @@ async function importLocalSkills(
    return { skills, paths, scopes, warnings };
 }
 
-async function importGlobalSkills(
-   editor: EditorName,
-): Promise<{
+async function importGlobalSkills(editor: EditorName): Promise<{
    skills: Record<string, string>;
    paths: Record<string, string>;
    scopes: Record<string, ImportScope>;
@@ -702,7 +780,9 @@ async function importGlobalSkills(
          }
       } catch (err) {
          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            warnings.push(`Failed to read global skills from ${fullPath}: ${(err as Error).message}`);
+            warnings.push(
+               `Failed to read global skills from ${fullPath}: ${(err as Error).message}`,
+            );
          }
       }
    }

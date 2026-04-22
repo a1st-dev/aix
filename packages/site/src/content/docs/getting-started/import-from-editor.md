@@ -24,6 +24,7 @@ Supported editors:
 | Windsurf       | `windsurf`    |
 | Zed            | `zed`         |
 | Codex          | `codex`       |
+| Gemini         | `gemini`      |
 
 ## What gets imported
 

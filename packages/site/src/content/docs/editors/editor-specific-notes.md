@@ -34,7 +34,7 @@ Rules are written to `.claude/rules/*.md`, and prompts to `.claude/commands/`. M
 
 ## Codex
 
-Codex reads `AGENTS.md` files from the project root down to the current working directory, one per directory. aix writes rules to `AGENTS.md` at the project root.
+Codex reads `AGENTS.md` files from the project root down to the current working directory, one per directory. aix writes rules to `AGENTS.md` at the project root using section-managed markdown (preserving any user-created content outside the managed `<!-- BEGIN AIX MANAGED SECTION -->` markers).
 
 **Activation modes are not preserved.** Codex has no per-rule scoping mechanism — it treats all content in AGENTS.md equally. The `activation` type (`always`, `auto`, `manual`), `description`, and `globs` fields from ai.json are not included in the output. Rules are written as plain markdown with a `## {name}` heading.
 
@@ -43,6 +43,14 @@ The only scoping aix can provide is directory-based placement: rules with `glob`
 Project-installed Codex skills are exposed through `.agents/skills/`. Global/personal Codex skills still live under `~/.codex/skills/`.
 
 MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page. Prompts are global-only, stored at `~/.codex/prompts/`.
+
+## Gemini
+
+Gemini CLI reads `GEMINI.md` at the project root for project-level instructions. aix uses section-managed markdown to safely insert rules between `<!-- BEGIN AIX MANAGED SECTION -->` markers, so you can manually write other content in your `GEMINI.md` without it being overwritten.
+
+MCP servers are stored in `.gemini/settings.json`, and prompts are written to individual `.toml` files in `.gemini/commands/`.
+
+Like Codex, **activation modes are not preserved** in `GEMINI.md`. All rules are dumped into the managed section of the file as plain markdown.
 
 ---
 

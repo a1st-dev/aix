@@ -51,6 +51,7 @@ export function computeFilesToDelete(
             copilot: { project: '.github/skills', user: '.github/skills' },
             zed: { project: '.zed/skills', user: '.zed/skills' },
             codex: { project: '.agents/skills', user: '.codex/skills' },
+            gemini: { project: '.gemini/skills', user: '.gemini/skills' },
          };
 
          const skillDirConfig = editorSkillDirs[editor];

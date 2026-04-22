@@ -37,6 +37,7 @@ aix maps these prompts to the native feature in each editor:
 - **GitHub Copilot**: Maps to `.github/prompts/*.prompt.md`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Maps to global prompts at `~/.codex/prompts/`.
+- **Gemini**: Maps to project/global TOML files in `.gemini/commands/`.
 - **Zed**: Not supported.
 
 ## Prompt Files

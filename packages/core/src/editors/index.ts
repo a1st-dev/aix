@@ -18,6 +18,7 @@ export {
    CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
+   GeminiAdapter,
 } from './adapters/index.js';
 
 export {
