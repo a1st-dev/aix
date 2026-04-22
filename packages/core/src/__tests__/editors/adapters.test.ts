@@ -403,7 +403,7 @@ description: Demo skill
 
          const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
 
-         expect(agentsContent).toContain('# AGENTS.md');
+         expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
          expect(agentsContent).toContain('## rule-one');
          expect(agentsContent).toContain('First rule content');
          expect(agentsContent).toContain('## rule-two');
@@ -479,6 +479,31 @@ description: Demo skill
       });
 
       // Note: Codex MCP is global-only (~/.codex/config.toml), so project-level MCP is not supported
+
+      it('preserves existing user content in AGENTS.md', async () => {
+         // Create a pre-existing AGENTS.md with user content
+         await writeFile(join(testDir, 'AGENTS.md'), '# My Project\n\nCustom instructions here.\n');
+
+         const config = createConfig({
+            rules: {
+               'managed-rule': { activation: 'always', content: 'Managed content' },
+            },
+         });
+
+         await installToEditor('codex', config, testDir);
+
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         // User content is preserved
+         expect(agentsContent).toContain('# My Project');
+         expect(agentsContent).toContain('Custom instructions here.');
+         // Managed content is present
+         expect(agentsContent).toContain('## managed-rule');
+         expect(agentsContent).toContain('Managed content');
+         // Section markers are present
+         expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
+         expect(agentsContent).toContain('<!-- END AIX MANAGED SECTION -->');
+      });
    });
 
    describe('Scope filtering', () => {

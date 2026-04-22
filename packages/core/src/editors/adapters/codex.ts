@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
+import { upsertManagedSection } from '../section-managed-markdown.js';
 import { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy } from '../strategies/codex/index.js';
 import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import type {
@@ -16,15 +17,18 @@ import type {
 
 /**
  * Codex CLI editor adapter. Writes rules to `AGENTS.md` at the project root (and optionally in
- * subdirectories for glob-scoped rules). Project skills go to `.agents/skills/{name}/`, while
- * user-scoped skills go to `~/.codex/skills/{name}/`. MCP config is
- * global-only (`~/.codex/config.toml`). Prompts are also global-only (`~/.codex/prompts/`). Codex
- * does not support hooks.
+ * subdirectories for glob-scoped rules) using section-managed markdown to preserve user content.
+ * Project skills go to `.agents/skills/{name}/`, while user-scoped skills go to
+ * `~/.codex/skills/{name}/`. MCP config is global-only (`~/.codex/config.toml`). Codex does not
+ * support prompt deployment or hooks.
  *
  * Codex discovers AGENTS.md files by walking from the project root down to the CWD, reading at
  * most one per directory. Rules with a clear single-directory glob prefix (e.g. `src/utils/**`) are
  * placed in that subdirectory's AGENTS.md so they only apply when Codex runs from that context.
  * All other rules (always, auto, manual, or globs without a clear prefix) go to the root file.
+ *
+ * Aix-managed rules are wrapped in sentinel markers (`<!-- BEGIN AIX MANAGED SECTION -->`) so that
+ * user-maintained content in AGENTS.md is never overwritten.
  */
 export class CodexAdapter extends BaseEditorAdapter {
    readonly name = 'codex' as const;
@@ -69,9 +73,11 @@ export class CodexAdapter extends BaseEditorAdapter {
    }
 
    /**
-    * Override planChanges to write AGENTS.md files at the project root and in subdirectories.
-    * Glob-activation rules with a clear directory prefix are placed in subdirectory AGENTS.md files;
-    * all other rules go to the root AGENTS.md. Also cleans up the legacy `.codex/AGENTS.md` file.
+    * Override planChanges to write AGENTS.md files at the project root and in subdirectories
+    * using section-managed markdown. Glob-activation rules with a clear directory prefix are
+    * placed in subdirectory AGENTS.md files; all other rules go to the root AGENTS.md.
+    * User content outside the managed section is preserved. Also cleans up the legacy
+    * `.codex/AGENTS.md` file.
     */
    protected override async planChanges(
       editorConfig: EditorConfig,
@@ -84,8 +90,9 @@ export class CodexAdapter extends BaseEditorAdapter {
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
          if (options.targetScope === 'user') {
             const agentsPath = join(homedir(), this.rulesStrategy.getGlobalRulesPath() ?? '.codex/AGENTS.md'),
-                  content = this.formatAgentsMd(editorConfig.rules),
+                  managedContent = this.formatManagedRules(editorConfig.rules),
                   existing = await this.readExisting(agentsPath),
+                  content = upsertManagedSection(existing, managedContent),
                   action = this.determineAction(existing, content);
 
             changes.push({ path: agentsPath, action, content, category: 'rule' });
@@ -95,9 +102,10 @@ export class CodexAdapter extends BaseEditorAdapter {
 
             for (const [dir, rules] of buckets) {
                const agentsPath = dir === '' ? join(projectRoot, 'AGENTS.md') : join(projectRoot, dir, 'AGENTS.md'),
-                     content = this.formatAgentsMd(rules),
+                     managedContent = this.formatManagedRules(rules),
                      // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
                      existing = await this.readExisting(agentsPath),
+                     content = upsertManagedSection(existing, managedContent),
                      action = this.determineAction(existing, content);
 
                // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
@@ -142,16 +150,17 @@ export class CodexAdapter extends BaseEditorAdapter {
    }
 
    /**
-    * Format rules into an AGENTS.md file body.
+    * Format rules into managed section content (without section markers — those are added by
+    * upsertManagedSection). Does not include a file header since the file belongs to the user.
     */
-   private formatAgentsMd(rules: EditorRule[]): string {
-      const lines: string[] = ['# AGENTS.md', ''];
+   private formatManagedRules(rules: EditorRule[]): string {
+      const parts: string[] = [];
 
       for (const rule of rules) {
-         lines.push(this.rulesStrategy.formatRule(rule), '');
+         parts.push(this.rulesStrategy.formatRule(rule));
       }
 
-      return lines.join('\n');
+      return parts.join('\n\n');
    }
 }
 
