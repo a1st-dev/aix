@@ -7,22 +7,23 @@ import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
 import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
 
 /**
- * Codex prompts strategy. Codex prompts are global-only (`~/.codex/prompts/`).
- * The install flow handles global config management with user confirmation.
+ * Codex prompts strategy. Following APM's Codex target mapping, aix does not deploy
+ * prompts for Codex; prompt-like reusable behavior should be packaged as skills.
  */
 export class CodexPromptsStrategy implements PromptsStrategy {
    /**
-    * Returns true because prompts ARE supported, just globally.
+    * Codex has deprecated user-level custom prompts, but no project-local prompt target.
+    * Treat prompts as unsupported so project installs do not mutate `~/.codex/prompts`.
     */
    isSupported(): boolean {
-      return true;
+      return false;
    }
 
    /**
-    * Returns true to indicate this editor only supports global prompts.
+    * Codex does not get prompt deployment through aix.
     */
    isGlobalOnly(): boolean {
-      return true;
+      return false;
    }
 
    getPromptsDir(): string {
@@ -34,7 +35,7 @@ export class CodexPromptsStrategy implements PromptsStrategy {
    }
 
    getGlobalPromptsPath(): string {
-      return '.codex/prompts';
+      return '';
    }
 
    /**

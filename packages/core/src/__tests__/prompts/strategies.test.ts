@@ -148,10 +148,9 @@ describe('PromptsStrategy implementations', () => {
    describe('CodexPromptsStrategy', () => {
       const strategy = new CodexPromptsStrategy();
 
-      it('is supported but global-only', () => {
-         // Codex prompts are global-only (~/.codex/prompts/), but still supported
-         expect(strategy.isSupported()).toBe(true);
-         expect(strategy.isGlobalOnly()).toBe(true);
+      it('does not support prompt deployment', () => {
+         expect(strategy.isSupported()).toBe(false);
+         expect(strategy.isGlobalOnly()).toBe(false);
       });
 
       it('returns empty prompts directory (no project-level path)', () => {
@@ -162,8 +161,8 @@ describe('PromptsStrategy implementations', () => {
          expect(strategy.getFileExtension()).toBe('.md');
       });
 
-      it('returns global prompts path', () => {
-         expect(strategy.getGlobalPromptsPath()).toBe('.codex/prompts');
+      it('does not return a global prompts path', () => {
+         expect(strategy.getGlobalPromptsPath()).toBe('');
       });
 
       it('parses global prompt files', async () => {

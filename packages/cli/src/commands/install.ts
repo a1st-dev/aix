@@ -365,12 +365,18 @@ export default class Install extends BaseCommand<typeof Install> {
       projectRoot: string,
       isDryRun: boolean,
    ): void {
+      const hasLocalChanges = result.changes.length > 0,
+            hasGlobalChanges = this.hasGlobalChanges(result.globalChanges);
+
       if (isDryRun) {
          this.output.stopSpinner(true, `Changes for ${editor}:`);
-         if (result.changes.length === 0) {
+         if (!hasLocalChanges && !hasGlobalChanges) {
             this.output.info('No changes needed (no rules or MCP servers configured)');
          } else {
-            this.displayChanges(result.changes, projectRoot, true);
+            if (hasLocalChanges) {
+               this.displayChanges(result.changes, projectRoot, true);
+            }
+            this.displayGlobalChanges(result.globalChanges);
          }
          this.showUnsupportedFeatureWarnings(editor, result.unsupportedFeatures);
          return;
@@ -384,7 +390,7 @@ export default class Install extends BaseCommand<typeof Install> {
          return;
       }
 
-      if (result.changes.length === 0) {
+      if (!hasLocalChanges && !hasGlobalChanges) {
          this.output.stopSpinner(
             true,
             `Nothing to install for ${editor} (no rules or MCP servers configured)`,
@@ -394,7 +400,10 @@ export default class Install extends BaseCommand<typeof Install> {
 
       this.output.stopSpinner(true, `Installed to ${editor}`);
       if (!this.flags.quiet) {
-         this.displayChanges(result.changes, projectRoot);
+         if (hasLocalChanges) {
+            this.displayChanges(result.changes, projectRoot);
+         }
+         this.displayGlobalChanges(result.globalChanges);
       }
 
       // Show Codex-specific usage instructions when MCP flags were generated
@@ -656,6 +665,52 @@ export default class Install extends BaseCommand<typeof Install> {
 
             this.output.log(`    ${prefix} ${name}${action}`);
          }
+      }
+
+      this.output.log('');
+   }
+
+   /**
+    * Check whether global-only processing produced anything worth showing.
+    */
+   private hasGlobalChanges(globalChanges?: ApplyResult['globalChanges']): boolean {
+      return Boolean(globalChanges && (globalChanges.applied.length > 0 || globalChanges.skipped.length > 0));
+   }
+
+   /**
+    * Display global-only feature changes, such as Codex prompts and MCP config.
+    */
+   private displayGlobalChanges(globalChanges?: ApplyResult['globalChanges']): void {
+      if (!this.hasGlobalChanges(globalChanges) || !globalChanges) {
+         return;
+      }
+
+      const groups = [
+         { label: 'Global MCP', type: 'mcp' as const },
+         { label: 'Global Prompts', type: 'prompt' as const },
+      ];
+
+      for (const { label, type } of groups) {
+         const applied = globalChanges.applied.filter((change) => change.type === type),
+               skipped = globalChanges.skipped.filter((change) => change.type === type);
+
+         if (applied.length === 0 && skipped.length === 0) {
+            continue;
+         }
+
+         this.output.log('');
+         this.output.log(this.output.cyan(`  ${label}`));
+
+         for (const change of applied) {
+            this.output.log(`    ${this.output.green('✓')} ${change.name}`);
+         }
+         for (const change of skipped) {
+            this.output.log(`    ${this.output.dim('-')} ${change.name} ${this.output.dim(`(${change.reason})`)}`);
+         }
+      }
+
+      for (const warning of globalChanges.warnings) {
+         this.output.warn(warning);
       }
 
       this.output.log('');

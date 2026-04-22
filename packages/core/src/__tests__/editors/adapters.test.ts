@@ -850,6 +850,19 @@ description: Demo skill
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
       });
 
+      it('Codex reports unsupported prompts', async () => {
+         const config = createConfig({
+            prompts: {
+               review: { content: 'Review this change.' },
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir, { dryRun: true });
+
+         expect(result.globalChanges).toBeUndefined();
+         expect(result.unsupportedFeatures?.prompts?.prompts).toContain('review');
+      });
+
       it('Claude Code reports no unsupported features for standard config', async () => {
          const config = createConfig({
             mcp: {

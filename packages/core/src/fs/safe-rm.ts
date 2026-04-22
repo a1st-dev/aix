@@ -95,7 +95,7 @@ function isInAixDir(normalizedPath: string): boolean {
  * Check if path is within an editor config directory.
  */
 function isInEditorConfigDir(normalizedPath: string): boolean {
-   const editorDirs = ['.windsurf', '.cursor', '.claude', '.vscode', '.zed', '.codex'];
+   const editorDirs = ['.windsurf', '.cursor', '.claude', '.vscode', '.zed', '.codex', '.agents', '.github'];
 
    return editorDirs.some(
       (dir) => normalizedPath.includes(`${sep}${dir}${sep}`) || normalizedPath.endsWith(`${sep}${dir}`),
