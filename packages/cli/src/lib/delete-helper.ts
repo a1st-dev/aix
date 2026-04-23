@@ -52,6 +52,7 @@ export function computeFilesToDelete(
             zed: { project: '.zed/skills', user: '.zed/skills' },
             codex: { project: '.agents/skills', user: '.codex/skills' },
             gemini: { project: '.gemini/skills', user: '.gemini/skills' },
+            opencode: { project: '.opencode/skills', user: '.config/opencode/skills' },
          };
 
          const skillDirConfig = editorSkillDirs[editor];

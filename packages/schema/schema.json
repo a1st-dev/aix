@@ -645,7 +645,8 @@
                                  "copilot",
                                  "zed",
                                  "neovim",
-                                 "gemini"
+                                 "gemini",
+                                 "opencode"
                               ],
                               "description": "Supported editor/agent"
                            },
@@ -1220,6 +1221,114 @@
                                  "type": "object",
                                  "additionalProperties": {},
                                  "description": "Gemini CLI settings"
+                              }
+                           },
+                           "additionalProperties": false
+                        },
+                        "opencode": {
+                           "type": "object",
+                           "properties": {
+                              "enabled": {
+                                 "type": "boolean",
+                                 "default": true,
+                                 "description": "Whether to configure this editor"
+                              },
+                              "rules": {
+                                 "type": "object",
+                                 "additionalProperties": {
+                                    "anyOf": [
+                                       {
+                                          "anyOf": [
+                                             {
+                                                "type": "string",
+                                                "description": "Source reference: local path (./, ../, /, file:), git URL (https://), or git shorthand (github:)"
+                                             },
+                                             {
+                                                "type": "object",
+                                                "properties": {
+                                                   "description": {
+                                                      "type": "string",
+                                                      "description": "When the rule should apply (required for auto mode)"
+                                                   },
+                                                   "activation": {
+                                                      "type": "string",
+                                                      "enum": ["always", "auto", "glob", "manual"],
+                                                      "default": "always",
+                                                      "description": "When the rule should be activated"
+                                                   },
+                                                   "globs": {
+                                                      "type": "array",
+                                                      "items": {
+                                                         "type": "string"
+                                                      },
+                                                      "description": "File patterns (required for glob mode)"
+                                                   },
+                                                   "content": {
+                                                      "type": "string",
+                                                      "description": "Inline rule content"
+                                                   },
+                                                   "path": {
+                                                      "type": "string",
+                                                      "description": "Local file path to rule content"
+                                                   },
+                                                   "git": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "url": {
+                                                            "type": "string",
+                                                            "description": "Git repository URL or shorthand (e.g., github:user/repo)"
+                                                         },
+                                                         "path": {
+                                                            "type": "string",
+                                                            "description": "Path to rule file within repo (default: root)"
+                                                         },
+                                                         "ref": {
+                                                            "type": "string",
+                                                            "description": "Branch, tag, or commit (default: main/master)"
+                                                         }
+                                                      },
+                                                      "required": ["url"],
+                                                      "additionalProperties": false,
+                                                      "description": "Git repository source"
+                                                   },
+                                                   "npm": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "npm": {
+                                                            "type": "string",
+                                                            "description": "NPM package name (e.g., \"@company/rules\")"
+                                                         },
+                                                         "path": {
+                                                            "type": "string",
+                                                            "description": "Path to file within package (e.g., \"rules/style.md\")"
+                                                         },
+                                                         "version": {
+                                                            "type": "string",
+                                                            "description": "Version to auto-install (omit to use project node_modules)"
+                                                         }
+                                                      },
+                                                      "required": ["npm", "path"],
+                                                      "additionalProperties": false,
+                                                      "description": "NPM package source"
+                                                   }
+                                                },
+                                                "additionalProperties": false,
+                                                "description": "Rule with metadata and content source"
+                                             }
+                                          ]
+                                       },
+                                       {
+                                          "type": "boolean",
+                                          "const": false
+                                       }
+                                    ]
+                                 },
+                                 "propertyNames": {
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                 },
+                                 "description": "Editor-specific rules (in addition to global rules)"
                               }
                            },
                            "additionalProperties": false

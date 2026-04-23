@@ -92,7 +92,7 @@ describe('validateConfig', () => {
 
    it('validates editors array shorthand', () => {
       const config = {
-         editors: ['windsurf', 'cursor'],
+         editors: ['windsurf', 'cursor', 'opencode'],
       };
 
       const result = validateConfig(config);
@@ -115,6 +115,7 @@ describe('validateConfig', () => {
          editors: {
             windsurf: { enabled: true },
             cursor: { enabled: false },
+            opencode: { enabled: true },
          },
       };
 

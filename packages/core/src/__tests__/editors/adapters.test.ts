@@ -12,6 +12,7 @@ import {
    ZedAdapter,
    CodexAdapter,
    GeminiAdapter,
+   OpenCodeAdapter,
    getAdapter,
    getAvailableEditors,
    detectEditors,
@@ -69,7 +70,8 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('zed');
          expect(editors).toContain('codex');
          expect(editors).toContain('gemini');
-         expect(editors).toHaveLength(7);
+         expect(editors).toContain('opencode');
+         expect(editors).toHaveLength(8);
       });
    });
 
@@ -82,6 +84,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('zed')).toBeInstanceOf(ZedAdapter);
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
          expect(getAdapter('gemini')).toBeInstanceOf(GeminiAdapter);
+         expect(getAdapter('opencode')).toBeInstanceOf(OpenCodeAdapter);
       });
 
       it('throws for unknown editor', () => {
@@ -1121,6 +1124,191 @@ Skill instructions.
          });
 
          const result = await installToEditor('gemini', config, testDir);
+
+         expect(result.unsupportedFeatures?.hooks).toBeDefined();
+         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+      });
+   });
+
+   describe('OpenCodeAdapter', () => {
+      const adapter = new OpenCodeAdapter();
+
+      it('has correct name and configDir', () => {
+         expect(adapter.name).toBe('opencode');
+         expect(adapter.configDir).toBe('.opencode');
+      });
+
+      it('detects when .opencode directory exists', async () => {
+         await mkdir(join(testDir, '.opencode'), { recursive: true });
+
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('detects when opencode.json exists', async () => {
+         await writeFile(join(testDir, 'opencode.json'), '{}');
+
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('detects when opencode.jsonc exists', async () => {
+         await writeFile(join(testDir, 'opencode.jsonc'), '{}');
+
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('does not detect when OpenCode config is missing', async () => {
+         expect(await adapter.detect(testDir)).toBe(false);
+      });
+
+      it('writes rules to AGENTS.md with section markers', async () => {
+         const config = createConfig({
+            rules: {
+               'opencode-rule': { activation: 'always', content: 'OpenCode rule content' },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
+         expect(agentsContent).toContain('## opencode-rule');
+         expect(agentsContent).toContain('OpenCode rule content');
+         expect(agentsContent).toContain('<!-- END AIX MANAGED SECTION -->');
+      });
+
+      it('preserves existing AGENTS.md user content on install', async () => {
+         await writeFile(join(testDir, 'AGENTS.md'), '# AGENTS.md\n\nProject conventions here.\n');
+
+         const config = createConfig({
+            rules: {
+               'managed-rule': { activation: 'always', content: 'Managed content' },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(agentsContent).toContain('# AGENTS.md');
+         expect(agentsContent).toContain('Project conventions here.');
+         expect(agentsContent).toContain('## managed-rule');
+         expect(agentsContent).toContain('Managed content');
+      });
+
+      it('writes MCP config to opencode.json', async () => {
+         const config = createConfig({
+            mcp: {
+               localServer: {
+                  command: 'cmd',
+                  args: ['--arg'],
+                  env: { TOKEN: '${TOKEN}' },
+                  enabled: false,
+               },
+               remoteServer: {
+                  url: 'https://example.com/mcp',
+                  headers: { Authorization: 'Bearer ${TOKEN}' },
+                  timeout: 6000,
+               },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const mcpContent = await readFile(join(testDir, 'opencode.json'), 'utf-8'),
+               mcpConfig = JSON.parse(mcpContent);
+
+         expect(mcpConfig.$schema).toBe('https://opencode.ai/config.json');
+         expect(mcpConfig.mcp.localServer.type).toBe('local');
+         expect(mcpConfig.mcp.localServer.command).toEqual(['cmd', '--arg']);
+         expect(mcpConfig.mcp.localServer.environment).toEqual({ TOKEN: '${TOKEN}' });
+         expect(mcpConfig.mcp.localServer.enabled).toStrictEqual(false);
+         expect(mcpConfig.mcp.remoteServer.type).toBe('remote');
+         expect(mcpConfig.mcp.remoteServer.url).toBe('https://example.com/mcp');
+         expect(mcpConfig.mcp.remoteServer.headers).toEqual({
+            Authorization: 'Bearer ${TOKEN}',
+         });
+         expect(mcpConfig.mcp.remoteServer.timeout).toBe(6000);
+      });
+
+      it('writes prompts as markdown commands to .opencode/commands/', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review code',
+                  content: 'Please review this code.',
+               },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const promptContent = await readFile(
+            join(testDir, '.opencode/commands/review.md'),
+            'utf-8',
+         );
+
+         expect(promptContent).toContain('description: "Review code"');
+         expect(promptContent).toContain('Please review this code.');
+      });
+
+      it('installs skills to .opencode/skills/', async () => {
+         const skillDir = join(testDir, 'skills', 'release');
+
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: release
+description: Prepare a release.
+---
+
+Release instructions.
+`,
+         );
+
+         const config = createConfig({
+            skills: {
+               release: './skills/release',
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         expect(existsSync(join(testDir, '.aix/skills/release/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.opencode/skills/release'))).toBe(true);
+      });
+
+      it('uses user-scope OpenCode paths', async () => {
+         process.env.HOME = testDir;
+
+         const config = createConfig({
+            rules: {
+               'global-rule': { activation: 'always', content: 'Global OpenCode rule' },
+            },
+            prompts: {
+               review: { content: 'Review globally.' },
+            },
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         await installToEditor('opencode', config, testDir, { targetScope: 'user' });
+
+         expect(existsSync(join(testDir, '.config/opencode/AGENTS.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.config/opencode/opencode.json'))).toBe(true);
+         expect(existsSync(join(testDir, '.config/opencode/commands/review.md'))).toBe(true);
+      });
+
+      it('reports unsupported hooks', async () => {
+         const config = createConfig({
+            hooks: {
+               session_end: [{ hooks: [{ command: 'echo end' }] }],
+            },
+         });
+
+         const result = await installToEditor('opencode', config, testDir);
 
          expect(result.unsupportedFeatures?.hooks).toBeDefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);

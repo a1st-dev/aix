@@ -43,6 +43,8 @@ Define rules in `ai.json`:
 
 If an editor doesn't support a specific activation mode (like `glob`), aix falls back to `always` for that editor.
 
+OpenCode uses `AGENTS.md` for rules. aix writes OpenCode rules into a managed section of that file and leaves the rest of the file alone.
+
 ## Sources
 
 Rules can be defined:

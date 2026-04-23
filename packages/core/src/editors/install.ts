@@ -10,6 +10,7 @@ import {
    ZedAdapter,
    CodexAdapter,
    GeminiAdapter,
+   OpenCodeAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
@@ -25,6 +26,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    zed: ZedAdapter,
    codex: CodexAdapter,
    gemini: GeminiAdapter,
+   opencode: OpenCodeAdapter,
 };
 
 /**

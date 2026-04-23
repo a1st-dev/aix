@@ -6,7 +6,7 @@ title: Supported Editors
 description: Feature support matrix for all editors detected by aix.
 ---
 
-aix currently supports 7 AI code editors.
+aix currently supports 8 AI code editors.
 
 | Editor         | Rules | Prompts | MCP | Skills | Hooks | AGENTS.md | `.agents/` folder |
 | -------------- | :---: | :-----: | :-: | :----: | :---: | :-------: | :---------------: |
@@ -17,6 +17,7 @@ aix currently supports 7 AI code editors.
 | Zed            |  ✅   |   ❌    | ✅  |   ⚠️   |  ❌   |    Yes    |        No         |
 | Codex          |  ✅   |   ⚠️    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
 | Gemini         |  ✅   |   ✅    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
+| OpenCode       |  ✅   |   ✅    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
 
 ⚠️ = supported through an adapter behavior instead of a native editor feature. Zed skills use pointer rules. Codex prompts convert to skills.
 
@@ -112,10 +113,25 @@ If a prompt and a skill use the same name in `ai.json`, the real skill keeps the
 
 Gemini CLI supports [`.agents/skills/`][gemini-skills] as an alias for `.gemini/skills/`, at both workspace and user scope. Within the same scope, `.agents/skills/` takes precedence over `.gemini/skills/`. Gemini's default context file is `GEMINI.md`, but [`context.fileName`][gemini-config] can be configured to load `AGENTS.md`, so aix treats `AGENTS.md` support as yes.
 
+### OpenCode
+
+- **Rules**: `AGENTS.md` at project root (using section-managed markdown to preserve user content).
+- **MCP**: `opencode.json` at project root, using OpenCode's top-level `mcp` object. User installs write `~/.config/opencode/opencode.json`.
+- **Prompts**: `.opencode/commands/*.md`, or `~/.config/opencode/commands/*.md` for user installs.
+- **Skills**: `.aix/skills/{name}/` with symlinks from `.opencode/skills/`. User installs link from `~/.config/opencode/skills/`.
+- **Hooks**: Not supported.
+
+#### .agents/ folder
+
+OpenCode reads `AGENTS.md` for project and global rules. It also discovers Agent Skills in `.opencode/skills/`, `~/.config/opencode/skills/`, Claude-compatible skill directories, and `.agents/skills/` directories.
+
 [codex-skills]: https://developers.openai.com/codex/skills
 [codex-agents-md]: https://developers.openai.com/codex/guides/agents-md
 [gemini-skills]: https://geminicli.com/docs/cli/skills/
 [gemini-config]: https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md
+[opencode-config]: https://opencode.ai/docs/config/
+[opencode-rules]: https://opencode.ai/docs/rules/
+[opencode-skills]: https://opencode.ai/docs/skills
 [copilot-skills]: https://docs.github.com/en/copilot/concepts/agents/about-agent-skills
 [copilot-repo-instructions]: https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions
 [windsurf-skills]: https://docs.windsurf.com/windsurf/cascade/skills
