@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { join, basename } from 'pathe';
 import { parse as parseYaml } from 'yaml';
 import { skillFrontmatterSchema, type ParsedSkill, type SkillFrontmatter } from '@a1st/aix-schema';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
 
@@ -17,13 +16,13 @@ export async function parseSkillMd(
 ): Promise<ParsedSkill> {
    const skillMdPath = join(skillPath, 'SKILL.md');
 
-   if (!existsSync(skillMdPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(skillMdPath)) {
       throw new Error(
          `SKILL.md not found in "${skillPath}". Ensure the directory contains a SKILL.md file.`,
       );
    }
 
-   const content = await readFile(skillMdPath, 'utf-8'),
+   const content = await getRuntimeAdapter().fs.readFile(skillMdPath, 'utf-8'),
          match = content.match(FRONTMATTER_REGEX),
          folderName = basename(skillPath);
 

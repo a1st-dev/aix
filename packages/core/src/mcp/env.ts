@@ -1,3 +1,5 @@
+import { getRuntimeAdapter } from '../runtime/index.js';
+
 const ENV_VAR_PATTERN = /\$\{([^}]+)\}/g;
 
 export interface EnvResolutionOptions {
@@ -9,7 +11,7 @@ export interface EnvResolutionOptions {
  * Resolve ${VAR} syntax in a string value
  */
 export function resolveEnvVars(value: string, options: EnvResolutionOptions = {}): string {
-   const env = options.env ?? process.env,
+   const env = options.env ?? getRuntimeAdapter().process.env,
          throwOnMissing = options.throwOnMissing ?? false;
 
    return value.replace(ENV_VAR_PATTERN, (match, varName: string) => {
@@ -58,7 +60,7 @@ export function extractEnvVarNames(value: string): string[] {
  */
 export function validateEnvVars(
    value: string,
-   env: Record<string, string | undefined> = process.env,
+   env: Record<string, string | undefined> = getRuntimeAdapter().process.env,
 ): { valid: boolean; missing: string[] } {
    const names = extractEnvVarNames(value),
          missing = names.filter((name) => env[name] === undefined);

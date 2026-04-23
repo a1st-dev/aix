@@ -2,11 +2,11 @@
  * Shared git loading utilities for fetching content from git repositories.
  * Used by prompts/loader.ts and rules/loader.ts.
  */
-import { readFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { downloadTemplate } from 'giget';
 import type { GitSource } from '@a1st/aix-schema';
 import { parseGitHubBlobUrl } from './url-parsing.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface GitLoadOptions {
    /** Git source configuration */
@@ -66,7 +66,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
    const cachedFilePath = join(cachePath, filePath);
 
    try {
-      const content = await readFile(cachedFilePath, 'utf-8');
+      const content = await getRuntimeAdapter().fs.readFile(cachedFilePath, 'utf-8');
 
       return {
          content: content.trim(),
@@ -81,7 +81,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
       force: true,
    });
 
-   const content = await readFile(join(dir, filePath), 'utf-8');
+   const content = await getRuntimeAdapter().fs.readFile(join(dir, filePath), 'utf-8');
 
    return {
       content: content.trim(),

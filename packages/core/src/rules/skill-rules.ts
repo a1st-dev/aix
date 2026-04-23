@@ -1,8 +1,8 @@
 import pMap from 'p-map';
-import { readFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { LoadedRule } from './loader.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 /**
  * Generate a rule that points the AI to an installed skill. Skills are installed to
@@ -49,7 +49,7 @@ When you need to use this skill, read the SKILL.md file for detailed instruction
    for (const rulePath of editorRulePaths) {
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential: first-match lookup
-         const content = await readFile(join(skill.basePath, rulePath), 'utf-8');
+         const content = await getRuntimeAdapter().fs.readFile(join(skill.basePath, rulePath), 'utf-8');
 
          rules.push({
             name: `${skillName}-rules`,

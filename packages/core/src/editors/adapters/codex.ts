@@ -1,6 +1,4 @@
 import type { AiJsonConfig, ParsedSkill } from '@a1st/aix-schema';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type {
@@ -25,6 +23,7 @@ import type {
    PromptsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Codex CLI editor adapter. Writes rules to `AGENTS.md` at the project root (and optionally in
@@ -119,7 +118,7 @@ export class CodexAdapter extends BaseEditorAdapter {
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
          if (options.targetScope === 'user') {
             const agentsPath = join(
-                     homedir(),
+                     getRuntimeAdapter().os.homedir(),
                      this.rulesStrategy.getGlobalRulesPath() ?? '.codex/AGENTS.md',
                   ),
                   managedContent = this.formatManagedRules(editorConfig.rules),
@@ -150,7 +149,7 @@ export class CodexAdapter extends BaseEditorAdapter {
             // Clean up legacy .codex/AGENTS.md if it exists
             const legacyPath = join(projectRoot, '.codex', 'AGENTS.md');
 
-            if (existsSync(legacyPath)) {
+            if (getRuntimeAdapter().fs.existsSync(legacyPath)) {
                changes.push({ path: legacyPath, action: 'delete', content: '', category: 'rule' });
             }
          }

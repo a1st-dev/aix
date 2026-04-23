@@ -1,7 +1,4 @@
-import { mkdir, readFile, writeFile, rm, access, constants, chmod } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join, dirname, basename } from 'pathe';
-import { existsSync } from 'node:fs';
 import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
@@ -25,6 +22,7 @@ import { deepMergeJson, mcpConfigMergeResolver } from '../../json.js';
 import { loadPrompts as loadPromptsFromConfig, type LoadedPrompt } from '../../prompts/loader.js';
 import { mergeRules, type MergedRule } from '../../rules/merger.js';
 import { resolveAllSkills } from '../../skills/resolve.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Filter out `false` values from MCP config (used to disable inherited servers).
@@ -77,7 +75,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       const configPath = join(projectRoot, this.configDir);
 
       try {
-         await access(configPath, constants.F_OK);
+         await getRuntimeAdapter().fs.access(configPath, getRuntimeAdapter().fs.constants.F_OK);
          return true;
       } catch {
          return false;
@@ -138,14 +136,14 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       projectRoot: string,
       targetScope: 'project' | 'user' = 'project',
    ): Promise<void> {
-      const aixPath = join(targetScope === 'user' ? homedir() : projectRoot, '.aix');
+      const aixPath = join(targetScope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot, '.aix');
 
-      if (!existsSync(aixPath)) {
+      if (!getRuntimeAdapter().fs.existsSync(aixPath)) {
          return;
       }
 
       // Remove the .aix folder entirely, then recreate .tmp if needed
-      await rm(aixPath, { recursive: true, force: true });
+      await getRuntimeAdapter().fs.rm(aixPath, { recursive: true, force: true });
    }
 
    /**
@@ -165,23 +163,23 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             // Store original content for rollback
             let originalContent: string | null = null;
 
-            if (existsSync(change.path)) {
+            if (getRuntimeAdapter().fs.existsSync(change.path)) {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               originalContent = await readFile(change.path, 'utf-8');
+               originalContent = await getRuntimeAdapter().fs.readFile(change.path, 'utf-8');
             }
             applied.push({ path: change.path, originalContent });
 
             if (change.action === 'delete') {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await rm(change.path, { force: true });
+               await getRuntimeAdapter().fs.rm(change.path, { force: true });
             } else {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await mkdir(dirname(change.path), { recursive: true });
+               await getRuntimeAdapter().fs.mkdir(dirname(change.path), { recursive: true });
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await writeFile(change.path, change.content ?? '', 'utf-8');
+               await getRuntimeAdapter().fs.writeFile(change.path, change.content ?? '', 'utf-8');
                if (change.mode !== undefined) {
                   // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-                  await chmod(change.path, change.mode);
+                  await getRuntimeAdapter().fs.chmod(change.path, change.mode);
                }
             }
          }
@@ -191,10 +189,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             try {
                if (originalContent === null) {
                   // eslint-disable-next-line no-await-in-loop -- Sequential rollback
-                  await rm(path, { force: true });
+                  await getRuntimeAdapter().fs.rm(path, { force: true });
                } else {
                   // eslint-disable-next-line no-await-in-loop -- Sequential rollback
-                  await writeFile(path, originalContent, 'utf-8');
+                  await getRuntimeAdapter().fs.writeFile(path, originalContent, 'utf-8');
                }
             } catch {
                // Best effort rollback
@@ -209,7 +207,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     */
    protected async readExisting(filePath: string): Promise<string | null> {
       try {
-         return await readFile(filePath, 'utf-8');
+         return await getRuntimeAdapter().fs.readFile(filePath, 'utf-8');
       } catch {
          return null;
       }
@@ -315,7 +313,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const globalRulesPath = this.rulesStrategy.getGlobalRulesPath();
 
          if (targetScope === 'user' && globalRulesPath) {
-            const filePath = join(homedir(), globalRulesPath),
+            const filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
                   content = editorConfig.rules
                      .map((rule) => this.rulesStrategy.formatRule(rule))
                      .join('\n\n'),
@@ -356,7 +354,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
                   mcpPath =
                      targetScope === 'user' && globalMcpPath
-                        ? join(homedir(), globalMcpPath)
+                        ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                         : join(
                            this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
                            this.mcpStrategy.getConfigPath(),
@@ -391,7 +389,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
                promptsDir =
                   targetScope === 'user' && globalPromptsPath
-                     ? join(homedir(), globalPromptsPath)
+                     ? join(getRuntimeAdapter().os.homedir(), globalPromptsPath)
                      : join(configDir, this.promptsStrategy.getPromptsDir()),
                ext = this.promptsStrategy.getFileExtension();
 

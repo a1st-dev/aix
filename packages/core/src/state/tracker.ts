@@ -1,9 +1,7 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
 import type { ConfigScope } from '@a1st/aix-schema';
 import type { StateFile, StateSection, InstalledItemMeta, InstalledItems } from './types.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface TrackInstallOptions {
    scope: ConfigScope;
@@ -35,10 +33,12 @@ type SyncSectionStateArgs =
  * - user    → `~/.aix/state.json`
  */
 export function getStatePath(scope: ConfigScope, projectRoot?: string): string {
+   const runtime = getRuntimeAdapter();
+
    if (scope === 'user') {
-      return join(homedir(), '.aix', 'state.json');
+      return join(runtime.os.homedir(), '.aix', 'state.json');
    }
-   const root = projectRoot ?? process.cwd();
+   const root = projectRoot ?? runtime.process.cwd();
 
    return join(root, '.aix', 'state.json');
 }
@@ -62,11 +62,11 @@ function createEmptyState(scope: ConfigScope): StateFile {
 export async function readState(scope: ConfigScope, projectRoot?: string): Promise<StateFile> {
    const path = getStatePath(scope, projectRoot);
 
-   if (!existsSync(path)) {
+   if (!getRuntimeAdapter().fs.existsSync(path)) {
       return createEmptyState(scope);
    }
    try {
-      const raw = await readFile(path, 'utf-8');
+      const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8');
 
       return JSON.parse(raw) as StateFile;
    } catch {
@@ -84,8 +84,8 @@ export async function writeState(
 ): Promise<void> {
    const path = getStatePath(scope, projectRoot);
 
-   await mkdir(dirname(path), { recursive: true });
-   await writeFile(path, JSON.stringify(state, null, 2) + '\n', 'utf-8');
+   await getRuntimeAdapter().fs.mkdir(dirname(path), { recursive: true });
+   await getRuntimeAdapter().fs.writeFile(path, JSON.stringify(state, null, 2) + '\n', 'utf-8');
 }
 
 /**

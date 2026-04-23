@@ -1,6 +1,4 @@
 import pMap from 'p-map';
-import { access, constants } from 'node:fs/promises';
-import { homedir, platform } from 'node:os';
 import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo } from './types.js';
@@ -14,6 +12,7 @@ import {
    GeminiAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 /**
  * Registry of all available editor adapters.
@@ -53,19 +52,19 @@ export function getAvailableEditors(): EditorName[] {
 async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
    const adapter = getAdapter(editor),
          globalPaths = adapter.getGlobalDataPaths(),
-         paths = globalPaths[platform()];
+         paths = globalPaths[getRuntimeAdapter().os.platform()];
 
    if (!paths) {
       return false;
    }
 
-   const home = homedir();
+   const home = getRuntimeAdapter().os.homedir();
 
    // Check paths sequentially - return on first match (first-match lookup)
    for (const p of paths) {
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential: first-match lookup
-         await access(join(home, p), constants.F_OK);
+         await getRuntimeAdapter().fs.access(join(home, p), getRuntimeAdapter().fs.constants.F_OK);
          return true;
       } catch {
          // Continue checking other paths

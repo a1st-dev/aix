@@ -1,8 +1,6 @@
 /**
  * Remote config loading utilities for fetching ai.json from URLs, git repos, and local paths.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'pathe';
 import { downloadTemplate } from 'giget';
 import { parseJsonc, detectSourceType } from '@a1st/aix-schema';
@@ -18,6 +16,7 @@ import {
    RemoteFetchError,
    UnsupportedUrlError,
 } from './errors.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export type RemoteSourceType = 'url' | 'git' | 'local';
 
@@ -54,11 +53,11 @@ const FETCH_TIMEOUT_MS = 30000;
  * Fetch content from a URL with timeout.
  */
 async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
-   const controller = new AbortController(),
+   const controller = getRuntimeAdapter().network.createAbortController(),
          timeout = setTimeout(() => controller.abort(), timeoutMs);
 
    try {
-      const response = await fetch(url, { signal: controller.signal });
+      const response = await getRuntimeAdapter().network.fetch(url, { signal: controller.signal });
 
       if (!response.ok) {
          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -90,7 +89,7 @@ async function loadFromGitHubBlobUrl(parsed: {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { forceClean: true, cwd: tmpdir() });
+      const result = await downloadTemplate(template, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -105,11 +104,11 @@ async function loadFromGitHubBlobUrl(parsed: {
    // Read the config file from the downloaded repo
    const configPath = resolve(dir, parsed.path);
 
-   if (!existsSync(configPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(configPath)) {
       throw new ConfigNotFoundError(configPath);
    }
 
-   const content = readFileSync(configPath, 'utf-8'),
+   const content = getRuntimeAdapter().fs.readFileSync(configPath, 'utf-8'),
          result = parseJsonc(content);
 
    if (result.errors.length > 0) {
@@ -197,7 +196,7 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { forceClean: true, cwd: tmpdir() });
+      const result = await downloadTemplate(template, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -219,11 +218,11 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
       configPathInRepo = parsed.subpath ? `${parsed.subpath}/ai.json` : 'ai.json';
    }
 
-   if (!existsSync(configPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(configPath)) {
       throw new ConfigNotFoundError(configPath);
    }
 
-   const content = readFileSync(configPath, 'utf-8'),
+   const content = getRuntimeAdapter().fs.readFileSync(configPath, 'utf-8'),
          result = parseJsonc(content);
 
    if (result.errors.length > 0) {
@@ -248,14 +247,14 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
 /**
  * Load config from a local file path.
  */
-export function loadFromLocalPath(path: string, cwd: string = process.cwd()): RemoteLoadResult {
+export function loadFromLocalPath(path: string, cwd: string = getRuntimeAdapter().process.cwd()): RemoteLoadResult {
    const absolutePath = resolve(cwd, path);
 
-   if (!existsSync(absolutePath)) {
+   if (!getRuntimeAdapter().fs.existsSync(absolutePath)) {
       throw new ConfigNotFoundError(absolutePath);
    }
 
-   const content = readFileSync(absolutePath, 'utf-8'),
+   const content = getRuntimeAdapter().fs.readFileSync(absolutePath, 'utf-8'),
          result = parseJsonc(content);
 
    if (result.errors.length > 0) {
@@ -287,7 +286,7 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(url, { forceClean: true, cwd: tmpdir() });
+      const result = await downloadTemplate(url, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
 
       dir = result.dir;
    } catch (error) {
@@ -298,11 +297,11 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
 
    const configPath = resolve(dir, 'ai.json');
 
-   if (!existsSync(configPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(configPath)) {
       throw new ConfigNotFoundError(configPath);
    }
 
-   const content = readFileSync(configPath, 'utf-8'),
+   const content = getRuntimeAdapter().fs.readFileSync(configPath, 'utf-8'),
          result = parseJsonc(content);
 
    if (result.errors.length > 0) {
@@ -322,7 +321,7 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
  */
 export async function loadFromSource(
    source: string,
-   cwd: string = process.cwd(),
+   cwd: string = getRuntimeAdapter().process.cwd(),
 ): Promise<RemoteLoadResult> {
    const sourceType = detectSourceType(source);
 

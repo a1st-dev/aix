@@ -1,7 +1,7 @@
-import { platform } from 'node:os';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 import { StandardMcpStrategy } from '../shared/standard-mcp.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Claude Code MCP strategy. Uses `.mcp.json` (dot-prefixed) with a `mcpServers` object. Each server
@@ -23,7 +23,7 @@ export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStr
          win32: 'AppData/Roaming/Claude/claude_desktop_config.json',
       };
 
-      return paths[platform()] ?? null;
+      return paths[getRuntimeAdapter().os.platform()] ?? null;
    }
 
    override formatConfig(mcp: Record<string, McpServerConfig>): string {

@@ -7,6 +7,7 @@ import { ConfigNotFoundError, ConfigParseError } from './errors.js';
 import { extractValidationIssues, toConfigValidationError } from './format-error.js';
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface LoadedConfig {
    path: string;
@@ -57,13 +58,13 @@ export async function loadConfig(
    if (typeof options === 'string' || options === undefined) {
       opts = {
          explicitPath: options,
-         startDir: startDir ?? process.cwd(),
+         startDir: startDir ?? getRuntimeAdapter().process.cwd(),
       };
    } else {
-      opts = { startDir: process.cwd(), ...options };
+      opts = { startDir: getRuntimeAdapter().process.cwd(), ...options };
    }
 
-   const { explicitPath, remoteSource, startDir: cwd = process.cwd() } = opts;
+   const { explicitPath, remoteSource, startDir: cwd = getRuntimeAdapter().process.cwd() } = opts;
 
    // If remoteSource is provided, load from URL/git/path
    if (remoteSource) {

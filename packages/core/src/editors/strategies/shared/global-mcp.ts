@@ -1,9 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Configuration for global-only MCP strategy.
@@ -66,7 +64,7 @@ export class GlobalMcpStrategy implements McpStrategy {
     * Get the absolute path to the global config file.
     */
    getAbsoluteGlobalPath(): string {
-      return join(homedir(), this.config.globalConfigPath);
+      return join(getRuntimeAdapter().os.homedir(), this.config.globalConfigPath);
    }
 
    /**
@@ -96,12 +94,12 @@ export class GlobalMcpStrategy implements McpStrategy {
    }> {
       const globalPath = this.getAbsoluteGlobalPath();
 
-      if (!existsSync(globalPath)) {
+      if (!getRuntimeAdapter().fs.existsSync(globalPath)) {
          return { exists: false, mcp: {}, warnings: [] };
       }
 
       try {
-         const content = await readFile(globalPath, 'utf-8'),
+         const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8'),
                { mcp, warnings } = this.parseGlobalMcpConfig(content);
 
          return { exists: true, mcp, warnings };

@@ -1,7 +1,6 @@
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface PromptSkillInput {
    name: string;
@@ -35,7 +34,7 @@ export async function convertPromptsToSkills(
    prompts: PromptSkillInput[],
    options: PromptSkillConversionOptions = {},
 ): Promise<PromptSkillConversionResult> {
-   const tempRoot = options.tempRoot ?? (await mkdtemp(join(tmpdir(), 'aix-prompt-skills-'))),
+   const tempRoot = options.tempRoot ?? (await getRuntimeAdapter().fs.mkdtemp(join(getRuntimeAdapter().os.tmpdir(), 'aix-prompt-skills-'))),
          usedNames = new Set<string>(),
          skills = new Map<string, ParsedSkill>(),
          conflicts: PromptSkillConflict[] = [],
@@ -75,8 +74,8 @@ export async function convertPromptsToSkills(
 
    await Promise.all(
       writes.map(async ({ skillDir, skillBody }) => {
-         await mkdir(skillDir, { recursive: true });
-         await writeFile(join(skillDir, 'SKILL.md'), skillBody, 'utf-8');
+         await getRuntimeAdapter().fs.mkdir(skillDir, { recursive: true });
+         await getRuntimeAdapter().fs.writeFile(join(skillDir, 'SKILL.md'), skillBody, 'utf-8');
       }),
    );
 

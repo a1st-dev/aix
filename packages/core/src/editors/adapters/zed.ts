@@ -1,5 +1,4 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
@@ -12,6 +11,7 @@ import type {
    PromptsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Zed editor adapter. Writes rules to `.rules` at project root and MCP config to
@@ -86,7 +86,7 @@ export class ZedAdapter extends BaseEditorAdapter {
          if (mcpEntries.length > 0) {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
                   mcpPath = _options.targetScope === 'user' && globalMcpPath
-                     ? join(homedir(), globalMcpPath)
+                     ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                      : join(configDir, this.mcpStrategy.getConfigPath()),
                   change = await this.planJsonFileChange(
                      mcpPath,

@@ -1,6 +1,6 @@
-import { mkdir } from 'node:fs/promises';
 import { getNpmCacheDir } from '../cache/paths.js';
 import { safeRm } from '../fs/safe-rm.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 /**
  * Ensure the npm cache directory exists.
@@ -8,7 +8,7 @@ import { safeRm } from '../fs/safe-rm.js';
 export async function ensureNpmCacheDir(projectRoot: string): Promise<string> {
    const path = getNpmCacheDir(projectRoot);
 
-   await mkdir(path, { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(path, { recursive: true });
    return path;
 }
 

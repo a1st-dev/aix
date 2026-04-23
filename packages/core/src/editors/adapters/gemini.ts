@@ -1,5 +1,4 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
@@ -13,6 +12,7 @@ import type {
    HooksStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Gemini CLI editor adapter. Writes rules to `GEMINI.md` at the project root using
@@ -77,7 +77,10 @@ export class GeminiAdapter extends BaseEditorAdapter {
 
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
          if (options.targetScope === 'user') {
-            const geminiPath = join(homedir(), this.rulesStrategy.getGlobalRulesPath() ?? '.gemini/GEMINI.md'),
+            const geminiPath = join(
+                     getRuntimeAdapter().os.homedir(),
+                     this.rulesStrategy.getGlobalRulesPath() ?? '.gemini/GEMINI.md',
+                  ),
                   managedContent = this.formatManagedRules(editorConfig.rules),
                   existing = await this.readExisting(geminiPath),
                   content = upsertManagedSection(existing, managedContent),
@@ -103,7 +106,7 @@ export class GeminiAdapter extends BaseEditorAdapter {
             const configDir = join(projectRoot, this.configDir),
                   globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
                   mcpPath = options.targetScope === 'user' && globalMcpPath
-                     ? join(homedir(), globalMcpPath)
+                     ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                      : join(configDir, this.mcpStrategy.getConfigPath()),
                   change = await this.planJsonFileChange(
                      mcpPath,
@@ -124,7 +127,7 @@ export class GeminiAdapter extends BaseEditorAdapter {
          const configDir = join(projectRoot, this.configDir),
                globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
                promptsDir = options.targetScope === 'user' && globalPromptsPath
-                  ? join(homedir(), globalPromptsPath)
+                  ? join(getRuntimeAdapter().os.homedir(), globalPromptsPath)
                   : join(configDir, this.promptsStrategy.getPromptsDir()),
                ext = this.promptsStrategy.getFileExtension();
 

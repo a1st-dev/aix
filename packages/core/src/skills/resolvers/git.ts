@@ -1,9 +1,9 @@
 import { downloadTemplate } from 'giget';
 import { join } from 'pathe';
-import { tmpdir } from 'node:os';
 import { parseSkillMd } from '../parser.js';
 import type { GitRef } from '../reference-parser.js';
 import type { ParsedSkill } from '@a1st/aix-schema';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Resolve a skill from a git repository.
@@ -11,7 +11,7 @@ import type { ParsedSkill } from '@a1st/aix-schema';
  */
 export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
    const cacheKey = createCacheKey(ref),
-         cachePath = join(tmpdir(), 'aix-skills', 'git', cacheKey);
+         cachePath = join(getRuntimeAdapter().os.tmpdir(), 'aix-skills', 'git', cacheKey);
 
    // Build giget source string
    // giget supports: gh:user/repo, gitlab:user/repo, bitbucket:user/repo, https://...
