@@ -8,6 +8,7 @@ export type {
    FileChange,
    FileChangeCategory,
    UnsupportedFeatures,
+   TargetScopeLimitations,
 } from './types.js';
 
 export {
@@ -31,5 +32,18 @@ export {
    install,
 } from './install.js';
 
-export { importFromEditor, getGlobalConfigPath } from './import.js';
-export type { ImportResult } from './import.js';
+export {
+   importFromEditor,
+   getGlobalConfigPath,
+   normalizeEditorImport,
+   buildConfigFromEditorImport,
+} from './import.js';
+export type {
+   ImportResult,
+   ImportOptions,
+   ImportReadScope,
+   NormalizedEditorImport,
+   NormalizedImportedRule,
+   NormalizedImportedPrompt,
+   NormalizedImportedSkill,
+} from './import.js';

@@ -26,6 +26,25 @@ export interface UnsupportedFeatures {
    };
 }
 
+/**
+ * Describes features that the editor supports in general, but that aix cannot write in the
+ * requested target scope.
+ */
+export interface TargetScopeLimitations {
+   rules?: {
+      reason: string;
+      rules: string[];
+   };
+   skills?: {
+      reason: string;
+      skills: string[];
+   };
+   hooks?: {
+      reason: string;
+      events: string[];
+   };
+}
+
 export type EditorName =
    | 'windsurf'
    | 'cursor'
@@ -109,6 +128,17 @@ export interface ApplyOptions {
     * to projectRoot.
     */
    configBaseDir?: string;
+   /**
+    * If true, do not silently fall back to writes outside the requested target scope.
+    * Used by sync to ensure project-only requests do not produce user/global writes and to report
+    * scope-specific skips explicitly.
+    */
+   strictTargetScope?: boolean;
+   /**
+    * Optional reason to use when global-only features are skipped because the requested target
+    * scope disallows them.
+    */
+   skipGlobalReason?: string;
 }
 
 /**
@@ -153,6 +183,8 @@ export interface ApplyResult {
    errors: string[];
    /** Features that were skipped because the editor doesn't support them */
    unsupportedFeatures?: UnsupportedFeatures;
+   /** Features skipped because the requested target scope cannot accept them */
+   targetScopeLimitations?: TargetScopeLimitations;
    /** Information about global configuration changes (for global-only features) */
    globalChanges?: GlobalChangesInfo;
 }
@@ -194,4 +226,13 @@ export interface EditorAdapter {
     * Get features from the config that this editor doesn't support.
     */
    getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures;
+
+   /**
+    * Get features from the config that aix should skip because the requested target scope cannot
+    * represent them for this editor.
+    */
+   getTargetScopeLimitations(
+      config: AiJsonConfig,
+      targetScope: 'project' | 'user',
+   ): TargetScopeLimitations;
 }

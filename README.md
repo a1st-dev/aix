@@ -20,6 +20,8 @@ aix add rule ../rules/typescript-rules.md
 aix add prompt ../prompts/review.md
 # Install all of the above to any supported editor. Outputs workspace-specific config
 aix install --target claude-code --target cursor
+# Sync supported config directly from one editor to another
+aix sync cursor --to claude-code
 ```
 
 Supported editors:
@@ -46,6 +48,7 @@ Standardize your AI config. Share it with your team. Check it into version contr
 - **Stop duplicating config** — Define skills, MCP servers, rules, and prompts once instead of per-editor
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
+- **Move between editors without pairwise converters** — `aix sync` reads one editor into aix's normalized bridge format, then installs what the destination can represent
 - **Safe updates** — Atomic writes with automatic backup and rollback
 
 ## Quick Start
@@ -56,8 +59,12 @@ npm install -g @a1st/aix
 # Initialize a blank ai.json file for your project
 aix init
 
-# Optionally, initialize it using your global editor settings:
+# Optionally, initialize it from your existing editor configuration:
 aix init --from <editor>
+
+# Or sync supported config directly from one editor to another.
+# By default, sync reads user-level config and writes user-level config.
+aix sync <from> --to <to>
 ```
 
 ## CLI Commands
@@ -65,6 +72,8 @@ aix init --from <editor>
 ```bash
 aix init                              # Create ai.json
 aix init --extends github:company/cfg # Create with an extends reference
+aix sync cursor --to claude-code      # Copy supported config editor -> editor
+aix sync cursor --to zed --scope project # Read and write project config
 aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install --save --only mcp         # Merge specific sections
@@ -82,6 +91,10 @@ aix list --all --editor copilot       # Show actual editor config, including ext
 ```
 
 Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to target user-level or project-level config.
+
+Use `aix init --from <editor>` when you want to create `ai.json` from an editor. Use
+`aix sync <from> --to <to>` when you want to copy supported config between editors without
+stopping at `ai.json`.
 
 ### Utility Commands
 

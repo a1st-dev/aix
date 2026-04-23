@@ -386,6 +386,37 @@ description: Demo skill
             join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'),
          );
       });
+
+      it('reports user-scope pointer-skill limitations in strict mode', async () => {
+         const skillDir = join(testDir, 'skills', 'demo-skill'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: demo-skill
+description: Demo skill
+---
+`,
+         );
+
+         const result = await installToEditor(
+            'zed',
+            createConfig({
+               skills: {
+                  'demo-skill': './skills/demo-skill',
+               },
+            }),
+            testDir,
+            { dryRun: true, scopes: ['skills'], targetScope: 'user', strictTargetScope: true },
+         );
+
+         expect(result.success).toBe(true);
+         expect(result.targetScopeLimitations?.skills?.skills).toEqual(['demo-skill']);
+         expect(result.changes).toEqual([]);
+      });
    });
 
    describe('CodexAdapter', () => {
@@ -694,6 +725,24 @@ Skill instructions.
 
          expect(result.success).toBe(true);
          expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.codex/AGENTS.md'));
+      });
+
+      it('reports user-scope rule limitations instead of silently writing project rules in strict mode', async () => {
+         const config = createConfig({
+            rules: {
+               'cursor-rule': { content: 'Keep this as a user rule.' },
+            },
+         });
+
+         const result = await installToEditor('cursor', config, testDir, {
+            dryRun: true,
+            targetScope: 'user',
+            strictTargetScope: true,
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.targetScopeLimitations?.rules?.rules).toEqual(['cursor-rule']);
+         expect(result.changes.map((c) => c.path)).not.toContain(join(testDir, '.cursor/rules/cursor-rule.mdc'));
       });
    });
 
@@ -1010,6 +1059,30 @@ Skill instructions.
          // Global changes should be present (skipped due to skipGlobal option)
          expect(result.globalChanges).toBeDefined();
          expect(result.globalChanges?.skipped.length).toBeGreaterThan(0);
+      });
+
+      it('skips global-only MCP when strict project scope is requested', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         process.env.HOME = join(testDir, 'fake-home');
+
+         const result = await installToEditor('windsurf', config, testDir, {
+            dryRun: true,
+            targetScope: 'project',
+            strictTargetScope: true,
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.globalChanges?.applied).toEqual([]);
+         expect(result.globalChanges?.skipped).toEqual([{
+            type: 'mcp',
+            name: 'server',
+            reason: 'Requested target scope is project, so aix did not write global-only config',
+         }]);
       });
 
       it('returns empty unsupportedFeatures when config has no features', async () => {

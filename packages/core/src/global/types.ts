@@ -49,6 +49,8 @@ export interface GlobalChangeResult {
 export interface GlobalChangeOptions {
    /** If true, skip all global changes without prompting */
    skipGlobal?: boolean;
+   /** Optional reason to use when global changes are skipped intentionally */
+   skipGlobalReason?: string;
    /** If true, apply all global changes without prompting (for testing) */
    autoConfirm?: boolean;
    /** Project root path for tracking */

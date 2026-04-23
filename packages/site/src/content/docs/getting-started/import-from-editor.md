@@ -8,6 +8,9 @@ description: Bootstrap ai.json from your existing editor configuration.
 
 If you already have rules, MCP servers, or other AI config in your editor, `aix init --from` can convert it into an `ai.json` for you.
 
+If you do not want an intermediate `ai.json` yet, and just want to move supported config from
+one editor to another, use `aix sync <from> --to <to>` instead.
+
 ## Usage
 
 ```bash
@@ -56,6 +59,14 @@ Imported content is written to `.aix/imported/` and referenced from `ai.json`:
    }
 }
 ```
+
+## init --from vs sync
+
+- `aix init --from cursor` reads Cursor and creates `ai.json`.
+- `aix sync cursor --to claude-code` reads Cursor and writes Claude Code directly.
+
+Under the hood, sync still goes through aix's normalized internal format. That means aix does
+not need a custom converter for every editor pair.
 
 ## Overwrite protection
 

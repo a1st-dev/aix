@@ -3,10 +3,13 @@ slug: cli/install
 sidebar:
    order: 3
 title: aix install
-description: Sync configuration to editors.
+description: Apply ai.json configuration to editors.
 ---
 
 Reads `ai.json` (and `ai.local.json`), resolves all inheritance, and writes configuration files for supported editors.
+
+This command starts from `ai.json`. If you want to copy supported config directly from one
+editor to another, use [`aix sync`](/cli/sync/) instead.
 
 ## Usage
 
@@ -66,3 +69,11 @@ aix install --only mcp
 ```bash
 aix install --scope user
 ```
+
+## install vs sync
+
+- `aix install` is `ai.json -> editor`
+- `aix sync` is `editor -> aix bridge -> editor`
+
+That split matters. `install` applies your shared config. `sync` is for migrating or copying
+existing editor config between supported editors.

@@ -7,11 +7,13 @@ import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
 import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
    importFromEditor,
+   normalizeEditorImport,
    getAvailableEditors,
    writeImportedContent,
    commitImport,
    rollbackImport,
    validateReference,
+   buildConfigFromEditorImport,
    type EditorName,
 } from '@a1st/aix-core';
 
@@ -36,7 +38,7 @@ export default class Init extends BaseCommand<typeof Init> {
          default: false,
       }),
       from: Flags.string({
-         description: `Import global config from an editor (${getAvailableEditors().join(', ')})`,
+         description: `Import supported config from an editor (${getAvailableEditors().join(', ')})`,
          options: getAvailableEditors(),
       }),
       extends: Flags.string({
@@ -148,8 +150,17 @@ export default class Init extends BaseCommand<typeof Init> {
          this.output.warn('No configuration found to import');
       }
 
-      // Write imported content to .aix/imported/ and get path references
-      const written = await writeImportedContent(process.cwd(), result);
+      const normalized = normalizeEditorImport(editor, result),
+            written = await writeImportedContent(process.cwd(), {
+               rules: normalized.rules.map((rule) => ({
+                  name: rule.name,
+                  content: rule.rawContent,
+               })),
+               prompts: Object.fromEntries(
+                  normalized.prompts.map((prompt) => [prompt.name, prompt.rawContent]),
+               ),
+            }),
+            config = buildConfigFromEditorImport(editor, result);
 
       // Build rules object with path references
       const rules: Record<string, { path: string }> = {};
@@ -166,10 +177,8 @@ export default class Init extends BaseCommand<typeof Init> {
       }
 
       return {
-         ...createEmptyConfig(),
-         mcp: result.mcp,
+         ...config,
          rules,
-         skills: result.skills,
          prompts,
       };
    }

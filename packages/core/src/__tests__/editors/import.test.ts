@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { importFromEditor, getGlobalConfigPath } from '../../editors/import.js';
+import {
+   importFromEditor,
+   getGlobalConfigPath,
+   buildConfigFromEditorImport,
+   type ImportResult,
+} from '../../editors/import.js';
 
 describe('Editor Config Import', () => {
    describe('getGlobalConfigPath', () => {
@@ -113,6 +118,59 @@ describe('Editor Config Import', () => {
          }
       });
 
+      it('imports user-scoped Cursor hooks into generic hook events', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-cursor-hooks-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME;
+
+         process.env.HOME = fakeHome;
+
+         try {
+            await mkdir(join(fakeHome, '.cursor'), { recursive: true });
+            await writeFile(
+               join(fakeHome, '.cursor', 'hooks.json'),
+               JSON.stringify({
+                  hooks: {
+                     beforeShellExecution: [{
+                        command: 'echo pre',
+                        timeout: 10,
+                     }],
+                     stop: [{
+                        command: 'echo stop',
+                     }],
+                  },
+               }),
+               'utf-8',
+            );
+
+            const result = await importFromEditor('cursor', {
+               projectRoot,
+               scope: 'user',
+            });
+
+            expect(result.hooks.pre_command).toEqual([{
+               hooks: [{
+                  command: 'echo pre',
+                  timeout: 10,
+               }],
+            }]);
+            expect(result.hooks.agent_stop).toEqual([{
+               hooks: [{
+                  command: 'echo stop',
+               }],
+            }]);
+            expect(result.scopes.hooks.pre_command).toBe('user');
+            expect(result.paths.hooks.pre_command).toBe(join(fakeHome, '.cursor', 'hooks.json'));
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
       it('imports OpenCode project rules, MCP, prompts, and skills', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-import-'));
 
@@ -209,6 +267,167 @@ describe('Editor Config Import', () => {
             await rm(projectRoot, { recursive: true, force: true });
          }
       });
+
+      it('imports only the requested OpenCode scope when names overlap', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-scope-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME;
+
+         process.env.HOME = fakeHome;
+
+         try {
+            await mkdir(join(fakeHome, '.config', 'opencode', 'commands'), { recursive: true });
+            await mkdir(join(projectRoot, '.opencode', 'commands'), { recursive: true });
+            await writeFile(
+               join(fakeHome, '.config', 'opencode', 'opencode.json'),
+               JSON.stringify({
+                  mcp: {
+                     docs: {
+                        type: 'remote',
+                        url: 'https://global.example.com/mcp',
+                     },
+                  },
+               }),
+               'utf-8',
+            );
+            await writeFile(
+               join(projectRoot, 'opencode.json'),
+               JSON.stringify({
+                  mcp: {
+                     docs: {
+                        type: 'remote',
+                        url: 'https://project.example.com/mcp',
+                     },
+                  },
+               }),
+               'utf-8',
+            );
+            await writeFile(
+               join(fakeHome, '.config', 'opencode', 'commands', 'review.md'),
+               'Review the global change.',
+               'utf-8',
+            );
+            await writeFile(
+               join(projectRoot, '.opencode', 'commands', 'review.md'),
+               'Review the project change.',
+               'utf-8',
+            );
+
+            const userResult = await importFromEditor('opencode', {
+                     projectRoot,
+                     scope: 'user',
+                  }),
+                  projectResult = await importFromEditor('opencode', {
+                     projectRoot,
+                     scope: 'project',
+                  }),
+                  combinedResult = await importFromEditor('opencode', {
+                     projectRoot,
+                     scope: 'all',
+                  });
+
+            expect(userResult.mcp.docs).toEqual({ url: 'https://global.example.com/mcp' });
+            expect(userResult.prompts.review).toBe('Review the global change.');
+            expect(userResult.scopes.mcp.docs).toBe('user');
+            expect(userResult.scopes.prompts.review).toBe('user');
+
+            expect(projectResult.mcp.docs).toEqual({ url: 'https://project.example.com/mcp' });
+            expect(projectResult.prompts.review).toBe('Review the project change.');
+            expect(projectResult.scopes.mcp.docs).toBe('project');
+            expect(projectResult.scopes.prompts.review).toBe('project');
+
+            expect(combinedResult.mcp.docs).toEqual({ url: 'https://project.example.com/mcp' });
+            expect(combinedResult.prompts.review).toBe('Review the project change.');
+            expect(combinedResult.scopes.mcp.docs).toBe('project');
+            expect(combinedResult.scopes.prompts.review).toBe('project');
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
    });
 
+   describe('buildConfigFromEditorImport', () => {
+      it('normalizes imported names and preserves imported metadata where the source format exposes it', () => {
+         const cursorImported: ImportResult = {
+            mcp: {
+               docs: { url: 'https://example.com/mcp' },
+            },
+            rules: [{
+               name: 'API Rule',
+               content: [
+                  '---',
+                  'description: "Use the API layer"',
+                  'globs: src/**/*.ts, src/**/*.tsx',
+                  'alwaysApply: false',
+                  '---',
+                  '',
+                  'Use service wrappers.',
+               ].join('\n'),
+            }],
+            skills: {
+               'Release Skill': '/tmp/release-skill',
+            },
+            prompts: {},
+            hooks: {
+               pre_command: [{
+                  hooks: [{
+                     command: 'echo pre',
+                  }],
+               }],
+            },
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            warnings: [],
+            sources: { global: false, local: false },
+         };
+         const copilotImported: ImportResult = {
+            mcp: {},
+            rules: [],
+            skills: {},
+            prompts: {
+               'Review Prompt': [
+                  '---',
+                  'description: Review code',
+                  'argument-hint: [path]',
+                  'mode: ask',
+                  '---',
+                  '',
+                  'Review this code.',
+               ].join('\n'),
+            },
+            hooks: {},
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            warnings: [],
+            sources: { global: false, local: false },
+         };
+
+         const cursorConfig = buildConfigFromEditorImport('cursor', cursorImported),
+               copilotConfig = buildConfigFromEditorImport('copilot', copilotImported);
+
+         expect(cursorConfig.mcp.docs).toEqual({ url: 'https://example.com/mcp' });
+         expect(cursorConfig.rules['api-rule']).toEqual({
+            content: 'Use service wrappers.',
+            description: 'Use the API layer',
+            activation: 'glob',
+            globs: ['src/**/*.ts', 'src/**/*.tsx'],
+         });
+         expect(cursorConfig.skills['release-skill']).toBe('/tmp/release-skill');
+         expect(cursorConfig.hooks?.pre_command).toEqual([{
+            hooks: [{
+               command: 'echo pre',
+            }],
+         }]);
+         expect(copilotConfig.prompts['review-prompt']).toEqual({
+            content: 'Review this code.',
+            description: 'Review code',
+            argumentHint: 'path',
+         });
+      });
+   });
 });
