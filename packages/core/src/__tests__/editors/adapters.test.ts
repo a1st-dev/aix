@@ -42,7 +42,10 @@ describe('Editor Adapters', () => {
 
    beforeEach(async () => {
       originalHome = process.env.HOME;
-      testDir = join(tmpdir(), `aix-editor-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      testDir = join(
+         tmpdir(),
+         `aix-editor-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
       await mkdir(testDir, { recursive: true });
    });
 
@@ -162,7 +165,9 @@ describe('Editor Adapters', () => {
          expect(result.success).toBe(true);
          expect(result.changes.length).toBeGreaterThan(0);
          // File should not exist in dry-run mode
-         await expect(readFile(join(testDir, '.windsurf/rules/rule.md'), 'utf-8')).rejects.toThrow();
+         await expect(
+            readFile(join(testDir, '.windsurf/rules/rule.md'), 'utf-8'),
+         ).rejects.toThrow();
       });
    });
 
@@ -187,7 +192,10 @@ describe('Editor Adapters', () => {
 
          await installToEditor('cursor', config, testDir);
 
-         const ruleContent = await readFile(join(testDir, '.cursor/rules/cursor-rule.mdc'), 'utf-8');
+         const ruleContent = await readFile(
+            join(testDir, '.cursor/rules/cursor-rule.mdc'),
+            'utf-8',
+         );
 
          expect(ruleContent).toContain('---');
          expect(ruleContent).toContain('alwaysApply: false');
@@ -507,6 +515,74 @@ description: Demo skill
          expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
          expect(agentsContent).toContain('<!-- END AIX MANAGED SECTION -->');
       });
+
+      it('converts prompts to Codex skills', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review the current change.',
+                  content: 'Review this change.',
+               },
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir);
+
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/review'))).toBe(true);
+
+         const skillContent = await readFile(join(testDir, '.aix/skills/review/SKILL.md'), 'utf-8');
+
+         expect(skillContent).toContain('name: review');
+         expect(skillContent).toContain('description: "Review the current change."');
+         expect(skillContent).toContain('Review this change.');
+      });
+
+      it('renames converted prompts when they conflict with configured skills', async () => {
+         const skillDir = join(testDir, 'skills', 'review');
+
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: review
+description: Review code as a skill.
+---
+
+Skill instructions.
+`,
+         );
+
+         const config = createConfig({
+            skills: {
+               review: './skills/review',
+            },
+            prompts: {
+               review: {
+                  description: 'Review code as a prompt.',
+                  content: 'Prompt instructions.',
+               },
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir);
+
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix/skills/prompt-review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/review'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/prompt-review'))).toBe(true);
+
+         const promptSkillContent = await readFile(
+            join(testDir, '.aix/skills/prompt-review/SKILL.md'),
+            'utf-8',
+         );
+
+         expect(promptSkillContent).toContain('name: prompt-review');
+         expect(promptSkillContent).toContain('Original prompt name: `review`.');
+         expect(promptSkillContent).toContain('Prompt instructions.');
+      });
    });
 
    describe('Scope filtering', () => {
@@ -561,7 +637,9 @@ description: Demo skill
          });
 
          expect(result.success).toBe(true);
-         expect(result.changes.map((c) => c.path)).toContain(join(testDir, '.claude/commands/review.md'));
+         expect(result.changes.map((c) => c.path)).toContain(
+            join(testDir, '.claude/commands/review.md'),
+         );
       });
 
       it('uses user-level prompt paths when targetScope is user', async () => {
@@ -578,7 +656,9 @@ description: Demo skill
          });
 
          expect(result.success).toBe(true);
-         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.claude/commands/review.md'));
+         expect(result.changes.map((c) => c.path)).toContain(
+            join(homedir(), '.claude/commands/review.md'),
+         );
       });
 
       it('uses user-level MCP paths when targetScope is user', async () => {
@@ -878,7 +958,7 @@ description: Demo skill
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
       });
 
-      it('Codex reports unsupported prompts', async () => {
+      it('Codex does not report prompts as unsupported because they convert to skills', async () => {
          const config = createConfig({
             prompts: {
                review: { content: 'Review this change.' },
@@ -888,7 +968,7 @@ description: Demo skill
          const result = await installToEditor('codex', config, testDir, { dryRun: true });
 
          expect(result.globalChanges).toBeUndefined();
-         expect(result.unsupportedFeatures?.prompts?.prompts).toContain('review');
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
       });
 
       it('Claude Code reports no unsupported features for standard config', async () => {
@@ -1024,7 +1104,10 @@ description: Demo skill
 
          await installToEditor('gemini', config, testDir);
 
-         const promptContent = await readFile(join(testDir, '.gemini/commands/review.toml'), 'utf-8');
+         const promptContent = await readFile(
+            join(testDir, '.gemini/commands/review.toml'),
+            'utf-8',
+         );
 
          expect(promptContent).toContain('description = "Review code"');
          expect(promptContent).toContain('prompt = "Please review this code."');

@@ -1,12 +1,23 @@
-import type { AiJsonConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, ParsedSkill } from '@a1st/aix-schema';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
+import type {
+   EditorConfig,
+   EditorRule,
+   FileChange,
+   ApplyOptions,
+   UnsupportedFeatures,
+} from '../types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
-import { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy } from '../strategies/codex/index.js';
+import {
+   CodexRulesStrategy,
+   CodexPromptsStrategy,
+   CodexMcpStrategy,
+} from '../strategies/codex/index.js';
 import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { convertPromptsToSkills } from '../../prompts/to-skills.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -20,7 +31,8 @@ import type {
  * subdirectories for glob-scoped rules) using section-managed markdown to preserve user content.
  * Project skills go to `.agents/skills/{name}/`, while user-scoped skills go to
  * `~/.codex/skills/{name}/`. MCP config is global-only (`~/.codex/config.toml`). Codex does not
- * support prompt deployment or hooks.
+ * support prompt deployment or hooks, so aix converts configured prompts into skills during
+ * install.
  *
  * Codex discovers AGENTS.md files by walking from the project root down to the CWD, reading at
  * most one per directory. Rules with a clear single-directory glob prefix (e.g. `src/utils/**`) are
@@ -59,17 +71,34 @@ export class CodexAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+      const { rules, skillChanges, skills } = await this.loadRules(config, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
                targetScope: options.targetScope,
             }),
-            prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
+            prompts = await this.loadPrompts(config, projectRoot, {
+               configBaseDir: options.configBaseDir,
+            }),
             mcp = filterMcpConfig(config.mcp);
 
-      this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp };
+      const promptSkillChanges = await this.installPromptSkills(
+         prompts,
+         skills,
+         projectRoot,
+         options,
+      );
+
+      this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
+      return { rules, prompts: [], mcp };
+   }
+
+   override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
+      const unsupported = super.getUnsupportedFeatures(config);
+
+      delete unsupported.prompts;
+
+      return unsupported;
    }
 
    /**
@@ -89,7 +118,10 @@ export class CodexAdapter extends BaseEditorAdapter {
 
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
          if (options.targetScope === 'user') {
-            const agentsPath = join(homedir(), this.rulesStrategy.getGlobalRulesPath() ?? '.codex/AGENTS.md'),
+            const agentsPath = join(
+                     homedir(),
+                     this.rulesStrategy.getGlobalRulesPath() ?? '.codex/AGENTS.md',
+                  ),
                   managedContent = this.formatManagedRules(editorConfig.rules),
                   existing = await this.readExisting(agentsPath),
                   content = upsertManagedSection(existing, managedContent),
@@ -101,7 +133,10 @@ export class CodexAdapter extends BaseEditorAdapter {
             const buckets = this.bucketRulesByDirectory(editorConfig.rules);
 
             for (const [dir, rules] of buckets) {
-               const agentsPath = dir === '' ? join(projectRoot, 'AGENTS.md') : join(projectRoot, dir, 'AGENTS.md'),
+               const agentsPath =
+                        dir === ''
+                           ? join(projectRoot, 'AGENTS.md')
+                           : join(projectRoot, dir, 'AGENTS.md'),
                      managedContent = this.formatManagedRules(rules),
                      // eslint-disable-next-line no-await-in-loop -- sequential for deterministic ordering
                      existing = await this.readExisting(agentsPath),
@@ -161,6 +196,34 @@ export class CodexAdapter extends BaseEditorAdapter {
       }
 
       return parts.join('\n\n');
+   }
+
+   private async installPromptSkills(
+      prompts: EditorConfig['prompts'],
+      skills: Map<string, ParsedSkill>,
+      projectRoot: string,
+      options: ApplyOptions,
+   ): Promise<FileChange[]> {
+      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
+
+      if (prompts.length === 0 || (!scopes.includes('editors') && !scopes.includes('prompts'))) {
+         return [];
+      }
+
+      const existingSkillNames = new Set<string>();
+
+      for (const [name, skill] of skills) {
+         existingSkillNames.add(name);
+         if (skill.frontmatter.name) {
+            existingSkillNames.add(skill.frontmatter.name);
+         }
+      }
+
+      const { skills: promptSkills } = await convertPromptsToSkills(prompts, {
+         existingSkillNames,
+      });
+
+      return this.skillsStrategy.installSkills(promptSkills, projectRoot, options);
    }
 }
 

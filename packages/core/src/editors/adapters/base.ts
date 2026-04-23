@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rm, access, constants, chmod } from 'node:f
 import { homedir } from 'node:os';
 import { join, dirname, basename } from 'pathe';
 import { existsSync } from 'node:fs';
-import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
    EditorConfig,
@@ -134,7 +134,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     * Remove the .aix folder to ensure a clean install state.
     * Preserves .aix/.tmp if it exists (for temporary files).
     */
-   protected async cleanAixFolder(projectRoot: string, targetScope: 'project' | 'user' = 'project'): Promise<void> {
+   protected async cleanAixFolder(
+      projectRoot: string,
+      targetScope: 'project' | 'user' = 'project',
+   ): Promise<void> {
       const aixPath = join(targetScope === 'user' ? homedir() : projectRoot, '.aix');
 
       if (!existsSync(aixPath)) {
@@ -241,29 +244,40 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          configBaseDir?: string;
          targetScope?: 'project' | 'user';
       } = {},
-   ): Promise<{ rules: EditorRule[]; skillChanges: FileChange[] }> {
+   ): Promise<{
+      rules: EditorRule[];
+      skillChanges: FileChange[];
+      skills: Map<string, ParsedSkill>;
+   }> {
       // Use configBaseDir for resolving relative paths (important for remote configs)
       const configBaseDir = options.configBaseDir ?? projectRoot,
             basePath = join(configBaseDir, 'ai.json'),
             scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
       let skillChanges: FileChange[] = [],
-          skillRules: EditorRule[] = [];
+          skillRules: EditorRule[] = [],
+          resolvedSkills = new Map<string, ParsedSkill>();
 
       // Resolve skills and use the skills strategy to install them (only if skills scope is included)
       if (scopes.includes('skills') && config.skills && Object.keys(config.skills).length > 0) {
-         const resolvedSkills = await resolveAllSkills(config.skills, {
+         resolvedSkills = await resolveAllSkills(config.skills, {
             baseDir: configBaseDir,
             projectRoot,
          });
 
-         skillChanges = await this.skillsStrategy.installSkills(resolvedSkills, projectRoot, options);
+         skillChanges = await this.skillsStrategy.installSkills(
+            resolvedSkills,
+            projectRoot,
+            options,
+         );
          skillRules = this.skillsStrategy.generateSkillRules(resolvedSkills, {
             targetScope: options.targetScope,
          });
       }
 
       // Merge config rules only when rule scope is requested. Skill pointer rules are handled above.
-      const merged = scopes.includes('rules') ? await mergeRules(config.rules ?? {}, [], { basePath }) : { all: [] };
+      const merged = scopes.includes('rules')
+         ? await mergeRules(config.rules ?? {}, [], { basePath })
+         : { all: [] };
 
       const configRules = merged.all.map((rule: MergedRule) => ({
          name: rule.name,
@@ -279,7 +293,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       // Combine config rules with skill rules
       const rules = [...configRules, ...skillRules];
 
-      return { rules, skillChanges };
+      return { rules, skillChanges, skills: resolvedSkills };
    }
 
    /**
@@ -302,7 +316,9 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          if (targetScope === 'user' && globalRulesPath) {
             const filePath = join(homedir(), globalRulesPath),
-                  content = editorConfig.rules.map((rule) => this.rulesStrategy.formatRule(rule)).join('\n\n'),
+                  content = editorConfig.rules
+                     .map((rule) => this.rulesStrategy.formatRule(rule))
+                     .join('\n\n'),
                   existing = await this.readExisting(filePath),
                   action = this.determineAction(existing, content);
 
@@ -329,17 +345,22 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // MCP config (JSON file - merge by default unless overwrite is set)
       // Skip for global-only strategies (e.g., Windsurf) - they're handled separately
-      if (scopes.includes('mcp') && this.mcpStrategy.isSupported() && !this.mcpStrategy.isGlobalOnly?.()) {
+      if (
+         scopes.includes('mcp') &&
+         this.mcpStrategy.isSupported() &&
+         !this.mcpStrategy.isGlobalOnly?.()
+      ) {
          const mcpEntries = Object.keys(editorConfig.mcp);
 
          if (mcpEntries.length > 0) {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
-                  mcpPath = targetScope === 'user' && globalMcpPath
-                     ? join(homedir(), globalMcpPath)
-                     : join(
-                        this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
-                        this.mcpStrategy.getConfigPath(),
-                     );
+                  mcpPath =
+                     targetScope === 'user' && globalMcpPath
+                        ? join(homedir(), globalMcpPath)
+                        : join(
+                           this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
+                           this.mcpStrategy.getConfigPath(),
+                        );
 
             // Only merge JSON files that we directly write to (MCP config files)
             if (this.isJsonFile(mcpPath)) {
@@ -368,9 +389,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          !this.promptsStrategy.isGlobalOnly?.()
       ) {
          const globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
-               promptsDir = targetScope === 'user' && globalPromptsPath
-                  ? join(homedir(), globalPromptsPath)
-                  : join(configDir, this.promptsStrategy.getPromptsDir()),
+               promptsDir =
+                  targetScope === 'user' && globalPromptsPath
+                     ? join(homedir(), globalPromptsPath)
+                     : join(configDir, this.promptsStrategy.getPromptsDir()),
                ext = this.promptsStrategy.getFileExtension();
 
          const promptChanges = await Promise.all(
