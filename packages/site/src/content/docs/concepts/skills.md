@@ -64,6 +64,7 @@ When you run `aix install`, skills are:
    - **GitHub Copilot**: Symlinked from `.github/skills/` (native Agent Skills support).
    - **Claude Code**: Symlinked from `.claude/skills/`.
    - **Codex**: Project skills are symlinked from `.agents/skills/`.
+   - **OpenCode**: Symlinked from `.opencode/skills/`.
    - **Windsurf**: Symlinked from `.windsurf/skills/`.
    - **Zed**: Skill content added as pointer rules (no native Agent Skills).
 

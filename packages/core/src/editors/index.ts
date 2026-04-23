@@ -19,6 +19,7 @@ export {
    ZedAdapter,
    CodexAdapter,
    GeminiAdapter,
+   OpenCodeAdapter,
 } from './adapters/index.js';
 
 export {

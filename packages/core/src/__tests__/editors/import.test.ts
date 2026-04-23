@@ -43,6 +43,12 @@ describe('Editor Config Import', () => {
          // Codex MCP is global-only, returns the global config path
          expect(path).toContain('codex');
       });
+
+      it('returns global path for opencode', () => {
+         const path = getGlobalConfigPath('opencode');
+
+         expect(path).toContain('opencode');
+      });
    });
 
    describe('importFromEditor', () => {
@@ -102,6 +108,103 @@ describe('Editor Config Import', () => {
             expect(result.skills.typescript).toBe(skillPath);
             expect(result.paths.skills.typescript).toBe(skillPath);
             expect(result.scopes.skills.typescript).toBe('project');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports OpenCode project rules, MCP, prompts, and skills', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-import-'));
+
+         try {
+            const skillPath = join(projectRoot, '.opencode', 'skills', 'release');
+
+            await mkdir(join(projectRoot, '.opencode', 'commands'), { recursive: true });
+            await mkdir(join(projectRoot, 'docs'), { recursive: true });
+            await mkdir(skillPath, { recursive: true });
+            await writeFile(join(projectRoot, 'AGENTS.md'), 'Use OpenCode.', 'utf-8');
+            await writeFile(join(projectRoot, 'docs', 'rules.md'), 'Use imported instructions.', 'utf-8');
+            await writeFile(
+               join(projectRoot, 'opencode.json'),
+               JSON.stringify({
+                  instructions: ['docs/**/*.md'],
+                  command: {
+                     test: {
+                        description: 'Test code',
+                        template: 'Test this change.',
+                     },
+                  },
+                  mcp: {
+                     docs: {
+                        type: 'remote',
+                        url: 'https://example.com/mcp',
+                     },
+                  },
+               }),
+               'utf-8',
+            );
+            await writeFile(
+               join(projectRoot, '.opencode', 'commands', 'review.md'),
+               'Review this change.',
+               'utf-8',
+            );
+            await writeFile(join(skillPath, 'SKILL.md'), '# Release', 'utf-8');
+
+            const result = await importFromEditor('opencode', { projectRoot });
+
+            expect(result.rules).toEqual([{
+               name: 'AGENTS',
+               content: 'Use OpenCode.',
+               path: join(projectRoot, 'AGENTS.md'),
+               scope: 'project',
+            }, {
+               name: 'rules',
+               content: 'Use imported instructions.',
+               path: join(projectRoot, 'docs', 'rules.md'),
+               scope: 'project',
+            }]);
+            expect(result.mcp.docs).toEqual({ url: 'https://example.com/mcp' });
+            expect(result.prompts.review).toBe('Review this change.');
+            expect(result.prompts.test).toContain('description: "Test code"');
+            expect(result.prompts.test).toContain('Test this change.');
+            expect(result.skills.release).toBe(skillPath);
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports OpenCode project JSONC config', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-jsonc-import-'));
+
+         try {
+            await mkdir(join(projectRoot, 'docs'), { recursive: true });
+            await writeFile(join(projectRoot, 'docs', 'rules.md'), 'Use JSONC instructions.', 'utf-8');
+            await writeFile(
+               join(projectRoot, 'opencode.jsonc'),
+               `{
+                  // OpenCode supports JSONC config.
+                  "instructions": ["docs/rules.md"],
+                  "command": {
+                     "review": {
+                        "description": "Review JSONC",
+                        "template": "Review from JSONC.",
+                     },
+                  },
+                  "mcp": {
+                     "docs": {
+                        "type": "remote",
+                        "url": "https://example.com/mcp",
+                     },
+                  },
+               }`,
+               'utf-8',
+            );
+
+            const result = await importFromEditor('opencode', { projectRoot });
+
+            expect(result.rules[0]?.content).toBe('Use JSONC instructions.');
+            expect(result.prompts.review).toContain('Review from JSONC.');
+            expect(result.mcp.docs).toEqual({ url: 'https://example.com/mcp' });
          } finally {
             await rm(projectRoot, { recursive: true, force: true });
          }

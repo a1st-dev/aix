@@ -1,5 +1,5 @@
-import { join } from 'pathe';
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { dirname, isAbsolute, join } from 'pathe';
+import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName } from './types.js';
 import type { McpStrategy, RulesStrategy, PromptsStrategy } from './strategies/types.js';
 import type { NamedRule } from '../import-writer.js';
@@ -24,6 +24,9 @@ import { CodexMcpStrategy } from './strategies/codex/mcp.js';
 import { GeminiRulesStrategy } from './strategies/gemini/rules.js';
 import { GeminiPromptsStrategy } from './strategies/gemini/prompts.js';
 import { GeminiMcpStrategy } from './strategies/gemini/mcp.js';
+import { OpenCodeRulesStrategy } from './strategies/opencode/rules.js';
+import { OpenCodePromptsStrategy } from './strategies/opencode/prompts.js';
+import { OpenCodeMcpStrategy } from './strategies/opencode/mcp.js';
 import { getRuntimeAdapter, type RuntimeDirent } from '../runtime/index.js';
 
 type ImportScope = 'project' | 'user';
@@ -132,6 +135,12 @@ function getImportStrategies(editor: EditorName): ImportStrategies {
          rules: new GeminiRulesStrategy(),
          prompts: new GeminiPromptsStrategy(),
       };
+   case 'opencode':
+      return {
+         mcp: new OpenCodeMcpStrategy(),
+         rules: new OpenCodeRulesStrategy(),
+         prompts: new OpenCodePromptsStrategy(),
+      };
    }
 }
 
@@ -180,7 +189,7 @@ export async function importFromEditor(
    Object.assign(result.scopes.rules, globalRules.scopes);
    result.warnings.push(...globalRules.warnings);
 
-   const globalPrompts = await importPrompts(strategies.prompts, 'global');
+   const globalPrompts = await importPrompts(strategies.prompts, editor, 'global');
 
    if (Object.keys(globalPrompts.prompts).length > 0) {
       result.sources.global = true;
@@ -253,6 +262,7 @@ const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
    zed: '.zed',
    codex: '.codex',
    gemini: '.gemini',
+   opencode: '.opencode',
 };
 
 const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
@@ -263,6 +273,7 @@ const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
    zed: ['.aix/skills'],
    codex: ['.agents/skills'],
    gemini: ['.gemini/skills'],
+   opencode: ['.opencode/skills'],
 };
 
 const EDITOR_GLOBAL_RULE_DIRS: Partial<Record<EditorName, string[]>> = {
@@ -276,6 +287,7 @@ const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
    copilot: ['.github/skills'],
    codex: ['.codex/skills'],
    gemini: ['.gemini/skills'],
+   opencode: ['.config/opencode/skills'],
 };
 
 /**
@@ -283,7 +295,7 @@ const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
  */
 async function importMcpConfig(
    strategy: McpStrategy,
-   _editor: EditorName,
+   editor: EditorName,
    _source: 'global',
 ): Promise<{
    mcp: Record<string, McpServerConfig>;
@@ -299,7 +311,9 @@ async function importMcpConfig(
       return { mcp: {}, paths: {}, scopes: {}, warnings };
    }
 
-   const fullPath = join(homedir(), configPath);
+   const fullPath = editor === 'opencode'
+      ? resolveOpenCodeConfigPath(join(homedir(), configPath))
+      : join(homedir(), configPath);
 
    try {
       const content = await readFile(fullPath, 'utf-8'),
@@ -338,7 +352,9 @@ async function importLocalMcpConfig(
          configDir = EDITOR_CONFIG_DIRS[editor],
          mcpConfigPath = strategy.getConfigPath(),
          baseDir = strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir),
-         fullPath = join(baseDir, mcpConfigPath);
+         fullPath = editor === 'opencode'
+            ? resolveOpenCodeConfigPath(join(baseDir, mcpConfigPath))
+            : join(baseDir, mcpConfigPath);
 
    // Skip if MCP is not supported for project-local config (e.g., global-only editors)
    if (!strategy.isSupported() || strategy.isGlobalOnly?.()) {
@@ -406,6 +422,16 @@ async function importGlobalRules(
             );
          }
       }
+   }
+
+   if (editor === 'opencode') {
+      const configPath = resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
+            imported = await importOpenCodeInstructionRules(configPath, dirname(configPath), 'user');
+
+      rules.push(...imported.rules);
+      Object.assign(paths, imported.paths);
+      Object.assign(scopes, imported.scopes);
+      warnings.push(...imported.warnings);
    }
 
    const ruleDirs = EDITOR_GLOBAL_RULE_DIRS[editor] ?? [];
@@ -485,6 +511,10 @@ async function importLocalRules(
    // Gemini uses GEMINI.md at the project root (not inside .gemini/), similar to Codex
    if (editor === 'gemini') {
       return importGeminiLocalRules(projectRoot);
+   }
+
+   if (editor === 'opencode') {
+      return importOpenCodeLocalRules(projectRoot);
    }
 
    if (editor === 'zed') {
@@ -635,11 +665,52 @@ async function importGeminiLocalRules(projectRoot: string): Promise<{
    return { rules: [], paths: {}, scopes: {}, warnings };
 }
 
+async function importOpenCodeLocalRules(projectRoot: string): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         agentsPath = join(projectRoot, 'AGENTS.md'),
+         rules: NamedRule[] = [],
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {};
+
+   try {
+      const content = await readFile(agentsPath, 'utf-8');
+
+      if (content.trim()) {
+         rules.push({ content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' });
+         paths.AGENTS = agentsPath;
+         scopes.AGENTS = 'project';
+      }
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+         warnings.push(`Failed to read OpenCode rules from ${agentsPath}: ${(err as Error).message}`);
+      }
+   }
+
+   const imported = await importOpenCodeInstructionRules(
+      resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')),
+      projectRoot,
+      'project',
+   );
+
+   rules.push(...imported.rules);
+   Object.assign(paths, imported.paths);
+   Object.assign(scopes, imported.scopes);
+   warnings.push(...imported.warnings);
+
+   return { rules, paths, scopes, warnings };
+}
+
 /**
  * Import prompts/workflows from an editor's global config.
  */
 async function importPrompts(
    strategy: PromptsStrategy,
+   editor: EditorName,
    _source: 'global',
 ): Promise<{
    prompts: Record<string, string>;
@@ -663,15 +734,34 @@ async function importPrompts(
             },
             result = await strategy.parseGlobalPrompts(files, fileReader);
 
-      return {
+      const imported = {
          ...result,
          paths: promptPathMap(Object.keys(result.prompts), files, fullPath),
          scopes: scopeMapForNames(Object.keys(result.prompts), 'user'),
       };
+
+      if (editor !== 'opencode') {
+         return imported;
+      }
+
+      return mergePromptImports(
+         await importOpenCodeConfigPrompts(
+            resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
+            'user',
+         ),
+         imported,
+      );
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read global prompts from ${fullPath}: ${(err as Error).message}`);
       }
+   }
+
+   if (editor === 'opencode') {
+      return importOpenCodeConfigPrompts(
+         resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
+         'user',
+      );
    }
 
    return { prompts: {}, paths: {}, scopes: {}, warnings };
@@ -706,18 +796,332 @@ async function importLocalPrompts(
             },
             result = await strategy.parseGlobalPrompts(files, fileReader);
 
-      return {
+      const imported = {
          ...result,
          paths: promptPathMap(Object.keys(result.prompts), files, fullPath),
          scopes: scopeMapForNames(Object.keys(result.prompts), 'project'),
       };
+
+      if (editor !== 'opencode') {
+         return imported;
+      }
+
+      return mergePromptImports(
+         await importOpenCodeConfigPrompts(resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')), 'project'),
+         imported,
+      );
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read local prompts from ${fullPath}: ${(err as Error).message}`);
       }
    }
 
+   if (editor === 'opencode') {
+      return importOpenCodeConfigPrompts(resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')), 'project');
+   }
+
    return { prompts: {}, paths: {}, scopes: {}, warnings };
+}
+
+interface OpenCodeConfigCommand {
+   template?: unknown;
+   description?: unknown;
+}
+
+interface OpenCodeConfig {
+   instructions?: unknown;
+   command?: Record<string, OpenCodeConfigCommand>;
+}
+
+async function readOpenCodeConfig(configPath: string): Promise<OpenCodeConfig | null> {
+   try {
+      const parsed = parseJsonc<OpenCodeConfig>(await readFile(configPath, 'utf-8'));
+
+      if (parsed.errors.length > 0 || !parsed.data) {
+         throw new Error('invalid JSONC');
+      }
+
+      return parsed.data;
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+         return null;
+      }
+      throw err;
+   }
+}
+
+function resolveOpenCodeConfigPath(jsonPath: string): string {
+   if (existsSync(jsonPath)) {
+      return jsonPath;
+   }
+
+   const jsoncPath = jsonPath.replace(/\.json$/, '.jsonc');
+
+   return existsSync(jsoncPath) ? jsoncPath : jsonPath;
+}
+
+async function importOpenCodeInstructionRules(
+   configPath: string,
+   baseDir: string,
+   scope: ImportScope,
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [],
+         rules: NamedRule[] = [],
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {};
+
+   let config: OpenCodeConfig | null;
+
+   try {
+      config = await readOpenCodeConfig(configPath);
+   } catch (err) {
+      warnings.push(`Failed to read OpenCode config from ${configPath}: ${(err as Error).message}`);
+      return { rules, paths, scopes, warnings };
+   }
+
+   if (!Array.isArray(config?.instructions)) {
+      return { rules, paths, scopes, warnings };
+   }
+
+   for (const instruction of config.instructions) {
+      if (typeof instruction !== 'string') {
+         warnings.push(`Skipping OpenCode instruction from ${configPath}: expected string path`);
+         continue;
+      }
+
+      // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+      const imported = await importOpenCodeInstructionPattern(instruction, baseDir, scope);
+
+      rules.push(...imported.rules);
+      Object.assign(paths, imported.paths);
+      Object.assign(scopes, imported.scopes);
+      warnings.push(...imported.warnings);
+   }
+
+   return { rules, paths, scopes, warnings };
+}
+
+async function importOpenCodeInstructionPattern(
+   instruction: string,
+   baseDir: string,
+   scope: ImportScope,
+): Promise<{
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const pathsToRead = hasGlobSyntax(instruction)
+            ? await expandInstructionGlob(instruction, baseDir)
+            : [resolveInstructionPath(instruction, baseDir)],
+         rules: NamedRule[] = [],
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {},
+         warnings: string[] = [];
+
+   if (pathsToRead.length === 0) {
+      warnings.push(`OpenCode instruction pattern matched no files: ${instruction}`);
+   }
+
+   for (const path of pathsToRead) {
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const content = await readFile(path, 'utf-8'),
+               name = basenameWithoutMarkdown(path);
+
+         if (!content.trim()) {
+            continue;
+         }
+         rules.push({ content: content.trim(), name, path, scope });
+         paths[name] = path;
+         scopes[name] = scope;
+      } catch (err) {
+         warnings.push(`Failed to read OpenCode instruction ${path}: ${(err as Error).message}`);
+      }
+   }
+
+   return { rules, paths, scopes, warnings };
+}
+
+async function expandInstructionGlob(pattern: string, baseDir: string): Promise<string[]> {
+   const root = isAbsolute(pattern) ? getGlobRoot(pattern) : baseDir,
+         files = await listFilesRecursive(root),
+         matcher = globToRegExp(isAbsolute(pattern) ? pattern : join(baseDir, pattern));
+
+   return files.filter((file) => matcher.test(file)).toSorted();
+}
+
+async function listFilesRecursive(root: string): Promise<string[]> {
+   const result: string[] = [];
+
+   async function visit(dir: string): Promise<void> {
+      let entries: RuntimeDirent[];
+
+      try {
+         entries = await readdir(dir, { withFileTypes: true }) as RuntimeDirent[];
+      } catch {
+         return;
+      }
+
+      for (const entry of entries) {
+         const path = join(dir, entry.name);
+
+         if (entry.isDirectory()) {
+            // eslint-disable-next-line no-await-in-loop -- Recursive walk is easier to reason about sequentially
+            await visit(path);
+         } else if (entry.isFile()) {
+            result.push(path);
+         }
+      }
+   }
+
+   await visit(root);
+   return result;
+}
+
+function hasGlobSyntax(value: string): boolean {
+   return /[*?[\]{}]/.test(value);
+}
+
+function getGlobRoot(pattern: string): string {
+   const parts = pattern.split('/'),
+         rootParts: string[] = [];
+
+   for (const part of parts) {
+      if (hasGlobSyntax(part)) {
+         break;
+      }
+      rootParts.push(part);
+   }
+
+   return rootParts.join('/') || '/';
+}
+
+function globToRegExp(pattern: string): RegExp {
+   const segments = pattern.split('/');
+   let normalized = '^',
+       startIndex = 0;
+
+   if (segments[0] === '') {
+      normalized += '/';
+      startIndex = 1;
+   }
+
+   for (let i = startIndex; i < segments.length; i++) {
+      const segment = segments[i] ?? '',
+            isLast = i === segments.length - 1;
+
+      if (segment === '**') {
+         normalized += '(?:[^/]+/)*';
+         continue;
+      }
+
+      normalized += escapeGlobSegment(segment);
+
+      if (!isLast) {
+         normalized += '/';
+      }
+   }
+
+   return new RegExp(`${normalized}$`);
+}
+
+function escapeGlobSegment(segment: string): string {
+   return segment
+      .replace(/[.+^${}()|\\]/g, '\\$&')
+      .replace(/\*/g, '[^/]*')
+      .replace(/\?/g, '[^/]');
+}
+
+function resolveInstructionPath(instruction: string, baseDir: string): string {
+   return isAbsolute(instruction) ? instruction : join(baseDir, instruction);
+}
+
+function basenameWithoutMarkdown(path: string): string {
+   const name = path.split('/').pop() ?? 'instruction';
+
+   return name.replace(/\.(md|markdown|txt)$/i, '');
+}
+
+async function importOpenCodeConfigPrompts(
+   configPath: string,
+   scope: ImportScope,
+): Promise<{
+   prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const prompts: Record<string, string> = {},
+         paths: Record<string, string> = {},
+         scopes: Record<string, ImportScope> = {},
+         warnings: string[] = [];
+
+   let config: OpenCodeConfig | null;
+
+   try {
+      config = await readOpenCodeConfig(configPath);
+   } catch (err) {
+      warnings.push(`Failed to read OpenCode config from ${configPath}: ${(err as Error).message}`);
+      return { prompts, paths, scopes, warnings };
+   }
+
+   if (!config?.command) {
+      return { prompts, paths, scopes, warnings };
+   }
+
+   for (const [name, command] of Object.entries(config.command)) {
+      if (typeof command.template !== 'string') {
+         warnings.push(`Skipping OpenCode command "${name}" from ${configPath}: missing template`);
+         continue;
+      }
+
+      prompts[name] = formatOpenCodeConfigPrompt(command);
+      paths[name] = configPath;
+      scopes[name] = scope;
+   }
+
+   return { prompts, paths, scopes, warnings };
+}
+
+function formatOpenCodeConfigPrompt(command: OpenCodeConfigCommand): string {
+   if (typeof command.description !== 'string' || !command.description) {
+      return String(command.template);
+   }
+
+   return `---\ndescription: ${JSON.stringify(command.description)}\n---\n\n${String(command.template)}`;
+}
+
+function mergePromptImports(
+   base: {
+      prompts: Record<string, string>;
+      paths: Record<string, string>;
+      scopes: Record<string, ImportScope>;
+      warnings: string[];
+   },
+   overlay: {
+      prompts: Record<string, string>;
+      paths: Record<string, string>;
+      scopes: Record<string, ImportScope>;
+      warnings: string[];
+   },
+): {
+   prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+} {
+   return {
+      prompts: { ...base.prompts, ...overlay.prompts },
+      paths: { ...base.paths, ...overlay.paths },
+      scopes: { ...base.scopes, ...overlay.scopes },
+      warnings: [...base.warnings, ...overlay.warnings],
+   };
 }
 
 async function importLocalSkills(

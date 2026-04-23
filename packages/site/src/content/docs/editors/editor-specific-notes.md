@@ -54,6 +54,16 @@ MCP servers are stored in `.gemini/settings.json`, and prompts are written to in
 
 Like Codex, **activation modes are not preserved** in `GEMINI.md`. All rules are dumped into the managed section of the file as plain markdown.
 
+## OpenCode
+
+OpenCode reads `AGENTS.md` for project instructions. aix writes rules to the project root `AGENTS.md` with the same managed-section markers used for Codex, so manually written content outside the aix block is preserved.
+
+OpenCode MCP servers live in the top-level `mcp` object in `opencode.json`. aix writes command-based servers as `type: "local"` with a command array, and URL-based servers as `type: "remote"`.
+
+Prompts are written as markdown command files in `.opencode/commands/`. Skills are copied to `.aix/skills/{name}/` and exposed through `.opencode/skills/{name}`.
+
+Hooks are not supported for OpenCode in aix.
+
 ---
 
 ## Potential Code Changes

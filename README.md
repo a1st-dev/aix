@@ -30,6 +30,7 @@ Supported editors:
 - `windsurf`
 - `codex`
 - `gemini`
+- `opencode`
 - `zed`
 
 ## Why aix?
@@ -37,7 +38,7 @@ Supported editors:
 Define your AI agent configuration once in `ai.json`.
 
 `aix` gives you one source of truth for your skills, prompts, rules, MCP server config.
-Then, use that config with any supported agent/editor: claude-code, cursor, copilot, etc.
+Then, use that config with any supported agent/editor: claude-code, cursor, copilot, opencode, etc.
 
 Standardize your AI config. Share it with your team. Check it into version control.
 

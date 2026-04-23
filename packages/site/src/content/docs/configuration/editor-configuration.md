@@ -14,7 +14,7 @@ To only install to specific editors, provide an array of strings:
 
 ```json
 {
-   "editors": ["cursor", "copilot"]
+   "editors": ["cursor", "copilot", "opencode"]
 }
 ```
 
@@ -25,6 +25,7 @@ Or use the object form:
    "editors": {
       "cursor": { "enabled": true },
       "copilot": { "enabled": true },
+      "opencode": { "enabled": true },
       "windsurf": { "enabled": false }
    }
 }
@@ -81,6 +82,25 @@ Configure permissions for the Claude Code CLI tool.
          "enabled": true,
          "permissions": {
             "allow-file-access": true
+         }
+      }
+   }
+}
+```
+
+### OpenCode
+
+OpenCode currently uses the shared editor config shape. Target it with `enabled` and optional OpenCode-only rules:
+
+```json
+{
+   "editors": {
+      "opencode": {
+         "enabled": true,
+         "rules": {
+            "opencode-context": {
+               "content": "Prefer OpenCode commands when a reusable workflow exists."
+            }
          }
       }
    }

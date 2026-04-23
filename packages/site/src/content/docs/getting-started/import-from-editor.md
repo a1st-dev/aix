@@ -25,6 +25,7 @@ Supported editors:
 | Zed            | `zed`         |
 | Codex          | `codex`       |
 | Gemini         | `gemini`      |
+| OpenCode       | `opencode`    |
 
 ## What gets imported
 

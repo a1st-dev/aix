@@ -303,7 +303,7 @@ Configure which editors to install to and provide editor-specific settings.
 
 ```json
 {
-   "editors": ["cursor", "copilot", "claude-code"]
+   "editors": ["cursor", "copilot", "claude-code", "opencode"]
 }
 ```
 
@@ -328,6 +328,9 @@ Configure which editors to install to and provide editor-specific settings.
       "claude-code": {
          "enabled": true,
          "permissions": {}
+      },
+      "opencode": {
+         "enabled": true
       }
    }
 }

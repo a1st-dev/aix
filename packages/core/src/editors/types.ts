@@ -26,7 +26,15 @@ export interface UnsupportedFeatures {
    };
 }
 
-export type EditorName = 'windsurf' | 'cursor' | 'claude-code' | 'copilot' | 'zed' | 'codex' | 'gemini';
+export type EditorName =
+   | 'windsurf'
+   | 'cursor'
+   | 'claude-code'
+   | 'copilot'
+   | 'zed'
+   | 'codex'
+   | 'gemini'
+   | 'opencode';
 
 /**
  * Editor-specific rule format after translation from ai.json rules.
