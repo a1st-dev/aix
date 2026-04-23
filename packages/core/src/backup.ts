@@ -1,7 +1,6 @@
-import { mkdir, copyFile, readdir, unlink } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { resolve, dirname, basename, join } from 'pathe';
 import { getBackupsDir } from './cache/paths.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface BackupOptions {
    maxBackups?: number;
@@ -15,9 +14,10 @@ export interface BackupInfo {
 
 export async function createBackup(filePath: string, options: BackupOptions = {}): Promise<BackupInfo> {
    const { maxBackups = 5, maxAgeDays } = options,
-         absolutePath = resolve(filePath);
+         absolutePath = resolve(filePath),
+         { fs } = getRuntimeAdapter();
 
-   if (!existsSync(absolutePath)) {
+   if (!fs.existsSync(absolutePath)) {
       throw new Error(`File not found: ${filePath}`);
    }
 
@@ -29,8 +29,8 @@ export async function createBackup(filePath: string, options: BackupOptions = {}
          backupFileName = `${fileName}.${timestampStr}.backup`,
          backupFilePath = join(backupPath, backupFileName);
 
-   await mkdir(backupPath, { recursive: true });
-   await copyFile(absolutePath, backupFilePath);
+   await fs.mkdir(backupPath, { recursive: true });
+   await fs.copyFile(absolutePath, backupFilePath);
 
    await cleanupOldBackups(backupPath, fileName, maxBackups, maxAgeDays);
 
@@ -42,26 +42,28 @@ export async function createBackup(filePath: string, options: BackupOptions = {}
 
 export async function restoreBackup(backupPath: string, targetPath: string): Promise<void> {
    const absoluteBackupPath = resolve(backupPath),
-         absoluteTargetPath = resolve(targetPath);
+         absoluteTargetPath = resolve(targetPath),
+         { fs } = getRuntimeAdapter();
 
-   if (!existsSync(absoluteBackupPath)) {
+   if (!fs.existsSync(absoluteBackupPath)) {
       throw new Error(`Backup not found: ${backupPath}`);
    }
 
-   await copyFile(absoluteBackupPath, absoluteTargetPath);
+   await fs.copyFile(absoluteBackupPath, absoluteTargetPath);
 }
 
 export async function listBackups(filePath: string, backupDir?: string): Promise<BackupInfo[]> {
    const absolutePath = resolve(filePath),
          fileName = basename(absolutePath),
          fileDir = dirname(absolutePath),
-         backupPath = backupDir ? resolve(fileDir, backupDir) : getBackupsDir(fileDir);
+         backupPath = backupDir ? resolve(fileDir, backupDir) : getBackupsDir(fileDir),
+         { fs } = getRuntimeAdapter();
 
-   if (!existsSync(backupPath)) {
+   if (!fs.existsSync(backupPath)) {
       return [];
    }
 
-   const files = await readdir(backupPath),
+   const files = await fs.readdir(backupPath),
          backups: BackupInfo[] = [];
 
    for (const file of files) {
@@ -105,7 +107,7 @@ async function cleanupOldBackups(
    if (backups.length > maxBackups) {
       const toDelete = backups.slice(maxBackups);
 
-      await Promise.all(toDelete.map((backup) => unlink(backup.path)));
+      await Promise.all(toDelete.map((backup) => getRuntimeAdapter().fs.unlink(backup.path)));
    }
 
    // Delete by age
@@ -113,6 +115,6 @@ async function cleanupOldBackups(
       const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000,
             oldBackups = backups.filter((b) => b.timestamp.getTime() < cutoff);
 
-      await Promise.all(oldBackups.map((backup) => unlink(backup.path)));
+      await Promise.all(oldBackups.map((backup) => getRuntimeAdapter().fs.unlink(backup.path)));
    }
 }

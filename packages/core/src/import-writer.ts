@@ -1,5 +1,3 @@
-import { mkdir, writeFile, rename, access, constants, copyFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
 import { join, basename, resolve, dirname } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import {
@@ -9,6 +7,7 @@ import {
 } from './cache/paths.js';
 import { safeRm } from './fs/safe-rm.js';
 import type { GitSourceInfo } from './remote-loader.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface WrittenImports {
    rules: Record<string, string>;
@@ -53,7 +52,7 @@ function sanitizeFileName(name: string): string {
  */
 async function dirExists(path: string): Promise<boolean> {
    try {
-      await access(path, constants.F_OK);
+      await getRuntimeAdapter().fs.access(path, getRuntimeAdapter().fs.constants.F_OK);
       return true;
    } catch {
       return false;
@@ -82,8 +81,8 @@ export async function writeImportedContent(
    await safeRm(stagingDir, { force: true });
 
    // Create staging directories
-   await mkdir(stagingRulesDir, { recursive: true });
-   await mkdir(stagingPromptsDir, { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(stagingRulesDir, { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(stagingPromptsDir, { recursive: true });
 
    // Deduplicate rule names: if multiple rules share a name, append -1, -2, etc.
    const nameCount = new Map<string, number>();
@@ -100,7 +99,7 @@ export async function writeImportedContent(
             relativePath = `./.aix/imported/rules/${fileName}`;
 
       result.rules[dedupedName] = relativePath;
-      return writeFile(stagingPath, rule.content, 'utf-8');
+      return getRuntimeAdapter().fs.writeFile(stagingPath, rule.content, 'utf-8');
    });
 
    // Build prompt write operations
@@ -110,7 +109,7 @@ export async function writeImportedContent(
             relativePath = `./.aix/imported/prompts/${fileName}`;
 
       result.prompts[name] = relativePath;
-      return writeFile(stagingPath, promptContent, 'utf-8');
+      return getRuntimeAdapter().fs.writeFile(stagingPath, promptContent, 'utf-8');
    });
 
    // Execute all writes in parallel
@@ -140,13 +139,13 @@ export async function commitImport(projectRoot: string): Promise<void> {
 
    // If final directory exists, move it to backup
    if (await dirExists(finalDir)) {
-      await mkdir(dirname(backupDir), { recursive: true });
-      await rename(finalDir, backupDir);
+      await getRuntimeAdapter().fs.mkdir(dirname(backupDir), { recursive: true });
+      await getRuntimeAdapter().fs.rename(finalDir, backupDir);
    }
 
    // Move staging to final location
-   await mkdir(join(projectRoot, '.aix'), { recursive: true });
-   await rename(stagingDir, finalDir);
+   await getRuntimeAdapter().fs.mkdir(join(projectRoot, '.aix'), { recursive: true });
+   await getRuntimeAdapter().fs.rename(stagingDir, finalDir);
 
    // Clean up backup (success path)
    await safeRm(backupDir, { force: true });
@@ -171,7 +170,7 @@ export async function rollbackImport(projectRoot: string): Promise<void> {
       // Remove any partial final directory
       await safeRm(finalDir, { force: true });
       // Restore backup
-      await rename(backupDir, finalDir);
+      await getRuntimeAdapter().fs.rename(backupDir, finalDir);
    }
 }
 
@@ -186,8 +185,8 @@ function isRelativePath(path: string): boolean {
  * Copy a file from source to destination, creating directories as needed.
  */
 async function copyFileWithDirs(src: string, dest: string): Promise<void> {
-   await mkdir(join(dest, '..'), { recursive: true });
-   await copyFile(src, dest);
+   await getRuntimeAdapter().fs.mkdir(join(dest, '..'), { recursive: true });
+   await getRuntimeAdapter().fs.copyFile(src, dest);
 }
 
 interface CopyTask {
@@ -242,7 +241,7 @@ function buildCopyTasks(
          const srcPath = resolve(configBaseDir, relativePath),
                fileName = basename(srcPath);
 
-         if (!existsSync(srcPath)) {
+         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
             warnings.push(`Rule "${name}": source file not found: ${relativePath}`);
             continue;
          }
@@ -274,7 +273,7 @@ function buildCopyTasks(
          const srcPath = resolve(configBaseDir, relativePath),
                fileName = basename(srcPath);
 
-         if (!existsSync(srcPath)) {
+         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
             warnings.push(`Prompt "${name}": source file not found: ${relativePath}`);
             continue;
          }
@@ -305,7 +304,7 @@ function buildCopyTasks(
          }
          const srcPath = resolve(configBaseDir, relativePath);
 
-         if (!existsSync(srcPath)) {
+         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
             warnings.push(`Skill "${name}": source directory not found: ${relativePath}`);
             continue;
          }
@@ -343,9 +342,9 @@ export async function localizeRemoteConfig(
    await safeRm(stagingDir, { force: true });
 
    // Create staging directories
-   await mkdir(join(stagingDir, 'rules'), { recursive: true });
-   await mkdir(join(stagingDir, 'prompts'), { recursive: true });
-   await mkdir(join(stagingDir, 'skills'), { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(join(stagingDir, 'rules'), { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(join(stagingDir, 'prompts'), { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(join(stagingDir, 'skills'), { recursive: true });
 
    // Deep clone the config to avoid mutating the original
    const localizedConfig = JSON.parse(JSON.stringify(config)) as Partial<AiJsonConfig>;
@@ -377,18 +376,18 @@ export async function localizeRemoteConfig(
  * Recursively copy a directory.
  */
 async function copyDirectory(src: string, dest: string): Promise<void> {
-   const { readdir } = await import('node:fs/promises');
+   await getRuntimeAdapter().fs.mkdir(dest, { recursive: true });
 
-   await mkdir(dest, { recursive: true });
-
-   const entries = await readdir(src, { withFileTypes: true });
+   const entries = await getRuntimeAdapter().fs.readdir(src, { withFileTypes: true });
 
    // Separate files and directories
    const files = entries.filter((e) => !e.isDirectory()),
          dirs = entries.filter((e) => e.isDirectory());
 
    // Copy files in parallel
-   await Promise.all(files.map((entry) => copyFile(join(src, entry.name), join(dest, entry.name))));
+   await Promise.all(
+      files.map((entry) => getRuntimeAdapter().fs.copyFile(join(src, entry.name), join(dest, entry.name))),
+   );
 
    // Copy directories sequentially
    for (const entry of dirs) {

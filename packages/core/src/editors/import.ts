@@ -1,6 +1,3 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName } from './types.js';
@@ -27,8 +24,30 @@ import { CodexMcpStrategy } from './strategies/codex/mcp.js';
 import { GeminiRulesStrategy } from './strategies/gemini/rules.js';
 import { GeminiPromptsStrategy } from './strategies/gemini/prompts.js';
 import { GeminiMcpStrategy } from './strategies/gemini/mcp.js';
+import { getRuntimeAdapter, type RuntimeDirent } from '../runtime/index.js';
 
 type ImportScope = 'project' | 'user';
+
+function existsSync(path: string): boolean {
+   return getRuntimeAdapter().fs.existsSync(path);
+}
+
+function homedir(): string {
+   return getRuntimeAdapter().os.homedir();
+}
+
+function readFile(path: string, encoding: 'utf-8'): Promise<string> {
+   return getRuntimeAdapter().fs.readFile(path, encoding);
+}
+
+function readdir(path: string): Promise<string[]>;
+function readdir(path: string, options: { withFileTypes: true }): Promise<RuntimeDirent[]>;
+function readdir(path: string, options?: { withFileTypes: true }): Promise<string[] | RuntimeDirent[]> {
+   if (options) {
+      return getRuntimeAdapter().fs.readdir(path, options);
+   }
+   return getRuntimeAdapter().fs.readdir(path);
+}
 
 export interface ImportResult {
    mcp: Record<string, McpServerConfig>;
@@ -138,7 +157,7 @@ export async function importFromEditor(
             sources: { global: false, local: false },
          },
          strategies = getImportStrategies(editor),
-         projectRoot = options.projectRoot ?? process.cwd();
+         projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd();
 
    // 1. Import from GLOBAL config first (base layer)
    const globalMcp = await importMcpConfig(strategies.mcp, editor, 'global');

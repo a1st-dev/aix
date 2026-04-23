@@ -1,12 +1,11 @@
-import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'pathe';
-import { tmpdir } from 'node:os';
 import type { PromptObject, PromptValue, PromptsConfig } from '@a1st/aix-schema';
 import { normalizeSourceRef } from '@a1st/aix-schema';
 import { getPromptsCacheDir } from '../cache/paths.js';
 import { loadFromGit } from '../git-loader.js';
 import { resolveNpmPath } from '../npm/resolve.js';
 import { parsePromptFrontmatter } from '../frontmatter-parser.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface LoadedPrompt {
    name: string;
@@ -46,7 +45,7 @@ export async function loadPrompt(
    // Local file
    if (promptObj.path) {
       const fullPath = resolve(dirname(basePath), promptObj.path),
-            rawContent = await readFile(fullPath, 'utf-8'),
+            rawContent = await getRuntimeAdapter().fs.readFile(fullPath, 'utf-8'),
             parsed = parsePromptFrontmatter(rawContent.trim());
 
       return {
@@ -59,7 +58,7 @@ export async function loadPrompt(
 
    // Git repository
    if (promptObj.git) {
-      const baseDir = dirname(basePath) || tmpdir(),
+      const baseDir = dirname(basePath) || getRuntimeAdapter().os.tmpdir(),
             result = await loadFromGit({
                git: promptObj.git,
                cacheDir: getPromptsCacheDir(baseDir),
@@ -83,7 +82,7 @@ export async function loadPrompt(
                version: promptObj.npm.version,
                projectRoot: dirname(basePath),
             }),
-            rawContent = await readFile(filePath, 'utf-8'),
+            rawContent = await getRuntimeAdapter().fs.readFile(filePath, 'utf-8'),
             parsed = parsePromptFrontmatter(rawContent.trim());
 
       return {

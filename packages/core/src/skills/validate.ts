@@ -1,6 +1,6 @@
-import { access, constants, readdir } from 'node:fs/promises';
 import { join, basename } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface ValidationResult {
    valid: boolean;
@@ -21,7 +21,7 @@ export async function validateSkill(skill: ParsedSkill): Promise<ValidationResul
    const skillMdPath = join(skill.basePath, 'SKILL.md');
 
    try {
-      await access(skillMdPath, constants.R_OK);
+      await getRuntimeAdapter().fs.access(skillMdPath, getRuntimeAdapter().fs.constants.R_OK);
    } catch {
       errors.push('SKILL.md not found');
    }
@@ -34,12 +34,12 @@ export async function validateSkill(skill: ParsedSkill): Promise<ValidationResul
    }
 
    // Check optional directories exist if present
-   const files = await readdir(skill.basePath),
+   const files = await getRuntimeAdapter().fs.readdir(skill.basePath),
          dirsToCheck = OPTIONAL_DIRS.filter((dir) => files.includes(dir)),
          accessResults = await Promise.all(
             dirsToCheck.map(async (dir) => {
                try {
-                  await access(join(skill.basePath, dir), constants.R_OK);
+                  await getRuntimeAdapter().fs.access(join(skill.basePath, dir), getRuntimeAdapter().fs.constants.R_OK);
                   return null;
                } catch {
                   return `Cannot access ${dir}/ directory`;

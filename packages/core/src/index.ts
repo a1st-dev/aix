@@ -22,4 +22,5 @@ export * from './global/index.js';
 export * from './state/index.js';
 export * from './env/index.js';
 export * from './reference-resolver.js';
+export * from './runtime/index.js';
 export { safeRm, UnsafePathError } from './fs/safe-rm.js';

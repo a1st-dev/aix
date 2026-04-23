@@ -1,10 +1,8 @@
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
 import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Codex prompts strategy. Following APM's Codex target mapping, aix does not deploy
@@ -42,7 +40,7 @@ export class CodexPromptsStrategy implements PromptsStrategy {
     * Get the absolute path to the global prompts directory.
     */
    getAbsoluteGlobalPath(): string {
-      return join(homedir(), this.getGlobalPromptsPath());
+      return join(getRuntimeAdapter().os.homedir(), this.getGlobalPromptsPath());
    }
 
    /**
@@ -51,7 +49,7 @@ export class CodexPromptsStrategy implements PromptsStrategy {
    async promptExists(name: string): Promise<boolean> {
       const promptPath = join(this.getAbsoluteGlobalPath(), `${name}.md`);
 
-      return existsSync(promptPath);
+      return getRuntimeAdapter().fs.existsSync(promptPath);
    }
 
    /**
@@ -60,12 +58,12 @@ export class CodexPromptsStrategy implements PromptsStrategy {
    async readPrompt(name: string): Promise<string | null> {
       const promptPath = join(this.getAbsoluteGlobalPath(), `${name}.md`);
 
-      if (!existsSync(promptPath)) {
+      if (!getRuntimeAdapter().fs.existsSync(promptPath)) {
          return null;
       }
 
       try {
-         return await readFile(promptPath, 'utf-8');
+         return await getRuntimeAdapter().fs.readFile(promptPath, 'utf-8');
       } catch {
          return null;
       }

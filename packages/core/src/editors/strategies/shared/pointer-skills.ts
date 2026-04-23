@@ -1,12 +1,10 @@
 import pMap from 'p-map';
-import { mkdir, cp } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
 import { safeRm } from '../../../fs/safe-rm.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Pointer skills strategy for editors without native Agent Skills support (currently Zed).
@@ -28,20 +26,20 @@ export class PointerSkillsStrategy implements SkillsStrategy {
       options: { dryRun?: boolean; targetScope?: 'project' | 'user' } = {},
    ): Promise<FileChange[]> {
       const entries = Array.from(skills.entries()),
-            installRoot = options.targetScope === 'user' ? homedir() : projectRoot;
+            installRoot = options.targetScope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot;
 
       const changes = await pMap(
          entries,
          async ([name, skill]) => {
             const aixSkillDir = join(installRoot, '.aix', 'skills', name),
-                  exists = existsSync(aixSkillDir);
+                  exists = getRuntimeAdapter().fs.existsSync(aixSkillDir);
 
             if (!options.dryRun) {
-               await mkdir(dirname(aixSkillDir), { recursive: true });
+               await getRuntimeAdapter().fs.mkdir(dirname(aixSkillDir), { recursive: true });
                if (exists) {
                   await safeRm(aixSkillDir, { force: true });
                }
-               await cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
+               await getRuntimeAdapter().fs.cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
             }
 
             return {
@@ -69,7 +67,7 @@ export class PointerSkillsStrategy implements SkillsStrategy {
                description = frontmatter.description || 'No description provided',
                skillPath =
                   options.targetScope === 'user'
-                     ? join(homedir(), '.aix', 'skills', name)
+                     ? join(getRuntimeAdapter().os.homedir(), '.aix', 'skills', name)
                      : `.aix/skills/${name}`;
 
          // Build contextual sections from frontmatter

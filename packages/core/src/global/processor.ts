@@ -1,6 +1,3 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join, dirname } from 'pathe';
 import { parseTOML, stringifyTOML } from 'confbox';
 import type { McpServerConfig } from '@a1st/aix-schema';
@@ -10,6 +7,7 @@ import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
 import { getTransport } from '../mcp/normalize.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 /** Derive config file format from path extension. */
 function getFileFormat(filePath: string): 'json' | 'toml' {
@@ -30,15 +28,15 @@ export async function analyzeGlobalChanges(
 
    // Analyze MCP servers if strategy is global-only
    if (mcpStrategy.isGlobalOnly?.() && Object.keys(editorConfig.mcp).length > 0) {
-      const globalPath = join(homedir(), mcpStrategy.getGlobalMcpConfigPath() ?? ''),
+      const globalPath = join(getRuntimeAdapter().os.homedir(), mcpStrategy.getGlobalMcpConfigPath() ?? ''),
             format = getFileFormat(globalPath);
 
       // Read existing global config
       let existingMcp: Record<string, McpServerConfig> = {};
 
-      if (existsSync(globalPath)) {
+      if (getRuntimeAdapter().fs.existsSync(globalPath)) {
          try {
-            const content = await readFile(globalPath, 'utf-8'),
+            const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8'),
                   { mcp } = mcpStrategy.parseGlobalMcpConfig(content);
 
             existingMcp = mcp;
@@ -125,7 +123,7 @@ async function analyzeGlobalPrompts(
    promptsStrategy: PromptsStrategy,
 ): Promise<GlobalChangeRequest[]> {
    const changes: GlobalChangeRequest[] = [],
-         globalDir = join(homedir(), globalPromptsPath),
+         globalDir = join(getRuntimeAdapter().os.homedir(), globalPromptsPath),
          ext = promptsStrategy.getFileExtension();
 
    for (const prompt of prompts) {
@@ -150,7 +148,7 @@ async function analyzePromptChange(
    promptPath: string,
    formattedContent: string,
 ): Promise<GlobalChangeRequest> {
-   if (!existsSync(promptPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(promptPath)) {
       return {
          editor,
          type: 'prompt',
@@ -163,7 +161,7 @@ async function analyzePromptChange(
 
    // Prompt exists - check if content matches
    try {
-      const existingContent = await readFile(promptPath, 'utf-8'),
+      const existingContent = await getRuntimeAdapter().fs.readFile(promptPath, 'utf-8'),
             configsMatch = promptsMatch(formattedContent, existingContent);
 
       return {
@@ -254,9 +252,9 @@ export async function applyGlobalChanges(
                await applyMcpChange(change);
             } else if (change.type === 'prompt' && change.promptContent) {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await mkdir(dirname(change.globalPath), { recursive: true });
+               await getRuntimeAdapter().fs.mkdir(dirname(change.globalPath), { recursive: true });
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await writeFile(change.globalPath, change.promptContent, 'utf-8');
+               await getRuntimeAdapter().fs.writeFile(change.globalPath, change.promptContent, 'utf-8');
             }
          } catch (error) {
             warnings.push(
@@ -286,9 +284,9 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
    let existingConfig: Record<string, unknown> = {};
 
    // Read existing config if it exists
-   if (existsSync(globalPath)) {
+   if (getRuntimeAdapter().fs.existsSync(globalPath)) {
       try {
-         const content = await readFile(globalPath, 'utf-8');
+         const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8');
 
          existingConfig = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>;
       } catch {
@@ -325,12 +323,12 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
    existingConfig[mcpKey] = mcpServers;
 
    // Write back in the correct format
-   await mkdir(dirname(globalPath), { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(dirname(globalPath), { recursive: true });
    const output = format === 'toml'
       ? stringifyTOML(existingConfig)
       : JSON.stringify(existingConfig, null, 2) + '\n';
 
-   await writeFile(globalPath, output, 'utf-8');
+   await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
 }
 
 /**
@@ -356,14 +354,14 @@ export async function removeFromGlobalMcpConfig(
    globalPath: string,
    serverName: string,
 ): Promise<boolean> {
-   if (!existsSync(globalPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(globalPath)) {
       return false;
    }
 
    const format = getFileFormat(globalPath);
 
    try {
-      const content = await readFile(globalPath, 'utf-8'),
+      const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8'),
             config = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>,
             mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
             mcpServers = config[mcpKey] as Record<string, unknown> | undefined;
@@ -381,7 +379,7 @@ export async function removeFromGlobalMcpConfig(
          ? stringifyTOML(config)
          : JSON.stringify(config, null, 2) + '\n';
 
-      await writeFile(globalPath, output, 'utf-8');
+      await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
       return true;
    } catch {
       return false;

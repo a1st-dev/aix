@@ -1,6 +1,5 @@
-import { rm } from 'node:fs/promises';
-import { homedir, tmpdir, platform } from 'node:os';
 import { resolve, normalize, sep } from 'pathe';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 /**
  * Error thrown when attempting to remove a protected path.
@@ -53,7 +52,7 @@ const BLOCKED_PATHS_WINDOWS = new Set([
 function isBlockedPath(normalizedPath: string): boolean {
    const lower = normalizedPath.toLowerCase();
 
-   if (platform() === 'win32') {
+   if (getRuntimeAdapter().os.platform() === 'win32') {
       return BLOCKED_PATHS_WINDOWS.has(lower);
    }
    return BLOCKED_PATHS_UNIX.has(lower);
@@ -79,7 +78,7 @@ function hasMinimumDepth(normalizedPath: string, minDepth: number = 3): boolean 
  * Check if path is within the system temp directory.
  */
 function isInTempDir(normalizedPath: string): boolean {
-   const tempDir = normalize(tmpdir());
+   const tempDir = normalize(getRuntimeAdapter().os.tmpdir());
 
    return normalizedPath.startsWith(tempDir + sep) || normalizedPath === tempDir;
 }
@@ -125,7 +124,7 @@ export async function safeRm(
 ): Promise<void> {
    const resolved = resolve(targetPath),
          normalized = normalize(resolved),
-         home = normalize(homedir());
+         home = normalize(getRuntimeAdapter().os.homedir());
 
    // Check blocklist
    if (isBlockedPath(normalized)) {
@@ -156,5 +155,5 @@ export async function safeRm(
       throw new UnsafePathError(normalized, 'path is too shallow (minimum 3 segments required)');
    }
 
-   await rm(resolved, { recursive: true, ...options });
+   await getRuntimeAdapter().fs.rm(resolved, { recursive: true, ...options });
 }

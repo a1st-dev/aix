@@ -1,12 +1,11 @@
-import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'pathe';
-import { tmpdir } from 'node:os';
 import type { RuleValue, RuleObject, ActivationMode, RulesConfig } from '@a1st/aix-schema';
 import { normalizeSourceRef } from '@a1st/aix-schema';
 import { getRulesCacheDir } from '../cache/paths.js';
 import { loadFromGit } from '../git-loader.js';
 import { resolveNpmPath } from '../npm/resolve.js';
 import { parseRuleFrontmatter } from '../frontmatter-parser.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface LoadedRule {
    name: string;
@@ -48,7 +47,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
    // Local file
    if (ruleObj.path) {
       const fullPath = resolve(dirname(basePath), ruleObj.path),
-            rawContent = await readFile(fullPath, 'utf-8'),
+            rawContent = await getRuntimeAdapter().fs.readFile(fullPath, 'utf-8'),
             parsed = parseRuleFrontmatter(rawContent.trim());
 
       return {
@@ -66,7 +65,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
 
    // Git repository
    if (ruleObj.git) {
-      const baseDir = dirname(basePath) || tmpdir(),
+      const baseDir = dirname(basePath) || getRuntimeAdapter().os.tmpdir(),
             result = await loadFromGit({
                git: ruleObj.git,
                cacheDir: getRulesCacheDir(baseDir),
@@ -95,7 +94,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
                version: ruleObj.npm.version,
                projectRoot: dirname(basePath),
             }),
-            rawContent = await readFile(filePath, 'utf-8'),
+            rawContent = await getRuntimeAdapter().fs.readFile(filePath, 'utf-8'),
             parsed = parseRuleFrontmatter(rawContent.trim());
 
       return {

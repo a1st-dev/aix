@@ -1,7 +1,7 @@
-import { platform } from 'node:os';
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * GitHub Copilot MCP strategy. GitHub Copilot uses `mcp.json` with a `servers` object (not `mcpServers`).
@@ -23,7 +23,7 @@ export class CopilotMcpStrategy implements McpStrategy {
          win32: 'AppData/Roaming/Code/User/mcp.json',
       };
 
-      return paths[platform()] ?? null;
+      return paths[getRuntimeAdapter().os.platform()] ?? null;
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {

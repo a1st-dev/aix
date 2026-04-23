@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { parseSkillMd } from '../parser.js';
 import type { NpmRef } from '../reference-parser.js';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import { resolveNpmPath } from '../../npm/resolve.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Resolve an npm skill package.
@@ -24,7 +24,7 @@ export async function resolveNpm(ref: NpmRef, projectRoot: string): Promise<Pars
    // Verify SKILL.md exists in the resolved directory
    const skillMdPath = join(skillDir, 'SKILL.md');
 
-   if (!existsSync(skillMdPath)) {
+   if (!getRuntimeAdapter().fs.existsSync(skillMdPath)) {
       throw new Error(
          `SKILL.md not found in ${skillDir}. ` +
             `Ensure the package exports a skill directory at "${ref.path || '(root)'}".`,

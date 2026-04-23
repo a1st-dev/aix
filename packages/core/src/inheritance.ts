@@ -1,6 +1,4 @@
 import { resolve, dirname, join, isAbsolute } from 'pathe';
-import { existsSync, readFileSync } from 'node:fs';
-import { cp, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
 import { withGitDownload, createDownloadKey } from './git-download.js';
@@ -10,6 +8,7 @@ import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './e
 import { convertBlobToRawUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface ResolveOptions {
    baseDir: string;
@@ -34,10 +33,11 @@ export async function resolveExtends(
    // On the top-level call, wipe the extends directory so it exactly reflects the current config.
    // This prevents orphaned directories from accumulating when the extends URL changes.
    if (isTopLevel) {
-      const extendsDir = getExtendsDir(projectRoot);
+      const extendsDir = getExtendsDir(projectRoot),
+            { fs } = getRuntimeAdapter();
 
-      if (existsSync(extendsDir)) {
-         await rm(extendsDir, { recursive: true, force: true });
+      if (fs.existsSync(extendsDir)) {
+         await fs.rm(extendsDir, { recursive: true, force: true });
       }
    }
 
@@ -131,7 +131,7 @@ async function resolveRemoteExtends(
    let content: string;
 
    try {
-      const response = await fetch(rawUrl);
+      const response = await getRuntimeAdapter().network.fetch(rawUrl);
 
       if (!response.ok) {
          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -162,18 +162,19 @@ async function resolveLocalExtends(
    visited: Set<string>,
 ): Promise<Record<string, unknown>> {
    const absolutePath = resolve(baseDir, extendPath);
+   const { fs } = getRuntimeAdapter();
 
    if (visited.has(absolutePath)) {
       throw new CircularDependencyError([...visited, absolutePath]);
    }
 
-   if (!existsSync(absolutePath)) {
+   if (!fs.existsSync(absolutePath)) {
       throw new ConfigParseError(`Extended config not found: ${extendPath}`, absolutePath);
    }
 
    visited.add(absolutePath);
 
-   const content = readFileSync(absolutePath, 'utf-8'),
+   const content = fs.readFileSync(absolutePath, 'utf-8'),
          parsed = parseConfigContent(content) as Record<string, unknown>,
          newBaseDir = dirname(absolutePath),
          resolved = await resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited });
@@ -196,12 +197,13 @@ async function resolveGitExtends(
 
    return withGitDownload(extendPath, projectRoot, async (dir) => {
       const configPath = resolve(dir, 'ai.json');
+      const { fs } = getRuntimeAdapter();
 
-      if (!existsSync(configPath)) {
+      if (!fs.existsSync(configPath)) {
          throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
       }
 
-      const content = readFileSync(configPath, 'utf-8'),
+      const content = fs.readFileSync(configPath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited });
 
@@ -210,8 +212,8 @@ async function resolveGitExtends(
       const extendsKey = createDownloadKey(extendPath),
             permanentDir = join(getExtendsDir(projectRoot), extendsKey);
 
-      await mkdir(dirname(permanentDir), { recursive: true });
-      await cp(dir, permanentDir, { recursive: true, force: true });
+      await fs.mkdir(dirname(permanentDir), { recursive: true });
+      await fs.cp(dir, permanentDir, { recursive: true, force: true });
 
       // Normalize local paths to point at the permanent copy
       return normalizeLocalPaths(resolved, permanentDir);
@@ -231,9 +233,9 @@ async function resolveNpmExtends(
 
    try {
       // Use ESM-compatible import.meta.resolve to find the package
-      const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${process.cwd()}/`),
+      const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${getRuntimeAdapter().process.cwd()}/`),
             packagePath = fileURLToPath(resolvedUrl),
-            content = readFileSync(packagePath, 'utf-8'),
+            content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
             resolved = await resolveExtends(parsed, { baseDir, projectRoot, visited });

@@ -1,7 +1,6 @@
-import { readdir, stat } from 'node:fs/promises';
 import { join } from 'pathe';
-import { existsSync } from 'node:fs';
 import { getBackupsDir, getCacheDir, getNpmCacheDir } from './paths.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface CacheEntry {
    path: string;
@@ -62,7 +61,7 @@ function mergeCategories(a: CacheCategory, b: CacheCategory): CacheCategory {
 }
 
 async function scanDirectory(dir: string): Promise<CacheCategory> {
-   if (!existsSync(dir)) {
+   if (!getRuntimeAdapter().fs.existsSync(dir)) {
       return { size: 0, count: 0, entries: [] };
    }
 
@@ -70,7 +69,7 @@ async function scanDirectory(dir: string): Promise<CacheCategory> {
    let totalSize = 0;
 
    async function scan(currentDir: string): Promise<void> {
-      const items = await readdir(currentDir, { withFileTypes: true });
+      const items = await getRuntimeAdapter().fs.readdir(currentDir, { withFileTypes: true });
 
       // Sequential scan is required to accumulate totalSize correctly
       for (const item of items) {
@@ -81,7 +80,7 @@ async function scanDirectory(dir: string): Promise<CacheCategory> {
             await scan(fullPath);
          } else {
             // eslint-disable-next-line no-await-in-loop -- Sequential accumulation of totalSize
-            const stats = await stat(fullPath);
+            const stats = await getRuntimeAdapter().fs.stat(fullPath);
 
             totalSize += stats.size;
             entries.push({

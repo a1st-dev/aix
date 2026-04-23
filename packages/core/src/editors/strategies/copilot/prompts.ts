@@ -1,8 +1,8 @@
 import pMap from 'p-map';
-import { platform } from 'node:os';
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
 import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * GitHub Copilot prompts strategy. Uses markdown files with YAML frontmatter in `.github/prompts/`.
@@ -29,7 +29,7 @@ export class CopilotPromptsStrategy implements PromptsStrategy {
          win32: 'AppData/Roaming/Code/User/prompts',
       };
 
-      return paths[platform()] ?? null;
+      return paths[getRuntimeAdapter().os.platform()] ?? null;
    }
 
    formatPrompt(prompt: EditorPrompt): string {
