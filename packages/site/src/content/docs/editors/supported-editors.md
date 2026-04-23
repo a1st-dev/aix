@@ -15,10 +15,10 @@ aix currently supports 7 AI code editors.
 | Claude Code    |  ✅   |   ✅    | ✅  |   ✅   |  ✅   |    No     |        No         |
 | Windsurf       |  ✅   |   ✅    | ✅  |   ✅   |  ✅   |    Yes    |        Yes        |
 | Zed            |  ✅   |   ❌    | ✅  |   ⚠️   |  ❌   |    Yes    |        No         |
-| Codex          |  ✅   |   ✅    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
+| Codex          |  ✅   |   ⚠️    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
 | Gemini         |  ✅   |   ✅    | ✅  |   ✅   |  ❌   |    Yes    |        Yes        |
 
-⚠️ = supported via pointer rules (no native Agent Skills)
+⚠️ = supported through an adapter behavior instead of a native editor feature. Zed skills use pointer rules. Codex prompts convert to skills.
 
 ## Feature Mapping
 
@@ -87,12 +87,18 @@ Zed supports [`AGENTS.md`][zed-rules] as one of several compatibility filenames 
 
 - **Rules**: `AGENTS.md` at project root (and in subdirectories for glob-scoped rules).
 - **MCP**: Global config at `~/.codex/config.toml`. Also supports project-scoped config at `.codex/config.toml` (trusted projects only). aix currently only writes to the global config.
-- **Prompts**: Global at `~/.codex/prompts/`.
+- **Prompts**: Deprecated and unsupported natively. aix converts `ai.json` prompts to Agent Skills during install instead of writing `~/.codex/prompts/`.
 - **Skills**: `.aix/skills/{name}/` with project symlinks from `.agents/skills/`. Global/personal Codex skills live under `~/.codex/skills/`.
 
 #### .agents/ folder
 
 Codex has native support for both pieces of the standard. It discovers skills from [`.agents/skills/`][codex-skills] in the current directory, parent directories up to the repo root, the repo root, `$HOME/.agents/skills`, `/etc/codex/skills`, and bundled system skills. It also reads [`AGENTS.md`][codex-agents-md] from the Codex home directory and from the project root down to the current working directory, layering more specific files later in the prompt.
+
+#### Prompt conversion
+
+Codex no longer has a supported prompt install target in aix. OpenAI's current Codex docs describe Agent Skills as the reusable workflow format, with each skill stored as a directory containing `SKILL.md` plus optional `scripts/`, `references/`, `assets/`, and `agents/openai.yaml` files. When installing to Codex, aix converts each `ai.json` prompt into an instruction-only skill and exposes it through `.agents/skills/`.
+
+If a prompt and a skill use the same name in `ai.json`, the real skill keeps the name. The converted prompt is renamed to `prompt-{name}`; if that also conflicts, aix adds a numeric suffix such as `prompt-{name}-2`.
 
 ### Gemini
 

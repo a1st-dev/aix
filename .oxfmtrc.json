@@ -17,8 +17,12 @@
    "ignorePatterns": [
       "**/dist/**",
       "**/node_modules/**",
+      "**/.agents/**",
       "**/.aix/**",
       "**/.astro/**",
+      "**/.beads/**",
+      "**/AGENTS.md",
+      "**/GEMINI.md",
       "package-lock.json",
       "packages/cli/oclif.manifest.json"
    ]

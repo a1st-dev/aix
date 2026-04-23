@@ -30,13 +30,13 @@ Define prompts in `ai.json`:
 
 ## Editor Support
 
-aix maps these prompts to the native feature in each editor:
+aix maps these prompts to the native feature in each editor when one exists:
 
 - **Cursor**: Maps to `.cursor/prompts/` (accessible via `/`).
 - **Claude Code**: Maps to `.claude/commands/`.
 - **GitHub Copilot**: Maps to `.github/prompts/*.prompt.md`.
 - **Windsurf**: Maps to Cascade commands.
-- **Codex**: Maps to global prompts at `~/.codex/prompts/`.
+- **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
 - **Gemini**: Maps to project/global TOML files in `.gemini/commands/`.
 - **Zed**: Not supported.
 
@@ -67,3 +67,11 @@ Some prompts take arguments. Use the `argumentHint` property to explicitly tell 
 ```
 
 The content of the prompt will be prefixed to the user's input.
+
+## Codex conversion
+
+Codex uses [Agent Skills][codex-skills] for reusable workflows. When you install an `ai.json` that contains prompts to Codex, aix converts each prompt into a skill and links it into `.agents/skills/`. The generated skill keeps the prompt content as instructions and includes the prompt description as the skill description.
+
+Name conflicts are resolved in favor of real skills. If `skills.review` and `prompts.review` are both present, aix installs the configured skill as `review` and installs the converted prompt as `prompt-review`. If that name is already taken, aix adds a numeric suffix.
+
+[codex-skills]: https://developers.openai.com/codex/skills

@@ -42,7 +42,9 @@ The only scoping aix can provide is directory-based placement: rules with `glob`
 
 Project-installed Codex skills are exposed through `.agents/skills/`. Global/personal Codex skills still live under `~/.codex/skills/`.
 
-MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page. Prompts are global-only, stored at `~/.codex/prompts/`.
+MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page.
+
+Codex prompts are deprecated and unsupported as an aix install target. When `ai.json` contains prompts, aix converts them to instruction-only Agent Skills and installs them through the normal Codex skill path. If a prompt name conflicts with a skill name, the skill keeps its name and the converted prompt gets a `prompt-` prefix, with a numeric suffix if needed.
 
 ## Gemini
 
