@@ -10,6 +10,7 @@ import type {
    EditorRule,
    EditorPrompt,
    UnsupportedFeatures,
+   TargetScopeLimitations,
 } from '../types.js';
 import type {
    RulesStrategy,
@@ -620,5 +621,46 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       return unsupported;
+   }
+
+   getTargetScopeLimitations(
+      config: AiJsonConfig,
+      targetScope: 'project' | 'user',
+   ): TargetScopeLimitations {
+      const limitations: TargetScopeLimitations = {},
+            ruleNames = Object.entries(config.rules ?? {})
+               .filter(([, value]) => value !== false)
+               .map(([name]) => name),
+            skillNames = Object.entries(config.skills ?? {})
+               .filter(([, value]) => value !== false)
+               .map(([name]) => name),
+            hookEvents = Object.keys(config.hooks ?? {});
+
+      if (targetScope !== 'user') {
+         return limitations;
+      }
+
+      if (ruleNames.length > 0 && !this.rulesStrategy.getGlobalRulesPath()) {
+         limitations.rules = {
+            reason: `${this.name} does not have a user-scope rules file path`,
+            rules: ruleNames,
+         };
+      }
+
+      if (skillNames.length > 0 && !this.skillsStrategy.isNative() && !this.rulesStrategy.getGlobalRulesPath()) {
+         limitations.skills = {
+            reason: `${this.name} cannot activate pointer skills at user scope without a writable user-scope rules file`,
+            skills: skillNames,
+         };
+      }
+
+      if (hookEvents.length > 0) {
+         limitations.hooks = {
+            reason: `${this.name} hooks can only be written at project scope`,
+            events: hookEvents,
+         };
+      }
+
+      return limitations;
    }
 }

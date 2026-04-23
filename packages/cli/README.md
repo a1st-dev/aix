@@ -1,6 +1,7 @@
 # @a1st/aix
 
-**The main CLI for aix** — unified AI agent configuration across editors.
+**The main CLI for aix**. It keeps AI editor config in one place and can also sync
+supported config between editors.
 
 This is the primary package for the `aix` project. It provides the `aix` command-line tool
 for managing `ai.json` configuration files.
@@ -15,12 +16,17 @@ npm install -g @a1st/aix
 
 ```bash
 aix init                              # Create ai.json
+aix init --from cursor                # Bootstrap ai.json from an editor
+aix sync cursor --to claude-code      # Sync supported config editor -> editor
 aix search <query>                    # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix add skill <source>                # Add a skill
 aix add mcp <name>                    # Add MCP server from registry
 aix list [scope]                      # List skills, mcp, rules, prompts, or editors
 ```
+
+Use `aix install` to apply `ai.json` to editors. Use `aix sync` when the source of truth is
+another editor and you want aix to bridge the formats for you.
 
 ## Documentation
 

@@ -19,7 +19,7 @@ aix init [flags]
 | Flag                                       | Description                                       |
 | ------------------------------------------ | ------------------------------------------------- |
 | `--force` / `-f`                           | Overwrite existing `ai.json` if it exists.        |
-| `--from <editor>`                          | Import configuration from an existing editor.     |
+| `--from <editor>`                          | Import supported config from an existing editor.  |
 | `--extends <ref>`                          | Set the `extends` reference in the new `ai.json`. |
 | `--scope <scope>` / `--user` / `--project` | Set the `scope` field (`user` or `project`).      |
 
@@ -38,7 +38,7 @@ aix init --extends github:company/ai-config --scope user
 
 ## Importing Config
 
-The `--from` flag allows you to bootstrap `ai.json` from:
+The `--from` flag lets you bootstrap `ai.json` from:
 
 - `cursor`
 - `copilot`
@@ -55,5 +55,8 @@ When importing, aix will:
 2. Extract rules, prompts, and MCP settings.
 3. Write extracted content to `.aix/imported/`.
 4. Generate an `ai.json` linking to those files.
+
+`aix init --from` is the right command when you want `ai.json` to become the source of
+truth. If you want direct editor-to-editor migration, use [`aix sync`](/cli/sync/).
 
 See [Import from an Editor](/getting-started/import-from-editor/) for details.

@@ -115,8 +115,16 @@ export async function installToEditor(
    options?: ApplyOptions,
 ): Promise<ApplyResult> {
    const adapter = getAdapter(editor),
+         targetScope = options?.targetScope ?? 'project',
          unsupportedFeatures = adapter.getUnsupportedFeatures(config),
-         editorConfig = await adapter.generateConfig(config, projectRoot, options),
+         targetScopeLimitations = options?.strictTargetScope
+            ? adapter.getTargetScopeLimitations(config, targetScope)
+            : undefined,
+         filteredConfig =
+            options?.strictTargetScope && targetScopeLimitations
+               ? stripTargetScopeLimitedFeatures(config, targetScopeLimitations)
+               : config,
+         editorConfig = await adapter.generateConfig(filteredConfig, projectRoot, options),
          result = await adapter.apply(editorConfig, projectRoot, options);
 
    // Attach unsupported features to result if any exist
@@ -124,14 +132,58 @@ export async function installToEditor(
       result.unsupportedFeatures = unsupportedFeatures;
    }
 
+   if (
+      targetScopeLimitations &&
+      (
+         targetScopeLimitations.rules ||
+         targetScopeLimitations.skills ||
+         targetScopeLimitations.hooks
+      )
+   ) {
+      result.targetScopeLimitations = targetScopeLimitations;
+   }
+
    // Handle global-only features (MCP for Windsurf/Codex, Prompts for Codex)
-   const globalChanges = await processGlobalFeatures(adapter, editorConfig, projectRoot, options);
+   const globalChanges = await processGlobalFeatures(adapter, editorConfig, projectRoot, {
+      ...options,
+      skipGlobal:
+         options?.skipGlobal ??
+         (options?.strictTargetScope === true && targetScope === 'project'),
+      skipGlobalReason:
+         options?.skipGlobalReason ??
+         (
+            options?.strictTargetScope === true && targetScope === 'project'
+               ? 'Requested target scope is project, so aix did not write global-only config'
+               : undefined
+         ),
+   });
 
    if (globalChanges) {
       result.globalChanges = globalChanges;
    }
 
    return result;
+}
+
+function stripTargetScopeLimitedFeatures(
+   config: AiJsonConfig,
+   limitations: NonNullable<ApplyResult['targetScopeLimitations']>,
+): AiJsonConfig {
+   const nextConfig: AiJsonConfig = { ...config };
+
+   if (limitations.rules) {
+      nextConfig.rules = {};
+   }
+
+   if (limitations.skills) {
+      nextConfig.skills = {};
+   }
+
+   if (limitations.hooks) {
+      delete nextConfig.hooks;
+   }
+
+   return nextConfig;
 }
 
 /**
@@ -171,6 +223,7 @@ async function processGlobalFeatures(
    // Apply the changes (respecting skipGlobal and autoConfirmGlobal options)
    const globalResult = await applyGlobalChanges(changes, {
       skipGlobal: options?.skipGlobal,
+      skipGlobalReason: options?.skipGlobalReason,
       autoConfirm: options?.autoConfirmGlobal,
       projectPath: projectRoot,
       dryRun: options?.dryRun,

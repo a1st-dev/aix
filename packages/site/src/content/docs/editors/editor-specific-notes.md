@@ -16,6 +16,9 @@ Windsurf does not support project-specific MCP configuration files yet. All MCP 
 
 When you install an MCP server to Windsurf, `aix` modifies your global Windsurf config (`~/.codeium/windsurf/mcp_config.json`). It tracks this in `~/.aix/state.json` so that if you remove the server (or delete the project), aix knows whether it's safe to remove it from the global config.
 
+During `aix sync`, a project-scoped write to Windsurf will skip MCP changes and report that
+they are global-only. That is expected.
+
 ## Skills
 
 For native-skill editors, aix keeps its managed copy of every installed skill in `.aix/skills/{name}/` and then symlinks that directory into the editor's native skills location. This keeps installs, removals, and `aix list --all` consistent across editors while still using each editor's expected directory layout.
@@ -25,6 +28,10 @@ For native-skill editors, aix keeps its managed copy of every installed skill in
 Zed supports rules via a single `.rules` file at the project root. All rules are concatenated into this file. Zed also auto-detects other common rules files (`.cursorrules`, `AGENTS.md`, `CLAUDE.md`, etc.) but only the first match is used. Hooks are not supported.
 
 Zed supports MCP configuration at both project level (`.zed/settings.json`) and global level (`~/.config/zed/settings.json`). `aix` writes project-level MCP config to `.zed/settings.json` using the `context_servers` key. Zed also supports MCP Prompts (server-side prompt templates), though file-based user prompts are not supported.
+
+Zed does not have native skill files. aix exposes skills as pointer rules instead. In
+user-scoped syncs, aix can only do that when the destination has a writable user-level rules
+file. If not, sync skips those skills and tells you which ones were skipped.
 
 ## Claude Code
 
@@ -43,6 +50,9 @@ The only scoping aix can provide is directory-based placement: rules with `glob`
 Project-installed Codex skills are exposed through `.agents/skills/`. Global/personal Codex skills still live under `~/.codex/skills/`.
 
 MCP servers can be configured globally at `~/.codex/config.toml` or scoped to a project with `.codex/config.toml` (trusted projects only). aix currently writes MCP config to the global file and tracks entries in `~/.aix/state.json`. **Project-scoped MCP support is available upstream but not yet implemented in aix** — see the code changes note at the bottom of this page.
+
+During `aix sync`, project-scoped writes skip those Codex MCP changes for the same reason and
+report them in the output instead of failing the command.
 
 Codex prompts are deprecated and unsupported as an aix install target. When `ai.json` contains prompts, aix converts them to instruction-only Agent Skills and installs them through the normal Codex skill path. If a prompt name conflicts with a skill name, the skill keeps its name and the converted prompt gets a `prompt-` prefix, with a numeric suffix if needed.
 
@@ -63,17 +73,3 @@ OpenCode MCP servers live in the top-level `mcp` object in `opencode.json`. aix 
 Prompts are written as markdown command files in `.opencode/commands/`. Skills are copied to `.aix/skills/{name}/` and exposed through `.opencode/skills/{name}`.
 
 Hooks are not supported for OpenCode in aix.
-
----
-
-## Potential Code Changes
-
-The following upstream changes have been identified but are **not yet reflected in the aix codebase**:
-
-### Codex: Project-scoped MCP
-
-Codex now supports project-scoped MCP configuration via `.codex/config.toml` alongside the existing global `~/.codex/config.toml`. The aix `CodexMcpStrategy` currently extends `GlobalMcpStrategy`, treating Codex MCP as global-only. To support project-scoped MCP:
-
-- Refactor `CodexMcpStrategy` to no longer extend `GlobalMcpStrategy`.
-- Add a project-level config path (`.codex/config.toml`) alongside the global path.
-- The TOML format (`[mcp_servers.<name>]` sections) remains the same for both scopes.

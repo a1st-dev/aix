@@ -2,7 +2,7 @@
 slug: cli/overview
 sidebar:
    order: 1
-title: CLI Overview
+title: CLI overview
 description: High-level overview of the aix CLI.
 ---
 
@@ -20,11 +20,18 @@ These flags are available on all commands:
 
 ## Command Groups
 
-- **Core**: `init`, `install`, `validate`
+- **Core**: `init`, `install`, `sync`, `validate`
 - **Management**: `add`, `remove`, `list`
 - **Discovery**: `search`
 - **Config**: `config get`, `config set`, `config show`
 - **System**: `cache`, `backups`, `global`
+
+`init --from` and `sync` sound similar, but they solve different problems:
+
+- `aix init --from <editor>` reads an editor and writes a new `ai.json`.
+- `aix sync <from> --to <to>` reads one editor, normalizes that config through aix's internal
+  bridge format, then writes what the destination editor can represent.
+- `aix install` reads `ai.json` and applies it to one or more editors.
 
 ## Aliases
 

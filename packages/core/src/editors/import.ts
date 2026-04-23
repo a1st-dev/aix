@@ -1,5 +1,14 @@
 import { dirname, isAbsolute, join } from 'pathe';
-import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
+import {
+   createEmptyConfig,
+   type HookEvent,
+   parseJsonc,
+   type AiJsonConfig,
+   type HookAction,
+   type HookMatcher,
+   type HooksConfig,
+   type McpServerConfig,
+} from '@a1st/aix-schema';
 import type { EditorName } from './types.js';
 import type { McpStrategy, RulesStrategy, PromptsStrategy } from './strategies/types.js';
 import type { NamedRule } from '../import-writer.js';
@@ -30,6 +39,7 @@ import { OpenCodeMcpStrategy } from './strategies/opencode/mcp.js';
 import { getRuntimeAdapter, type RuntimeDirent } from '../runtime/index.js';
 
 type ImportScope = 'project' | 'user';
+export type ImportReadScope = ImportScope | 'all';
 
 function existsSync(path: string): boolean {
    return getRuntimeAdapter().fs.existsSync(path);
@@ -57,17 +67,20 @@ export interface ImportResult {
    rules: NamedRule[];
    skills: Record<string, string>;
    prompts: Record<string, string>;
+   hooks: HooksConfig;
    paths: {
       mcp: Record<string, string>;
       rules: Record<string, string>;
       skills: Record<string, string>;
       prompts: Record<string, string>;
+      hooks: Record<string, string>;
    };
    scopes: {
       mcp: Record<string, ImportScope>;
       rules: Record<string, ImportScope>;
       skills: Record<string, ImportScope>;
       prompts: Record<string, ImportScope>;
+      hooks: Record<string, ImportScope>;
    };
    warnings: string[];
    /** Sources that were found and imported from */
@@ -80,6 +93,41 @@ export interface ImportResult {
 export interface ImportOptions {
    /** Project root directory for local editor config lookup */
    projectRoot?: string;
+   /** Which source scope to read. Defaults to 'all' for backward compatibility. */
+   scope?: ImportReadScope;
+}
+
+export interface NormalizedImportedRule {
+   name: string;
+   sourceName: string;
+   rawContent: string;
+   content: string;
+   description?: string;
+   activation?: 'always' | 'auto' | 'glob' | 'manual';
+   globs?: string[];
+}
+
+export interface NormalizedImportedPrompt {
+   name: string;
+   sourceName: string;
+   rawContent: string;
+   content: string;
+   description?: string;
+   argumentHint?: string;
+}
+
+export interface NormalizedImportedSkill {
+   name: string;
+   sourceName: string;
+   ref: string;
+}
+
+export interface NormalizedEditorImport {
+   mcp: ImportResult['mcp'];
+   rules: NormalizedImportedRule[];
+   prompts: NormalizedImportedPrompt[];
+   skills: NormalizedImportedSkill[];
+   hooks: HooksConfig;
 }
 
 interface ImportStrategies {
@@ -87,6 +135,103 @@ interface ImportStrategies {
    rules: RulesStrategy;
    prompts: PromptsStrategy;
 }
+
+type ImportedHookEvent = HookEvent;
+
+const CURSOR_HOOK_EVENT_MAP: Record<string, string> = {
+   session_start: 'sessionStart',
+   session_end: 'sessionEnd',
+   pre_tool_use: 'preToolUse',
+   post_tool_use: 'postToolUse',
+   pre_file_read: 'beforeReadFile',
+   pre_command: 'beforeShellExecution',
+   post_command: 'afterShellExecution',
+   pre_mcp_tool: 'beforeMCPExecution',
+   post_mcp_tool: 'afterMCPExecution',
+   post_file_write: 'afterFileEdit',
+   pre_prompt: 'beforeSubmitPrompt',
+   agent_stop: 'stop',
+};
+
+const WINDSURF_HOOK_EVENT_MAP: Record<string, string> = {
+   pre_file_read: 'pre_read_code',
+   post_file_read: 'post_read_code',
+   pre_file_write: 'pre_write_code',
+   post_file_write: 'post_write_code',
+   pre_command: 'pre_run_command',
+   post_command: 'post_run_command',
+   pre_mcp_tool: 'pre_mcp_tool_use',
+   post_mcp_tool: 'post_mcp_tool_use',
+   pre_prompt: 'pre_user_prompt',
+   agent_stop: 'post_cascade_response',
+   worktree_setup: 'post_setup_worktree',
+};
+
+const CLAUDE_CODE_HOOK_EVENT_MAP: Record<string, string> = {
+   pre_tool_use: 'PreToolUse',
+   post_tool_use: 'PostToolUse',
+   pre_file_read: 'PreToolUse',
+   post_file_read: 'PostToolUse',
+   pre_file_write: 'PreToolUse',
+   post_file_write: 'PostToolUse',
+   pre_command: 'PreToolUse',
+   post_command: 'PostToolUse',
+   pre_mcp_tool: 'PreToolUse',
+   post_mcp_tool: 'PostToolUse',
+   session_start: 'SessionStart',
+   session_end: 'SessionEnd',
+   agent_stop: 'Stop',
+   pre_prompt: 'UserPromptSubmit',
+   pre_compact: 'PreCompact',
+   post_compact: 'PostCompact',
+   subagent_start: 'SubagentStart',
+   subagent_stop: 'SubagentStop',
+   task_created: 'TaskCreated',
+   task_completed: 'TaskCompleted',
+   worktree_setup: 'WorktreeCreate',
+};
+
+const COPILOT_HOOK_EVENT_MAP: Record<string, string> = {
+   pre_tool_use: 'preToolUse',
+   post_tool_use: 'postToolUse',
+   pre_file_read: 'preToolUse',
+   post_file_read: 'postToolUse',
+   pre_file_write: 'preToolUse',
+   post_file_write: 'postToolUse',
+   pre_command: 'preToolUse',
+   post_command: 'postToolUse',
+   pre_mcp_tool: 'preToolUse',
+   post_mcp_tool: 'postToolUse',
+   session_start: 'sessionStart',
+   session_end: 'sessionEnd',
+   agent_stop: 'stop',
+   pre_prompt: 'userPromptSubmitted',
+   pre_compact: 'preCompact',
+   subagent_start: 'subagentStart',
+   subagent_stop: 'subagentStop',
+};
+
+const CLAUDE_CODE_HOOK_TOOL_MATCHERS: Record<string, string> = {
+   pre_command: 'Bash',
+   post_command: 'Bash',
+   pre_file_read: 'Read',
+   post_file_read: 'Read',
+   pre_file_write: 'Write|Edit',
+   post_file_write: 'Write|Edit',
+   pre_mcp_tool: 'mcp__.*',
+   post_mcp_tool: 'mcp__.*',
+};
+
+const COPILOT_HOOK_TOOL_MATCHERS: Record<string, string> = {
+   pre_command: 'Bash',
+   post_command: 'Bash',
+   pre_file_read: 'Read',
+   post_file_read: 'Read',
+   pre_file_write: 'Write|Edit',
+   post_file_write: 'Write|Edit',
+   pre_mcp_tool: 'mcp__.*',
+   post_mcp_tool: 'mcp__.*',
+};
 
 /**
  * Get the import strategies for an editor.
@@ -160,97 +305,556 @@ export async function importFromEditor(
             rules: [],
             skills: {},
             prompts: {},
-            paths: { mcp: {}, rules: {}, skills: {}, prompts: {} },
-            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {} },
+            hooks: {},
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
             warnings: [],
             sources: { global: false, local: false },
          },
          strategies = getImportStrategies(editor),
-         projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd();
+         projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
+         scope = options.scope ?? 'all';
 
-   // 1. Import from GLOBAL config first (base layer)
-   const globalMcp = await importMcpConfig(strategies.mcp, editor, 'global');
-
-   if (Object.keys(globalMcp.mcp).length > 0) {
-      result.sources.global = true;
+   if (scope === 'all' || scope === 'user') {
+      mergeImportMcp(result, await importMcpConfig(strategies.mcp, editor, 'global'));
+      mergeImportRules(result, await importGlobalRules(strategies.rules, editor));
+      mergeImportPrompts(result, await importPrompts(strategies.prompts, editor, 'global'));
+      mergeImportSkills(result, await importGlobalSkills(editor));
+      mergeImportHooks(result, await importHooks(editor, 'global'));
    }
-   Object.assign(result.mcp, globalMcp.mcp);
-   Object.assign(result.paths.mcp, globalMcp.paths);
-   Object.assign(result.scopes.mcp, globalMcp.scopes);
-   result.warnings.push(...globalMcp.warnings);
 
-   const globalRules = await importGlobalRules(strategies.rules, editor);
-
-   if (globalRules.rules.length > 0) {
-      result.sources.global = true;
+   if (scope === 'all' || scope === 'project') {
+      mergeImportMcp(result, await importLocalMcpConfig(strategies.mcp, editor, projectRoot));
+      mergeImportRules(result, await importLocalRules(strategies.rules, editor, projectRoot));
+      mergeImportPrompts(result, await importLocalPrompts(strategies.prompts, editor, projectRoot));
+      mergeImportSkills(result, await importLocalSkills(editor, projectRoot));
+      mergeImportHooks(result, await importHooks(editor, 'project', projectRoot));
    }
-   result.rules.push(...globalRules.rules);
-   Object.assign(result.paths.rules, globalRules.paths);
-   Object.assign(result.scopes.rules, globalRules.scopes);
-   result.warnings.push(...globalRules.warnings);
-
-   const globalPrompts = await importPrompts(strategies.prompts, editor, 'global');
-
-   if (Object.keys(globalPrompts.prompts).length > 0) {
-      result.sources.global = true;
-   }
-   Object.assign(result.prompts, globalPrompts.prompts);
-   Object.assign(result.paths.prompts, globalPrompts.paths);
-   Object.assign(result.scopes.prompts, globalPrompts.scopes);
-   result.warnings.push(...globalPrompts.warnings);
-
-   const globalSkills = await importGlobalSkills(editor);
-
-   if (Object.keys(globalSkills.skills).length > 0) {
-      result.sources.global = true;
-   }
-   Object.assign(result.skills, globalSkills.skills);
-   Object.assign(result.paths.skills, globalSkills.paths);
-   Object.assign(result.scopes.skills, globalSkills.scopes);
-   result.warnings.push(...globalSkills.warnings);
-
-   // 2. Import from LOCAL editor config (overlay - overrides global)
-   const localMcp = await importLocalMcpConfig(strategies.mcp, editor, projectRoot);
-
-   if (Object.keys(localMcp.mcp).length > 0) {
-      result.sources.local = true;
-   }
-   Object.assign(result.mcp, localMcp.mcp);
-   Object.assign(result.paths.mcp, localMcp.paths);
-   Object.assign(result.scopes.mcp, localMcp.scopes);
-   result.warnings.push(...localMcp.warnings);
-
-   const localRules = await importLocalRules(strategies.rules, editor, projectRoot);
-
-   if (localRules.rules.length > 0) {
-      result.sources.local = true;
-   }
-   result.rules.push(...localRules.rules);
-   Object.assign(result.paths.rules, localRules.paths);
-   Object.assign(result.scopes.rules, localRules.scopes);
-   result.warnings.push(...localRules.warnings);
-
-   const localPrompts = await importLocalPrompts(strategies.prompts, editor, projectRoot);
-
-   if (Object.keys(localPrompts.prompts).length > 0) {
-      result.sources.local = true;
-   }
-   Object.assign(result.prompts, localPrompts.prompts);
-   Object.assign(result.paths.prompts, localPrompts.paths);
-   Object.assign(result.scopes.prompts, localPrompts.scopes);
-   result.warnings.push(...localPrompts.warnings);
-
-   const localSkills = await importLocalSkills(editor, projectRoot);
-
-   if (Object.keys(localSkills.skills).length > 0) {
-      result.sources.local = true;
-   }
-   Object.assign(result.skills, localSkills.skills);
-   Object.assign(result.paths.skills, localSkills.paths);
-   Object.assign(result.scopes.skills, localSkills.scopes);
-   result.warnings.push(...localSkills.warnings);
 
    return result;
+}
+
+function mergeImportMcp(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importMcpConfig>>,
+): void {
+   if (Object.keys(imported.mcp).length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   Object.assign(result.mcp, imported.mcp);
+   Object.assign(result.paths.mcp, imported.paths);
+   Object.assign(result.scopes.mcp, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportRules(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importGlobalRules>>,
+): void {
+   if (imported.rules.length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   result.rules.push(...imported.rules);
+   Object.assign(result.paths.rules, imported.paths);
+   Object.assign(result.scopes.rules, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportPrompts(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importPrompts>>,
+): void {
+   if (Object.keys(imported.prompts).length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   Object.assign(result.prompts, imported.prompts);
+   Object.assign(result.paths.prompts, imported.paths);
+   Object.assign(result.scopes.prompts, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportSkills(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importGlobalSkills>>,
+): void {
+   if (Object.keys(imported.skills).length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   Object.assign(result.skills, imported.skills);
+   Object.assign(result.paths.skills, imported.paths);
+   Object.assign(result.scopes.skills, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportHooks(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importHooks>>,
+): void {
+   if (Object.keys(imported.hooks).length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   Object.assign(result.hooks, imported.hooks);
+   Object.assign(result.paths.hooks, imported.paths);
+   Object.assign(result.scopes.hooks, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function sanitizeImportedName(name: string): string {
+   return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'imported-item';
+}
+
+function dedupeImportedName(name: string, used: Set<string>): string {
+   const baseName = sanitizeImportedName(name);
+   let candidate = baseName,
+       index = 1;
+
+   while (used.has(candidate)) {
+      candidate = `${baseName}-${index}`;
+      index += 1;
+   }
+
+   used.add(candidate);
+   return candidate;
+}
+
+function normalizeImportedRule(
+   strategy: RulesStrategy,
+   rule: ImportResult['rules'][number],
+   usedNames: Set<string>,
+): NormalizedImportedRule {
+   const normalized: NormalizedImportedRule = {
+      name: dedupeImportedName(rule.name, usedNames),
+      sourceName: rule.name,
+      rawContent: rule.content,
+      content: rule.content,
+   };
+
+   if (!strategy.parseFrontmatter) {
+      return normalized;
+   }
+
+   const parsed = strategy.parseFrontmatter(rule.content);
+
+   normalized.content = parsed.content;
+   normalized.description = parsed.metadata.description;
+   normalized.activation = parsed.metadata.activation;
+   normalized.globs = parsed.metadata.globs;
+
+   return normalized;
+}
+
+function normalizeImportedPrompt(
+   strategy: PromptsStrategy,
+   [sourceName, rawContent]: [string, string],
+   usedNames: Set<string>,
+): NormalizedImportedPrompt {
+   const normalized: NormalizedImportedPrompt = {
+      name: dedupeImportedName(sourceName, usedNames),
+      sourceName,
+      rawContent,
+      content: rawContent,
+   };
+
+   if (!strategy.parseFrontmatter) {
+      return normalized;
+   }
+
+   const parsed = strategy.parseFrontmatter(rawContent);
+
+   normalized.content = parsed.content;
+   normalized.description = parsed.description;
+   normalized.argumentHint = Array.isArray(parsed.argumentHint)
+      ? parsed.argumentHint.join(', ')
+      : parsed.argumentHint;
+
+   return normalized;
+}
+
+/**
+ * Convert imported editor content into normalized aix data that can be written to ai.json or
+ * passed through another editor adapter.
+ */
+export function normalizeEditorImport(
+   editor: EditorName,
+   result: ImportResult,
+): NormalizedEditorImport {
+   const strategies = getImportStrategies(editor),
+         usedRuleNames = new Set<string>(),
+         usedPromptNames = new Set<string>(),
+         usedSkillNames = new Set<string>();
+
+   return {
+      mcp: result.mcp,
+      rules: result.rules.map((rule) => normalizeImportedRule(strategies.rules, rule, usedRuleNames)),
+      prompts: Object.entries(result.prompts).map((entry) => normalizeImportedPrompt(strategies.prompts, entry, usedPromptNames)),
+      skills: Object.entries(result.skills).map(([sourceName, ref]) => ({
+         name: dedupeImportedName(sourceName, usedSkillNames),
+         sourceName,
+         ref,
+      })),
+      hooks: result.hooks,
+   };
+}
+
+/**
+ * Build an ai.json-shaped config object from imported editor content. This is the bridge used by
+ * `aix init --from` and `aix sync`, so editor-to-editor sync does not require a custom
+ * converter for every source/destination pair.
+ */
+export function buildConfigFromEditorImport(
+   editor: EditorName,
+   result: ImportResult,
+): AiJsonConfig {
+   const normalized = normalizeEditorImport(editor, result),
+         config = createEmptyConfig();
+
+   config.mcp = normalized.mcp;
+   config.rules = Object.fromEntries(
+      normalized.rules.map((rule) => {
+         const value: Record<string, unknown> = {
+            content: rule.content,
+         };
+
+         if (rule.description) {
+            value.description = rule.description;
+         }
+         if (rule.activation) {
+            value.activation = rule.activation;
+         }
+         if (rule.globs && rule.globs.length > 0) {
+            value.globs = rule.globs;
+         }
+
+         return [rule.name, value];
+      }),
+   );
+   config.prompts = Object.fromEntries(
+      normalized.prompts.map((prompt) => {
+         const value: Record<string, unknown> = {
+            content: prompt.content,
+         };
+
+         if (prompt.description) {
+            value.description = prompt.description;
+         }
+         if (prompt.argumentHint) {
+            value.argumentHint = prompt.argumentHint;
+         }
+
+         return [prompt.name, value];
+      }),
+   );
+   config.skills = Object.fromEntries(normalized.skills.map((skill) => [skill.name, skill.ref]));
+
+   if (Object.keys(normalized.hooks).length > 0) {
+      config.hooks = normalized.hooks;
+   }
+
+   return config;
+}
+
+function getHookEventMap(editor: EditorName): Record<string, string> | null {
+   switch (editor) {
+   case 'cursor':
+      return CURSOR_HOOK_EVENT_MAP;
+   case 'windsurf':
+      return WINDSURF_HOOK_EVENT_MAP;
+   case 'claude-code':
+      return CLAUDE_CODE_HOOK_EVENT_MAP;
+   case 'copilot':
+      return COPILOT_HOOK_EVENT_MAP;
+   default:
+      return null;
+   }
+}
+
+function getHookToolMatcherMap(editor: EditorName): Record<string, string> {
+   switch (editor) {
+   case 'claude-code':
+      return CLAUDE_CODE_HOOK_TOOL_MATCHERS;
+   case 'copilot':
+      return COPILOT_HOOK_TOOL_MATCHERS;
+   default:
+      return {};
+   }
+}
+
+function getHookConfigPath(editor: EditorName, projectRoot: string | undefined, source: 'global' | 'project'): string | null {
+   const configDir = EDITOR_CONFIG_DIRS[editor],
+         hooksPath = getHooksConfigPathRelative(editor);
+
+   if (!hooksPath) {
+      return null;
+   }
+
+   switch (source) {
+   case 'global':
+      return join(homedir(), configDir, hooksPath);
+   case 'project':
+      if (!projectRoot) {
+         return null;
+      }
+      return join(projectRoot, configDir, hooksPath);
+   }
+}
+
+function getHooksConfigPathRelative(editor: EditorName): string | null {
+   switch (editor) {
+   case 'cursor':
+      return 'hooks.json';
+   case 'windsurf':
+      return 'hooks.json';
+   case 'claude-code':
+      return 'settings.json';
+   case 'copilot':
+      return '../.github/hooks/hooks.json';
+   default:
+      return null;
+   }
+}
+
+function parseHookAction(value: unknown): HookAction | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const hook = value as Record<string, unknown>;
+
+   if (typeof hook.command !== 'string' || hook.command.length === 0) {
+      return null;
+   }
+
+   const action: HookAction = {
+      command: hook.command,
+   };
+
+   if (typeof hook.timeout === 'number' && hook.timeout > 0) {
+      action.timeout = hook.timeout;
+   }
+   if (typeof hook.show_output === 'boolean') {
+      action.show_output = hook.show_output;
+   }
+   if (typeof hook.working_directory === 'string' && hook.working_directory.length > 0) {
+      action.working_directory = hook.working_directory;
+   }
+
+   return action;
+}
+
+function normalizeImportedMatcher(
+   event: string,
+   matcher: string | undefined,
+   toolMatchers: Record<string, string>,
+): string | undefined {
+   if (!matcher) {
+      return undefined;
+   }
+
+   return toolMatchers[event] === matcher ? undefined : matcher;
+}
+
+function pushImportedMatchers(
+   hooks: HooksConfig,
+   event: ImportedHookEvent,
+   matchers: HookMatcher[],
+): void {
+   if (matchers.length === 0) {
+      return;
+   }
+
+   hooks[event] = [ ...(hooks[event] ?? []), ...matchers ];
+}
+
+function parseFlatHookEntries(
+   rawHooks: Record<string, unknown>,
+   eventMap: Record<string, string>,
+): HooksConfig {
+   const hooks: HooksConfig = {},
+         reverseEventMap: Record<string, ImportedHookEvent> = {};
+
+   for (const [event, nativeEvent] of Object.entries(eventMap)) {
+      reverseEventMap[nativeEvent] = event as ImportedHookEvent;
+   }
+
+   for (const [nativeEvent, rawActions] of Object.entries(rawHooks)) {
+      const event = reverseEventMap[nativeEvent];
+
+      if (!event || !Array.isArray(rawActions)) {
+         continue;
+      }
+
+      const actions = rawActions
+         .map((action) => parseHookAction(action))
+         .filter((action): action is HookAction => action !== null);
+
+      pushImportedMatchers(hooks, event, [{ hooks: actions }]);
+   }
+
+   return hooks;
+}
+
+function resolveMatcherBackedEvent(
+   nativeEvent: string,
+   matcher: string | undefined,
+   eventMap: Record<string, string>,
+   toolMatchers: Record<string, string>,
+) : ImportedHookEvent | null {
+   const matchingEvents = Object.entries(eventMap)
+      .filter(([, mappedEvent]) => mappedEvent === nativeEvent)
+      .map(([event]) => event as ImportedHookEvent);
+
+   if (matchingEvents.length === 0) {
+      return null;
+   }
+
+   for (const event of matchingEvents) {
+      if (toolMatchers[event] === matcher) {
+         return event;
+      }
+   }
+
+   return matchingEvents.find((event) => !toolMatchers[event]) ?? matchingEvents[0] ?? null;
+}
+
+function parseMatcherHookEntries(
+   rawHooks: Record<string, unknown>,
+   eventMap: Record<string, string>,
+   toolMatchers: Record<string, string>,
+): HooksConfig {
+   const hooks: HooksConfig = {};
+
+   for (const [nativeEvent, rawMatchers] of Object.entries(rawHooks)) {
+      if (!Array.isArray(rawMatchers)) {
+         continue;
+      }
+
+      for (const rawMatcher of rawMatchers) {
+         if (!rawMatcher || typeof rawMatcher !== 'object') {
+            continue;
+         }
+
+         const matcherValue = rawMatcher as Record<string, unknown>,
+               event = resolveMatcherBackedEvent(
+                  nativeEvent,
+                  typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
+                  eventMap,
+                  toolMatchers,
+               );
+
+         if (!event || !Array.isArray(matcherValue.hooks)) {
+            continue;
+         }
+
+         const actions = matcherValue.hooks
+            .map((action) => parseHookAction(action))
+            .filter((action): action is HookAction => action !== null);
+
+         pushImportedMatchers(hooks, event, [{
+            ...(normalizeImportedMatcher(
+               event,
+               typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
+               toolMatchers,
+            ) && {
+               matcher: normalizeImportedMatcher(
+                  event,
+                  typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
+                  toolMatchers,
+               ),
+            }),
+            hooks: actions,
+         }]);
+      }
+   }
+
+   return hooks;
+}
+
+function parseImportedHooks(editor: EditorName, content: string): {
+   hooks: HooksConfig;
+   warnings: string[];
+} {
+   const eventMap = getHookEventMap(editor);
+
+   if (!eventMap) {
+      return { hooks: {}, warnings: [] };
+   }
+
+   const parsed = parseJsonc<{ hooks?: Record<string, unknown> }>(content),
+         warnings = parsed.errors.map((error) => `Failed to parse hooks config: ${error.message}`),
+         rawHooks = parsed.data?.hooks;
+
+   if (!rawHooks || typeof rawHooks !== 'object') {
+      return { hooks: {}, warnings };
+   }
+
+   const toolMatchers = getHookToolMatcherMap(editor),
+         hooks = editor === 'cursor' || editor === 'windsurf'
+            ? parseFlatHookEntries(rawHooks, eventMap)
+            : parseMatcherHookEntries(rawHooks, eventMap, toolMatchers);
+
+   return { hooks, warnings };
+}
+
+async function importHooks(
+   editor: EditorName,
+   source: 'global' | 'project',
+   projectRoot?: string,
+): Promise<{
+   hooks: HooksConfig;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const configPath = getHookConfigPath(editor, projectRoot, source);
+
+   if (!configPath) {
+      return { hooks: {}, paths: {}, scopes: {}, warnings: [] };
+   }
+
+   try {
+      const content = await readFile(configPath, 'utf-8'),
+            parsed = parseImportedHooks(editor, content),
+            scope = source === 'global' ? 'user' : 'project',
+            eventNames = Object.keys(parsed.hooks);
+
+      return {
+         hooks: parsed.hooks,
+         paths: pathMapForNames(eventNames, configPath),
+         scopes: scopeMapForNames(eventNames, scope),
+         warnings: parsed.warnings,
+      };
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+         return { hooks: {}, paths: {}, scopes: {}, warnings: [] };
+      }
+
+      return {
+         hooks: {},
+         paths: {},
+         scopes: {},
+         warnings: [`Failed to read hooks config at ${configPath}: ${(err as Error).message}`],
+      };
+   }
 }
 
 /** Editor config directory names */

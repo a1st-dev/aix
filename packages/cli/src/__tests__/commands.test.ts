@@ -113,6 +113,109 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('sync', () => {
+      it('rejects identical source and destination editors', async () => {
+         const { error } = await runCli(['sync', 'cursor', '--to', 'cursor'], {
+            root,
+         });
+
+         expect(error).toBeDefined();
+      });
+
+      it('defaults to user scope and reports unsupported destination rule writes', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.config', 'opencode'), { recursive: true });
+         await writeFile(join(fakeHome, '.config', 'opencode', 'AGENTS.md'), 'Use global guidance.', 'utf-8');
+
+         const { error, stdout, stderr } = await runCli(['sync', 'opencode', '--to', 'cursor', '--dry-run'], {
+            root,
+         });
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('Imported from opencode (user)');
+         expect(stderr).toContain('cursor cannot write rules at user scope');
+         expect(stdout).toContain('No writable destination changes remain');
+      });
+
+      it('skips global-only destination config when project scope is requested', async () => {
+         await writeFile(
+            join(testDir, 'opencode.json'),
+            JSON.stringify({
+               mcp: {
+                  docs: {
+                     type: 'remote',
+                     url: 'https://example.com/mcp',
+                  },
+               },
+            }),
+            'utf-8',
+         );
+
+         const { error, stdout, stderr } = await runCli(
+            ['sync', 'opencode', '--to', 'windsurf', '--scope', 'project', '--dry-run'],
+            {
+               root,
+            },
+         );
+
+         expect(error).toBeUndefined();
+         expect(`${stdout}\n${stderr}`).toContain('Requested target scope is project');
+      });
+
+      it('surfaces source import warnings during sync', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.config', 'opencode'), { recursive: true });
+         await writeFile(join(fakeHome, '.config', 'opencode', 'AGENTS.md'), 'Use global guidance.', 'utf-8');
+         await writeFile(
+            join(fakeHome, '.config', 'opencode', 'opencode.json'),
+            '{ invalid json',
+            'utf-8',
+         );
+
+         const { error, stderr } = await runCli(['sync', 'opencode', '--to', 'cursor', '--dry-run'], {
+            root,
+         });
+
+         expect(error).toBeUndefined();
+         expect(stderr).toContain('Failed to parse MCP config');
+         expect(stderr).toContain('Failed to read OpenCode config');
+      });
+
+      it('syncs source hooks through the bridge to the destination adapter', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.cursor'), { recursive: true });
+         await writeFile(
+            join(fakeHome, '.cursor', 'hooks.json'),
+            JSON.stringify({
+               hooks: {
+                  beforeShellExecution: [{
+                     command: 'echo pre',
+                  }],
+               },
+            }),
+            'utf-8',
+         );
+
+         const { error, stdout } = await runCli(
+            ['sync', 'cursor', '--to', 'claude-code', '--to-scope', 'project', '--dry-run'],
+            {
+               root,
+            },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('hooks: 1');
+         expect(stdout).toContain('Hooks');
+         expect(stdout).toContain('settings.json');
+      });
+   });
+
    describe('add skill', () => {
       it('adds an npm skill by short name (convention: aix-skill-*)', async () => {
          const configPath = join(testDir, 'ai.json');

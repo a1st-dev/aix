@@ -21,6 +21,20 @@ aix currently supports 8 AI code editors.
 
 ⚠️ = supported through an adapter behavior instead of a native editor feature. Zed skills use pointer rules. Codex prompts convert to skills.
 
+## Sync behavior
+
+`aix sync` does not use pair-by-pair converters. It imports supported config from the source
+editor into aix's internal bridge format, then installs that normalized config to the
+destination editor.
+
+If the destination editor cannot represent part of the source config, aix calls that out in
+the command output. That is a warning, not an error. A few common cases:
+
+- A destination may support a feature in general, but not at the requested scope.
+- Codex converts prompts to skills instead of installing native prompts.
+- Zed exposes skills through pointer rules instead of native skill files.
+- Editors with global-only features may skip those writes during project-scoped syncs.
+
 ## Feature Mapping
 
 How `ai.json` concepts map to each editor:

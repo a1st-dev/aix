@@ -239,7 +239,7 @@ export async function applyGlobalChanges(
          skipped.push({
             ...change,
             action: 'skip',
-            skipReason: 'Global changes disabled',
+            skipReason: options.skipGlobalReason ?? 'Global changes disabled',
          });
          continue;
       }
