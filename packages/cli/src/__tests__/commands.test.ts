@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { dirname, join } from 'pathe';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -612,6 +612,7 @@ description: Copilot skill
 
          const { stdout } = await execFileAsync('node', [binPath, 'list', '--all', '--editor', 'copilot', '--json'], {
             cwd: testDir,
+            env: { ...process.env, NODE_ENV: 'production' },
          });
 
          const parsed = JSON.parse(stdout);

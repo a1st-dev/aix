@@ -151,7 +151,7 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    },
    os: {
       homedir: () => {
-         return getOsModule().homedir();
+         return getNodeProcess().env.HOME ?? getOsModule().homedir();
       },
       platform: () => {
          return getOsModule().platform();

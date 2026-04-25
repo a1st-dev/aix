@@ -34,7 +34,6 @@ export async function discoverConfig(
    }
 
    let currentDir = resolve(startDir);
-   const root = resolve('/');
 
    while (true) {
       const aiJsonPath = join(currentDir, 'ai.json'),
@@ -113,10 +112,12 @@ export async function discoverConfig(
          };
       }
 
-      if (currentDir === root) {
+      const parentDir = dirname(currentDir);
+
+      if (parentDir === currentDir) {
          break;
       }
-      currentDir = dirname(currentDir);
+      currentDir = parentDir;
    }
 
    return undefined;

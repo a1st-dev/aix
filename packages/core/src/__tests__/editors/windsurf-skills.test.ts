@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, readlink, lstat, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'pathe';
+import { join, normalize } from 'pathe';
 import { tmpdir } from 'node:os';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import { WindsurfSkillsStrategy } from '../../editors/strategies/windsurf/skills.js';
@@ -82,7 +82,7 @@ description: A test skill
             linkTarget = await readlink(linkedSkillPath);
 
       expect(linkStats.isSymbolicLink()).toBe(true);
-      expect(linkTarget).toBe(join('..', '..', '.aix', 'skills', 'test-skill'));
+      expect(normalize(linkTarget)).toBe(join('..', '..', '.aix', 'skills', 'test-skill'));
    });
 
    it('returns planned changes in dry-run mode without writing files', async () => {

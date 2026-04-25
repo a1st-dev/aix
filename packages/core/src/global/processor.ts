@@ -201,24 +201,7 @@ export async function applyGlobalChanges(
          skipped: GlobalChangeRequest[] = [],
          warnings: string[] = [];
 
-   // Check if in CI - skip all global changes
-   if (await isCI()) {
-      for (const change of changes) {
-         if (change.action === 'add') {
-            skipped.push({
-               ...change,
-               action: 'skip',
-               skipReason: 'Skipped in CI environment',
-            });
-            warnings.push(
-               `[${change.editor}] Skipped global ${change.type} "${change.name}" - CI environment detected`,
-            );
-         } else {
-            skipped.push(change);
-         }
-      }
-      return { applied, skipped, warnings };
-   }
+   const ci = await isCI();
 
    // Process each change
    for (const change of changes) {
@@ -241,6 +224,19 @@ export async function applyGlobalChanges(
             action: 'skip',
             skipReason: options.skipGlobalReason ?? 'Global changes disabled',
          });
+         continue;
+      }
+
+      // Check if in CI - skip all global changes unless it's a dry run
+      if (ci && !options.dryRun) {
+         skipped.push({
+            ...change,
+            action: 'skip',
+            skipReason: 'Skipped in CI environment',
+         });
+         warnings.push(
+            `[${change.editor}] Skipped global ${change.type} "${change.name}" - CI environment detected`,
+         );
          continue;
       }
 
