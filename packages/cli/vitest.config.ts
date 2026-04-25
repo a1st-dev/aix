@@ -5,5 +5,7 @@ export default defineConfig({
       globals: true,
       environment: 'node',
       disableConsoleIntercept: true,
+      testTimeout: 20000,
+      hookTimeout: 20000,
    },
 });

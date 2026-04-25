@@ -78,7 +78,15 @@ function hasMinimumDepth(normalizedPath: string, minDepth: number = 3): boolean 
  * Check if path is within the system temp directory.
  */
 function isInTempDir(normalizedPath: string): boolean {
-   const tempDir = normalize(getRuntimeAdapter().os.tmpdir());
+   const tempDir = normalize(getRuntimeAdapter().os.tmpdir()),
+         isWin = getRuntimeAdapter().os.platform() === 'win32';
+
+   if (isWin) {
+      const lowerPath = normalizedPath.toLowerCase(),
+            lowerTemp = tempDir.toLowerCase();
+
+      return lowerPath.startsWith(lowerTemp + sep) || lowerPath === lowerTemp;
+   }
 
    return normalizedPath.startsWith(tempDir + sep) || normalizedPath === tempDir;
 }
@@ -87,17 +95,22 @@ function isInTempDir(normalizedPath: string): boolean {
  * Check if path is within a .aix directory.
  */
 function isInAixDir(normalizedPath: string): boolean {
-   return normalizedPath.includes(`${sep}.aix${sep}`) || normalizedPath.endsWith(`${sep}.aix`);
+   const isWin = getRuntimeAdapter().os.platform() === 'win32',
+         p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
+
+   return p.includes(`${sep}.aix${sep}`) || p.endsWith(`${sep}.aix`);
 }
 
 /**
  * Check if path is within an editor config directory.
  */
 function isInEditorConfigDir(normalizedPath: string): boolean {
-   const editorDirs = ['.windsurf', '.cursor', '.claude', '.vscode', '.zed', '.codex', '.agents', '.github'];
+   const editorDirs = ['.windsurf', '.cursor', '.claude', '.vscode', '.zed', '.codex', '.agents', '.github'],
+         isWin = getRuntimeAdapter().os.platform() === 'win32',
+         p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
 
    return editorDirs.some(
-      (dir) => normalizedPath.includes(`${sep}${dir}${sep}`) || normalizedPath.endsWith(`${sep}${dir}`),
+      (dir) => p.includes(`${sep}${dir}${sep}`) || p.endsWith(`${sep}${dir}`),
    );
 }
 
@@ -105,8 +118,11 @@ function isInEditorConfigDir(normalizedPath: string): boolean {
  * Check if path is within a test-fixtures directory (for test cleanup).
  */
 function isInTestFixturesDir(normalizedPath: string): boolean {
+   const isWin = getRuntimeAdapter().os.platform() === 'win32',
+         p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
+
    return (
-      normalizedPath.includes(`${sep}test-fixtures${sep}`) || normalizedPath.endsWith(`${sep}test-fixtures`)
+      p.includes(`${sep}test-fixtures${sep}`) || p.endsWith(`${sep}test-fixtures`)
    );
 }
 
