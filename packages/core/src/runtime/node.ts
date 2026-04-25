@@ -3,6 +3,8 @@ import type { RuntimeAdapter, RuntimeDirent } from './types.js';
 type NodeFsModule = typeof import('node:fs');
 type NodeFsPromisesModule = typeof import('node:fs/promises');
 type NodeOsModule = typeof import('node:os');
+type NodeUrlModule = typeof import('node:url');
+type NodeCryptoModule = typeof import('node:crypto');
 type BuiltinModuleProcess = NodeJS.Process & {
    getBuiltinModule(id: string): unknown;
 };
@@ -34,6 +36,14 @@ function getFsPromisesModule(): NodeFsPromisesModule {
 
 function getOsModule(): NodeOsModule {
    return getBuiltinModule<NodeOsModule>('os');
+}
+
+function getUrlModule(): NodeUrlModule {
+   return getBuiltinModule<NodeUrlModule>('url');
+}
+
+function getCryptoModule(): NodeCryptoModule {
+   return getBuiltinModule<NodeCryptoModule>('crypto');
 }
 
 function getNodeProcess(): NodeJS.Process {
@@ -73,6 +83,17 @@ async function readdir(
 }
 
 export const nodeRuntimeAdapter: RuntimeAdapter = {
+   crypto: {
+      createHash: (algorithm) => {
+         return getCryptoModule().createHash(algorithm);
+      },
+      randomUUID: () => {
+         return getCryptoModule().randomUUID();
+      },
+      base64url: (data) => {
+         return getBuiltinModule<{ Buffer: typeof Buffer }>('buffer').Buffer.from(data).toString('base64url');
+      },
+   },
    fs: {
       constants: {
          get F_OK() {
@@ -87,6 +108,9 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
       },
       access: async (path, mode) => {
          await getFsPromisesModule().access(path, mode);
+      },
+      byteLength: (content) => {
+         return getBuiltinModule<{ Buffer: typeof Buffer }>('buffer').Buffer.byteLength(content, 'utf-8');
       },
       chmod: async (path, mode) => {
          await getFsPromisesModule().chmod(path, mode);
@@ -109,11 +133,17 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
       mkdtemp: async (prefix) => {
          return getFsPromisesModule().mkdtemp(prefix);
       },
-      readFile: async (path, encoding = 'utf-8') => {
-         return getFsPromisesModule().readFile(path, encoding);
+      readFile: async (path: string, encoding?: any) => {
+         if (encoding === 'binary') {
+            return getFsPromisesModule().readFile(path);
+         }
+         return getFsPromisesModule().readFile(path, encoding ?? 'utf-8');
       },
-      readFileSync: (path, encoding = 'utf-8') => {
-         return getFsModule().readFileSync(path, encoding);
+      readFileSync: (path: string, encoding?: any) => {
+         if (encoding === 'binary') {
+            return getFsModule().readFileSync(path);
+         }
+         return getFsModule().readFileSync(path, encoding ?? 'utf-8');
       },
       readdir,
       readlink: async (path) => {
@@ -134,8 +164,12 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
       unlink: async (path) => {
          await getFsPromisesModule().unlink(path);
       },
-      writeFile: async (path, content, encoding = 'utf-8') => {
-         await getFsPromisesModule().writeFile(path, content, encoding);
+      writeFile: async (path, content, encoding) => {
+         if (encoding === 'binary') {
+            await getFsPromisesModule().writeFile(path, content as Uint8Array);
+            return;
+         }
+         await getFsPromisesModule().writeFile(path, content as string, encoding ?? 'utf-8');
       },
    },
    network: {
@@ -158,6 +192,9 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
       },
       tmpdir: () => {
          return getOsModule().tmpdir();
+      },
+      fileURLToPath: (url) => {
+         return getUrlModule().fileURLToPath(url);
       },
    },
    process: {

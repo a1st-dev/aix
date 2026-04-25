@@ -1,7 +1,7 @@
 import { dirname, join } from 'pathe';
-import { fileURLToPath } from 'node:url';
 import { ensureDependencyInstalled } from 'nypm';
 import { getAixDir, getNpmCacheDir } from '../cache/paths.js';
+import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface NpmResolveOptions {
    packageName: string;
@@ -55,7 +55,7 @@ async function tryFindPackageRoot(
    try {
       const pkgJsonPath = import.meta.resolve(`${packageName}/package.json`, `file://${projectRoot}/`);
 
-      return dirname(fileURLToPath(pkgJsonPath));
+      return dirname(getRuntimeAdapter().os.fileURLToPath(pkgJsonPath));
    } catch {
       return undefined;
    }

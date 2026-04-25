@@ -53,7 +53,7 @@ export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
  * Create a cache key for a git reference
  */
 function createCacheKey(ref: GitRef): string {
-   const urlHash = Buffer.from(ref.url).toString('base64url').slice(0, 16),
+   const urlHash = getRuntimeAdapter().crypto.base64url(ref.url).slice(0, 16),
          refPart = ref.ref ?? 'default',
          pathPart = ref.path ? `-${ref.path.replace(/\//g, '-')}` : '';
 

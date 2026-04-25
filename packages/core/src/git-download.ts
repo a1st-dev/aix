@@ -5,6 +5,7 @@ import { join } from 'pathe';
 import { downloadTemplate } from 'giget';
 import { safeRm } from './fs/safe-rm.js';
 import { getGitDownloadsDir } from './cache/paths.js';
+import { getRuntimeAdapter } from './runtime/index.js';
 
 /**
  * Create a unique directory name from a git template string. Includes the ref to avoid collisions
@@ -20,13 +21,13 @@ export function createDownloadKey(template: string): string {
    if (match) {
       const [, repoPath, ref = 'HEAD'] = match,
             safePath = repoPath!.replace(/\//g, '-'),
-            hash = Buffer.from(template).toString('base64url').slice(0, 8);
+            hash = getRuntimeAdapter().crypto.base64url(template).slice(0, 8);
 
       return `${safePath}-${ref}-${hash}`;
    }
 
    // Fallback for other formats (e.g., https URLs)
-   return Buffer.from(template).toString('base64url').slice(0, 32);
+   return getRuntimeAdapter().crypto.base64url(template).slice(0, 32);
 }
 
 /**

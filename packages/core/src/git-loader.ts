@@ -46,7 +46,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
    ref = ref ?? 'main';
 
    // Create cache key from URL + ref + path
-   const cacheKey = Buffer.from(`${url}:${ref}:${filePath}`).toString('base64url').slice(0, 32),
+   const cacheKey = getRuntimeAdapter().crypto.base64url(`${url}:${ref}:${filePath}`).slice(0, 32),
          cachePath = join(cacheDir, cacheKey);
 
    // Build giget source string

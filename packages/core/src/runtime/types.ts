@@ -1,4 +1,4 @@
-export type RuntimeEncoding = 'utf-8' | 'utf8';
+export type RuntimeEncoding = 'utf-8' | 'utf8' | 'binary';
 
 export interface RuntimeDirent {
    name: string;
@@ -22,6 +22,7 @@ export interface RuntimeFileSystemAdapter {
       readonly W_OK: number;
    };
    access(path: string, mode?: number): Promise<void>;
+   byteLength(content: string): number;
    chmod(path: string, mode: number): Promise<void>;
    copyFile(source: string, destination: string): Promise<void>;
    cp(source: string, destination: string, options?: RuntimeCopyOptions): Promise<void>;
@@ -29,8 +30,12 @@ export interface RuntimeFileSystemAdapter {
    lstat(path: string): Promise<RuntimeStats>;
    mkdir(path: string, options?: RuntimeMkdirOptions): Promise<void>;
    mkdtemp(prefix: string): Promise<string>;
-   readFile(path: string, encoding?: RuntimeEncoding): Promise<string>;
-   readFileSync(path: string, encoding?: RuntimeEncoding): string;
+   readFile(path: string): Promise<Uint8Array>;
+   readFile(path: string, encoding: RuntimeEncoding): Promise<string>;
+   readFile(path: string, encoding?: RuntimeEncoding): Promise<string | Uint8Array>;
+   readFileSync(path: string): Uint8Array;
+   readFileSync(path: string, encoding: RuntimeEncoding): string;
+   readFileSync(path: string, encoding?: RuntimeEncoding): string | Uint8Array;
    readdir(path: string): Promise<string[]>;
    readdir(path: string, options: RuntimeReaddirOptions): Promise<RuntimeDirent[]>;
    readlink(path: string): Promise<string>;
@@ -39,13 +44,14 @@ export interface RuntimeFileSystemAdapter {
    stat(path: string): Promise<RuntimeStats>;
    symlink(target: string, path: string, type?: RuntimeSymlinkType): Promise<void>;
    unlink(path: string): Promise<void>;
-   writeFile(path: string, content: string, encoding?: RuntimeEncoding): Promise<void>;
+   writeFile(path: string, content: string | Uint8Array, encoding?: RuntimeEncoding): Promise<void>;
 }
 
 export interface RuntimeOSAdapter {
    homedir(): string;
    platform(): NodeJS.Platform;
    tmpdir(): string;
+   fileURLToPath(url: string | URL): string;
 }
 
 export interface RuntimeProcessAdapter {
@@ -59,7 +65,17 @@ export interface RuntimeNetworkAdapter {
    fetch(input: string, init?: RuntimeFetchInit): Promise<RuntimeFetchResponse>;
 }
 
+export interface RuntimeCryptoAdapter {
+   createHash(algorithm: 'sha256' | 'sha512'): {
+      update(data: string | Uint8Array): void;
+      digest(encoding: 'hex' | 'base64'): string;
+   };
+   randomUUID(): string;
+   base64url(data: string | Uint8Array): string;
+}
+
 export interface RuntimeAdapter {
+   readonly crypto: RuntimeCryptoAdapter;
    readonly fs: RuntimeFileSystemAdapter;
    readonly network: RuntimeNetworkAdapter;
    readonly os: RuntimeOSAdapter;

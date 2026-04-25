@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { getRuntimeAdapter } from './runtime/index.js';
 import type { LockEntitySection, LockedEntity, LockedFile } from '@a1st/aix-schema';
 
 export interface EntitySnapshotInput {
@@ -47,7 +47,7 @@ export function canonicalJson(value: unknown): string {
 }
 
 export function hashBytes(content: string | Uint8Array, algorithm: HashAlgorithm = 'sha256'): string {
-   const hash = createHash(algorithm);
+   const hash = getRuntimeAdapter().crypto.createHash(algorithm);
 
    hash.update(content);
 
@@ -59,7 +59,7 @@ export function hashCanonicalJson(value: unknown): string {
 }
 
 export function integrityForBytes(content: string | Uint8Array): string {
-   const hash = createHash('sha512');
+   const hash = getRuntimeAdapter().crypto.createHash('sha512');
 
    hash.update(content);
 
@@ -68,7 +68,7 @@ export function integrityForBytes(content: string | Uint8Array): string {
 
 export function byteLength(content: string | Uint8Array): number {
    if (typeof content === 'string') {
-      return Buffer.byteLength(content, 'utf-8');
+      return getRuntimeAdapter().fs.byteLength(content);
    }
    return content.byteLength;
 }

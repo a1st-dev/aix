@@ -1,5 +1,4 @@
 import { resolve, dirname, join, isAbsolute } from 'pathe';
-import { fileURLToPath } from 'node:url';
 import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
 import { withGitDownload, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
@@ -234,7 +233,7 @@ async function resolveNpmExtends(
    try {
       // Use ESM-compatible import.meta.resolve to find the package
       const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${getRuntimeAdapter().process.cwd()}/`),
-            packagePath = fileURLToPath(resolvedUrl),
+            packagePath = getRuntimeAdapter().os.fileURLToPath(resolvedUrl),
             content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
