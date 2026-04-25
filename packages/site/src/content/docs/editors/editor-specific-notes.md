@@ -19,6 +19,16 @@ When you install an MCP server to Windsurf, `aix` modifies your global Windsurf 
 During `aix sync`, a project-scoped write to Windsurf will skip MCP changes and report that
 they are global-only. That is expected.
 
+## GitHub Copilot
+
+GitHub Copilot CLI now uses `.mcp.json` at the project root and `~/.copilot/mcp-config.json`
+for user-scoped MCP configuration. aix writes to those paths instead of the older
+`.vscode/mcp.json` location.
+
+When importing Copilot MCP config, aix prefers `.mcp.json` and falls back to `.github/mcp.json`
+if the root file is absent. Rules, prompts, skills, and hooks still use the `.github/`
+locations described in [Supported Editors](/editors/supported-editors/).
+
 ## Skills
 
 For native-skill editors, aix keeps its managed copy of every installed skill in `.aix/skills/{name}/` and then symlinks that directory into the editor's native skills location. This keeps installs, removals, and `aix list --all` consistent across editors while still using each editor's expected directory layout.

@@ -952,38 +952,53 @@ async function importLocalMcpConfig(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
-   const warnings: string[] = [],
-         configDir = EDITOR_CONFIG_DIRS[editor],
-         mcpConfigPath = strategy.getConfigPath(),
-         baseDir = strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir),
-         fullPath = editor === 'opencode'
-            ? resolveOpenCodeConfigPath(join(baseDir, mcpConfigPath))
-            : join(baseDir, mcpConfigPath);
+   const warnings: string[] = [];
 
    // Skip if MCP is not supported for project-local config (e.g., global-only editors)
    if (!strategy.isSupported() || strategy.isGlobalOnly?.()) {
       return { mcp: {}, paths: {}, scopes: {}, warnings };
    }
 
-   try {
-      const content = await readFile(fullPath, 'utf-8'),
-            result = strategy.parseGlobalMcpConfig(content);
+   for (const fullPath of getLocalMcpImportPaths(strategy, editor, projectRoot)) {
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const content = await readFile(fullPath, 'utf-8'),
+               result = strategy.parseGlobalMcpConfig(content);
 
-      return {
-         ...result,
-         paths: pathMapForNames(Object.keys(result.mcp), fullPath),
-         scopes: scopeMapForNames(Object.keys(result.mcp), 'project'),
-      };
-   } catch (err) {
-      if (
-         (err as NodeJS.ErrnoException).code !== 'ENOENT' &&
-         (err as NodeJS.ErrnoException).code !== 'EISDIR'
-      ) {
-         warnings.push(`Failed to read local MCP config at ${fullPath}: ${(err as Error).message}`);
+         return {
+            ...result,
+            paths: pathMapForNames(Object.keys(result.mcp), fullPath),
+            scopes: scopeMapForNames(Object.keys(result.mcp), 'project'),
+         };
+      } catch (err) {
+         if (
+            (err as NodeJS.ErrnoException).code !== 'ENOENT' &&
+            (err as NodeJS.ErrnoException).code !== 'EISDIR'
+         ) {
+            warnings.push(`Failed to read local MCP config at ${fullPath}: ${(err as Error).message}`);
+         }
       }
    }
 
    return { mcp: {}, paths: {}, scopes: {}, warnings };
+}
+
+function getLocalMcpImportPaths(strategy: McpStrategy, editor: EditorName, projectRoot: string): string[] {
+   const configDir = EDITOR_CONFIG_DIRS[editor],
+         mcpConfigPath = strategy.getConfigPath(),
+         baseDir = strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir),
+         primaryPath = editor === 'opencode'
+            ? resolveOpenCodeConfigPath(join(baseDir, mcpConfigPath))
+            : join(baseDir, mcpConfigPath);
+
+   if (editor !== 'copilot') {
+      return [primaryPath];
+   }
+
+   return [
+      primaryPath,
+      join(projectRoot, '.github/mcp.json'),
+   ];
 }
 
 /**

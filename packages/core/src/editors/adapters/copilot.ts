@@ -1,4 +1,5 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
+import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
 import {
@@ -15,12 +16,14 @@ import type {
    PromptsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
- * MCP config to `.vscode/mcp.json`, skills to `.github/skills/`, and hooks to `.github/hooks/hooks.json`.
- * Skills are installed into `.aix/skills/{name}/` and symlinked into `.github/skills/` since
- * GitHub Copilot has native Agent Skills support.
+ * MCP config to `.mcp.json` (or `~/.copilot/mcp-config.json` for user scope), skills to
+ * `.github/skills/`, and hooks to `.github/hooks/hooks.json`. Skills are installed into
+ * `.aix/skills/{name}/` and symlinked into `.github/skills/` since GitHub Copilot has native
+ * Agent Skills support.
  */
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
@@ -28,10 +31,37 @@ export class CopilotAdapter extends BaseEditorAdapter {
 
    getGlobalDataPaths(): Record<string, string[]> {
       return {
-         darwin: ['Library/Application Support/Code'],
-         linux: ['.config/Code'],
-         win32: ['AppData/Roaming/Code'],
+         darwin: ['.copilot', 'Library/Application Support/Code'],
+         linux: ['.copilot', '.config/Code'],
+         win32: ['.copilot', 'AppData/Roaming/Code'],
       };
+   }
+
+   async detect(projectRoot: string): Promise<boolean> {
+      const candidates = [
+         '.mcp.json',
+         '.github/mcp.json',
+         '.github/copilot-instructions.md',
+         '.github/instructions',
+         '.github/prompts',
+         '.github/skills',
+         '.github/hooks',
+      ];
+
+      for (const candidate of candidates) {
+         try {
+            // eslint-disable-next-line no-await-in-loop -- Sequential: first-match lookup
+            await getRuntimeAdapter().fs.access(
+               join(projectRoot, candidate),
+               getRuntimeAdapter().fs.constants.F_OK,
+            );
+            return true;
+         } catch {
+            // Try the next Copilot-managed path.
+         }
+      }
+
+      return false;
    }
 
    protected readonly rulesStrategy: RulesStrategy = new CopilotRulesStrategy();

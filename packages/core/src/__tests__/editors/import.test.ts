@@ -33,7 +33,8 @@ describe('Editor Config Import', () => {
       it('returns path for copilot', () => {
          const path = getGlobalConfigPath('copilot');
 
-         expect(path).toContain('Code');
+         expect(path).toContain('.copilot');
+         expect(path).toContain('mcp-config.json');
       });
 
       it('returns path for zed', () => {
@@ -74,6 +75,108 @@ describe('Editor Config Import', () => {
          // GitHub Copilot supports MCP - result depends on whether config file exists
          expect(result).toHaveProperty('mcp');
          expect(typeof result.mcp).toBe('object');
+      });
+
+      it('imports Copilot project MCP from .mcp.json', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-copilot-project-mcp-'));
+
+         try {
+            await writeFile(
+               join(projectRoot, '.mcp.json'),
+               JSON.stringify({
+                  docs: {
+                     command: 'npx',
+                     args: ['-y', '@example/docs-mcp'],
+                  },
+               }, null, 2) + '\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('copilot', { projectRoot });
+
+            expect(result.mcp.docs).toEqual({
+               command: 'npx',
+               args: ['-y', '@example/docs-mcp'],
+            });
+            expect(result.paths.mcp.docs).toBe(join(projectRoot, '.mcp.json'));
+            expect(result.scopes.mcp.docs).toBe('project');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports Copilot project MCP from .github/mcp.json when .mcp.json is missing', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-copilot-github-mcp-'));
+
+         try {
+            await mkdir(join(projectRoot, '.github'), { recursive: true });
+            await writeFile(
+               join(projectRoot, '.github/mcp.json'),
+               JSON.stringify({
+                  mcpServers: {
+                     github: {
+                        type: 'http',
+                        url: 'https://example.com/mcp',
+                     },
+                  },
+               }, null, 2) + '\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('copilot', { projectRoot });
+
+            expect(result.mcp.github).toEqual({
+               url: 'https://example.com/mcp',
+            });
+            expect(result.paths.mcp.github).toBe(join(projectRoot, '.github/mcp.json'));
+            expect(result.scopes.mcp.github).toBe('project');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports Copilot user MCP from ~/.copilot/mcp-config.json', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-copilot-user-mcp-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME;
+
+         process.env.HOME = fakeHome;
+
+         try {
+            await mkdir(join(fakeHome, '.copilot'), { recursive: true });
+            await writeFile(
+               join(fakeHome, '.copilot', 'mcp-config.json'),
+               JSON.stringify({
+                  mcpServers: {
+                     github: {
+                        type: 'local',
+                        command: 'npx',
+                        args: ['-y', '@modelcontextprotocol/server-github'],
+                     },
+                  },
+               }, null, 2) + '\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('copilot', {
+               projectRoot,
+               scope: 'user',
+            });
+
+            expect(result.mcp.github).toEqual({
+               command: 'npx',
+               args: ['-y', '@modelcontextprotocol/server-github'],
+            });
+            expect(result.paths.mcp.github).toBe(join(fakeHome, '.copilot', 'mcp-config.json'));
+            expect(result.scopes.mcp.github).toBe('user');
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
       });
 
       it('imports Zed project rules with a display name and path', async () => {

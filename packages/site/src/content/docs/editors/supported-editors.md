@@ -54,7 +54,7 @@ Cursor supports [`AGENTS.md`][cursor-rules] as a plain Markdown alternative to `
 ### GitHub Copilot
 
 - **Rules**: `.github/instructions/*.instructions.md`.
-- **MCP**: `.vscode/mcp.json`.
+- **MCP**: project `.mcp.json`; user `~/.copilot/mcp-config.json`.
 - **Prompts**: `.github/prompts/*.prompt.md`.
 - **Skills**: `.aix/skills/{name}/` with symlinks from `.github/skills/`.
 - **Hooks**: `.github/hooks/*.json`. Supports `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `preCompact`, `subagentStart`, `subagentStop`, and `stop`.
@@ -62,6 +62,10 @@ Cursor supports [`AGENTS.md`][cursor-rules] as a plain Markdown alternative to `
 #### .agents/ folder
 
 GitHub Copilot supports [`.agents/skills/`][copilot-skills] for both project skills and personal skills (`~/.agents/skills/`). Copilot coding agent also supports [one or more `AGENTS.md` files][copilot-repo-instructions] anywhere in the repository; the nearest `AGENTS.md` in the directory tree takes precedence.
+
+aix writes Copilot project MCP config to `.mcp.json`, which matches the current Copilot CLI
+migration path away from `.vscode/mcp.json`. When importing existing Copilot config, aix also
+checks `.github/mcp.json` if `.mcp.json` is not present.
 
 ### Claude Code
 
