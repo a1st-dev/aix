@@ -612,6 +612,7 @@ description: Copilot skill
 
          const { stdout } = await execFileAsync('node', [binPath, 'list', '--all', '--editor', 'copilot', '--json'], {
             cwd: testDir,
+            env: { ...process.env, NODE_ENV: 'production' },
          });
 
          const parsed = JSON.parse(stdout);
