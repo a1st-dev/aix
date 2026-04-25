@@ -2,6 +2,8 @@ import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
+import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
@@ -34,6 +36,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       name: Flags.string({
@@ -68,6 +71,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
       const { args, flags } = await this.parse(AddRule),
             loaded = await this.loadConfig(),
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
+            lockableConfigPath = getLockableConfigPath(loaded),
             parsed = parseSourceReference(args.source, { type: 'rule', refOverride: flags.ref }),
             ruleName = flags.name ?? parsed.inferredName;
 
@@ -75,8 +79,13 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          this.error('Could not infer rule name from source. Please provide --name.');
       }
 
+      if (flags.lock && !lockableConfigPath) {
+         this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
+      }
+
       // Build the rule value
       let ruleValue: RuleValue = parsed.value as RuleValue;
+      let lockfilePath: string | undefined;
 
       // Add metadata if provided (convert string shorthand to object if needed)
       if (flags.description || flags.activation !== 'always' || flags.globs) {
@@ -122,6 +131,11 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          this.output.info('No ai.json found — installing directly to editors');
       }
 
+      if (flags.lock && lockableConfigPath) {
+         lockfilePath = await refreshLockfile(lockableConfigPath);
+         this.output.success(`Updated ${lockfilePath}`);
+      }
+
       // Install to editors unless --no-install
       if (!flags['no-install']) {
          if (loaded && !flags.local) {
@@ -155,8 +169,13 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
             type: 'rule',
             name: ruleName,
             value: ruleValue,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 
    private buildMetadata(flags: {

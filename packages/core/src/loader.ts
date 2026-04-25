@@ -1,5 +1,5 @@
 import { dirname } from 'pathe';
-import { parseConfig, parseLocalConfig, type AiJsonConfig } from '@a1st/aix-schema';
+import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import type { ZodError } from 'zod';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
@@ -8,6 +8,10 @@ import { extractValidationIssues, toConfigValidationError } from './format-error
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
 import { getRuntimeAdapter } from './runtime/index.js';
+import {
+   loadMatchingLockfile,
+   type LockfileMode,
+} from './lockfile.js';
 
 export interface LoadedConfig {
    path: string;
@@ -31,6 +35,10 @@ export interface LoadedConfig {
     * references when saving configs with --save.
     */
    gitSource?: GitSourceInfo;
+   /** Path to ai.lock.json if a sibling lockfile was loaded */
+   lockfilePath?: string;
+   /** Parsed ai.lock.json when one was autodetected */
+   lockfile?: AiLockFile;
 }
 
 export interface LoadConfigOptions {
@@ -40,6 +48,8 @@ export interface LoadConfigOptions {
    remoteSource?: string;
    /** Starting directory for discovery and relative path resolution */
    startDir?: string;
+   /** Controls ai.lock.json autodetection. Defaults to auto. */
+   lockfileMode?: LockfileMode;
 }
 
 /**
@@ -64,7 +74,12 @@ export async function loadConfig(
       opts = { startDir: getRuntimeAdapter().process.cwd(), ...options };
    }
 
-   const { explicitPath, remoteSource, startDir: cwd = getRuntimeAdapter().process.cwd() } = opts;
+   const {
+      explicitPath,
+      remoteSource,
+      startDir: cwd = getRuntimeAdapter().process.cwd(),
+      lockfileMode = 'auto',
+   } = opts;
 
    // If remoteSource is provided, load from URL/git/path
    if (remoteSource) {
@@ -78,7 +93,7 @@ export async function loadConfig(
       return undefined;
    }
 
-   return loadFromDiscovered(discovered);
+   return loadFromDiscovered(discovered, lockfileMode);
 }
 
 /**
@@ -159,7 +174,7 @@ async function loadFromDiscovered(discovered: {
    packageJsonAlsoHasAi?: boolean;
    localPath?: string;
    localContent?: string;
-}): Promise<LoadedConfig> {
+}, lockfileMode: LockfileMode): Promise<LoadedConfig> {
    try {
       const parsed = parseConfigContent(discovered.content) as Record<string, unknown>,
             baseDir = dirname(discovered.path),
@@ -188,7 +203,7 @@ async function loadFromDiscovered(discovered: {
          hasLocalOverrides = merged.hasLocalOverrides;
       }
 
-      return {
+      const loaded: LoadedConfig = {
          path: discovered.path,
          config: validated,
          source: discovered.source,
@@ -197,14 +212,28 @@ async function loadFromDiscovered(discovered: {
          ...(localPath && { localPath }),
          ...(hasLocalOverrides && { hasLocalOverrides }),
       };
+
+      const lockfile = await loadMatchingLockfile({
+         configPath: discovered.path,
+         config: validated,
+         configBaseDir: baseDir,
+         projectRoot: baseDir,
+         mode: lockfileMode,
+      });
+
+      return {
+         ...loaded,
+         ...lockfile,
+      };
    } catch (error) {
+      if (error instanceof ConfigParseError) {
+         throw error;
+      }
+
       const validationError = toConfigValidationError(error);
 
       if (validationError) {
          throw validationError;
-      }
-      if (error instanceof ConfigParseError) {
-         throw error;
       }
       if (error instanceof Error) {
          throw new ConfigParseError(error.message, discovered.path);

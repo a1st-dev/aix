@@ -47,7 +47,11 @@ export class ConfigParseError extends ConfigError {
       public readonly filePath: string,
       public readonly issues?: ConfigParseIssue[],
    ) {
-      super(`Failed to parse ${filePath}: ${message}`, 'CONFIG_PARSE_ERROR');
+      const issueDetails = issues?.length
+         ? `\n${issues.map((issue) => `  - ${issue.path}: ${issue.message}`).join('\n')}`
+         : '';
+
+      super(`Failed to parse ${filePath}: ${message}${issueDetails}`, 'CONFIG_PARSE_ERROR');
    }
 }
 

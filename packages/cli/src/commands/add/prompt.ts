@@ -2,6 +2,8 @@ import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
+import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
@@ -33,6 +35,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       name: Flags.string({
@@ -61,12 +64,19 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       const { args, flags } = await this.parse(AddPrompt),
             loaded = await this.loadConfig(),
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
+            lockableConfigPath = getLockableConfigPath(loaded),
             parsed = parseSourceReference(args.source, { type: 'prompt', refOverride: flags.ref }),
             promptName = flags.name ?? parsed.inferredName;
 
       if (!promptName) {
          this.error('Could not infer prompt name from source. Please provide --name.');
       }
+
+      if (flags.lock && !lockableConfigPath) {
+         this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
+      }
+
+      let lockfilePath: string | undefined;
 
       // Build the prompt value
       let promptValue: PromptValue = parsed.value as PromptValue;
@@ -120,6 +130,11 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          this.output.info('No ai.json found — installing directly to editors');
       }
 
+      if (flags.lock && lockableConfigPath) {
+         lockfilePath = await refreshLockfile(lockableConfigPath);
+         this.output.success(`Updated ${lockfilePath}`);
+      }
+
       // Install to editors unless --no-install
       if (!flags['no-install']) {
          if (loaded && !flags.local) {
@@ -153,7 +168,12 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             type: 'prompt',
             name: promptName,
             value: promptValue,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 }

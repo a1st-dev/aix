@@ -1,7 +1,12 @@
 import { Command, Flags, Interfaces } from '@oclif/core';
 import chalk from 'chalk';
 import { basename } from 'pathe';
-import { loadConfig as coreLoadConfig, ConfigParseError, type LoadedConfig } from '@a1st/aix-core';
+import {
+   loadConfig as coreLoadConfig,
+   ConfigParseError,
+   type LoadedConfig,
+   type LockfileMode,
+} from '@a1st/aix-core';
 import { Output } from './lib/output.js';
 
 export type InferredFlags<T extends typeof Command> = Interfaces.InferredFlags<
@@ -51,7 +56,10 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          return this.loadedConfig;
       }
 
-      const result = await coreLoadConfig(this.flags.config);
+      const result = await coreLoadConfig({
+         explicitPath: this.flags.config,
+         lockfileMode: this.getLockfileMode(),
+      });
 
       if (result) {
          this.loadedConfig = result;
@@ -70,6 +78,10 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          this.error('No ai.json found. Run `aix init` to create one.');
       }
       return config;
+   }
+
+   protected getLockfileMode(): LockfileMode {
+      return 'auto';
    }
 
    /** Log formatted install results */

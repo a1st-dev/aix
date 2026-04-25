@@ -29,6 +29,7 @@ If `source` is provided (git URL, file path), it installs directly from that sou
 | `--overwrite`                                            | With `--save`, overwrite local config instead of merging.                             |
 | `--clean`                                                | Remove the `.aix` folder before install to ensure a fresh state.                      |
 | `--copy`                                                 | With `--save`, copy remote files to `.aix/imported/` instead of referencing git URLs. |
+| `--lock`                                                 | Create or refresh `ai.lock.json` before installing.                                   |
 | `--only <field>`                                         | Limit to specific fields: `rules`, `prompts`, `mcp`, `skills`.                        |
 | `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Override the `scope` from `ai.json` (target user-level or project-level config).      |
 
@@ -63,6 +64,15 @@ aix install github:company/ai-config --save
 ```bash
 aix install --only mcp
 ```
+
+**Refresh the lockfile, then install:**
+
+```bash
+aix install --lock
+```
+
+`--lock` with a remote source requires `--save`, because aix needs a local `ai.json` to
+write `ai.lock.json` beside.
 
 **Override scope to install as user-level config:**
 

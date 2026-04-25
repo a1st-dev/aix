@@ -15,3 +15,4 @@ export * from './migrate.js';
 export * from './jsonc.js';
 export * from './normalize.js';
 export * from './factory.js';
+export * from './lock.js';
