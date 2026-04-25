@@ -276,8 +276,14 @@ describe('Editor Adapters', () => {
 
       it('has correct name and configDir', () => {
          expect(adapter.name).toBe('copilot');
-         // configDir is .vscode for MCP; rules/prompts use relative paths to .github/
+         // configDir stays .vscode so rules/prompts/hooks keep their .github-relative paths.
          expect(adapter.configDir).toBe('.vscode');
+      });
+
+      it('detects when a project-level .mcp.json file exists', async () => {
+         await writeFile(join(testDir, '.mcp.json'), '{}\n', 'utf-8');
+
+         expect(await adapter.detect(testDir)).toBe(true);
       });
 
       it('writes rules to .github/instructions/', async () => {
@@ -293,6 +299,70 @@ describe('Editor Adapters', () => {
          );
 
          expect(ruleContent).toContain('GitHub Copilot rule');
+      });
+
+      it('writes MCP config to project-root .mcp.json', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd', ['--arg']),
+            },
+         });
+
+         await installToEditor('copilot', config, testDir);
+
+         const mcpContent = await readFile(join(testDir, '.mcp.json'), 'utf-8');
+         const mcpConfig = JSON.parse(mcpContent);
+
+         expect(mcpConfig.mcpServers.server).toBeDefined();
+         expect(mcpConfig.mcpServers.server.type).toBe('local');
+         expect(mcpConfig.mcpServers.server.command).toBe('cmd');
+         expect(mcpConfig.mcpServers.server.args).toEqual(['--arg']);
+      });
+
+      it('merges existing flat .mcp.json content into aix-managed mcpServers', async () => {
+         await writeFile(
+            join(testDir, '.mcp.json'),
+            JSON.stringify({
+               existing: {
+                  command: 'user-cmd',
+                  args: ['--user'],
+               },
+               customUserKey: 'keep-me',
+            }, null, 2) + '\n',
+            'utf-8',
+         );
+
+         const config = createConfig({
+            mcp: {
+               aixServer: createMcpServer('aix-cmd'),
+            },
+         });
+
+         await installToEditor('copilot', config, testDir);
+
+         const mcpContent = await readFile(join(testDir, '.mcp.json'), 'utf-8');
+         const mcpConfig = JSON.parse(mcpContent);
+
+         expect(mcpConfig.mcpServers.existing).toBeDefined();
+         expect(mcpConfig.mcpServers.aixServer).toBeDefined();
+         expect(mcpConfig.customUserKey).toBe('keep-me');
+      });
+
+      it('uses user-level Copilot MCP path when targetScope is user', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         const result = await installToEditor('copilot', config, testDir, {
+            dryRun: true,
+            scopes: ['mcp'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/mcp-config.json'));
       });
    });
 

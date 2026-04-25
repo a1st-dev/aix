@@ -42,6 +42,50 @@ export function filterMcpConfig(mcp: AiJsonConfig['mcp']): Record<string, McpSer
    return result;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function looksLikeFlatMcpServer(value: unknown): value is Record<string, unknown> {
+   return (
+      isRecord(value) &&
+      (
+         typeof value.command === 'string' ||
+         typeof value.url === 'string' ||
+         (
+            (value.type === 'local' || value.type === 'stdio' || value.type === 'http') &&
+            (typeof value.command === 'string' || typeof value.url === 'string')
+         )
+      )
+   );
+}
+
+function normalizeFlatMcpConfigForMerge(config: Record<string, unknown>): Record<string, unknown> {
+   if (config.mcpServers || config.servers || config.context_servers || config.mcp_servers || config.mcp) {
+      return config;
+   }
+
+   const mcpServers: Record<string, unknown> = {},
+         otherEntries: Record<string, unknown> = {};
+
+   for (const [key, value] of Object.entries(config)) {
+      if (looksLikeFlatMcpServer(value)) {
+         mcpServers[key] = value;
+      } else {
+         otherEntries[key] = value;
+      }
+   }
+
+   if (Object.keys(mcpServers).length === 0) {
+      return config;
+   }
+
+   return {
+      ...otherEntries,
+      mcpServers,
+   };
+}
+
 /**
  * Base class for editor adapters providing common functionality for detecting editor config
  * directories, writing files atomically, and managing backups. Subclasses provide strategies for
@@ -457,7 +501,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // Merge existing JSON with new JSON
       try {
-         const existingJson = JSON.parse(existing) as Record<string, unknown>,
+         const existingJson = normalizeFlatMcpConfigForMerge(JSON.parse(existing) as Record<string, unknown>),
                newJson = JSON.parse(newContent) as Record<string, unknown>,
                merged = deepMergeJson(existingJson, newJson, { resolver: mcpConfigMergeResolver }),
                mergedContent = JSON.stringify(merged, null, 2) + '\n',

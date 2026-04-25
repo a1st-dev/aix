@@ -1,11 +1,10 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
-import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
- * GitHub Copilot MCP strategy. GitHub Copilot uses `mcp.json` with a `servers` object (not `mcpServers`).
- * Project-level config goes to `.vscode/mcp.json`.
+ * GitHub Copilot MCP strategy. Copilot CLI uses `.mcp.json` at the project root and
+ * `~/.copilot/mcp-config.json` for user-scoped config.
  */
 export class CopilotMcpStrategy implements McpStrategy {
    isSupported(): boolean {
@@ -13,21 +12,19 @@ export class CopilotMcpStrategy implements McpStrategy {
    }
 
    getConfigPath(): string {
-      return 'mcp.json';
+      return '.mcp.json';
+   }
+
+   isProjectRootConfig(): boolean {
+      return true;
    }
 
    getGlobalMcpConfigPath(): string | null {
-      const paths: Record<string, string> = {
-         darwin: 'Library/Application Support/Code/User/mcp.json',
-         linux: '.config/Code/User/mcp.json',
-         win32: 'AppData/Roaming/Code/User/mcp.json',
-      };
-
-      return paths[getRuntimeAdapter().os.platform()] ?? null;
+      return '.copilot/mcp-config.json';
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {
-      const servers: Record<string, unknown> = {};
+      const mcpServers: Record<string, unknown> = {};
 
       for (const [name, serverConfig] of Object.entries(mcp)) {
          if (serverConfig.enabled === false) {
@@ -37,20 +34,34 @@ export class CopilotMcpStrategy implements McpStrategy {
          const transport = getTransport(serverConfig);
 
          if (transport.type === 'stdio') {
-            servers[name] = {
+            const server: Record<string, unknown> = {
+               type: 'local',
                command: transport.command,
-               args: transport.args ?? [],
-               env: transport.env ?? {},
             };
+
+            if (transport.args && transport.args.length > 0) {
+               server.args = transport.args;
+            }
+            if (transport.env && Object.keys(transport.env).length > 0) {
+               server.env = transport.env;
+            }
+
+            mcpServers[name] = server;
          } else if (transport.type === 'http') {
-            servers[name] = {
+            const server: Record<string, unknown> = {
                type: 'http',
                url: transport.url,
             };
+
+            if (transport.headers && Object.keys(transport.headers).length > 0) {
+               server.headers = transport.headers;
+            }
+
+            mcpServers[name] = server;
          }
       }
 
-      return JSON.stringify({ servers }, null, 2) + '\n';
+      return JSON.stringify({ mcpServers }, null, 2) + '\n';
    }
 
    parseGlobalMcpConfig(content: string): {
@@ -61,37 +72,22 @@ export class CopilotMcpStrategy implements McpStrategy {
             warnings: string[] = [];
 
       try {
-         const config = JSON.parse(content) as { servers?: Record<string, unknown> },
-               servers = config.servers ?? {};
+         const config = parseJsonObject(content),
+               servers = getServerEntries(config);
 
          for (const [name, server] of Object.entries(servers)) {
-            const s = server as Record<string, unknown>;
-
-            if (s.command) {
-               mcp[name] = {
-                  command: String(s.command),
-                  args: Array.isArray(s.args) ? s.args.map(String) : [],
-                  env:
-                     typeof s.env === 'object' && s.env !== null
-                        ? Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, String(v)]))
-                        : undefined,
-                  enabled: true,
-                  autoStart: true,
-                  restartOnFailure: true,
-                  maxRestarts: 3,
-               };
-            } else if (s.type === 'http' && s.url) {
-               mcp[name] = {
-                  url: String(s.url),
-                  validateOrigin: false,
-                  enabled: true,
-                  autoStart: true,
-                  restartOnFailure: true,
-                  maxRestarts: 3,
-               };
-            } else {
-               warnings.push(`Skipping GitHub Copilot MCP server "${name}": unknown format`);
+            if (!isRecord(server)) {
+               continue;
             }
+
+            const parsed = parseServer(server);
+
+            if (!parsed) {
+               warnings.push(`Skipping GitHub Copilot MCP server "${name}": unknown format`);
+               continue;
+            }
+
+            mcp[name] = parsed;
          }
       } catch (err) {
          warnings.push(`Failed to parse GitHub Copilot MCP config: ${(err as Error).message}`);
@@ -99,4 +95,63 @@ export class CopilotMcpStrategy implements McpStrategy {
 
       return { mcp, warnings };
    }
+}
+
+function parseJsonObject(content: string): Record<string, unknown> {
+   const parsed = JSON.parse(content);
+
+   if (!isRecord(parsed)) {
+      throw new Error('Config root must be an object');
+   }
+
+   return parsed;
+}
+
+function getServerEntries(config: Record<string, unknown>): Record<string, unknown> {
+   if (isRecord(config.mcpServers)) {
+      return config.mcpServers;
+   }
+   if (isRecord(config.servers)) {
+      return config.servers;
+   }
+   return config;
+}
+
+function parseServer(server: Record<string, unknown>): McpServerConfig | null {
+   if (typeof server.command === 'string') {
+      const parsed: McpServerConfig = {
+         command: server.command,
+      };
+
+      if (Array.isArray(server.args) && server.args.length > 0) {
+         parsed.args = server.args.map(String);
+      }
+      if (isRecord(server.env) && Object.keys(server.env).length > 0) {
+         parsed.env = stringifyRecord(server.env);
+      }
+
+      return parsed;
+   }
+
+   if (typeof server.url === 'string') {
+      const parsed: McpServerConfig = {
+         url: server.url,
+      };
+
+      if (isRecord(server.headers) && Object.keys(server.headers).length > 0) {
+         parsed.headers = stringifyRecord(server.headers);
+      }
+
+      return parsed;
+   }
+
+   return null;
+}
+
+function stringifyRecord(value: Record<string, unknown>): Record<string, string> {
+   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, String(entry)]));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
