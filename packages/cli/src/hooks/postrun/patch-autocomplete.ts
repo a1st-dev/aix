@@ -1,7 +1,7 @@
 import { Hook } from '@oclif/core';
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'pathe';
 
 /**
  * Post-run hook that patches autocomplete scripts to enable file path completion.

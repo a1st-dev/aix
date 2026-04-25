@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative } from 'pathe';
 import {
    aiLockFileSchema,
@@ -358,7 +357,7 @@ async function listLockedFiles(root: string, current: string = root): Promise<Lo
                   return [];
                }
 
-               const content = await readFile(absolutePath);
+               const content = await getRuntimeAdapter().fs.readFile(absolutePath);
 
                return [{
                   path: relativePath,

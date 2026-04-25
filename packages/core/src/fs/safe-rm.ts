@@ -155,5 +155,10 @@ export async function safeRm(
       throw new UnsafePathError(normalized, 'path is too shallow (minimum 3 segments required)');
    }
 
-   await getRuntimeAdapter().fs.rm(resolved, { recursive: true, ...options });
+   await getRuntimeAdapter().fs.rm(resolved, {
+      recursive: true,
+      maxRetries: getRuntimeAdapter().os.platform() === 'win32' ? 10 : 0,
+      retryDelay: getRuntimeAdapter().os.platform() === 'win32' ? 250 : 0,
+      ...options,
+   });
 }

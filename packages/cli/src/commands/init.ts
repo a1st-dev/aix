@@ -1,7 +1,7 @@
 import { Flags } from '@oclif/core';
 import { writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join } from 'pathe';
 import { BaseCommand } from '../base-command.js';
 import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
 import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
