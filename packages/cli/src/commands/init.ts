@@ -14,6 +14,8 @@ import {
    rollbackImport,
    validateReference,
    buildConfigFromEditorImport,
+   generateAndWriteLockfile,
+   loadConfig,
    type EditorName,
 } from '@a1st/aix-core';
 
@@ -44,6 +46,10 @@ export default class Init extends BaseCommand<typeof Init> {
       extends: Flags.string({
          char: 'e',
          description: 'Extend from another ai.json (local path, URL, git shorthand)',
+      }),
+      lock: Flags.boolean({
+         description: 'Create ai.lock.json beside ai.json',
+         default: false,
       }),
    };
 
@@ -102,8 +108,29 @@ export default class Init extends BaseCommand<typeof Init> {
 
       this.output.success(`Created ${configPath}`);
 
+      if (this.flags.lock) {
+         const loaded = await loadConfig({ explicitPath: configPath, lockfileMode: 'ignore' });
+
+         if (!loaded) {
+            this.error(`Could not load ${configPath} after creating it.`);
+         }
+
+         const written = await generateAndWriteLockfile({
+            config: loaded.config,
+            configPath,
+            configBaseDir: loaded.configBaseDir,
+            projectRoot: process.cwd(),
+         });
+
+         this.output.success(`Created ${written.lockfilePath}`);
+      }
+
       if (this.flags.json) {
-         this.output.json({ path: configPath, config });
+         this.output.json({
+            path: configPath,
+            config,
+            ...(this.flags.lock && { lockfilePath: join(process.cwd(), 'ai.lock.json') }),
+         });
       }
    }
 

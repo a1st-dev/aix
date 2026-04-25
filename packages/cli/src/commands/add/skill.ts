@@ -5,7 +5,9 @@ import {
    installSingleItem,
    formatInstallResults,
 } from '../../lib/install-helper.js';
+import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { parseSkillSource } from '../../lib/skill-source.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { getLocalConfigPath, updateConfig, updateLocalConfig } from '@a1st/aix-core';
@@ -31,6 +33,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       name: Flags.string({
@@ -54,6 +57,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                flags as { scope?: string; user?: boolean; project?: boolean },
                loaded && !flags.local ? resolveScope(loaded.config) : undefined,
             ),
+            lockableConfigPath = getLockableConfigPath(loaded),
             parsed = await parseSkillSource(args.source, flags.ref),
             skillName = flags.name ?? parsed.inferredName;
 
@@ -68,6 +72,12 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                'Use --name to specify a valid name.',
          );
       }
+
+      if (flags.lock && !lockableConfigPath) {
+         this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
+      }
+
+      let lockfilePath: string | undefined;
 
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
@@ -91,6 +101,11 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
          this.output.success(`Added skill "${skillName}"`);
       } else {
          this.output.info('No ai.json found — installing directly to editors');
+      }
+
+      if (flags.lock && lockableConfigPath) {
+         lockfilePath = await refreshLockfile(lockableConfigPath);
+         this.output.success(`Updated ${lockfilePath}`);
       }
 
       if (!flags['no-install']) {
@@ -125,7 +140,12 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
             type: 'skill',
             name: skillName,
             value: parsed.value,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 }

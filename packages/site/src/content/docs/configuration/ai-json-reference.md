@@ -8,6 +8,23 @@ description: Complete reference for every field in the ai.json configuration fil
 
 `ai.json` is the single configuration file that aix uses to sync your AI editor settings. It supports JSONC (comments and trailing commas).
 
+## Lockfiles
+
+`ai.lock.json` is an optional sibling file for `ai.json`. Create or refresh it with:
+
+```bash
+aix validate --lock
+```
+
+When `ai.lock.json` exists, aix reads it automatically. If the resolved config digest no
+longer matches, aix stops and asks you to refresh the lockfile. This catches edits to
+`ai.json`, inherited configs, local overrides, and resolved entities before aix writes
+editor files.
+
+The lockfile stores SHA-512 integrity strings and SHA-256 digests for config entities
+such as skills, rules, prompts, MCP servers, hooks, and editor settings. Hashes prove the
+content matches the lockfile. They do not prove publisher identity.
+
 ## Schema
 
 Add the `$schema` field for IDE autocompletion and inline validation:

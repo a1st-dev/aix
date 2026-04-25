@@ -10,6 +10,8 @@
 ```bash
 # Create a local ai.json file for storing your config
 aix init
+# Optionally create ai.lock.json for reproducible installs
+aix init --lock
 # Add config for an MCP server from the official registry
 aix add mcp playwright
 # Add a skill from GitHub, a repo path, a local path, or an installed npm package
@@ -50,6 +52,7 @@ Standardize your AI config. Share it with your team. Check it into version contr
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
 - **Move between editors without pairwise converters** — `aix sync` reads one editor into aix's normalized bridge format, then installs what the destination can represent
 - **Safe updates** — Atomic writes with automatic backup and rollback
+- **Optional lockfiles** — Use `ai.lock.json` when you want aix to detect config drift before installing
 
 ## Quick Start
 
@@ -71,11 +74,13 @@ aix sync <from> --to <to>
 
 ```bash
 aix init                              # Create ai.json
+aix init --lock                       # Create ai.json and ai.lock.json
 aix init --extends github:company/cfg # Create with an extends reference
 aix sync cursor --to claude-code      # Copy supported config editor -> editor
 aix sync cursor --to zed --scope project # Read and write project config
 aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
+aix install --lock                    # Refresh ai.lock.json, then install
 aix install --save --only mcp         # Merge specific sections
 aix add skill ./skills/custom         # Add a skill and install to editors
 aix add skill github/awesome-copilot/typescript-mcp-server-generator # Add from a repo path
@@ -100,12 +105,23 @@ stopping at `ai.json`.
 
 ```bash
 aix validate                          # Validate ai.json configuration
+aix validate --lock                   # Validate and refresh ai.lock.json
 aix config show                       # Show current CLI configuration
 aix backups                           # List configuration backups
 aix cache clear                       # Clear the local cache
 ```
 
 ## Other Notes
+
+### ai.lock.json
+
+`ai.lock.json` is optional. If it exists next to `ai.json`, aix reads it and fails when the
+resolved config no longer matches the lockfile. Run `aix validate --lock` or
+`aix install --lock` after changing `ai.json`.
+
+The lockfile records SHA-512 integrity strings and SHA-256 digests for resolved config
+entities. Those hashes detect drift and tampering in the files aix resolves. They do not
+prove who published a remote config or skill.
 
 This project is tested with BrowserStack.
 

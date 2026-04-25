@@ -2,6 +2,8 @@ import { Args, Flags } from '@oclif/core';
 import { select } from '@inquirer/prompts';
 import { BaseCommand } from '../../base-command.js';
 import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
+import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath } from '@a1st/aix-core';
@@ -28,6 +30,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       command: Flags.string({
@@ -52,9 +55,15 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       const { args, flags } = await this.parse(AddMcp);
       const loaded = await this.loadConfig();
       const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
+      const lockableConfigPath = getLockableConfigPath(loaded);
 
       let serverConfig: McpServerConfig;
       let serverName = args.name;
+      let lockfilePath: string | undefined;
+
+      if (flags.lock && !lockableConfigPath) {
+         this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
+      }
 
       if (flags.command) {
          const config: Record<string, unknown> = { command: flags.command };
@@ -113,6 +122,11 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          this.output.info('No ai.json found — installing directly to editors');
       }
 
+      if (flags.lock && lockableConfigPath) {
+         lockfilePath = await refreshLockfile(lockableConfigPath);
+         this.output.success(`Updated ${lockfilePath}`);
+      }
+
       // Install to editors unless --no-install
       if (!flags['no-install']) {
          if (loaded && !flags.local) {
@@ -146,8 +160,13 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
             type: 'mcp',
             name: serverName,
             config: serverConfig,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 
    /**

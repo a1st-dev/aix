@@ -91,6 +91,23 @@ describe('CLI Commands', () => {
       await safeRm(testDir, { force: true });
    });
 
+   describe('init', () => {
+      it('creates a lockfile when requested', async () => {
+         const { error } = await runCli(['init', '--lock'], {
+            root,
+         });
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(testDir, 'ai.json'))).toBe(true);
+         expect(existsSync(join(testDir, 'ai.lock.json'))).toBe(true);
+
+         const lockfile = JSON.parse(await readFile(join(testDir, 'ai.lock.json'), 'utf-8'));
+
+         expect(lockfile.lockfileVersion).toBe(1);
+         expect(lockfile.config.digest).toMatch(/^sha256:/);
+      });
+   });
+
    describe('validate', () => {
       it('validates a correct config file', async () => {
          const configPath = join(testDir, 'ai.json');
@@ -104,12 +121,120 @@ describe('CLI Commands', () => {
          expect(error).toBeUndefined();
       });
 
+      it('creates and refreshes a lockfile when requested', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            rules: {
+               style: { content: 'Use direct language.' },
+            },
+         });
+
+         const first = await runCli(['validate', '--config', configPath, '--lock'], {
+            root,
+         });
+
+         expect(first.error).toBeUndefined();
+         expect(existsSync(join(testDir, 'ai.lock.json'))).toBe(true);
+
+         await writeValidConfig(configPath, {
+            rules: {
+               style: { content: 'Use plain language.' },
+            },
+         });
+
+         const stale = await runCli(['validate', '--config', configPath], {
+            root,
+         });
+
+         expect(stale.error).toBeDefined();
+
+         const refreshed = await runCli(['validate', '--config', configPath, '--lock'], {
+            root,
+         });
+
+         expect(refreshed.error).toBeUndefined();
+      });
+
+      it('includes lockfile metadata in json output', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const { error, stdout } = await runCli(['validate', '--config', configPath, '--lock', '--json'], {
+            root,
+         });
+         const result = JSON.parse(stdout);
+
+         expect(error).toBeUndefined();
+         expect(result.valid).toBe(true);
+         expect(result.lockfilePath).toBe(join(testDir, 'ai.lock.json'));
+      });
+
+      it('rejects an invalid sibling lockfile', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               lockfilePath = join(testDir, 'ai.lock.json');
+
+         await writeValidConfig(configPath);
+         await writeFile(lockfilePath, '{ "lockfileVersion": 1 }', 'utf-8');
+
+         const { error } = await runCli(['validate', '--config', configPath], {
+            root,
+         });
+
+         expect(error).toBeDefined();
+      });
+
       it('reports error when no config found', async () => {
          const { error } = await runCli(['validate', '--config', 'nonexistent.json'], {
             root,
          });
 
          expect(error).toBeDefined();
+      });
+   });
+
+   describe('install', () => {
+      it('refreshes a stale local lockfile when saving a source config with --lock', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               sourceDir = join(testDir, 'source'),
+               sourcePath = join(sourceDir, 'ai.json');
+
+         await mkdir(sourceDir, { recursive: true });
+         await writeValidConfig(configPath, {
+            rules: {
+               local: { content: 'Local rule.' },
+            },
+         });
+         await writeValidConfig(sourcePath, {
+            rules: {
+               remote: { content: 'Remote rule.' },
+            },
+         });
+
+         const locked = await runCli(['validate', '--config', configPath, '--lock'], {
+            root,
+         });
+
+         expect(locked.error).toBeUndefined();
+
+         await writeValidConfig(configPath, {
+            rules: {
+               stale: { content: 'Stale local rule.' },
+            },
+         });
+
+         const installed = await runCli(['install', sourcePath, '--save', '--lock'], {
+            root,
+         });
+
+         expect(installed.error).toBeUndefined();
+
+         const validated = await runCli(['validate', '--config', configPath], {
+            root,
+         });
+
+         expect(validated.error).toBeUndefined();
       });
    });
 
@@ -217,6 +342,38 @@ describe('CLI Commands', () => {
    });
 
    describe('add skill', () => {
+      it('refreshes a stale lockfile when adding with --lock', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            rules: {
+               style: { content: 'Use direct language.' },
+            },
+         });
+
+         const locked = await runCli(['validate', '--config', configPath, '--lock'], {
+            root,
+         });
+
+         expect(locked.error).toBeUndefined();
+
+         await writeValidConfig(configPath);
+         await writeSkillDir(testDir, 'locked-skill');
+
+         const added = await runCli(
+            ['add', 'skill', './skills/locked-skill', '--config', configPath, '--lock'],
+            { root },
+         );
+
+         expect(added.error).toBeUndefined();
+
+         const validated = await runCli(['validate', '--config', configPath], {
+            root,
+         });
+
+         expect(validated.error).toBeUndefined();
+      });
+
       it('adds an npm skill by short name (convention: aix-skill-*)', async () => {
          const configPath = join(testDir, 'ai.json');
 

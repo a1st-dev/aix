@@ -5,7 +5,7 @@ import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
 import { parseConfig, normalizeEditors, parseJsonc, resolveScope, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
-import { ConfigParseError } from '@a1st/aix-core';
+import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
    installToEditor,
@@ -90,7 +90,15 @@ export default class Install extends BaseCommand<typeof Install> {
          description: 'Copy files to .aix/imported/ instead of using git references (with --save)',
          default: false,
       }),
+      lock: Flags.boolean({
+         description: 'Create or refresh ai.lock.json before installing',
+         default: false,
+      }),
    };
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
+   }
 
    async run(): Promise<void> {
       const { args } = await this.parse(Install);
@@ -99,7 +107,14 @@ export default class Install extends BaseCommand<typeof Install> {
       let loaded: LoadedConfig;
 
       if (args.source) {
-         const result = await loadConfig({ remoteSource: args.source });
+         if (this.flags.lock && !this.flags.save) {
+            this.error('--lock with a remote source requires --save so aix has a local ai.json to lock');
+         }
+
+         const result = await loadConfig({
+            remoteSource: args.source,
+            lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+         });
 
          if (!result) {
             this.error(`Could not load config from: ${args.source}`);
@@ -129,7 +144,10 @@ export default class Install extends BaseCommand<typeof Install> {
          const localConfigPath = join(projectRoot, 'ai.json');
 
          if (existsSync(localConfigPath)) {
-            const localLoaded = await loadConfig(localConfigPath);
+            const localLoaded = await loadConfig({
+               explicitPath: localConfigPath,
+               lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            });
 
             localEditors = localLoaded?.config.editors;
          }
@@ -153,7 +171,10 @@ export default class Install extends BaseCommand<typeof Install> {
 
          // After saving, reload the local config for installation (it now has git refs or local paths)
          if (!isDryRun) {
-            const localLoaded = await loadConfig(join(projectRoot, 'ai.json'));
+            const localLoaded = await loadConfig({
+               explicitPath: join(projectRoot, 'ai.json'),
+               lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            });
 
             if (localLoaded) {
                loaded = localLoaded;
@@ -162,8 +183,15 @@ export default class Install extends BaseCommand<typeof Install> {
 
          // If only saving (no editor installation needed), we're done
          if (!this.flags.target && !loaded.config.editors) {
+            if (this.flags.lock && !isDryRun) {
+               await this.updateLockfile(loaded, projectRoot);
+            }
             return;
          }
+      }
+
+      if (this.flags.lock && !isDryRun) {
+         loaded = await this.updateLockfile(loaded, projectRoot);
       }
 
       // Resolve which editors to install to (prefer local editors config over remote)
@@ -247,6 +275,17 @@ export default class Install extends BaseCommand<typeof Install> {
                );
             }
          }
+
+         if (this.flags.lock) {
+            const reloaded = await loadConfig({
+               explicitPath: localConfigPath,
+               lockfileMode: 'ignore',
+            });
+
+            if (reloaded) {
+               loaded = await this.updateLockfile(reloaded, projectRoot);
+            }
+         }
       }
 
       if (this.flags.json) {
@@ -256,6 +295,23 @@ export default class Install extends BaseCommand<typeof Install> {
             results,
          });
       }
+   }
+
+   private async updateLockfile(loaded: LoadedConfig, projectRoot: string): Promise<LoadedConfig> {
+      const written = await generateAndWriteLockfile({
+         config: loaded.config,
+         configPath: loaded.path,
+         configBaseDir: loaded.configBaseDir,
+         projectRoot,
+      });
+
+      this.output.success(`Updated ${written.lockfilePath}`);
+
+      return {
+         ...loaded,
+         lockfilePath: written.lockfilePath,
+         lockfile: written.lockfile,
+      };
    }
 
    /**

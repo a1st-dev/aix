@@ -21,6 +21,7 @@ aix init [flags]
 | `--force` / `-f`                           | Overwrite existing `ai.json` if it exists.        |
 | `--from <editor>`                          | Import supported config from an existing editor.  |
 | `--extends <ref>`                          | Set the `extends` reference in the new `ai.json`. |
+| `--lock`                                   | Create `ai.lock.json` beside the new config.      |
 | `--scope <scope>` / `--user` / `--project` | Set the `scope` field (`user` or `project`).      |
 
 The `--extends` flag accepts any reference type: local paths, URLs, git repos, or npm packages.
@@ -28,6 +29,9 @@ The `--extends` flag accepts any reference type: local paths, URLs, git repos, o
 ```bash
 # Initialize with an extends reference
 aix init --extends github:company/ai-config
+
+# Initialize with a lockfile
+aix init --lock
 
 # Initialize a user-scoped config
 aix init --scope user
