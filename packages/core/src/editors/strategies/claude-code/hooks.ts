@@ -83,6 +83,10 @@ export class ClaudeCodeHooksStrategy implements HooksStrategy {
       return 'settings.json';
    }
 
+   getGlobalConfigPath(): string {
+      return '.claude/settings.json';
+   }
+
    getUnsupportedEvents(hooks: HooksConfig): string[] {
       return Object.keys(hooks).filter((event) => !SUPPORTED_EVENTS.has(event));
    }

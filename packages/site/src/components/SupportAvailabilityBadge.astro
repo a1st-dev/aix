@@ -1,0 +1,47 @@
+---
+const { supported } = Astro.props as {
+   supported: boolean;
+};
+
+const label = supported ? 'Supported' : 'No support';
+
+let description = '';
+
+if (supported) {
+   description = 'The editor exposes this feature at this scope.';
+} else {
+   description = 'The editor does not expose this feature at this scope.';
+}
+---
+
+<span
+   aria-label={`${label}: ${description}`}
+   class:list={[ 'support-availability', supported ? 'support-availability--supported' : 'support-availability--unsupported' ]}
+   title={description}
+>
+   <span class="support-availability__label">{label}</span>
+</span>
+
+<style>
+   .support-availability {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      line-height: 1;
+      white-space: nowrap;
+   }
+
+   .support-availability--supported {
+      background: color-mix(in srgb, var(--sl-color-green-high) 10%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-green) 30%, var(--sl-color-gray-5));
+   }
+
+   .support-availability--unsupported {
+      background: color-mix(in srgb, var(--sl-color-red-high) 8%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-red) 30%, var(--sl-color-gray-5));
+   }
+</style>

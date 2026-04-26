@@ -1,5 +1,4 @@
 ---
-slug: cli/cache
 sidebar:
    order: 10
 title: aix cache

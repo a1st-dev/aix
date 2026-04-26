@@ -1,10 +1,12 @@
 ---
 import type { EditorSupportProfile } from '@a1st/aix-schema';
 import {
-   describeScopeSupport,
    editorFeatureDefinitions,
    getFeatureAnchor,
+   getFeatureConceptRoute,
 } from '../lib/editor-support';
+import InlineCodeText from './InlineCodeText.astro';
+import ScopeSupportDetails from './ScopeSupportDetails.astro';
 import SupportStatusBadge from './SupportStatusBadge.astro';
 
 const { profile } = Astro.props as {
@@ -12,45 +14,132 @@ const { profile } = Astro.props as {
 };
 ---
 
-<section id={profile.id}>
-   <h2>{profile.name}</h2>
-   <p>{profile.summary}</p>
-
-   {profile.notes.length > 0 && (
-      <ul>
-         {profile.notes.map((note) => <li>{note}</li>)}
-      </ul>
-   )}
-
+<div class="editor-feature-details">
    {editorFeatureDefinitions.map((featureDefinition) => {
-      const feature = profile.features[featureDefinition.id];
+      const feature = profile.features[featureDefinition.id],
+            conceptRoute = getFeatureConceptRoute(featureDefinition.id);
 
       return (
-         <section id={getFeatureAnchor(profile.id, featureDefinition.id)}>
-            <h3>{featureDefinition.label}</h3>
-            <p>
-               <SupportStatusBadge status={feature.summary} /> {feature.implementation}
-            </p>
-            <p>
-               <strong>Editor term:</strong> {feature.terminology}
-            </p>
-            <p>
-               <strong>Project scope:</strong> {describeScopeSupport(feature.project)}
-            </p>
-            <p>
-               <strong>User scope:</strong> {describeScopeSupport(feature.user)}
-            </p>
+         <section class="editor-feature-details__feature" id={getFeatureAnchor(profile.id, featureDefinition.id)}>
+            <h3>
+               {featureDefinition.label}
+               {conceptRoute && (
+                  <>
+                     {' '}
+                     <span class="editor-feature-details__concept-link">
+                        <a href={conceptRoute}>Learn the concept</a>
+                     </span>
+                  </>
+               )}
+            </h3>
+
+            <div class="editor-feature-details__intro">
+               <p class="editor-feature-details__summary">
+                  <InlineCodeText text={feature.implementation} />
+               </p>
+
+               <div class="editor-feature-details__meta">
+                  <div class="editor-feature-details__meta-item">
+                     <span class="editor-feature-details__meta-label">{profile.name} calls this</span>
+                     <strong>{feature.terminology}</strong>
+                  </div>
+
+                  <div class="editor-feature-details__meta-item">
+                     <span class="editor-feature-details__meta-label">aix support</span>
+                     <SupportStatusBadge status={feature.summary} />
+                  </div>
+               </div>
+            </div>
+
+            <dl class="editor-feature-details__scope-list">
+               <ScopeSupportDetails label="Project" scope={feature.project} />
+               <ScopeSupportDetails label="User" scope={feature.user} />
+            </dl>
+
             {feature.supportedValues && feature.supportedValues.length > 0 && (
                <p>
-                  <strong>Notable native values:</strong> {feature.supportedValues.join(', ')}
+                  <strong>Supported metadata:</strong>{' '}
+                  {feature.supportedValues.map((value, index) => (
+                     <>
+                        {index > 0 && ', '}
+                        <code>{value}</code>
+                     </>
+                  ))}
                </p>
             )}
+
             {feature.notes && feature.notes.length > 0 && (
                <ul>
-                  {feature.notes.map((note) => <li>{note}</li>)}
+                  {feature.notes.map((note) => (
+                     <li>
+                        <InlineCodeText text={note} />
+                     </li>
+                  ))}
                </ul>
             )}
          </section>
       );
    })}
-</section>
+</div>
+
+<style>
+   .editor-feature-details {
+      display: grid;
+      gap: 1.5rem;
+   }
+
+   .editor-feature-details__feature {
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 0.9rem;
+      padding: 1.2rem;
+      background: color-mix(in srgb, var(--sl-color-bg) 90%, var(--sl-color-accent-low));
+   }
+
+   .editor-feature-details__concept-link {
+      font-size: 0.82rem;
+      font-weight: 500;
+   }
+
+   .editor-feature-details__intro {
+      display: grid;
+      gap: 0.85rem;
+      margin-block-end: 0.95rem;
+   }
+
+   .editor-feature-details__summary {
+      margin: 0;
+      max-width: 65ch;
+      color: var(--sl-color-gray-2);
+   }
+
+   .editor-feature-details__meta {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+   }
+
+   .editor-feature-details__meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--sl-color-hairline-light);
+      border-radius: 0.8rem;
+      background: color-mix(in srgb, var(--sl-color-bg) 82%, var(--sl-color-accent-low));
+   }
+
+   .editor-feature-details__meta-label {
+      color: var(--sl-color-gray-3);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+   }
+
+   .editor-feature-details__scope-list {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.7rem 0.9rem;
+      margin: 0;
+   }
+</style>

@@ -7,6 +7,7 @@ import { CopilotPromptsStrategy } from '../../editors/strategies/copilot/prompts
 import { CodexPromptsStrategy } from '../../editors/strategies/codex/prompts.js';
 import { ZedPromptsStrategy } from '../../editors/strategies/zed/prompts.js';
 import { NoPromptsStrategy } from '../../editors/strategies/shared/no-prompts.js';
+import { extractFrontmatter, parseYamlValue } from '../../frontmatter-utils.js';
 
 const createPrompt = (overrides: Partial<EditorPrompt> = {}): EditorPrompt => ({
    name: 'review',
@@ -37,13 +38,20 @@ describe('PromptsStrategy implementations', () => {
       });
 
       it('formats prompt with frontmatter', () => {
-         const prompt = createPrompt();
-         const formatted = strategy.formatPrompt(prompt);
+         const prompt = createPrompt({
+                  description: 'Review: code safety',
+                  argumentHint: '[file-path] [context]',
+               }),
+               formatted = strategy.formatPrompt(prompt),
+               { frontmatter, content, hasFrontmatter } = extractFrontmatter(formatted),
+               lines = frontmatter.split('\n');
 
-         expect(formatted).toContain('---');
-         expect(formatted).toContain('description: Code review checklist');
-         expect(formatted).toContain('argument-hint: [file-path]');
-         expect(formatted).toContain('Review the code for potential issues.');
+         expect(hasFrontmatter).toBe(true);
+         expect(formatted).toContain('description: "Review: code safety"');
+         expect(formatted).toContain('argument-hint: "[file-path] [context]"');
+         expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
+         expect(parseYamlValue(lines, 'argument-hint')).toBe('[file-path] [context]');
+         expect(content).toBe('Review the code for potential issues.');
       });
 
       it('formats prompt without frontmatter when no metadata', () => {
@@ -109,13 +117,16 @@ describe('PromptsStrategy implementations', () => {
       });
 
       it('formats prompt with frontmatter and heading', () => {
-         const prompt = createPrompt();
-         const formatted = strategy.formatPrompt(prompt);
+         const prompt = createPrompt({ description: 'Review: code safety' }),
+               formatted = strategy.formatPrompt(prompt),
+               { frontmatter, content, hasFrontmatter } = extractFrontmatter(formatted),
+               lines = frontmatter.split('\n');
 
-         expect(formatted).toContain('---');
-         expect(formatted).toContain('description: Code review checklist');
-         expect(formatted).toContain('# review');
-         expect(formatted).toContain('Review the code for potential issues.');
+         expect(hasFrontmatter).toBe(true);
+         expect(formatted).toContain('description: "Review: code safety"');
+         expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
+         expect(content).toContain('# review');
+         expect(content).toContain('Review the code for potential issues.');
       });
    });
 
@@ -135,13 +146,22 @@ describe('PromptsStrategy implementations', () => {
       });
 
       it('formats prompt with frontmatter', () => {
-         const prompt = createPrompt();
-         const formatted = strategy.formatPrompt(prompt);
+         const prompt = createPrompt({
+                  description: 'Review: code safety',
+                  argumentHint: '[file-path] [context]',
+               }),
+               formatted = strategy.formatPrompt(prompt),
+               { frontmatter, content, hasFrontmatter } = extractFrontmatter(formatted),
+               lines = frontmatter.split('\n');
 
-         expect(formatted).toContain('---');
-         expect(formatted).toContain('description: Code review checklist');
-         expect(formatted).toContain('argument-hint: [file-path]');
-         expect(formatted).toContain('Review the code for potential issues.');
+         expect(hasFrontmatter).toBe(true);
+         expect(formatted).toContain('name: "review"');
+         expect(formatted).toContain('description: "Review: code safety"');
+         expect(formatted).toContain('argument-hint: "[file-path] [context]"');
+         expect(parseYamlValue(lines, 'name')).toBe('review');
+         expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
+         expect(parseYamlValue(lines, 'argument-hint')).toBe('[file-path] [context]');
+         expect(content).toBe('Review the code for potential issues.');
       });
    });
 
@@ -178,6 +198,23 @@ describe('PromptsStrategy implementations', () => {
             review: 'Review this change.',
          });
          expect(result.warnings).toEqual([]);
+      });
+
+      it('formats prompt frontmatter safely even though deployment is unsupported', () => {
+         const prompt = createPrompt({
+                  description: 'Review: code safety',
+                  argumentHint: '[file-path] [context]',
+               }),
+               formatted = strategy.formatPrompt(prompt),
+               { frontmatter, content, hasFrontmatter } = extractFrontmatter(formatted),
+               lines = frontmatter.split('\n');
+
+         expect(hasFrontmatter).toBe(true);
+         expect(formatted).toContain('description: "Review: code safety"');
+         expect(formatted).toContain('argument-hint: "[file-path] [context]"');
+         expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
+         expect(parseYamlValue(lines, 'argument-hint')).toBe('[file-path] [context]');
+         expect(content).toBe('Review the code for potential issues.');
       });
    });
 

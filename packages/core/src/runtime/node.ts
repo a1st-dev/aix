@@ -1,4 +1,10 @@
-import type { RuntimeAdapter, RuntimeDirent } from './types.js';
+import type {
+   RuntimeAdapter,
+   RuntimeDirent,
+   RuntimeEncoding,
+   RuntimeGitDownloadOptions,
+   RuntimeGitDownloadResult,
+} from './types.js';
 
 type NodeFsModule = typeof import('node:fs');
 type NodeFsPromisesModule = typeof import('node:fs/promises');
@@ -46,6 +52,37 @@ function getCryptoModule(): NodeCryptoModule {
    return getBuiltinModule<NodeCryptoModule>('crypto');
 }
 
+function getFileUrlForPath(path: string): string {
+   const url = getUrlModule().pathToFileURL(path).href;
+
+   if (url.endsWith('/')) {
+      return url;
+   }
+
+   return `${url}/`;
+}
+
+async function downloadTemplate(
+   template: string,
+   options: RuntimeGitDownloadOptions,
+): Promise<RuntimeGitDownloadResult> {
+   const { downloadTemplate } = await import('giget');
+
+   return downloadTemplate(template, options);
+}
+
+async function ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void> {
+   const { ensureDependencyInstalled } = await import('nypm');
+
+   await ensureDependencyInstalled(packageSpec, { cwd });
+}
+
+async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
+   const resolvedUrl = import.meta.resolve(`${packageName}/${subpath}`, getFileUrlForPath(projectRoot));
+
+   return getUrlModule().fileURLToPath(resolvedUrl);
+}
+
 function getNodeProcess(): NodeJS.Process {
    const runtimeProcess = globalThis.process;
 
@@ -80,6 +117,26 @@ async function readdir(
    }
 
    return getFsPromisesModule().readdir(path);
+}
+
+function readFile(path: string): Promise<Uint8Array>;
+function readFile(path: string, encoding: RuntimeEncoding): Promise<string>;
+async function readFile(path: string, encoding?: RuntimeEncoding): Promise<string | Uint8Array> {
+   if (!encoding || encoding === 'binary') {
+      return getFsPromisesModule().readFile(path);
+   }
+
+   return getFsPromisesModule().readFile(path, encoding);
+}
+
+function readFileSync(path: string): Uint8Array;
+function readFileSync(path: string, encoding: RuntimeEncoding): string;
+function readFileSync(path: string, encoding?: RuntimeEncoding): string | Uint8Array {
+   if (!encoding || encoding === 'binary') {
+      return getFsModule().readFileSync(path);
+   }
+
+   return getFsModule().readFileSync(path, encoding);
 }
 
 export const nodeRuntimeAdapter: RuntimeAdapter = {
@@ -133,18 +190,8 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
       mkdtemp: async (prefix) => {
          return getFsPromisesModule().mkdtemp(prefix);
       },
-      readFile: async (path: string, encoding?: any) => {
-         if (encoding === 'binary') {
-            return getFsPromisesModule().readFile(path);
-         }
-         return getFsPromisesModule().readFile(path, encoding ?? 'utf-8');
-      },
-      readFileSync: (path: string, encoding?: any) => {
-         if (encoding === 'binary') {
-            return getFsModule().readFileSync(path);
-         }
-         return getFsModule().readFileSync(path, encoding ?? 'utf-8');
-      },
+      readFile,
+      readFileSync,
       readdir,
       readlink: async (path) => {
          return getFsPromisesModule().readlink(path, 'utf-8');
@@ -172,6 +219,14 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
          await getFsPromisesModule().writeFile(path, content as string, encoding ?? 'utf-8');
       },
    },
+   git: {
+      downloadTemplate,
+   },
+   host: {
+      supportsGlobalHomeAccess: () => {
+         return true;
+      },
+   },
    network: {
       createAbortController: () => {
          return new AbortController();
@@ -182,6 +237,10 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
          }
          return fetch(input);
       },
+   },
+   npm: {
+      ensureDependencyInstalled,
+      resolvePackagePath,
    },
    os: {
       homedir: () => {

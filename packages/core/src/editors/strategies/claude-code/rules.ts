@@ -1,7 +1,7 @@
 import type { ActivationMode } from '@a1st/aix-schema';
 import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 
 /**
  * Claude Code rules strategy. Uses markdown files with optional YAML frontmatter. Only adds
@@ -51,10 +51,10 @@ export class ClaudeCodeRulesStrategy implements RulesStrategy {
             if (Array.isArray(value)) {
                lines.push(`${key}:`);
                for (const item of value) {
-                  lines.push(`  - ${item}`);
+                  lines.push(`  - ${quoteYamlString(String(item))}`);
                }
             } else if (typeof value === 'string') {
-               lines.push(`${key}: "${value}"`);
+               lines.push(`${key}: ${quoteYamlString(value)}`);
             } else {
                lines.push(`${key}: ${value}`);
             }

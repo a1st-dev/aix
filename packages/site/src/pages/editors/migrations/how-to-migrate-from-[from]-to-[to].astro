@@ -1,0 +1,186 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import type { SupportedEditorName } from '@a1st/aix-schema';
+import ScopeSupportDetails from '../../../components/ScopeSupportDetails.astro';
+import SupportLegend from '../../../components/SupportLegend.astro';
+import {
+   getEditorById,
+   getEditorSupportRoute,
+   getFeatureConceptRoute,
+   getMigrationDescription,
+   getMigrationHeadline,
+   getMigrationRoute,
+   getMigrationRows,
+   listMigrationPairs,
+   managedEditorFeatures,
+} from '../../../lib/editor-support';
+import { docsSidebar } from '../../../starlight-sidebar.js';
+
+export function getStaticPaths() {
+   return listMigrationPairs().map(({ from, to }) => ({
+      params: { from, to },
+      props: { from, to },
+   }));
+}
+
+const { from, to } = Astro.props as {
+   from: SupportedEditorName;
+   to: SupportedEditorName;
+};
+
+const fromProfile = getEditorById(from),
+      toProfile = getEditorById(to),
+      rows = getMigrationRows(from, to),
+      changedRows = rows.filter((row) => row.changeType !== 'same'),
+      conceptFeatures = managedEditorFeatures.filter(
+         (featureDefinition) =>
+            Boolean(getFeatureConceptRoute(featureDefinition.id)) &&
+            changedRows.some((row) => row.feature.id === featureDefinition.id),
+      ),
+      title = `How to migrate from ${fromProfile.name} to ${toProfile.name}`,
+      description = getMigrationDescription(fromProfile, toProfile, rows);
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   sidebar={docsSidebar}
+>
+   <p>
+      aix is a CLI for defining, installing, and syncing AI editor configuration. If you are moving
+      from {fromProfile.name} to {toProfile.name}, this guide shows what aix can carry over, what the
+      destination editor calls each feature, and where the destination config lands.
+   </p>
+
+   <p>
+      When you are ready to run the move, <code>aix sync {fromProfile.id} --to {toProfile.id}</code>
+      copies the supported config from {fromProfile.name} into {toProfile.name}. Use the comparison
+      below first so you know which names, paths, and support differences to expect.
+   </p>
+
+   {conceptFeatures.length > 0 && (
+      <p>
+         If you want the aix-side definitions first, review{' '}
+         {conceptFeatures.map((featureDefinition, index) => {
+            const conceptRoute = getFeatureConceptRoute(featureDefinition.id);
+
+            return (
+               <>
+                  {index > 0 && ', '}
+                  <a href={conceptRoute}>{featureDefinition.label.toLowerCase()}</a>
+               </>
+            );
+         })}
+         .
+      </p>
+   )}
+
+   <h2>How to use this guide</h2>
+   <ul>
+      <li>Read across a row to compare the source and destination terms, support, and targets.</li>
+      <li>Each scope line shows both what the editor supports and what aix writes today.</li>
+      <li>Open the destination editor page at the end if you need every path, note, and terminology detail.</li>
+   </ul>
+
+   <p>{getMigrationHeadline(rows)}</p>
+
+   <SupportLegend />
+
+   <h2>Feature comparison</h2>
+   <div class="migration-guide__table-wrap">
+   <table class="migration-guide__table">
+      <caption>Feature-by-feature differences from {fromProfile.name} to {toProfile.name}.</caption>
+      <thead>
+         <tr>
+            <th scope="col">Feature</th>
+            <th scope="col">{fromProfile.name}</th>
+            <th scope="col">{toProfile.name}</th>
+         </tr>
+      </thead>
+      <tbody>
+         {managedEditorFeatures.map((featureDefinition) => {
+            const row = rows.find((candidate) => candidate.feature.id === featureDefinition.id);
+
+            if (!row) {
+               return null;
+            }
+
+            return (
+               <tr>
+                  <th scope="row">
+                     {getFeatureConceptRoute(featureDefinition.id) ? (
+                        <a href={getFeatureConceptRoute(featureDefinition.id)}>{featureDefinition.label}</a>
+                     ) : (
+                        featureDefinition.label
+                     )}
+                  </th>
+                  <td>
+                     <p class="migration-guide__term">
+                        <strong>{row.fromSupport.terminology}</strong>
+                     </p>
+                     <dl class="migration-guide__scope-list">
+                        <ScopeSupportDetails compact label="Project" scope={row.fromSupport.project} />
+                        <ScopeSupportDetails compact label="User" scope={row.fromSupport.user} />
+                     </dl>
+                  </td>
+                  <td>
+                     <p class="migration-guide__term">
+                        <strong>{row.toSupport.terminology}</strong>
+                     </p>
+                     <dl class="migration-guide__scope-list">
+                        <ScopeSupportDetails compact label="Project" scope={row.toSupport.project} />
+                        <ScopeSupportDetails compact label="User" scope={row.toSupport.user} />
+                     </dl>
+                  </td>
+               </tr>
+           );
+          })}
+      </tbody>
+   </table>
+   </div>
+
+   <h2>Recommended follow-up links</h2>
+   <ul>
+      <li>
+         <a href={getEditorSupportRoute(fromProfile.id)}>{fromProfile.name} support details</a>
+      </li>
+      <li>
+         <a href={getEditorSupportRoute(toProfile.id)}>{toProfile.name} support details</a>
+      </li>
+      <li>
+         <a href={`/editors/migrations/#${fromProfile.id}`}>All guides that start from {fromProfile.name}</a>
+      </li>
+      <li>
+         <a href={getMigrationRoute(to, from)}>{toProfile.name} to {fromProfile.name}</a>
+      </li>
+   </ul>
+
+   <style>
+      .migration-guide__table-wrap {
+         overflow-x: auto;
+      }
+
+      .migration-guide__table {
+         table-layout: fixed;
+      }
+
+      .migration-guide__table th,
+      .migration-guide__table td {
+         vertical-align: top;
+      }
+
+      .migration-guide__table th:first-child {
+         min-inline-size: 12rem;
+      }
+
+      .migration-guide__term {
+         margin: 0 0 0.75rem;
+         color: var(--sl-color-white);
+      }
+
+      .migration-guide__scope-list {
+         display: grid;
+         gap: 0.7rem;
+         margin: 0;
+      }
+   </style>
+</StarlightPage>

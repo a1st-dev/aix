@@ -1,5 +1,4 @@
 ---
-slug: cli/list
 sidebar:
    order: 8
 title: aix list

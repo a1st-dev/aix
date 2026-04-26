@@ -51,6 +51,17 @@ describe('parseSkillRef', () => {
          });
       });
 
+      it('parses gh shorthand used by giget-style sources', () => {
+         const ref = parseSkillRef('code-review', 'gh:a1st-dev/skills/code-review');
+
+         expect(ref).toEqual({
+            type: 'git',
+            url: 'https://github.com/a1st-dev/skills',
+            ref: undefined,
+            path: 'code-review',
+         });
+      });
+
       it('parses github shorthand with subdirectory in repo path', () => {
          const ref = parseSkillRef('vue', 'github:a1st/skills/packages/vue');
 

@@ -13,7 +13,14 @@ import {
    OpenCodeAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
+import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
+
+function assertGlobalHomeAccess(action: string): void {
+   if (!getRuntimeAdapter().host.supportsGlobalHomeAccess()) {
+      throw new UnsupportedRuntimeCapabilityError('global-home-access', action);
+   }
+}
 
 /**
  * Registry of all available editor adapters.
@@ -52,6 +59,8 @@ export function getAvailableEditors(): EditorName[] {
  * Check if an editor is installed globally on the system by looking for its config/data directory.
  */
 async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
+   assertGlobalHomeAccess('detecting globally installed editors');
+
    const adapter = getAdapter(editor),
          globalPaths = adapter.getGlobalDataPaths(),
          paths = globalPaths[getRuntimeAdapter().os.platform()];
@@ -93,6 +102,10 @@ export async function detectEditors(
    projectRoot: string,
    options: { projectOnly?: boolean } = {},
 ): Promise<EditorName[]> {
+   if (!options.projectOnly) {
+      assertGlobalHomeAccess('detecting globally installed editors');
+   }
+
    const editors = getAvailableEditors(),
          checkFn = options.projectOnly
             ? (editor: EditorName) => isEditorConfiguredInProject(editor, projectRoot)
@@ -123,8 +136,13 @@ export async function installToEditor(
          filteredConfig =
             options?.strictTargetScope && targetScopeLimitations
                ? stripTargetScopeLimitedFeatures(config, targetScopeLimitations)
-               : config,
-         editorConfig = await adapter.generateConfig(filteredConfig, projectRoot, options),
+               : config;
+
+   if (targetScope === 'user') {
+      assertGlobalHomeAccess(`installing ${editor} config into user scope`);
+   }
+
+   const editorConfig = await adapter.generateConfig(filteredConfig, projectRoot, options),
          result = await adapter.apply(editorConfig, projectRoot, options);
 
    // Attach unsupported features to result if any exist
@@ -212,6 +230,8 @@ async function processGlobalFeatures(
    if (!hasMcpGlobalOnly && !hasPromptsGlobalOnly) {
       return undefined;
    }
+
+   assertGlobalHomeAccess(`applying global-only ${adapter.name} configuration`);
 
    // Analyze what global changes are needed
    const changes = await analyzeGlobalChanges(adapter.name, editorConfig, mcpStrategy, promptsStrategy);

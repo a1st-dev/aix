@@ -1,13 +1,11 @@
 ---
-slug: cli/sync
 sidebar:
    order: 4
 title: aix sync
 description: Copy supported configuration from one editor to another.
 ---
 
-Reads supported config from one editor, normalizes it through aix's internal bridge format,
-then installs what the destination editor can represent.
+Reads supported config from one editor and installs the supported equivalent into another.
 
 This command is for `editor -> editor` migration. If you want to apply `ai.json`, use
 [`aix install`](/cli/install/). If you want to create `ai.json` from an editor, use
@@ -64,12 +62,8 @@ aix sync cursor --to codex --dry-run
 ## What sync does
 
 1. Reads supported config from the source editor.
-2. Converts that data into aix's normalized bridge format.
-3. Installs the normalized config to the destination editor.
-4. Reports anything the destination could not represent.
-
-That bridge format is the whole point. aix does not need a custom converter for every source
-and destination pair.
+2. Installs the supported equivalent into the destination editor.
+3. Reports anything the destination could not represent.
 
 ## Partial syncs and skipped writes
 

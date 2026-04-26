@@ -1,5 +1,4 @@
 ---
-slug: cli/config
 sidebar:
    order: 9
 title: aix config

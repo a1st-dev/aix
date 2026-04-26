@@ -201,6 +201,9 @@ export interface HooksStrategy {
    /** Get the hooks config file path relative to the editor config dir (e.g., 'settings.json') */
    getConfigPath(): string;
 
+   /** Get the global hooks config path relative to home directory, or null if not supported */
+   getGlobalConfigPath(): string | null;
+
    /**
     * Get the list of hook events that this editor does NOT support.
     * Used to warn users when they configure hooks that won't work for a particular editor.

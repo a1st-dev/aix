@@ -274,6 +274,67 @@ describe('Editor Config Import', () => {
          }
       });
 
+      it('imports user-scoped Copilot hooks into generic hook events', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-copilot-hooks-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME;
+
+         process.env.HOME = fakeHome;
+
+         try {
+            await mkdir(join(fakeHome, '.copilot', 'hooks'), { recursive: true });
+            await writeFile(
+               join(fakeHome, '.copilot', 'hooks', 'hooks.json'),
+               JSON.stringify({
+                  hooks: {
+                     preToolUse: [{
+                        matcher: 'Bash',
+                        hooks: [{
+                           type: 'command',
+                           command: 'echo pre',
+                           timeout: 15,
+                        }],
+                     }],
+                     stop: [{
+                        matcher: '',
+                        hooks: [{
+                           type: 'command',
+                           command: 'echo stop',
+                        }],
+                     }],
+                  },
+               }),
+               'utf-8',
+            );
+
+            const result = await importFromEditor('copilot', {
+               projectRoot,
+               scope: 'user',
+            });
+
+            expect(result.hooks.pre_command).toEqual([{
+               hooks: [{
+                  command: 'echo pre',
+                  timeout: 15,
+               }],
+            }]);
+            expect(result.hooks.agent_stop).toEqual([{
+               hooks: [{
+                  command: 'echo stop',
+               }],
+            }]);
+            expect(result.scopes.hooks.pre_command).toBe('user');
+            expect(result.paths.hooks.pre_command).toBe(join(fakeHome, '.copilot', 'hooks', 'hooks.json'));
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
       it('imports OpenCode project rules, MCP, prompts, and skills', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-import-'));
 

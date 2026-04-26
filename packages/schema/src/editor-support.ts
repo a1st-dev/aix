@@ -75,6 +75,9 @@ export interface EditorScopeSupport {
    status: EditorSupportStatus;
    path?: string;
    note?: string;
+   editorSupported?: boolean;
+   editorPath?: string;
+   editorNote?: string;
 }
 
 export interface EditorFeatureSupport {
@@ -109,16 +112,42 @@ export interface OrderedEditorPair {
    to: SupportedEditorName;
 }
 
-function nativeScope(path?: string, note?: string): EditorScopeSupport {
-   return { status: 'native', path, note };
+interface ScopeDetails {
+   editorSupported?: boolean;
+   editorPath?: string;
+   editorNote?: string;
 }
 
-function shimScope(path?: string, note?: string): EditorScopeSupport {
-   return { status: 'shim', path, note };
+function nativeScope(path?: string, note?: string, details: ScopeDetails = {}): EditorScopeSupport {
+   return {
+      status: 'native',
+      path,
+      note,
+      editorSupported: details.editorSupported ?? true,
+      editorPath: details.editorPath,
+      editorNote: details.editorNote,
+   };
 }
 
-function unsupportedScope(note?: string): EditorScopeSupport {
-   return { status: 'unsupported', note };
+function shimScope(path?: string, note?: string, details: ScopeDetails = {}): EditorScopeSupport {
+   return {
+      status: 'shim',
+      path,
+      note,
+      editorSupported: details.editorSupported ?? true,
+      editorPath: details.editorPath,
+      editorNote: details.editorNote,
+   };
+}
+
+function unsupportedScope(note?: string, details: ScopeDetails = {}): EditorScopeSupport {
+   return {
+      status: 'unsupported',
+      note,
+      editorSupported: details.editorSupported ?? false,
+      editorPath: details.editorPath,
+      editorNote: details.editorNote,
+   };
 }
 
 interface FeatureOptions {
@@ -182,7 +211,11 @@ export const editorSupportProfiles = [
             terminology: 'Rules',
             implementation: 'Markdown-with-frontmatter rule files.',
             project: nativeScope('.cursor/rules/*.mdc'),
-            user: unsupportedScope('aix does not have a separate user-scope rules target for Cursor.'),
+            user: unsupportedScope('aix does not currently write Cursor user rules.', {
+               editorSupported: true,
+               editorPath: 'Settings UI',
+               editorNote: 'Cursor stores user rules in the Settings UI rather than a writable file.',
+            }),
             supportedValues: [ 'alwaysApply', 'globs', 'description' ],
             notes: [ 'Cursor also reads AGENTS.md as a compatibility surface.' ],
          }),
@@ -217,7 +250,7 @@ export const editorSupportProfiles = [
             terminology: 'Hooks',
             implementation: 'JSON hook configuration with event-name translation.',
             project: nativeScope('.cursor/hooks.json'),
-            user: unsupportedScope('Cursor hooks are only written in project scope.'),
+            user: nativeScope('~/.cursor/hooks.json'),
             supportedValues: [
                'sessionStart',
                'sessionEnd',
@@ -271,7 +304,10 @@ export const editorSupportProfiles = [
             'Instructions',
             'Markdown instruction files in `.github/instructions/`.',
             nativeScope('.github/instructions/*.instructions.md'),
-            unsupportedScope('Copilot repo instructions are project-scoped in aix.'),
+            unsupportedScope('aix does not yet write user-scope Copilot instructions as separate files.', {
+               editorSupported: true,
+               editorPath: '~/.copilot/instructions/*.instructions.md',
+            }),
          ),
          prompts: feature(
             'prompts',
@@ -301,7 +337,7 @@ export const editorSupportProfiles = [
             'Skills',
             'Symlinked native skill directories backed by `.aix/skills/`.',
             nativeScope('.github/skills/{name}/'),
-            nativeScope('~/.github/skills/{name}/'),
+            nativeScope('~/.copilot/skills/{name}/'),
             {
                notes: [ 'Copilot also discovers `.agents/skills/` as a compatibility surface.' ],
             },
@@ -312,7 +348,7 @@ export const editorSupportProfiles = [
             'Hooks',
             'JSON hooks with matcher-based tool routing.',
             nativeScope('.github/hooks/hooks.json'),
-            unsupportedScope('Copilot hooks are only written in project scope.'),
+            nativeScope('~/.copilot/hooks/hooks.json'),
             {
                supportedValues: [
                   'preToolUse',
@@ -403,7 +439,7 @@ export const editorSupportProfiles = [
             'Hooks',
             'JSON hooks with PascalCase event names and matcher routing.',
             nativeScope('.claude/settings.json'),
-            unsupportedScope('Claude Code hooks are only written in project scope.'),
+            nativeScope('~/.claude/settings.json'),
             {
                supportedValues: [
                   'SessionStart',
@@ -504,7 +540,7 @@ export const editorSupportProfiles = [
             'Hooks',
             'JSON hook configuration using snake_case Windsurf event names.',
             nativeScope('.windsurf/hooks.json'),
-            unsupportedScope('Windsurf hooks are only written in project scope.'),
+            nativeScope('~/.windsurf/hooks.json'),
             {
                supportedValues: [
                   'pre_read_code',

@@ -1,5 +1,4 @@
 ---
-slug: configuration/config-inheritance
 sidebar:
    order: 3
 title: Config Inheritance

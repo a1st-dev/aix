@@ -156,6 +156,26 @@ describe('Editor Adapters', () => {
          expect(ruleContent).toContain('Rule content here');
       });
 
+      it('quotes YAML-sensitive rule metadata', async () => {
+         const config = createConfig({
+            rules: {
+               'glob-rule': {
+                  activation: 'glob',
+                  globs: ['*.ts', '*.tsx'],
+                  content: 'Glob rule content',
+               },
+            },
+         });
+
+         await installToEditor('windsurf', config, testDir);
+
+         const ruleContent = await readFile(join(testDir, '.windsurf/rules/glob-rule.md'), 'utf-8');
+
+         expect(ruleContent).toContain('trigger: glob');
+         expect(ruleContent).toContain('globs: "*.ts, *.tsx"');
+         expect(ruleContent).toContain('Glob rule content');
+      });
+
       // Note: Windsurf MCP is global-only (~/.codeium/windsurf/mcp_config.json), so project-level MCP is not supported
 
       it('respects dry-run option', async () => {
@@ -186,8 +206,9 @@ describe('Editor Adapters', () => {
          const config = createConfig({
             rules: {
                'cursor-rule': {
-                  activation: 'auto',
-                  description: 'Auto-applied rule',
+                  activation: 'glob',
+                  description: 'Auto: applied rule',
+                  globs: ['*.ts', '*.tsx'],
                   content: 'Rule content',
                },
             },
@@ -202,7 +223,8 @@ describe('Editor Adapters', () => {
 
          expect(ruleContent).toContain('---');
          expect(ruleContent).toContain('alwaysApply: false');
-         expect(ruleContent).toContain('description: "Auto-applied rule"');
+         expect(ruleContent).toContain('description: "Auto: applied rule"');
+         expect(ruleContent).toContain('globs: "*.ts, *.tsx"');
          expect(ruleContent).toContain('Rule content');
       });
 
@@ -235,7 +257,8 @@ describe('Editor Adapters', () => {
             rules: {
                'claude-rule': {
                   activation: 'glob',
-                  globs: ['*.ts', '*.tsx'],
+                  description: 'TypeScript: files',
+                  globs: ['src/**/*.ts', 'lib/**/*.ts'],
                   content: 'TypeScript rule',
                },
             },
@@ -245,8 +268,10 @@ describe('Editor Adapters', () => {
 
          const ruleContent = await readFile(join(testDir, '.claude/rules/claude-rule.md'), 'utf-8');
 
+         expect(ruleContent).toContain('description: "TypeScript: files"');
          expect(ruleContent).toContain('paths:');
-         expect(ruleContent).toContain('*.ts');
+         expect(ruleContent).toContain('  - "src/**/*.ts"');
+         expect(ruleContent).toContain('  - "lib/**/*.ts"');
          expect(ruleContent).toContain('TypeScript rule');
       });
 
@@ -363,6 +388,75 @@ describe('Editor Adapters', () => {
 
          expect(result.success).toBe(true);
          expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/mcp-config.json'));
+      });
+
+      it('writes hooks to .github/hooks/hooks.json', async () => {
+         const config = createConfig({
+            hooks: {
+               pre_command: [{ hooks: [{ command: 'echo pre' }] }],
+            },
+         });
+
+         await installToEditor('copilot', config, testDir);
+
+         const hooksContent = await readFile(join(testDir, '.github/hooks/hooks.json'), 'utf-8'),
+               hooksConfig = JSON.parse(hooksContent);
+
+         expect(hooksConfig.hooks.preToolUse).toEqual([{
+            matcher: 'Bash',
+            hooks: [{
+               type: 'command',
+               command: 'echo pre',
+            }],
+         }]);
+      });
+
+      it('uses user-level Copilot hooks path when targetScope is user', async () => {
+         const config = createConfig({
+            hooks: {
+               pre_command: [{ hooks: [{ command: 'echo pre' }] }],
+            },
+         });
+
+         const result = await installToEditor('copilot', config, testDir, {
+            dryRun: true,
+            scopes: ['editors'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/hooks/hooks.json'));
+      });
+
+      it('uses user-level Copilot skills path when targetScope is user', async () => {
+         const skillDir = join(testDir, 'skills', 'demo-skill'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: demo-skill
+description: Demo skill
+---
+`,
+         );
+
+         const result = await installToEditor(
+            'copilot',
+            createConfig({
+               skills: {
+                  'demo-skill': './skills/demo-skill',
+               },
+            }),
+            testDir,
+            { dryRun: true, scopes: ['skills'], targetScope: 'user' },
+         );
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.copilot/skills', 'demo-skill'));
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.aix/skills', 'demo-skill'));
       });
    });
 
@@ -780,6 +874,24 @@ Skill instructions.
 
          expect(result.success).toBe(true);
          expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.cursor/mcp.json'));
+      });
+
+      it('uses user-level hooks paths when targetScope is user', async () => {
+         const config = createConfig({
+            hooks: {
+               pre_command: [{ hooks: [{ command: 'echo pre' }] }],
+            },
+         });
+
+         const result = await installToEditor('cursor', config, testDir, {
+            dryRun: true,
+            scopes: ['editors'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.cursor/hooks.json'));
+         expect(result.targetScopeLimitations?.hooks).toBeUndefined();
       });
 
       it('uses user-level Codex rules path when targetScope is user', async () => {

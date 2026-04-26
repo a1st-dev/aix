@@ -79,6 +79,10 @@ export class CopilotHooksStrategy implements HooksStrategy {
       return '../.github/hooks/hooks.json';
    }
 
+   getGlobalConfigPath(): string {
+      return '.copilot/hooks/hooks.json';
+   }
+
    getUnsupportedEvents(hooks: HooksConfig): string[] {
       return Object.keys(hooks).filter((event) => !SUPPORTED_EVENTS.has(event));
    }

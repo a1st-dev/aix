@@ -32,6 +32,7 @@ ai.local.json
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)
 plans/
+.reviews/
 
 # Beads / Dolt files (added by bd init)
 .beads/

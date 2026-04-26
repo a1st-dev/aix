@@ -1,3 +1,10 @@
+import { editorSupportProfiles } from '@a1st/aix-schema';
+
+const editorDetailLinks = editorSupportProfiles.map((profile) => ({
+   label: profile.name,
+   link: `/editors/${profile.id}/`,
+}));
+
 export const docsSidebar = [
    {
       label: 'Getting Started',
@@ -23,8 +30,8 @@ export const docsSidebar = [
             link: '/editors/supported-editors/',
          },
          {
-            label: 'Editor-Specific Notes',
-            link: '/editors/editor-specific-notes/',
+            label: 'By editor',
+            items: editorDetailLinks,
          },
          {
             label: 'Migration Guides',

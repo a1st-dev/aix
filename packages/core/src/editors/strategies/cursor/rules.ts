@@ -1,7 +1,7 @@
 import type { ActivationMode } from '@a1st/aix-schema';
 import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 
 /**
  * Cursor rules strategy. Uses `.mdc` files (Markdown with YAML frontmatter) containing
@@ -26,12 +26,12 @@ export class CursorRulesStrategy implements RulesStrategy {
 
       // Add description if present
       if (rule.activation.description) {
-         lines.push(`description: "${rule.activation.description}"`);
+         lines.push(`description: ${quoteYamlString(rule.activation.description)}`);
       }
 
       // Add globs for glob activation mode
       if (rule.activation.type === 'glob' && rule.activation.globs?.length) {
-         lines.push(`globs: ${rule.activation.globs.join(', ')}`);
+         lines.push(`globs: ${quoteYamlString(rule.activation.globs.join(', '))}`);
       }
 
       // alwaysApply is true for 'always' activation, false otherwise

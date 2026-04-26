@@ -3,7 +3,6 @@
  * Used by prompts/loader.ts and rules/loader.ts.
  */
 import { join } from 'pathe';
-import { downloadTemplate } from 'giget';
 import type { GitSource } from '@a1st/aix-schema';
 import { parseGitHubBlobUrl } from './url-parsing.js';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -76,7 +75,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
       // Cache miss - download using giget
    }
 
-   const { dir } = await downloadTemplate(source, {
+   const { dir } = await getRuntimeAdapter().git.downloadTemplate(source, {
       dir: cachePath,
       force: true,
    });

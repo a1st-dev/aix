@@ -2,7 +2,6 @@
  * Safe git download utility with automatic cleanup.
  */
 import { join } from 'pathe';
-import { downloadTemplate } from 'giget';
 import { safeRm } from './fs/safe-rm.js';
 import { getGitDownloadsDir } from './cache/paths.js';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -48,7 +47,7 @@ export async function withGitDownload<T>(
          targetDir = join(getGitDownloadsDir(projectRoot), downloadKey);
 
    try {
-      const { dir } = await downloadTemplate(template, {
+      const { dir } = await getRuntimeAdapter().git.downloadTemplate(template, {
          dir: targetDir,
          force: true,
          forceClean: true,

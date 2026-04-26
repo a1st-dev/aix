@@ -1,5 +1,4 @@
 ---
-slug: concepts/prompts
 sidebar:
    order: 3
 title: Prompts
@@ -34,7 +33,8 @@ aix maps these prompts to the native feature in each editor when one exists:
 
 - **Cursor**: Maps to `.cursor/prompts/` (accessible via `/`).
 - **Claude Code**: Maps to `.claude/commands/`.
-- **GitHub Copilot**: Maps to `.github/prompts/*.prompt.md`.
+- **GitHub Copilot**: Maps to `.github/prompts/*.prompt.md`, with native prompt-file
+  frontmatter for `name`, `description`, and `argument-hint`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
 - **Gemini**: Maps to project/global TOML files in `.gemini/commands/`.

@@ -1,5 +1,4 @@
 ---
-slug: configuration/ai-json-reference
 sidebar:
    order: 1
 title: ai.json Reference

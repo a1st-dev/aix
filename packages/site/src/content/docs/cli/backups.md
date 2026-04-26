@@ -1,5 +1,4 @@
 ---
-slug: cli/backups
 sidebar:
    order: 12
 title: aix backups

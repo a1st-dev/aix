@@ -1,5 +1,4 @@
 ---
-slug: getting-started/quick-start
 sidebar:
    order: 2
 title: Quick Start

@@ -1,6 +1,6 @@
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 
 /**
  * Windsurf prompts strategy. Uses markdown files with YAML frontmatter in `.windsurf/workflows/`.
@@ -27,7 +27,7 @@ export class WindsurfPromptsStrategy implements PromptsStrategy {
       const lines: string[] = ['---'];
 
       if (prompt.description) {
-         lines.push(`description: ${prompt.description}`);
+         lines.push(`description: ${quoteYamlString(prompt.description)}`);
       }
 
       lines.push('---', '');

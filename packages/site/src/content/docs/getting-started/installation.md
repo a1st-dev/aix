@@ -1,6 +1,5 @@
 ---
 title: Installation
-slug: getting-started/installation
 sidebar:
    order: 1
 description: Install the aix CLI and set up your environment.

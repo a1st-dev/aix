@@ -1,5 +1,4 @@
 ---
-slug: concepts/mcp-servers
 sidebar:
    order: 4
 title: MCP Servers

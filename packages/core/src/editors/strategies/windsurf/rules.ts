@@ -1,7 +1,7 @@
 import type { ActivationMode } from '@a1st/aix-schema';
 import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 
 /**
  * Windsurf rules strategy. Uses markdown files with YAML frontmatter containing a `trigger` field
@@ -31,13 +31,13 @@ export class WindsurfRulesStrategy implements RulesStrategy {
       case 'auto':
          lines.push('trigger: model_decision');
          if (rule.activation.description) {
-            lines.push(`description: ${rule.activation.description}`);
+            lines.push(`description: ${quoteYamlString(rule.activation.description)}`);
          }
          break;
       case 'glob':
          lines.push('trigger: glob');
          if (rule.activation.globs?.length) {
-            lines.push(`globs: ${rule.activation.globs.join(', ')}`);
+            lines.push(`globs: ${quoteYamlString(rule.activation.globs.join(', '))}`);
          }
          break;
       case 'manual':

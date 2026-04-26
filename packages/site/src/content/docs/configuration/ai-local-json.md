@@ -1,5 +1,4 @@
 ---
-slug: configuration/ai-local-json
 sidebar:
    order: 2
 title: ai.local.json

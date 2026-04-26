@@ -36,6 +36,7 @@ import { GeminiMcpStrategy } from './strategies/gemini/mcp.js';
 import { OpenCodeRulesStrategy } from './strategies/opencode/rules.js';
 import { OpenCodePromptsStrategy } from './strategies/opencode/prompts.js';
 import { OpenCodeMcpStrategy } from './strategies/opencode/mcp.js';
+import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter, type RuntimeDirent } from '../runtime/index.js';
 
 type ImportScope = 'project' | 'user';
@@ -47,6 +48,12 @@ function existsSync(path: string): boolean {
 
 function homedir(): string {
    return getRuntimeAdapter().os.homedir();
+}
+
+function assertGlobalHomeAccess(action: string): void {
+   if (!getRuntimeAdapter().host.supportsGlobalHomeAccess()) {
+      throw new UnsupportedRuntimeCapabilityError('global-home-access', action);
+   }
 }
 
 function readFile(path: string, encoding: 'utf-8'): Promise<string> {
@@ -316,6 +323,7 @@ export async function importFromEditor(
          scope = options.scope ?? 'all';
 
    if (scope === 'all' || scope === 'user') {
+      assertGlobalHomeAccess(`importing global ${editor} configuration`);
       mergeImportMcp(result, await importMcpConfig(strategies.mcp, editor, 'global'));
       mergeImportRules(result, await importGlobalRules(strategies.rules, editor));
       mergeImportPrompts(result, await importPrompts(strategies.prompts, editor, 'global'));
@@ -600,6 +608,10 @@ function getHookToolMatcherMap(editor: EditorName): Record<string, string> {
 }
 
 function getHookConfigPath(editor: EditorName, projectRoot: string | undefined, source: 'global' | 'project'): string | null {
+   if (editor === 'copilot' && source === 'global') {
+      return join(homedir(), '.copilot/hooks/hooks.json');
+   }
+
    const configDir = EDITOR_CONFIG_DIRS[editor],
          hooksPath = getHooksConfigPathRelative(editor);
 
@@ -888,7 +900,7 @@ const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
    windsurf: ['.windsurf/skills'],
    cursor: ['.cursor/skills'],
    'claude-code': ['.claude/skills'],
-   copilot: ['.github/skills'],
+   copilot: ['.copilot/skills'],
    codex: ['.codex/skills'],
    gemini: ['.gemini/skills'],
    opencode: ['.config/opencode/skills'],

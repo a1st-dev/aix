@@ -1,5 +1,4 @@
 ---
-slug: cli/validate
 sidebar:
    order: 5
 title: aix validate

@@ -2,8 +2,8 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import { editorSupportProfiles, formatEditorNameList } from '../../lib/editor-support';
 import { supportedEditorsPage } from '../../lib/editor-pages';
-import EditorFeatureDetails from '../../components/EditorFeatureDetails.astro';
 import EditorSupportMatrix from '../../components/EditorSupportMatrix.astro';
+import SupportLegend from '../../components/SupportLegend.astro';
 import { docsSidebar } from '../../starlight-sidebar.js';
 
 const { title, description } = supportedEditorsPage;
@@ -15,27 +15,31 @@ const { title, description } = supportedEditorsPage;
 >
    <p>
       aix currently supports {editorSupportProfiles.length} editors: {formatEditorNameList(editorSupportProfiles)}.
-      This page is generated from the shared editor support dataset so the docs stay aligned with runtime behavior.
+   </p>
+
+   <p>
+      Use the matrix for the fast comparison, then open an editor name for install paths, scope behavior,
+      terminology, and editor-specific notes.
    </p>
 
    <EditorSupportMatrix profiles={editorSupportProfiles} />
 
+   <SupportLegend />
+
    <p>
-      <strong>Adapter</strong> means aix preserves the feature through an editor-specific compatibility
-      behavior instead of a native file format. Today that mostly affects Zed skills and Codex prompts.
+      Need the aix-side definitions first? Review <a href="/concepts/rules/">rules</a>,{' '}
+      <a href="/concepts/prompts/">prompts</a>, <a href="/concepts/mcp-servers/">MCP servers</a>,{' '}
+      <a href="/concepts/skills/">skills</a>, and <a href="/concepts/hooks/">hooks</a>.
    </p>
 
    <h2>Sync behavior</h2>
    <p>
-      <code>aix sync</code> imports supported config into aix&apos;s bridge format and then installs that
-      normalized output into the destination editor. It does not use pair-by-pair converters.
+      <code>aix sync</code> reads supported config from one editor and writes the supported equivalent
+      to another. It reports anything the destination editor or requested scope cannot represent.
    </p>
    <ul>
       <li>A destination may support a feature in general, but not at the requested scope.</li>
       <li>Global-only features are reported as skipped project writes instead of hard failures.</li>
       <li>Codex prompts become skills, and Zed skills become pointer rules.</li>
    </ul>
-
-   <h2>Feature mapping by editor</h2>
-   {editorSupportProfiles.map((profile) => <EditorFeatureDetails profile={profile} />)}
 </StarlightPage>

@@ -3,7 +3,12 @@ import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
 import { withGitDownload, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
 import { parseConfigContent } from './discovery.js';
-import { CircularDependencyError, ConfigParseError, RemoteFetchError } from './errors.js';
+import {
+   CircularDependencyError,
+   ConfigParseError,
+   RemoteFetchError,
+   UnsupportedRuntimeCapabilityError,
+} from './errors.js';
 import { convertBlobToRawUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
@@ -231,9 +236,7 @@ async function resolveNpmExtends(
    visited.add(packageName);
 
    try {
-      // Use ESM-compatible import.meta.resolve to find the package
-      const resolvedUrl = import.meta.resolve(`${packageName}/ai.json`, `file://${getRuntimeAdapter().process.cwd()}/`),
-            packagePath = getRuntimeAdapter().os.fileURLToPath(resolvedUrl),
+      const packagePath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, projectRoot, 'ai.json'),
             content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
@@ -242,7 +245,11 @@ async function resolveNpmExtends(
       // Normalize local paths to absolute so they remain valid after merging into the parent config
       return normalizeLocalPaths(resolved, baseDir);
    } catch (error) {
-      if (error instanceof ConfigParseError || error instanceof CircularDependencyError) {
+      if (
+         error instanceof ConfigParseError ||
+         error instanceof CircularDependencyError ||
+         error instanceof UnsupportedRuntimeCapabilityError
+      ) {
          throw error;
       }
       throw new ConfigParseError(

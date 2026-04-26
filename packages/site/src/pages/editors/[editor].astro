@@ -1,0 +1,96 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import type { SupportedEditorName } from '@a1st/aix-schema';
+import EditorFeatureDetails from '../../components/EditorFeatureDetails.astro';
+import InlineCodeText from '../../components/InlineCodeText.astro';
+import SupportLegend from '../../components/SupportLegend.astro';
+import {
+   editorFeatureDefinitions,
+   editorSupportProfiles,
+   getEditorById,
+   getFeatureConceptRoute,
+   getMigrationRoute,
+} from '../../lib/editor-support';
+import { getEditorSupportPage } from '../../lib/editor-pages';
+import { docsSidebar } from '../../starlight-sidebar.js';
+
+export function getStaticPaths() {
+   return editorSupportProfiles.map((profile) => ({
+      params: { editor: profile.id },
+      props: { editor: profile.id },
+   }));
+}
+
+const { editor } = Astro.props as {
+   editor: SupportedEditorName;
+};
+
+const profile = getEditorById(editor),
+      { title, description } = getEditorSupportPage(profile),
+      defaultCompareEditor = profile.id === 'cursor' ? getEditorById('copilot') : getEditorById('cursor');
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   sidebar={docsSidebar}
+>
+   <p>{profile.summary}</p>
+
+   <p>{profile.migrationPitch}</p>
+
+   <p>
+      Start on <a href="/editors/supported-editors/">the full support matrix</a> when you need to compare
+      every editor at once. Use this page when you want the exact terms, support details, and project/user
+      targets for {` ${profile.name}`}.
+   </p>
+
+   <p>
+      Related aix concepts: {editorFeatureDefinitions
+         .filter((featureDefinition) => Boolean(getFeatureConceptRoute(featureDefinition.id)))
+         .map((featureDefinition, index) => {
+            const conceptRoute = getFeatureConceptRoute(featureDefinition.id);
+
+            return (
+               <>
+                  {index > 0 && ', '}
+                  <a href={conceptRoute}>{featureDefinition.label.toLowerCase()}</a>
+               </>
+            );
+         })}
+      .
+   </p>
+
+   {profile.notes.length > 0 && (
+      <>
+         <h2>Editor-specific notes</h2>
+         <ul>
+            {profile.notes.map((note) => (
+               <li>
+                  <InlineCodeText text={note} />
+               </li>
+            ))}
+         </ul>
+      </>
+   )}
+
+   <h2>Feature details</h2>
+   <SupportLegend />
+   <EditorFeatureDetails profile={profile} />
+
+   <h2>Related guides</h2>
+   <ul>
+      <li>
+         <a href={getMigrationRoute(profile.id, defaultCompareEditor.id)}>
+            {profile.name} to {defaultCompareEditor.name}
+         </a>
+      </li>
+      <li>
+         <a href={getMigrationRoute(defaultCompareEditor.id, profile.id)}>
+            {defaultCompareEditor.name} to {profile.name}
+         </a>
+      </li>
+      <li>
+         <a href={`/editors/migrations/#${profile.id}`}>All migration guides that start from {profile.name}</a>
+      </li>
+   </ul>
+</StarlightPage>

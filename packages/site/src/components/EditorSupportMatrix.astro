@@ -1,6 +1,10 @@
 ---
 import type { EditorSupportProfile } from '@a1st/aix-schema';
-import { editorFeatureDefinitions } from '../lib/editor-support';
+import {
+   editorFeatureDefinitions,
+   getEditorSupportRoute,
+   getFeatureConceptRoute,
+} from '../lib/editor-support';
 import SupportStatusBadge from './SupportStatusBadge.astro';
 
 const { profiles } = Astro.props as {
@@ -12,14 +16,24 @@ const { profiles } = Astro.props as {
    <caption>Feature support across all supported editors.</caption>
    <thead>
       <tr>
-         <th scope="col">Editor</th>
-         {editorFeatureDefinitions.map((feature) => <th scope="col">{feature.label}</th>)}
+          <th scope="col">Editor</th>
+          {editorFeatureDefinitions.map((feature) => {
+             const conceptRoute = getFeatureConceptRoute(feature.id);
+
+             return (
+                <th scope="col">
+                   {conceptRoute ? <a href={conceptRoute}>{feature.label}</a> : feature.label}
+                </th>
+             );
+          })}
       </tr>
    </thead>
    <tbody>
       {profiles.map((profile) => (
          <tr>
-            <th scope="row">{profile.name}</th>
+            <th scope="row">
+               <a href={getEditorSupportRoute(profile.id)}>{profile.name}</a>
+            </th>
             {editorFeatureDefinitions.map((feature) => (
                <td>
                   <SupportStatusBadge compact status={profile.features[feature.id].summary} />

@@ -1,5 +1,4 @@
 ---
-slug: configuration/editor-configuration
 sidebar:
    order: 4
 title: Editor Configuration

@@ -1,5 +1,4 @@
 ---
-slug: cli/install
 sidebar:
    order: 3
 title: aix install

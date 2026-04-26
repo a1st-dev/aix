@@ -1,12 +1,13 @@
 import pMap from 'p-map';
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * GitHub Copilot prompts strategy. Uses markdown files with YAML frontmatter in `.github/prompts/`.
- * Files use `.prompt.md` extension. Supports `description` and `argument-hint` frontmatter fields.
+ * Files use `.prompt.md` extension. Supports `name`, `description`, and `argument-hint`
+ * frontmatter fields.
  */
 export class CopilotPromptsStrategy implements PromptsStrategy {
    isSupported(): boolean {
@@ -35,6 +36,8 @@ export class CopilotPromptsStrategy implements PromptsStrategy {
    formatPrompt(prompt: EditorPrompt): string {
       const frontmatter: Record<string, string> = {};
 
+      frontmatter.name = prompt.name;
+
       if (prompt.description) {
          frontmatter.description = prompt.description;
       }
@@ -48,7 +51,7 @@ export class CopilotPromptsStrategy implements PromptsStrategy {
       if (Object.keys(frontmatter).length > 0) {
          lines.push('---');
          for (const [key, value] of Object.entries(frontmatter)) {
-            lines.push(`${key}: ${value}`);
+            lines.push(`${key}: ${quoteYamlString(value)}`);
          }
          lines.push('---', '');
       }

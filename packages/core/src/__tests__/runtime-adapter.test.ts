@@ -72,7 +72,7 @@ describe('runtime adapter management', () => {
 });
 
 function createVirtualAdapter(files: Record<string, string>): RuntimeAdapter {
-   const virtualFiles = new Map(Object.entries(files));
+   const virtualFiles = new Map<string, string | Uint8Array>(Object.entries(files));
 
    return {
       ...nodeRuntimeAdapter,
@@ -81,12 +81,8 @@ function createVirtualAdapter(files: Record<string, string>): RuntimeAdapter {
          existsSync: (path) => {
             return virtualFiles.has(path);
          },
-         readFile: async (path) => {
-            return readVirtualFile(virtualFiles, path);
-         },
-         readFileSync: (path) => {
-            return readVirtualFile(virtualFiles, path);
-         },
+         readFile,
+         readFileSync,
          writeFile: async (path, content) => {
             virtualFiles.set(path, content);
          },
@@ -110,13 +106,44 @@ function createVirtualAdapter(files: Record<string, string>): RuntimeAdapter {
          },
       },
    };
+
+   function readFile(path: string): Promise<Uint8Array>;
+   function readFile(path: string, encoding: 'utf-8' | 'utf8' | 'binary'): Promise<string>;
+   async function readFile(path: string, encoding?: 'utf-8' | 'utf8' | 'binary'): Promise<string | Uint8Array> {
+      if (encoding === undefined) {
+         return readVirtualFile(virtualFiles, path);
+      }
+
+      return readVirtualFile(virtualFiles, path, encoding);
+   }
+
+   function readFileSync(path: string): Uint8Array;
+   function readFileSync(path: string, encoding: 'utf-8' | 'utf8' | 'binary'): string;
+   function readFileSync(path: string, encoding?: 'utf-8' | 'utf8' | 'binary'): string | Uint8Array {
+      if (encoding === undefined) {
+         return readVirtualFile(virtualFiles, path);
+      }
+
+      return readVirtualFile(virtualFiles, path, encoding);
+   }
 }
 
-function readVirtualFile(files: Map<string, string>, path: string): string {
+function readVirtualFile(files: Map<string, string | Uint8Array>, path: string): Uint8Array;
+function readVirtualFile(files: Map<string, string | Uint8Array>, path: string, encoding: 'utf-8' | 'utf8' | 'binary'): string;
+function readVirtualFile(
+   files: Map<string, string | Uint8Array>,
+   path: string,
+   encoding?: 'utf-8' | 'utf8' | 'binary',
+): string | Uint8Array {
    const content = files.get(path);
 
    if (content === undefined) {
       throw new Error(`Virtual file not found: ${path}`);
    }
-   return content;
+
+   if (!encoding || encoding === 'binary') {
+      return typeof content === 'string' ? new TextEncoder().encode(content) : content;
+   }
+
+   return typeof content === 'string' ? content : new TextDecoder().decode(content);
 }

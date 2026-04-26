@@ -1,5 +1,4 @@
 ---
-slug: concepts/hooks
 sidebar:
    order: 5
 title: Hooks

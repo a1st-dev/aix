@@ -1,5 +1,4 @@
 ---
-slug: cli/search
 sidebar:
    order: 4
 title: aix search

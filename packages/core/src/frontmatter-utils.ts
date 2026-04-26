@@ -1,6 +1,7 @@
 /**
- * Shared utilities for parsing YAML front-matter from markdown files. These low-level utilities are
- * used by editor-specific strategies to implement their own frontmatter parsing.
+ * Shared utilities for parsing and formatting YAML front-matter from markdown files. These
+ * low-level utilities are used by editor-specific strategies to implement their own
+ * frontmatter handling.
  */
 
 import { parse as parseYaml } from 'yaml';
@@ -15,6 +16,13 @@ export interface ExtractedFrontmatter {
    content: string;
    /** Whether frontmatter was found */
    hasFrontmatter: boolean;
+}
+
+/**
+ * Quote a string so YAML parsers treat it as a literal string scalar.
+ */
+export function quoteYamlString(value: string): string {
+   return JSON.stringify(value);
 }
 
 /**

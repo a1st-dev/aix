@@ -1,4 +1,3 @@
-import { downloadTemplate } from 'giget';
 import { join } from 'pathe';
 import { parseSkillMd } from '../parser.js';
 import type { GitRef } from '../reference-parser.js';
@@ -41,7 +40,7 @@ export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
    }
 
    // Download using giget
-   await downloadTemplate(source, {
+   await getRuntimeAdapter().git.downloadTemplate(source, {
       dir: cachePath,
       force: true,
    });

@@ -78,21 +78,22 @@ function parseNpmWithSubpath(str: string): { packageName: string; path?: string 
 
 /**
  * Parse git shorthand format: github:user/repo/path#ref or github:user/repo#ref:path
- * Supported providers: github, gitlab
+ * Supported providers: github/gh, gitlab
  *
  * Two path formats are supported:
  * 1. Path in repo portion: github:user/repo/subdir/path#ref
  * 2. Path after ref: github:user/repo#ref:subdir/path
  */
 function parseGitShorthand(input: string): GitRef | undefined {
-   // Match: github:user/repo or gitlab:user/repo with optional /path and #ref
-   const match = input.match(/^(github|gitlab):([^#]+)(?:#(.+))?$/);
+   // Match: github:user/repo, gh:user/repo, or gitlab:user/repo with optional /path and #ref
+   const match = input.match(/^(github|gh|gitlab):([^#]+)(?:#(.+))?$/);
 
    if (!match) {
       return undefined;
    }
 
-   const [, provider, repoPath, refAndPath] = match;
+   const [, provider, repoPath, refAndPath] = match,
+         hostProvider = provider === 'gh' ? 'github' : provider;
 
    // Split repo path: user/repo/optional/subpath
    const parts = repoPath?.split('/') ?? [];
@@ -126,7 +127,7 @@ function parseGitShorthand(input: string): GitRef | undefined {
 
    return {
       type: 'git',
-      url: `https://${provider}.com/${user}/${repo}`,
+      url: `https://${hostProvider}.com/${user}/${repo}`,
       ref,
       path,
    };
@@ -147,7 +148,7 @@ export function parseSkillRef(name: string, input: unknown): SkillRef {
       if (input.startsWith('./') || input.startsWith('/') || input.startsWith('../')) {
          return { type: 'local', path: input };
       }
-      // Git shorthand (github:user/repo, gitlab:user/repo)
+      // Git shorthand (github:user/repo, gh:user/repo, gitlab:user/repo)
       const gitRef = parseGitShorthand(input);
 
       if (gitRef) {

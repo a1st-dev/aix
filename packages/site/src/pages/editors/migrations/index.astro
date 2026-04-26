@@ -2,9 +2,7 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import {
    editorSupportProfiles,
-   getMigrationHeadline,
    getMigrationRoute,
-   getMigrationRows,
 } from '../../../lib/editor-support';
 import { migrationGuidesPage } from '../../../lib/editor-pages';
 import { docsSidebar } from '../../../starlight-sidebar.js';
@@ -17,30 +15,60 @@ const { title, description } = migrationGuidesPage;
    sidebar={docsSidebar}
 >
    <p>
-      Each guide compares one ordered editor pair. The pages are generated from the shared support
-      dataset, so terminology, scope differences, shim behavior, and support gaps stay consistent
-      with the rest of the docs.
+      Start with the editor you use today. Each guide shows what aix can carry over, what the
+      destination editor calls each feature, and where project or user config ends up.
+   </p>
+
+   <p>
+      The guides are especially useful if you found aix through a search like "How to migrate from X
+      to Y" and want a quick comparison before you run <code>aix sync</code>.
    </p>
 
    {editorSupportProfiles.map((fromProfile) => (
       <section id={fromProfile.id}>
          <h2>From {fromProfile.name}</h2>
-         <ul>
-            {editorSupportProfiles
-               .filter((toProfile) => toProfile.id !== fromProfile.id)
-               .map((toProfile) => {
-                  const rows = getMigrationRows(fromProfile.id, toProfile.id);
-
-                  return (
-                     <li>
-                        <a href={getMigrationRoute(fromProfile.id, toProfile.id)}>
-                           {fromProfile.name} to {toProfile.name}
-                        </a>{' '}
-                        - {getMigrationHeadline(rows)}
-                     </li>
-                  );
-               })}
-         </ul>
+         <div class="migration-index__grid">
+             {editorSupportProfiles
+                .filter((toProfile) => toProfile.id !== fromProfile.id)
+                .map((toProfile) => (
+                   <article class="migration-index__card">
+                      <p class="migration-index__eyebrow">To {toProfile.name}</p>
+                      <a class="migration-index__link" href={getMigrationRoute(fromProfile.id, toProfile.id)}>
+                         How to migrate from {fromProfile.name} to {toProfile.name}
+                      </a>
+                   </article>
+                ))}
+         </div>
       </section>
    ))}
+
+   <style>
+      .migration-index__grid {
+         display: grid;
+         gap: 0.9rem;
+         grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+      }
+
+      .migration-index__card {
+         display: grid;
+         gap: 0.4rem;
+         padding: 0.95rem 1rem;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 0.9rem;
+         background: color-mix(in srgb, var(--sl-color-bg) 88%, var(--sl-color-accent-low));
+      }
+
+      .migration-index__eyebrow {
+         margin: 0;
+         color: var(--sl-color-gray-3);
+         font-size: 0.74rem;
+         font-weight: 600;
+         letter-spacing: 0.08em;
+         text-transform: uppercase;
+      }
+
+      .migration-index__link {
+         font-weight: 600;
+      }
+   </style>
 </StarlightPage>

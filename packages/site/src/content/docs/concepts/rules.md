@@ -1,5 +1,4 @@
 ---
-slug: concepts/rules
 sidebar:
    order: 2
 title: Rules

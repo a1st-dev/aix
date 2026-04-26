@@ -74,10 +74,37 @@ export interface RuntimeCryptoAdapter {
    base64url(data: string | Uint8Array): string;
 }
 
+export interface RuntimeGitDownloadOptions {
+   cwd?: string;
+   dir?: string;
+   force?: boolean;
+   forceClean?: boolean;
+}
+
+export interface RuntimeGitDownloadResult {
+   dir: string;
+}
+
+export interface RuntimeGitAdapter {
+   downloadTemplate(template: string, options: RuntimeGitDownloadOptions): Promise<RuntimeGitDownloadResult>;
+}
+
+export interface RuntimeNpmAdapter {
+   ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void>;
+   resolvePackagePath(packageName: string, projectRoot: string, subpath?: string): Promise<string>;
+}
+
+export interface RuntimeHostAdapter {
+   supportsGlobalHomeAccess(): boolean;
+}
+
 export interface RuntimeAdapter {
    readonly crypto: RuntimeCryptoAdapter;
    readonly fs: RuntimeFileSystemAdapter;
+   readonly git: RuntimeGitAdapter;
+   readonly host: RuntimeHostAdapter;
    readonly network: RuntimeNetworkAdapter;
+   readonly npm: RuntimeNpmAdapter;
    readonly os: RuntimeOSAdapter;
    readonly process: RuntimeProcessAdapter;
 }

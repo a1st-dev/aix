@@ -1,5 +1,4 @@
 ---
-slug: cli/overview
 sidebar:
    order: 1
 title: CLI overview
@@ -29,8 +28,8 @@ These flags are available on all commands:
 `init --from` and `sync` sound similar, but they solve different problems:
 
 - `aix init --from <editor>` reads an editor and writes a new `ai.json`.
-- `aix sync <from> --to <to>` reads one editor, normalizes that config through aix's internal
-  bridge format, then writes what the destination editor can represent.
+- `aix sync <from> --to <to>` reads one editor and writes the supported equivalent into the
+  destination editor.
 - `aix install` reads `ai.json` and applies it to one or more editors.
 
 ## Aliases

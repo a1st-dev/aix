@@ -145,6 +145,14 @@ starlight-content h4,
    font-size: 0.9em;
 }
 
+.aix-term,
+.sl-markdown-content abbr[title] {
+   text-decoration: underline dotted color-mix(in srgb, var(--sl-color-accent) 65%, transparent);
+   text-underline-offset: 0.18em;
+   cursor: help;
+   text-decoration-thickness: 0.08em;
+}
+
 /* ---- Sidebar refinements ---- */
 nav.sidebar .top-level > li > details > summary,
 nav.sidebar .top-level > li > a {

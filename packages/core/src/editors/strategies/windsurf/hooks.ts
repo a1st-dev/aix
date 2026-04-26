@@ -48,6 +48,10 @@ export class WindsurfHooksStrategy implements HooksStrategy {
       return 'hooks.json';
    }
 
+   getGlobalConfigPath(): string {
+      return '.windsurf/hooks.json';
+   }
+
    getUnsupportedEvents(hooks: HooksConfig): string[] {
       return Object.keys(hooks).filter((event) => !SUPPORTED_EVENTS.has(event));
    }

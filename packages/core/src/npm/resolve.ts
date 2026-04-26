@@ -1,6 +1,6 @@
 import { dirname, join } from 'pathe';
-import { ensureDependencyInstalled } from 'nypm';
 import { getAixDir, getNpmCacheDir } from '../cache/paths.js';
+import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface NpmResolveOptions {
@@ -22,41 +22,40 @@ export async function resolveNpmPath(options: NpmResolveOptions): Promise<string
    const { packageName, subpath, version, projectRoot } = options;
 
    if (version) {
-      // Auto-install mode: install specific version to cache
       const aixDir = getAixDir(projectRoot),
             packageSpec = `${packageName}@${version}`;
 
-      await ensureDependencyInstalled(packageSpec, { cwd: aixDir });
+      await getRuntimeAdapter().npm.ensureDependencyInstalled(packageSpec, aixDir);
 
       const cachedRoot = join(getNpmCacheDir(projectRoot), packageName);
 
       return subpath ? join(cachedRoot, subpath) : cachedRoot;
    }
 
-   // Node modules mode: require package to be installed
-   const packageRoot = await tryFindPackageRoot(packageName, projectRoot);
+   try {
+      const packageRoot = await resolveInstalledPackageRoot(packageName, projectRoot);
 
-   if (!packageRoot) {
+      return subpath ? join(packageRoot, subpath) : packageRoot;
+   } catch (error) {
+      if (error instanceof UnsupportedRuntimeCapabilityError) {
+         throw error;
+      }
       throw new Error(
          `Package "${packageName}" not found in node_modules. ` +
             'Either install it via npm/yarn/pnpm, or add a "version" field to auto-install.',
+         { cause: error },
       );
    }
-   return subpath ? join(packageRoot, subpath) : packageRoot;
 }
 
 /**
  * Find package root by resolving package.json
  */
-async function tryFindPackageRoot(
+async function resolveInstalledPackageRoot(
    packageName: string,
    projectRoot: string,
-): Promise<string | undefined> {
-   try {
-      const pkgJsonPath = import.meta.resolve(`${packageName}/package.json`, `file://${projectRoot}/`);
+): Promise<string> {
+   const packageJsonPath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, projectRoot, 'package.json');
 
-      return dirname(getRuntimeAdapter().os.fileURLToPath(pkgJsonPath));
-   } catch {
-      return undefined;
-   }
+   return dirname(packageJsonPath);
 }

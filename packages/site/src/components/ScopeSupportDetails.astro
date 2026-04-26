@@ -1,0 +1,111 @@
+---
+import type { EditorScopeSupport } from '@a1st/aix-schema';
+import InlineCodeText from './InlineCodeText.astro';
+import SupportAvailabilityBadge from './SupportAvailabilityBadge.astro';
+import SupportStatusBadge from './SupportStatusBadge.astro';
+import {
+   getEditorSupportDescription,
+   getScopeTargets,
+   isEditorSupported,
+} from '../lib/editor-support';
+
+const { compact = false, label, scope } = Astro.props as {
+   compact?: boolean;
+   label: string;
+   scope: EditorScopeSupport;
+};
+
+const editorSupported = isEditorSupported(scope),
+      targets = getScopeTargets(scope),
+      editorNote = getEditorSupportDescription(scope),
+      aixNote = scope.note;
+---
+
+<dt class="scope-support-details__label">{label}</dt>
+<dd class:list={[ 'scope-support-details__value', compact && 'scope-support-details__value--compact' ]}>
+   <div class="scope-support-details__status-row">
+      <span class="scope-support-details__support-group">
+         <span class="scope-support-details__support-label">Editor</span>
+         <SupportAvailabilityBadge supported={editorSupported} />
+      </span>
+      <span class="scope-support-details__support-group">
+         <span class="scope-support-details__support-label">aix</span>
+         <SupportStatusBadge compact={compact} status={scope.status} />
+      </span>
+   </div>
+
+   {targets.length > 0 && (
+      <div class="scope-support-details__targets">
+         {targets.map((target) => (
+            <span class="scope-support-details__path">
+               <span class="scope-support-details__path-label">{target.label}</span>
+               <code>{target.path}</code>
+            </span>
+         ))}
+      </div>
+   )}
+
+   {(editorNote || aixNote) && (
+      <div class="scope-support-details__notes">
+         {editorNote && (
+            <span class="scope-support-details__note">
+               <strong>Editor:</strong> <InlineCodeText text={editorNote} />
+            </span>
+         )}
+         {aixNote && (
+            <span class="scope-support-details__note">
+               <strong>aix:</strong> <InlineCodeText text={aixNote} />
+            </span>
+         )}
+      </div>
+   )}
+</dd>
+
+<style>
+   .scope-support-details__label {
+      font-weight: 600;
+   }
+
+   .scope-support-details__value {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0;
+      padding: 0.7rem 0.8rem;
+      border: 1px solid var(--sl-color-hairline-light);
+      border-radius: 0.8rem;
+      background: color-mix(in srgb, var(--sl-color-bg) 88%, var(--sl-color-accent-low));
+   }
+
+   .scope-support-details__value--compact {
+      padding: 0.6rem 0.7rem;
+      gap: 0.45rem;
+   }
+
+   .scope-support-details__status-row,
+   .scope-support-details__targets,
+   .scope-support-details__notes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+   }
+
+   .scope-support-details__support-group,
+   .scope-support-details__path {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+   }
+
+   .scope-support-details__support-label,
+   .scope-support-details__path-label {
+      color: var(--sl-color-gray-3);
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+   }
+
+   .scope-support-details__note {
+      color: var(--sl-color-gray-2);
+      font-size: 0.94em;
+   }
+</style>

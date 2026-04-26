@@ -1,5 +1,4 @@
 ---
-slug: concepts/skills
 sidebar:
    order: 1
 title: Skills

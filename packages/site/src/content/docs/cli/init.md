@@ -1,5 +1,4 @@
 ---
-slug: cli/init
 sidebar:
    order: 2
 title: aix init

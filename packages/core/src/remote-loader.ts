@@ -2,7 +2,6 @@
  * Remote config loading utilities for fetching ai.json from URLs, git repos, and local paths.
  */
 import { resolve, dirname } from 'pathe';
-import { downloadTemplate } from 'giget';
 import { parseJsonc, detectSourceType } from '@a1st/aix-schema';
 import {
    convertBlobToRawUrl,
@@ -14,6 +13,7 @@ import {
    ConfigNotFoundError,
    ConfigParseError,
    RemoteFetchError,
+   UnsupportedRuntimeCapabilityError,
    UnsupportedUrlError,
 } from './errors.js';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -89,10 +89,17 @@ async function loadFromGitHubBlobUrl(parsed: {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
+      const result = await getRuntimeAdapter().git.downloadTemplate(template, {
+         cwd: getRuntimeAdapter().os.tmpdir(),
+         forceClean: true,
+      });
 
       dir = result.dir;
    } catch (error) {
+      if (error instanceof UnsupportedRuntimeCapabilityError) {
+         throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       throw new RemoteFetchError(
@@ -196,10 +203,17 @@ export async function loadFromGitShorthand(input: string): Promise<RemoteLoadRes
    let dir: string;
 
    try {
-      const result = await downloadTemplate(template, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
+      const result = await getRuntimeAdapter().git.downloadTemplate(template, {
+         cwd: getRuntimeAdapter().os.tmpdir(),
+         forceClean: true,
+      });
 
       dir = result.dir;
    } catch (error) {
+      if (error instanceof UnsupportedRuntimeCapabilityError) {
+         throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       throw new RemoteFetchError(input, message);
@@ -286,10 +300,17 @@ async function loadFromRepoUrl(url: string): Promise<RemoteLoadResult> {
    let dir: string;
 
    try {
-      const result = await downloadTemplate(url, { forceClean: true, cwd: getRuntimeAdapter().os.tmpdir() });
+      const result = await getRuntimeAdapter().git.downloadTemplate(url, {
+         cwd: getRuntimeAdapter().os.tmpdir(),
+         forceClean: true,
+      });
 
       dir = result.dir;
    } catch (error) {
+      if (error instanceof UnsupportedRuntimeCapabilityError) {
+         throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
 
       throw new RemoteFetchError(url, message);

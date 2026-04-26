@@ -1,0 +1,17 @@
+---
+const { text } = Astro.props as {
+   text: string;
+};
+
+const parts = text.split(/(`[^`]+`)/).filter(Boolean);
+---
+
+<span class="inline-code-text">
+   {parts.map((part) => {
+      if (part.startsWith('`') && part.endsWith('`')) {
+         return <code>{part.slice(1, -1)}</code>;
+      }
+
+      return part;
+   })}
+</span>

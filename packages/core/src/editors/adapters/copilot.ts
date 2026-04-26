@@ -21,9 +21,9 @@ import { getRuntimeAdapter } from '../../runtime/index.js';
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
  * MCP config to `.mcp.json` (or `~/.copilot/mcp-config.json` for user scope), skills to
- * `.github/skills/`, and hooks to `.github/hooks/hooks.json`. Skills are installed into
- * `.aix/skills/{name}/` and symlinked into `.github/skills/` since GitHub Copilot has native
- * Agent Skills support.
+ * `.github/skills/` / `~/.copilot/skills/`, and hooks to `.github/hooks/hooks.json` /
+ * `~/.copilot/hooks/hooks.json`. Skills are installed into `.aix/skills/{name}/` and symlinked
+ * into GitHub Copilot's native skills directories.
  */
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
@@ -68,6 +68,7 @@ export class CopilotAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new CopilotMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.github/skills',
+      userEditorSkillsDir: '.copilot/skills',
    });
    protected readonly promptsStrategy: PromptsStrategy = new CopilotPromptsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new CopilotHooksStrategy();
@@ -80,16 +81,17 @@ export class CopilotAdapter extends BaseEditorAdapter {
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
       const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
-               dryRun: options.dryRun,
-               scopes: options.scopes,
-               configBaseDir: options.configBaseDir,
-               targetScope: options.targetScope,
-            }),
-            prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
-            mcp = filterMcpConfig(config.mcp);
+         dryRun: options.dryRun,
+         scopes: options.scopes,
+         configBaseDir: options.configBaseDir,
+         targetScope: options.targetScope,
+      });
+      const prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
+            mcp = filterMcpConfig(config.mcp),
+            hooks = config.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp };
+      return { rules, prompts, mcp, hooks };
    }
 
    protected override async planChanges(

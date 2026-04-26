@@ -1,5 +1,4 @@
 ---
-slug: cli/remove
 sidebar:
    order: 7
 title: aix remove

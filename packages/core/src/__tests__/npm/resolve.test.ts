@@ -1,77 +1,110 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resolveNpmPath } from '../../npm/resolve.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { join } from 'pathe';
-
-// Mock the cache paths module
-vi.mock('../../cache/paths.js', () => ({
-   getAixDir: (root: string) => join(root, '.aix'),
-   getNpmCacheDir: (root: string) => join(root, '.aix', '.tmp', 'node_modules'),
-}));
-
-// Mock nypm
-vi.mock('nypm', () => ({
-   ensureDependencyInstalled: vi.fn().mockResolvedValue(undefined),
-}));
+import { UnsupportedRuntimeCapabilityError } from '../../errors.js';
+import { resolveNpmPath } from '../../npm/resolve.js';
+import {
+   nodeRuntimeAdapter,
+   resetRuntimeAdapter,
+   withRuntimeAdapter,
+   type RuntimeAdapter,
+} from '../../runtime/index.js';
 
 describe('resolveNpmPath', () => {
    const projectRoot = '/test/project';
 
-   beforeEach(() => {
-      vi.clearAllMocks();
-   });
-
    afterEach(() => {
-      vi.restoreAllMocks();
+      resetRuntimeAdapter();
    });
 
-   describe('without version (node_modules mode)', () => {
-      it('throws when package not found in node_modules', async () => {
-         await expect(
-            resolveNpmPath({
-               packageName: '@nonexistent/package',
-               projectRoot,
+   it('uses the runtime adapter to resolve installed packages', async () => {
+      const resolvePackagePath = vi.fn(async () => {
+               return '/test/project/node_modules/@company/rules/package.json';
             }),
-         ).rejects.toThrow('not found in node_modules');
+            adapter = createRuntimeAdapter({
+               npm: {
+                  ...nodeRuntimeAdapter.npm,
+                  resolvePackagePath,
+               },
+            });
+
+      const result = await withRuntimeAdapter(adapter, async () => {
+         return resolveNpmPath({
+            packageName: '@company/rules',
+            projectRoot,
+         });
       });
 
-      it('includes helpful message about version field', async () => {
-         await expect(
-            resolveNpmPath({
+      expect(resolvePackagePath).toHaveBeenCalledWith('@company/rules', projectRoot, 'package.json');
+      expect(result).toBe('/test/project/node_modules/@company/rules');
+   });
+
+   it('throws a helpful error when an installed package cannot be resolved', async () => {
+      const adapter = createRuntimeAdapter({
+         npm: {
+            ...nodeRuntimeAdapter.npm,
+            resolvePackagePath: async () => {
+               throw new Error('Cannot find package');
+            },
+         },
+      });
+
+      await expect(
+         withRuntimeAdapter(adapter, async () => {
+            return resolveNpmPath({
                packageName: 'missing-pkg',
                projectRoot,
-            }),
-         ).rejects.toThrow('add a "version" field to auto-install');
-      });
+            });
+         }),
+      ).rejects.toThrow('add a "version" field to auto-install');
    });
 
-   describe('with version (auto-install mode)', () => {
-      it('installs package to cache and returns path', async () => {
-         const { ensureDependencyInstalled } = await import('nypm');
+   it('installs a versioned package through the runtime adapter and returns the cache path', async () => {
+      const ensureDependencyInstalled = vi.fn(async () => {
+               return undefined;
+            }),
+            adapter = createRuntimeAdapter({
+               npm: {
+                  ...nodeRuntimeAdapter.npm,
+                  ensureDependencyInstalled,
+               },
+            });
 
-         const result = await resolveNpmPath({
+      const result = await withRuntimeAdapter(adapter, async () => {
+         return resolveNpmPath({
             packageName: '@company/rules',
             version: '^1.0.0',
             projectRoot,
          });
-
-         expect(ensureDependencyInstalled).toHaveBeenCalledWith('@company/rules@^1.0.0', {
-            cwd: join(projectRoot, '.aix'),
-         });
-         expect(result).toBe(join(projectRoot, '.aix', '.tmp', 'node_modules', '@company/rules'));
       });
 
-      it('appends subpath to cached package root', async () => {
-         const result = await resolveNpmPath({
-            packageName: '@company/rules',
-            subpath: 'rules/style.md',
-            version: '1.0.0',
-            projectRoot,
-         });
-
-         expect(result).toBe(
-            join(projectRoot, '.aix', '.tmp', 'node_modules', '@company/rules', 'rules/style.md'),
-         );
-      });
+      expect(ensureDependencyInstalled).toHaveBeenCalledWith('@company/rules@^1.0.0', join(projectRoot, '.aix'));
+      expect(result).toBe(join(projectRoot, '.aix', '.tmp', 'node_modules', '@company/rules'));
    });
 
+   it('preserves unsupported runtime capability errors', async () => {
+      const adapter = createRuntimeAdapter({
+         npm: {
+            ...nodeRuntimeAdapter.npm,
+            resolvePackagePath: async () => {
+               throw new UnsupportedRuntimeCapabilityError('npm-resolution', 'resolving npm package paths');
+            },
+         },
+      });
+
+      await expect(
+         withRuntimeAdapter(adapter, async () => {
+            return resolveNpmPath({
+               packageName: '@company/rules',
+               projectRoot,
+            });
+         }),
+      ).rejects.toThrow('Missing capability: npm-resolution');
+   });
 });
+
+function createRuntimeAdapter(overrides: Partial<RuntimeAdapter>): RuntimeAdapter {
+   return {
+      ...nodeRuntimeAdapter,
+      ...overrides,
+   };
+}

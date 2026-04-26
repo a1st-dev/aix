@@ -83,3 +83,15 @@ export class UnsupportedUrlError extends ConfigError {
       );
    }
 }
+
+export class UnsupportedRuntimeCapabilityError extends ConfigError {
+   constructor(
+      public readonly capability: string,
+      public readonly action: string,
+   ) {
+      super(
+         `The active runtime adapter does not support ${action}. Missing capability: ${capability}.`,
+         'UNSUPPORTED_RUNTIME_CAPABILITY',
+      );
+   }
+}

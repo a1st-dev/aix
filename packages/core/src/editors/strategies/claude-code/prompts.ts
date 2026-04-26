@@ -1,6 +1,6 @@
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
 
 /**
  * Claude Code prompts strategy. Uses markdown files with YAML frontmatter in `.claude/commands/`.
@@ -39,7 +39,7 @@ export class ClaudeCodePromptsStrategy implements PromptsStrategy {
       if (Object.keys(frontmatter).length > 0) {
          lines.push('---');
          for (const [key, value] of Object.entries(frontmatter)) {
-            lines.push(`${key}: ${value}`);
+            lines.push(`${key}: ${quoteYamlString(value)}`);
          }
          lines.push('---', '');
       }

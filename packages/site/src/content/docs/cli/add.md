@@ -1,5 +1,4 @@
 ---
-slug: cli/add
 sidebar:
    order: 6
 title: aix add
