@@ -1,0 +1,56 @@
+---
+import type { EditorSupportProfile } from '@a1st/aix-schema';
+import {
+   describeScopeSupport,
+   editorFeatureDefinitions,
+   getFeatureAnchor,
+} from '../lib/editor-support';
+import SupportStatusBadge from './SupportStatusBadge.astro';
+
+const { profile } = Astro.props as {
+   profile: EditorSupportProfile;
+};
+---
+
+<section id={profile.id}>
+   <h2>{profile.name}</h2>
+   <p>{profile.summary}</p>
+
+   {profile.notes.length > 0 && (
+      <ul>
+         {profile.notes.map((note) => <li>{note}</li>)}
+      </ul>
+   )}
+
+   {editorFeatureDefinitions.map((featureDefinition) => {
+      const feature = profile.features[featureDefinition.id];
+
+      return (
+         <section id={getFeatureAnchor(profile.id, featureDefinition.id)}>
+            <h3>{featureDefinition.label}</h3>
+            <p>
+               <SupportStatusBadge status={feature.summary} /> {feature.implementation}
+            </p>
+            <p>
+               <strong>Editor term:</strong> {feature.terminology}
+            </p>
+            <p>
+               <strong>Project scope:</strong> {describeScopeSupport(feature.project)}
+            </p>
+            <p>
+               <strong>User scope:</strong> {describeScopeSupport(feature.user)}
+            </p>
+            {feature.supportedValues && feature.supportedValues.length > 0 && (
+               <p>
+                  <strong>Notable native values:</strong> {feature.supportedValues.join(', ')}
+               </p>
+            )}
+            {feature.notes && feature.notes.length > 0 && (
+               <ul>
+                  {feature.notes.map((note) => <li>{note}</li>)}
+               </ul>
+            )}
+         </section>
+      );
+   })}
+</section>

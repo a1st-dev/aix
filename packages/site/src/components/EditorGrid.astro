@@ -4,15 +4,12 @@
  * Icons from simple-icons via astro-icon.
  */
 import { Icon } from 'astro-icon/components';
+import { editorIconNames, editorSupportProfiles } from '../lib/editor-support';
 
-const editors = [
-  { name: 'Cursor', icon: 'simple-icons:cursor' },
-  { name: 'GitHub Copilot', icon: 'simple-icons:githubcopilot' },
-  { name: 'Claude Code', icon: 'simple-icons:anthropic' },
-  { name: 'Windsurf', icon: 'simple-icons:codeium' },
-  { name: 'Zed', icon: 'simple-icons:zedindustries' },
-  { name: 'Codex', icon: 'simple-icons:openai' },
-];
+const editors = editorSupportProfiles.map((editor) => ({
+  name: editor.name,
+  icon: editorIconNames[editor.id],
+}));
 ---
 
 <div class="editor-grid">

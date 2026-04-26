@@ -10,6 +10,7 @@
    },
    "dependencies": {
       "@4hse/astro-llms-txt": "^1.0.0",
+      "@a1st/aix-schema": "*",
       "@astrojs/starlight": "^0.37.6",
       "@astrojs/vercel": "9.0.4",
       "@fontsource/cormorant-garamond": "^5.2.11",

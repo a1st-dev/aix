@@ -8,6 +8,7 @@ export * from './rules.js';
 export * from './prompts.js';
 export * from './hooks.js';
 export * from './editors.js';
+export * from './editor-support.js';
 export * from './aix.js';
 export * from './config.js';
 export * from './validate.js';

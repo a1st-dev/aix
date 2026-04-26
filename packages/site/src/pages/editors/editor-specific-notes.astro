@@ -1,0 +1,69 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import {
+   describeScopeSupport,
+   editorFeatureDefinitions,
+   editorSupportProfiles,
+   getMigrationRoute,
+} from '../../lib/editor-support';
+import { editorSpecificNotesPage } from '../../lib/editor-pages';
+import { docsSidebar } from '../../starlight-sidebar.js';
+
+const { title, description } = editorSpecificNotesPage;
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   sidebar={docsSidebar}
+>
+   <p>
+      These notes pull from the same shared support data as the matrix page. They focus on the scope
+      caveats, terminology shifts, and adapter behaviors that matter during installs and migrations.
+   </p>
+
+   {editorSupportProfiles.map((profile) => {
+      const notableFeatures = editorFeatureDefinitions.filter((featureDefinition) => {
+         const feature = profile.features[featureDefinition.id];
+
+         return (
+            feature.summary !== 'native' ||
+            feature.project.status !== feature.user.status ||
+            (feature.notes && feature.notes.length > 0)
+         );
+      });
+
+      return (
+         <section id={profile.id}>
+            <h2>{profile.name}</h2>
+            <p>{profile.migrationPitch}</p>
+
+            {profile.notes.length > 0 && (
+               <ul>
+                  {profile.notes.map((note) => <li>{note}</li>)}
+               </ul>
+            )}
+
+            <h3>What to watch</h3>
+            <ul>
+               {notableFeatures.map((featureDefinition) => {
+                  const feature = profile.features[featureDefinition.id];
+
+                  return (
+                     <li>
+                        <strong>{featureDefinition.label}:</strong> Project {describeScopeSupport(feature.project)}.
+                        User {describeScopeSupport(feature.user)}.
+                     </li>
+                  );
+               })}
+            </ul>
+
+            <p>
+               Compare this editor against the generated migration guides, starting with{' '}
+               <a href={getMigrationRoute(profile.id, profile.id === 'cursor' ? 'copilot' : 'cursor')}>
+                  {profile.name} to {profile.id === 'cursor' ? 'GitHub Copilot' : 'Cursor'}
+               </a>.
+            </p>
+         </section>
+      );
+   })}
+</StarlightPage>

@@ -1,0 +1,41 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { editorSupportProfiles, formatEditorNameList } from '../../lib/editor-support';
+import { supportedEditorsPage } from '../../lib/editor-pages';
+import EditorFeatureDetails from '../../components/EditorFeatureDetails.astro';
+import EditorSupportMatrix from '../../components/EditorSupportMatrix.astro';
+import { docsSidebar } from '../../starlight-sidebar.js';
+
+const { title, description } = supportedEditorsPage;
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   sidebar={docsSidebar}
+>
+   <p>
+      aix currently supports {editorSupportProfiles.length} editors: {formatEditorNameList(editorSupportProfiles)}.
+      This page is generated from the shared editor support dataset so the docs stay aligned with runtime behavior.
+   </p>
+
+   <EditorSupportMatrix profiles={editorSupportProfiles} />
+
+   <p>
+      <strong>Adapter</strong> means aix preserves the feature through an editor-specific compatibility
+      behavior instead of a native file format. Today that mostly affects Zed skills and Codex prompts.
+   </p>
+
+   <h2>Sync behavior</h2>
+   <p>
+      <code>aix sync</code> imports supported config into aix&apos;s bridge format and then installs that
+      normalized output into the destination editor. It does not use pair-by-pair converters.
+   </p>
+   <ul>
+      <li>A destination may support a feature in general, but not at the requested scope.</li>
+      <li>Global-only features are reported as skipped project writes instead of hard failures.</li>
+      <li>Codex prompts become skills, and Zed skills become pointer rules.</li>
+   </ul>
+
+   <h2>Feature mapping by editor</h2>
+   {editorSupportProfiles.map((profile) => <EditorFeatureDetails profile={profile} />)}
+</StarlightPage>

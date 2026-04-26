@@ -1,0 +1,31 @@
+---
+import type { EditorSupportProfile } from '@a1st/aix-schema';
+import { editorFeatureDefinitions } from '../lib/editor-support';
+import SupportStatusBadge from './SupportStatusBadge.astro';
+
+const { profiles } = Astro.props as {
+   profiles: readonly EditorSupportProfile[];
+};
+---
+
+<table>
+   <caption>Feature support across all supported editors.</caption>
+   <thead>
+      <tr>
+         <th scope="col">Editor</th>
+         {editorFeatureDefinitions.map((feature) => <th scope="col">{feature.label}</th>)}
+      </tr>
+   </thead>
+   <tbody>
+      {profiles.map((profile) => (
+         <tr>
+            <th scope="row">{profile.name}</th>
+            {editorFeatureDefinitions.map((feature) => (
+               <td>
+                  <SupportStatusBadge compact status={profile.features[feature.id].summary} />
+               </td>
+            ))}
+         </tr>
+      ))}
+   </tbody>
+</table>

@@ -6,6 +6,7 @@ import EditorGrid from '../components/EditorGrid.astro';
 import FeatureCard from '../components/FeatureCard.astro';
 import ComparisonStrip from '../components/ComparisonStrip.astro';
 import logoDarkSrc from '../assets/logo-dark.svg?url';
+import { editorSupportProfiles, formatEditorNameList } from '../lib/editor-support';
 
 import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
@@ -18,9 +19,10 @@ import '@fontsource/instrument-sans/700.css';
 import '../styles/theme.css';
 import '../styles/landing.css';
 
+const supportedEditorsText = formatEditorNameList(editorSupportProfiles);
 const title = 'aix — One config file. Every AI editor.';
 const description =
-  'Define your skills, rules, prompts, and MCP servers once in ai.json. Install to Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, and Gemini with one command.';
+  `Define your skills, rules, prompts, and MCP servers once in ai.json. Install to ${supportedEditorsText} with one command.`;
 const siteUrl = 'https://aix.a1st.dev';
 const ogImageUrl = `${siteUrl}/og/index.png`;
 ---
@@ -102,8 +104,7 @@ const ogImageUrl = `${siteUrl}/og/index.png`;
           <a target="_blank" href="https://cursor.com/docs/context/rules" class="highlight">rules</a>,
           <a target="_blank" href="https://cursor.com/docs/context/commands" class="highlight">prompts</a>, and
           <a target="_blank" href="https://modelcontextprotocol.io/specification/2025-11-25" class="highlight">MCP servers</a> in
-          <code>ai.json</code>. Install to Cursor, GitHub Copilot, Claude Code, Windsurf,
-          Zed, Codex, or Gemini with one command.
+          <code>ai.json</code>. Install to {supportedEditorsText} with one command.
         </p>
         <div class="hero__terminal">
           <TerminalBlock
@@ -149,8 +150,7 @@ const ogImageUrl = `${siteUrl}/og/index.png`;
         <h2 class="section__title">Stop wrangling config files.</h2>
         <p class="section__desc">
           Define your skills and rules once in <code>ai.json</code>. aix
-          generates the native config files needed for Cursor, GitHub Copilot,
-          Windsurf, Claude, and more.
+          generates the native config files needed for {supportedEditorsText}.
         </p>
         <ComparisonStrip />
       </div>
@@ -164,15 +164,17 @@ const ogImageUrl = `${siteUrl}/og/index.png`;
           <FeatureCard
             label="aix install"
             title="Write once. Run anywhere."
-            description="aix compiles your high-level config into the native formats required by each editor. Works with Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, and Gemini."
+            description={`aix compiles your high-level config into the native formats required by each editor. Works with ${supportedEditorsText}.`}
             code={`$ aix install
 
-  ✓ Cursor      .cursor/mcp.json
-  ✓ GitHub Copilot     .vscode/settings.json
-  ✓ Claude Code .claude/config.json
-  ✓ Windsurf    .windsurf/mcp_config.json
-  ✓ Zed         .config/zed/settings.json
-  ✓ Gemini      .gemini/settings.json`}
+  ✓ Cursor           .cursor/mcp.json
+  ✓ GitHub Copilot   .mcp.json
+  ✓ Claude Code      .mcp.json
+  ✓ Windsurf         ~/.codeium/windsurf/mcp_config.json
+  ✓ Zed              .zed/settings.json
+  ✓ Codex            ~/.codex/config.toml
+  ✓ Gemini           .gemini/settings.json
+  ✓ OpenCode         opencode.json`}
             delay={0.2}
           />
 

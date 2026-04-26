@@ -4,6 +4,7 @@ import vercel from "@astrojs/vercel";
 import icon from "astro-icon";
 import umami from "@yeskunall/astro-umami";
 import astroLlmsTxt from "@4hse/astro-llms-txt";
+import { docsSidebar } from "./src/starlight-sidebar.js";
 
 const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
 
@@ -65,28 +66,7 @@ export default defineConfig({
           },
         },
       ],
-      sidebar: [
-        {
-          label: "Getting Started",
-          autogenerate: { directory: 'getting-started' },
-        },
-        {
-          label: "Configuration",
-          autogenerate: { directory: 'configuration' },
-        },
-        {
-          label: "Concepts",
-          autogenerate: { directory: 'concepts' },
-        },
-        {
-          label: "CLI Reference",
-          autogenerate: { directory: 'cli' },
-        },
-        {
-          label: "Editors",
-          autogenerate: { directory: 'editors' },
-        },
-      ],
+      sidebar: docsSidebar,
     }),
   ],
 });

@@ -1,0 +1,46 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import {
+   editorSupportProfiles,
+   getMigrationHeadline,
+   getMigrationRoute,
+   getMigrationRows,
+} from '../../../lib/editor-support';
+import { migrationGuidesPage } from '../../../lib/editor-pages';
+import { docsSidebar } from '../../../starlight-sidebar.js';
+
+const { title, description } = migrationGuidesPage;
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   sidebar={docsSidebar}
+>
+   <p>
+      Each guide compares one ordered editor pair. The pages are generated from the shared support
+      dataset, so terminology, scope differences, shim behavior, and support gaps stay consistent
+      with the rest of the docs.
+   </p>
+
+   {editorSupportProfiles.map((fromProfile) => (
+      <section id={fromProfile.id}>
+         <h2>From {fromProfile.name}</h2>
+         <ul>
+            {editorSupportProfiles
+               .filter((toProfile) => toProfile.id !== fromProfile.id)
+               .map((toProfile) => {
+                  const rows = getMigrationRows(fromProfile.id, toProfile.id);
+
+                  return (
+                     <li>
+                        <a href={getMigrationRoute(fromProfile.id, toProfile.id)}>
+                           {fromProfile.name} to {toProfile.name}
+                        </a>{' '}
+                        - {getMigrationHeadline(rows)}
+                     </li>
+                  );
+               })}
+         </ul>
+      </section>
+   ))}
+</StarlightPage>

@@ -1,0 +1,66 @@
+---
+import type { EditorSupportStatus } from '@a1st/aix-schema';
+import { getStatusLabel, getStatusSymbol } from '../lib/editor-support';
+
+const { compact = false, status } = Astro.props as {
+   compact?: boolean;
+   status: EditorSupportStatus;
+};
+
+const label = getStatusLabel(status),
+      symbol = getStatusSymbol(status);
+---
+
+<span class:list={[ 'support-status', `support-status--${status}`, compact && 'support-status--compact' ]}>
+   <span aria-hidden="true" class="support-status__symbol">{symbol}</span>
+   <span class="support-status__label">{label}</span>
+</span>
+
+<style>
+   .support-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      line-height: 1;
+      white-space: nowrap;
+   }
+
+   .support-status--compact {
+      justify-content: center;
+      min-width: 4.75rem;
+   }
+
+   .support-status--native {
+      background: color-mix(in srgb, var(--sl-color-green-high) 10%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-green) 30%, var(--sl-color-gray-5));
+   }
+
+   .support-status--shim {
+      background: color-mix(in srgb, var(--sl-color-orange-high) 10%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-orange) 30%, var(--sl-color-gray-5));
+   }
+
+   .support-status--unsupported {
+      background: color-mix(in srgb, var(--sl-color-red-high) 8%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-red) 30%, var(--sl-color-gray-5));
+   }
+
+   .support-status__symbol {
+      font-weight: 700;
+      letter-spacing: 0.01em;
+   }
+
+   .support-status--compact .support-status__label {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+   }
+</style>
