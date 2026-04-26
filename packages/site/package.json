@@ -9,18 +9,18 @@
       "preview": "astro preview"
    },
    "dependencies": {
-      "@4hse/astro-llms-txt": "^1.0.0",
+      "@4hse/astro-llms-txt": "^1.0.5",
       "@a1st/aix-schema": "*",
-      "@astrojs/starlight": "^0.37.6",
-      "@astrojs/vercel": "9.0.4",
+      "@astrojs/starlight": "^0.38.4",
+      "@astrojs/vercel": "10.0.5",
       "@fontsource/cormorant-garamond": "^5.2.11",
       "@fontsource/instrument-sans": "^5.2.8",
-      "@iconify-json/lucide": "^1.2.90",
-      "@iconify-json/simple-icons": "^1.2.70",
-      "@yeskunall/astro-umami": "0.0.7",
-      "astro": "^5.17.1",
+      "@iconify-json/lucide": "^1.2.103",
+      "@iconify-json/simple-icons": "^1.2.79",
+      "@yeskunall/astro-umami": "0.0.8",
+      "astro": "^6.1.9",
       "astro-icon": "^1.1.5",
-      "astro-og-canvas": "0.10.1",
+      "astro-og-canvas": "0.11.1",
       "astro-seo": "1.1.0",
       "sharp": "^0.34.5"
    }
