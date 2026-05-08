@@ -1,9 +1,9 @@
 import type { HooksConfig } from '@a1st/aix-schema';
-import type { HooksStrategy } from '../types.js';
+import type { HooksStrategy, UnsupportedHookField } from '../types.js';
 
 /**
- * No-op hooks strategy for editors that don't support hooks.
- * Returns unsupported for all hook events.
+ * No-op hooks strategy for editors that don't support hooks. Reports every supplied
+ * event as unsupported and returns empty arrays everywhere else.
  */
 export class NoHooksStrategy implements HooksStrategy {
    isSupported(): boolean {
@@ -24,5 +24,17 @@ export class NoHooksStrategy implements HooksStrategy {
 
    getUnsupportedEvents(hooks: HooksConfig): string[] {
       return Object.keys(hooks);
+   }
+
+   getUnsupportedFields(_hooks: HooksConfig): UnsupportedHookField[] {
+      return [];
+   }
+
+   getSupportedEvents(): readonly string[] {
+      return [];
+   }
+
+   getNativeEventNames(): readonly string[] {
+      return [];
    }
 }

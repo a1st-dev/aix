@@ -1,4 +1,4 @@
-import { dirname } from 'pathe';
+import { basename, dirname, isAbsolute, normalize } from 'pathe';
 import {
    buildGitHubUrl,
    buildGitLabUrl,
@@ -38,16 +38,39 @@ function trimTrailingSlash(value: string): string {
    return value.replace(/\/+$/, '');
 }
 
-function toSkillDirectoryPath(path: string): string {
-   const withoutSkillFile = path.replace(/(?:^|\/)SKILL\.md$/i, '');
+function hasExplicitRelativePrefix(path: string): boolean {
+   return path.startsWith('./') || path.startsWith('.\\');
+}
 
-   return withoutSkillFile === '' ? withoutSkillFile : trimTrailingSlash(withoutSkillFile);
+function preserveExplicitRelativePrefix(source: string, path: string): string {
+   if (
+      !hasExplicitRelativePrefix(source) ||
+      path === '' ||
+      path.startsWith('../') ||
+      isAbsolute(path)
+   ) {
+      return path;
+   }
+
+   return `./${path}`;
+}
+
+function toSkillDirectoryPath(path: string): string {
+   const normalizedPath = normalize(path);
+
+   if (basename(normalizedPath).toLowerCase() === 'skill.md') {
+      const parent = dirname(normalizedPath);
+
+      return preserveExplicitRelativePrefix(path, parent === '.' ? '' : parent);
+   }
+
+   return preserveExplicitRelativePrefix(path, trimTrailingSlash(normalizedPath));
 }
 
 function inferSkillName(source: string): string | undefined {
-   const normalizedSource = source.replace(/\\/g, '/');
+   const normalizedSource = normalize(source);
 
-   if (/(?:^|\/)SKILL\.md$/i.test(normalizedSource)) {
+   if (basename(normalizedSource).toLowerCase() === 'skill.md') {
       const parent = dirname(normalizedSource);
 
       return parent === '.' ? undefined : inferNameFromPath(parent);

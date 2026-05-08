@@ -1,21 +1,47 @@
-import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
 import { safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
+import { join } from 'pathe';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runCommand } from '@oclif/test';
 
 const __dirname = dirname(fileURLToPath(import.meta.url)),
-      root = join(__dirname, '../..'),
-      loadOpts = { root, devPlugins: false };
-const execFileAsync = promisify(execFile),
+      root = join(__dirname, '../..');
+const maxBuffer = 1024 * 1024 * 10,
       binPath = join(root, 'bin', 'run.js');
-const runCli = (args: string[] | string, _unused?: unknown) =>
-   runCommand(args, loadOpts, { testNodeEnv: 'production' });
+
+interface CommandResult {
+   error?: Error;
+   stdout: string;
+   stderr: string;
+}
+
+function runCli(args: string[], _unused?: unknown): Promise<CommandResult> {
+   return new Promise((resolve) => {
+      execFile(
+         'node',
+         [binPath, ...args],
+         {
+            cwd: process.cwd(),
+            env: {
+               ...process.env,
+               NODE_ENV: 'production',
+            },
+            maxBuffer,
+         },
+         (error, stdout, stderr) => {
+            resolve({
+               error: error ?? undefined,
+               stdout,
+               stderr,
+            });
+         },
+      );
+   });
+}
 
 /**
  * Helper to create a valid ai.json config
@@ -610,10 +636,9 @@ description: Copilot skill
             join(editorSkillDir, 'copilot-skill'),
          );
 
-         const { stdout } = await execFileAsync('node', [binPath, 'list', '--all', '--editor', 'copilot', '--json'], {
-            cwd: testDir,
-         });
+         const { error, stdout } = await runCli(['list', '--all', '--editor', 'copilot', '--json']);
 
+         expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
          expect(parsed.copilot.skills['copilot-skill']).toMatchObject({

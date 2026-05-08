@@ -201,8 +201,9 @@ export async function applyGlobalChanges(
          skipped: GlobalChangeRequest[] = [],
          warnings: string[] = [];
 
-   // Check if in CI - skip all global changes
-   if (await isCI()) {
+   // Check if in CI - skip all global changes unless the caller already chose a
+   // more specific skip reason.
+   if (!options.skipGlobal && await isCI()) {
       for (const change of changes) {
          if (change.action === 'add') {
             skipped.push({

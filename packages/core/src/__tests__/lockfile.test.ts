@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'pathe';
 import { describe, expect, it, afterEach } from 'vitest';
 import { parseConfig } from '@a1st/aix-schema';
 import { generateAndWriteLockfile, generateLockfile, loadConfig, safeRm } from '../index.js';

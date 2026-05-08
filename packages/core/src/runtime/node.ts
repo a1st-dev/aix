@@ -244,6 +244,15 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    },
    os: {
       homedir: () => {
+         const env = getNodeProcess().env;
+
+         if (env.HOME) {
+            return env.HOME;
+         }
+         if (env.USERPROFILE) {
+            return env.USERPROFILE;
+         }
+
          return getOsModule().homedir();
       },
       platform: () => {

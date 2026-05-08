@@ -209,4 +209,33 @@ export interface HooksStrategy {
     * Used to warn users when they configure hooks that won't work for a particular editor.
     */
    getUnsupportedEvents(hooks: HooksConfig): string[];
+
+   /**
+    * Get per-action lists of fields that this editor does not surface natively. Adapters
+    * use this so the install command can warn the user that, for example, `show_output`
+    * was dropped on Claude Code. Returns an empty array when every field is supported.
+    */
+   getUnsupportedFields(hooks: HooksConfig): UnsupportedHookField[];
+
+   /**
+    * Get the aix event names this strategy can translate. The support matrix uses this
+    * to detect drift between `editor-support.ts` and the live strategy.
+    */
+   getSupportedEvents(): readonly string[];
+
+   /**
+    * Get the editor's native event names that this strategy emits, deduplicated. The
+    * support matrix uses this to enforce that `supportedValues` matches the strategy.
+    */
+   getNativeEventNames(): readonly string[];
+}
+
+/**
+ * A per-action description of fields the target editor cannot express natively.
+ */
+export interface UnsupportedHookField {
+   event: string;
+   matcherIndex: number;
+   actionIndex: number;
+   fields: string[];
 }

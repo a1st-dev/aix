@@ -1,9 +1,15 @@
-import type { AiJsonConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, HooksConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
+import { deepMergeJson } from '../../json.js';
 import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
-import { GeminiRulesStrategy, GeminiMcpStrategy, GeminiPromptsStrategy } from '../strategies/gemini/index.js';
-import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import {
+   GeminiRulesStrategy,
+   GeminiMcpStrategy,
+   GeminiPromptsStrategy,
+   GeminiHooksStrategy,
+} from '../strategies/gemini/index.js';
+import { NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -16,10 +22,9 @@ import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Gemini CLI editor adapter. Writes rules to `GEMINI.md` at the project root using
- * section-managed markdown (preserving user content). MCP config goes to
+ * section-managed markdown (preserving user content). MCP config and hooks both go to
  * `.gemini/settings.json`. Skills are installed into `.aix/skills/{name}/` and symlinked
  * into `.gemini/skills/`. Prompts are written as TOML files to `.gemini/commands/`.
- * Gemini does not support hooks.
  */
 export class GeminiAdapter extends BaseEditorAdapter {
    readonly name = 'gemini' as const;
@@ -41,7 +46,7 @@ export class GeminiAdapter extends BaseEditorAdapter {
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new GeminiPromptsStrategy();
-   protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
+   protected readonly hooksStrategy: HooksStrategy = new GeminiHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -57,10 +62,11 @@ export class GeminiAdapter extends BaseEditorAdapter {
                targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
-            mcp = filterMcpConfig(config.mcp);
+            mcp = filterMcpConfig(config.mcp),
+            hooks = config.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp };
+      return { rules, prompts, mcp, hooks };
    }
 
    /**
@@ -98,23 +104,41 @@ export class GeminiAdapter extends BaseEditorAdapter {
          }
       }
 
+      const configDir = join(projectRoot, this.configDir),
+            mcpPath = options.targetScope === 'user'
+               ? join(
+                  getRuntimeAdapter().os.homedir(),
+                  this.mcpStrategy.getGlobalMcpConfigPath() ?? '.gemini/settings.json',
+               )
+               : join(configDir, this.mcpStrategy.getConfigPath()),
+            hooksPath = options.targetScope === 'user'
+               ? join(
+                  getRuntimeAdapter().os.homedir(),
+                  this.hooksStrategy.getGlobalConfigPath() ?? '.gemini/settings.json',
+               )
+               : join(configDir, this.hooksStrategy.getConfigPath());
+
       // MCP config (handled by base class via mcpStrategy)
       if (scopes.includes('mcp') && this.mcpStrategy.isSupported()) {
          const mcpEntries = Object.keys(editorConfig.mcp);
 
          if (mcpEntries.length > 0) {
-            const configDir = join(projectRoot, this.configDir),
-                  globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
-                  mcpPath = options.targetScope === 'user' && globalMcpPath
-                     ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
-                     : join(configDir, this.mcpStrategy.getConfigPath()),
-                  change = await this.planJsonFileChange(
-                     mcpPath,
-                     this.mcpStrategy.formatConfig(editorConfig.mcp),
-                     options,
-                  );
+            const change = await this.planJsonFileChange(
+               mcpPath,
+               this.mcpStrategy.formatConfig(editorConfig.mcp),
+               options,
+            );
 
             changes.push({ ...change, category: 'mcp' });
+         }
+      }
+
+      // Hooks - share `.gemini/settings.json` with MCP. Merge into any pending change.
+      if (scopes.includes('editors') && this.hooksStrategy.isSupported() && editorConfig.hooks) {
+         const hookEvents = Object.keys(editorConfig.hooks);
+
+         if (hookEvents.length > 0) {
+            await this.planGeminiHooksChange(editorConfig.hooks, hooksPath, options, changes);
          }
       }
 
@@ -124,8 +148,7 @@ export class GeminiAdapter extends BaseEditorAdapter {
          this.promptsStrategy.isSupported() &&
          editorConfig.prompts.length > 0
       ) {
-         const configDir = join(projectRoot, this.configDir),
-               globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
+         const globalPromptsPath = this.promptsStrategy.getGlobalPromptsPath(),
                promptsDir = options.targetScope === 'user' && globalPromptsPath
                   ? join(getRuntimeAdapter().os.homedir(), globalPromptsPath)
                   : join(configDir, this.promptsStrategy.getPromptsDir()),
@@ -165,5 +188,50 @@ export class GeminiAdapter extends BaseEditorAdapter {
       }
 
       return parts.join('\n\n');
+   }
+
+   /**
+    * Plan the hooks update for `.gemini/settings.json`. If MCP already produced a
+    * pending change at the same path, merge into that pending content instead of
+    * re-reading disk so both writes survive a single install.
+    *
+    * The original change keeps its category (typically `mcp`) because the file's
+    * primary category is determined by the first thing that wrote to it. The hook
+    * content piggybacks. This avoids the change being silently relabeled to `hook`
+    * and losing visibility of the MCP write in audit / telemetry consumers.
+    */
+   private async planGeminiHooksChange(
+      hooks: HooksConfig,
+      settingsPath: string,
+      options: ApplyOptions,
+      changes: FileChange[],
+   ): Promise<void> {
+      const formattedHooks = this.hooksStrategy.formatConfig(hooks),
+            parsedHooks = JSON.parse(formattedHooks) as { hooks?: Record<string, unknown> };
+
+      if (!parsedHooks.hooks || Object.keys(parsedHooks.hooks).length === 0) {
+         return;
+      }
+
+      const existingChange = changes.find((entry) => entry.path === settingsPath);
+
+      if (existingChange?.content !== undefined) {
+         try {
+            const pendingJson = JSON.parse(existingChange.content) as Record<string, unknown>,
+                  hooksJson = parsedHooks as Record<string, unknown>,
+                  merged = deepMergeJson(pendingJson, hooksJson),
+                  mergedContent = JSON.stringify(merged, null, 2) + '\n',
+                  existingDisk = await this.readExisting(settingsPath);
+
+            existingChange.content = mergedContent;
+            existingChange.action = this.determineAction(existingDisk, mergedContent);
+            return;
+         } catch {
+            // Fall through to overwrite if existingChange.content was not valid JSON.
+         }
+      }
+      const change = await this.planJsonFileChange(settingsPath, formattedHooks, options);
+
+      changes.push({ ...change, category: 'hook' });
    }
 }

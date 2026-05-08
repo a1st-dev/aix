@@ -1,5 +1,6 @@
 import type { LoadedRule } from './loader.js';
 import type { RulesConfig } from '@a1st/aix-schema';
+import { normalize } from 'pathe';
 import { loadRules } from './loader.js';
 
 export type RuleScope = 'skill' | 'project' | 'editor';
@@ -36,9 +37,8 @@ export interface MergeOptions {
  * Simple glob-like pattern matching
  */
 function matchPattern(value: string, pattern: string): boolean {
-   // Normalize path separators
-   const normalizedValue = value.replace(/\\/g, '/'),
-         normalizedPattern = pattern.replace(/\\/g, '/');
+   const normalizedValue = normalize(value),
+         normalizedPattern = normalize(pattern);
 
    // Convert glob to regex step by step
    let regexPattern = '';

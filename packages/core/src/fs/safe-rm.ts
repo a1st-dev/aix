@@ -1,5 +1,6 @@
 import { resolve, normalize, sep } from 'pathe';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import type { RuntimeRemoveOptions } from '../runtime/index.js';
 
 /**
  * Error thrown when attempting to remove a protected path.
@@ -45,6 +46,9 @@ const BLOCKED_PATHS_WINDOWS = new Set([
    'c:\\users',
    'c:\\programdata',
 ]);
+
+const DEFAULT_MAX_RETRIES = 5,
+      DEFAULT_RETRY_DELAY_MS = 100;
 
 /**
  * Check if a path is in the blocklist.
@@ -136,7 +140,7 @@ function isInTestFixturesDir(normalizedPath: string): boolean {
  */
 export async function safeRm(
    targetPath: string,
-   options: { force?: boolean } = {},
+   options: RuntimeRemoveOptions = {},
 ): Promise<void> {
    const resolved = resolve(targetPath),
          normalized = normalize(resolved),
@@ -171,5 +175,10 @@ export async function safeRm(
       throw new UnsafePathError(normalized, 'path is too shallow (minimum 3 segments required)');
    }
 
-   await getRuntimeAdapter().fs.rm(resolved, { recursive: true, ...options });
+   await getRuntimeAdapter().fs.rm(resolved, {
+      recursive: true,
+      maxRetries: DEFAULT_MAX_RETRIES,
+      retryDelay: DEFAULT_RETRY_DELAY_MS,
+      ...options,
+   });
 }

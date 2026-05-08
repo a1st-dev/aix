@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'pathe';
 import {
    importFromEditor,
    getGlobalConfigPath,

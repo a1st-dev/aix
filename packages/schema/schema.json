@@ -1455,32 +1455,150 @@
                      "properties": {
                         "matcher": {
                            "type": "string",
-                           "description": "Pattern to match (regex supported, editor-specific)"
+                           "description": "Pattern to match (regex or pipe-separated literal, editor-specific)."
+                        },
+                        "sequential": {
+                           "type": "boolean",
+                           "description": "Run hooks in this group sequentially instead of in parallel (Gemini)."
+                        },
+                        "description": {
+                           "type": "string",
+                           "description": "Free-form description for the group."
                         },
                         "hooks": {
                            "type": "array",
                            "items": {
                               "type": "object",
                               "properties": {
+                                 "type": {
+                                    "type": "string",
+                                    "enum": ["command", "http", "mcp_tool", "prompt", "agent"],
+                                    "description": "Action handler kind (default: \"command\")."
+                                 },
                                  "command": {
                                     "type": "string",
-                                    "description": "Shell command to execute"
+                                    "description": "Shell command to execute."
+                                 },
+                                 "bash": {
+                                    "type": "string",
+                                    "description": "Bash command (macOS / Linux)."
+                                 },
+                                 "powershell": {
+                                    "type": "string",
+                                    "description": "PowerShell command (Windows)."
+                                 },
+                                 "shell": {
+                                    "type": "string",
+                                    "enum": ["bash", "powershell"],
+                                    "description": "Shell selector when only one of `command` / `bash` / `powershell` is set."
                                  },
                                  "timeout": {
                                     "type": "number",
                                     "exclusiveMinimum": 0,
-                                    "description": "Timeout in seconds"
+                                    "description": "Timeout in seconds. Adapters convert to native units (e.g. milliseconds)."
                                  },
                                  "show_output": {
                                     "type": "boolean",
-                                    "description": "Whether to show command output in UI"
+                                    "description": "Whether to surface command output in the editor UI (Windsurf-specific)."
                                  },
                                  "working_directory": {
                                     "type": "string",
-                                    "description": "Working directory for the command"
+                                    "description": "Working directory for the command. Interchangeable with `cwd`; the strategy decides which native key to emit (Windsurf uses `working_directory`; Copilot, Gemini, and Claude Code use `cwd`)."
+                                 },
+                                 "cwd": {
+                                    "type": "string",
+                                    "description": "Working directory for the command. Interchangeable with `working_directory`."
+                                 },
+                                 "env": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                       "type": "string"
+                                    },
+                                    "description": "Environment variables to set when running the command."
+                                 },
+                                 "async": {
+                                    "type": "boolean",
+                                    "description": "Run the command in the background without blocking the agent."
+                                 },
+                                 "async_rewake": {
+                                    "type": "boolean",
+                                    "description": "Run async; on exit code 2, wake the agent with stderr/stdout context."
+                                 },
+                                 "if": {
+                                    "type": "string",
+                                    "description": "Permission-rule expression (Claude Code) gating execution."
+                                 },
+                                 "status_message": {
+                                    "type": "string",
+                                    "description": "Custom spinner message while the hook runs (Claude Code)."
+                                 },
+                                 "once": {
+                                    "type": "boolean",
+                                    "description": "Run once per session, then unregister (Claude Code skill / agent frontmatter)."
+                                 },
+                                 "url": {
+                                    "type": "string",
+                                    "description": "URL to POST hook input to (Claude Code HTTP)."
+                                 },
+                                 "headers": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                       "type": "string"
+                                    },
+                                    "description": "Additional HTTP headers, with env-var interpolation (Claude Code HTTP)."
+                                 },
+                                 "allowed_env_vars": {
+                                    "type": "array",
+                                    "items": {
+                                       "type": "string"
+                                    },
+                                    "description": "Env-var allowlist for header interpolation (Claude Code HTTP)."
+                                 },
+                                 "mcp_server": {
+                                    "type": "string",
+                                    "description": "Configured MCP server name (Claude Code mcp_tool)."
+                                 },
+                                 "mcp_tool": {
+                                    "type": "string",
+                                    "description": "Tool name on the MCP server (Claude Code mcp_tool)."
+                                 },
+                                 "mcp_input": {
+                                    "type": "object",
+                                    "additionalProperties": {},
+                                    "description": "Arguments for the MCP tool, with `${tool_input.x}` substitution (Claude Code)."
+                                 },
+                                 "prompt": {
+                                    "type": "string",
+                                    "description": "Prompt text (Claude Code, Cursor, Copilot)."
+                                 },
+                                 "model": {
+                                    "type": "string",
+                                    "description": "Model override for prompt / agent hooks."
+                                 },
+                                 "description": {
+                                    "type": "string",
+                                    "description": "Free-form description for logs / UI."
+                                 },
+                                 "name": {
+                                    "type": "string",
+                                    "description": "Friendly identifier for logs and CLI commands."
+                                 },
+                                 "fail_closed": {
+                                    "type": "boolean",
+                                    "description": "Block the action when the hook itself fails (Cursor)."
+                                 },
+                                 "loop_limit": {
+                                    "anyOf": [
+                                       {
+                                          "type": "integer"
+                                       },
+                                       {
+                                          "type": "null"
+                                       }
+                                    ],
+                                    "description": "Max auto-triggered follow-ups for stop-style events (Cursor)."
                                  }
                               },
-                              "required": ["command"],
                               "additionalProperties": false,
                               "description": "Hook action configuration"
                            },
@@ -1494,8 +1612,18 @@
                },
                "propertyNames": {
                   "enum": [
+                     "session_start",
+                     "session_end",
+                     "setup",
+                     "pre_prompt",
+                     "user_prompt_expansion",
                      "pre_tool_use",
                      "post_tool_use",
+                     "post_tool_use_failure",
+                     "post_tool_batch",
+                     "pre_tool_selection",
+                     "permission_request",
+                     "permission_denied",
                      "pre_file_read",
                      "post_file_read",
                      "pre_file_write",
@@ -1504,17 +1632,33 @@
                      "post_command",
                      "pre_mcp_tool",
                      "post_mcp_tool",
-                     "pre_prompt",
-                     "pre_compact",
-                     "post_compact",
+                     "pre_tab_file_read",
+                     "post_tab_file_edit",
+                     "pre_model_request",
+                     "post_model_response",
+                     "pre_response_chunk",
+                     "pre_agent",
+                     "post_agent",
+                     "post_response",
+                     "post_response_with_transcript",
+                     "agent_stop",
                      "subagent_start",
                      "subagent_stop",
+                     "subagent_idle",
+                     "pre_compact",
+                     "post_compact",
                      "task_created",
                      "task_completed",
                      "worktree_setup",
-                     "session_start",
-                     "session_end",
-                     "agent_stop"
+                     "worktree_remove",
+                     "instructions_loaded",
+                     "config_change",
+                     "cwd_changed",
+                     "file_changed",
+                     "notification",
+                     "elicitation",
+                     "elicitation_result",
+                     "error_occurred"
                   ]
                },
                "description": "Lifecycle hooks for AI agent events"

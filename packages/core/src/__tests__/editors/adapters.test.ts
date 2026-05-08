@@ -402,11 +402,12 @@ describe('Editor Adapters', () => {
          const hooksContent = await readFile(join(testDir, '.github/hooks/hooks.json'), 'utf-8'),
                hooksConfig = JSON.parse(hooksContent);
 
+         expect(hooksConfig.version).toBe(1);
          expect(hooksConfig.hooks.preToolUse).toEqual([{
-            matcher: 'Bash',
+            matcher: 'bash|powershell',
             hooks: [{
                type: 'command',
-               command: 'echo pre',
+               bash: 'echo pre',
             }],
          }]);
       });
@@ -1371,17 +1372,87 @@ Skill instructions.
          expect(promptContent).toContain('prompt = "Please review this code."');
       });
 
-      it('reports unsupported hooks', async () => {
+      it('writes hooks into .gemini/settings.json under a hooks key', async () => {
          const config = createConfig({
             hooks: {
-               session_end: [{ hooks: [{ command: 'echo end' }] }],
+               pre_tool_use: [{ matcher: 'read_file', hooks: [{ command: 'check.sh' }] }],
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const settingsContent = await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
+               settings = JSON.parse(settingsContent);
+
+         expect(settings.hooks.BeforeTool).toEqual([
+            {
+               matcher: 'read_file',
+               hooks: [{ type: 'command', command: 'check.sh' }],
+            },
+         ]);
+      });
+
+      it('reports unsupported hook events but supports hooks overall', async () => {
+         const config = createConfig({
+            hooks: {
+               // Real Gemini event.
+               pre_tool_use: [{ hooks: [{ command: 'one' }] }],
+               // aix event Gemini does not translate.
+               worktree_setup: [{ hooks: [{ command: 'two' }] }],
             },
          });
 
          const result = await installToEditor('gemini', config, testDir);
 
-         expect(result.unsupportedFeatures?.hooks).toBeDefined();
-         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBeFalsy();
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('worktree_setup');
+      });
+
+      it('merges MCP and hooks into the same .gemini/settings.json without clobber', async () => {
+         const config = createConfig({
+            mcp: {
+               'demo-server': { command: 'demo' },
+            },
+            hooks: {
+               pre_tool_use: [{ hooks: [{ command: 'check.sh' }] }],
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const settings = JSON.parse(
+            await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
+         );
+
+         expect(settings.mcpServers['demo-server']).toEqual({ command: 'demo' });
+         expect(settings.hooks.BeforeTool[0].hooks[0].command).toBe('check.sh');
+      });
+
+      it('preserves user-authored keys in .gemini/settings.json across installs', async () => {
+         await mkdir(join(testDir, '.gemini'), { recursive: true });
+         await writeFile(
+            join(testDir, '.gemini/settings.json'),
+            JSON.stringify({ theme: 'dark', mcpServers: { existing: { command: 'old' } } }, null, 2),
+            'utf-8',
+         );
+
+         const config = createConfig({
+            mcp: { 'demo-server': { command: 'demo' } },
+            hooks: {
+               pre_tool_use: [{ hooks: [{ command: 'check.sh' }] }],
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const settings = JSON.parse(
+            await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
+         );
+
+         expect(settings.theme).toBe('dark');
+         expect(settings.mcpServers.existing).toEqual({ command: 'old' });
+         expect(settings.mcpServers['demo-server']).toEqual({ command: 'demo' });
+         expect(settings.hooks.BeforeTool[0].hooks[0].command).toBe('check.sh');
       });
    });
 
