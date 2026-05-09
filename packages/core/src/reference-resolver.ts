@@ -162,40 +162,40 @@ export function validateReference(
    const sourceType = detectSourceType(source);
 
    switch (sourceType) {
-   case 'http-unsupported':
-      throw new Error(`${context}: HTTP URLs are not supported (use HTTPS): ${source}`);
-   case 'local':
-      return { sourceType, normalized: source };
-   case 'git-shorthand':
-      return { sourceType, normalized: source };
-   case 'https-repo': {
+      case 'http-unsupported':
+         throw new Error(`${context}: HTTP URLs are not supported (use HTTPS): ${source}`);
+      case 'local':
+         return { sourceType, normalized: source };
+      case 'git-shorthand':
+         return { sourceType, normalized: source };
+      case 'https-repo': {
       // Try to normalize GitHub repo URLs to shorthand
-      const ghRepo = parseGitHubRepoUrl(source);
+         const ghRepo = parseGitHubRepoUrl(source);
 
-      if (ghRepo) {
-         return { sourceType, normalized: `github:${ghRepo.owner}/${ghRepo.repo}` };
+         if (ghRepo) {
+            return { sourceType, normalized: `github:${ghRepo.owner}/${ghRepo.repo}` };
+         }
+         // Check for tree URL (also an https-repo type)
+         const ghTree = parseGitHubTreeUrl(source);
+
+         if (ghTree) {
+            const subpath = ghTree.subdir ? `/${ghTree.subdir}` : '';
+            const ref = ghTree.ref !== 'main' && ghTree.ref !== 'master' ? `#${ghTree.ref}` : '';
+
+            return {
+               sourceType,
+               normalized: `github:${ghTree.owner}/${ghTree.repo}${subpath}${ref}`,
+            };
+         }
+         // Non-GitHub repo URL — keep as-is
+         return { sourceType, normalized: source };
       }
-      // Check for tree URL (also an https-repo type)
-      const ghTree = parseGitHubTreeUrl(source);
-
-      if (ghTree) {
-         const subpath = ghTree.subdir ? `/${ghTree.subdir}` : '';
-         const ref = ghTree.ref !== 'main' && ghTree.ref !== 'master' ? `#${ghTree.ref}` : '';
-
-         return {
-            sourceType,
-            normalized: `github:${ghTree.owner}/${ghTree.repo}${subpath}${ref}`,
-         };
-      }
-      // Non-GitHub repo URL — keep as-is
-      return { sourceType, normalized: source };
-   }
-   case 'https-file': {
+      case 'https-file': {
       // Blob URLs could be normalized too, but keep as-is for clarity
-      return { sourceType, normalized: source };
-   }
-   case 'npm':
-      return { sourceType, normalized: source };
+         return { sourceType, normalized: source };
+      }
+      case 'npm':
+         return { sourceType, normalized: source };
    }
 }
 

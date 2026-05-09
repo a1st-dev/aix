@@ -50,10 +50,10 @@ export class OpenCodeMcpStrategy implements McpStrategy {
                servers = config.mcp ?? {};
 
          for (const [name, server] of Object.entries(servers)) {
-            const parsed = parseServerConfig(name, server, warnings);
+            const serverConfig = parseServerConfig(name, server, warnings);
 
-            if (parsed) {
-               mcp[name] = parsed;
+            if (serverConfig) {
+               mcp[name] = serverConfig;
             }
          }
       } catch (err) {

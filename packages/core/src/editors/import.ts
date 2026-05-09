@@ -245,54 +245,54 @@ const COPILOT_HOOK_TOOL_MATCHERS: Record<string, string> = {
  */
 function getImportStrategies(editor: EditorName): ImportStrategies {
    switch (editor) {
-   case 'windsurf':
-      return {
-         mcp: new WindsurfMcpStrategy(),
-         rules: new WindsurfRulesStrategy(),
-         prompts: new WindsurfPromptsStrategy(),
-      };
-   case 'cursor':
-      return {
-         mcp: new StandardMcpStrategy(),
-         rules: new CursorRulesStrategy(),
-         prompts: new CursorPromptsStrategy(),
-      };
-   case 'claude-code':
-      return {
-         mcp: new ClaudeCodeMcpStrategy(),
-         rules: new ClaudeCodeRulesStrategy(),
-         prompts: new ClaudeCodePromptsStrategy(),
-      };
-   case 'copilot':
-      return {
-         mcp: new CopilotMcpStrategy(),
-         rules: new CopilotRulesStrategy(),
-         prompts: new CopilotPromptsStrategy(),
-      };
-   case 'zed':
-      return {
-         mcp: new ZedMcpStrategy(),
-         rules: new ZedRulesStrategy(),
-         prompts: new ZedPromptsStrategy(),
-      };
-   case 'codex':
-      return {
-         mcp: new CodexMcpStrategy(),
-         rules: new CodexRulesStrategy(),
-         prompts: new CodexPromptsStrategy(),
-      };
-   case 'gemini':
-      return {
-         mcp: new GeminiMcpStrategy(),
-         rules: new GeminiRulesStrategy(),
-         prompts: new GeminiPromptsStrategy(),
-      };
-   case 'opencode':
-      return {
-         mcp: new OpenCodeMcpStrategy(),
-         rules: new OpenCodeRulesStrategy(),
-         prompts: new OpenCodePromptsStrategy(),
-      };
+      case 'windsurf':
+         return {
+            mcp: new WindsurfMcpStrategy(),
+            rules: new WindsurfRulesStrategy(),
+            prompts: new WindsurfPromptsStrategy(),
+         };
+      case 'cursor':
+         return {
+            mcp: new StandardMcpStrategy(),
+            rules: new CursorRulesStrategy(),
+            prompts: new CursorPromptsStrategy(),
+         };
+      case 'claude-code':
+         return {
+            mcp: new ClaudeCodeMcpStrategy(),
+            rules: new ClaudeCodeRulesStrategy(),
+            prompts: new ClaudeCodePromptsStrategy(),
+         };
+      case 'copilot':
+         return {
+            mcp: new CopilotMcpStrategy(),
+            rules: new CopilotRulesStrategy(),
+            prompts: new CopilotPromptsStrategy(),
+         };
+      case 'zed':
+         return {
+            mcp: new ZedMcpStrategy(),
+            rules: new ZedRulesStrategy(),
+            prompts: new ZedPromptsStrategy(),
+         };
+      case 'codex':
+         return {
+            mcp: new CodexMcpStrategy(),
+            rules: new CodexRulesStrategy(),
+            prompts: new CodexPromptsStrategy(),
+         };
+      case 'gemini':
+         return {
+            mcp: new GeminiMcpStrategy(),
+            rules: new GeminiRulesStrategy(),
+            prompts: new GeminiPromptsStrategy(),
+         };
+      case 'opencode':
+         return {
+            mcp: new OpenCodeMcpStrategy(),
+            rules: new OpenCodeRulesStrategy(),
+            prompts: new OpenCodePromptsStrategy(),
+         };
    }
 }
 
@@ -583,27 +583,27 @@ export function buildConfigFromEditorImport(
 
 function getHookEventMap(editor: EditorName): Record<string, string> | null {
    switch (editor) {
-   case 'cursor':
-      return CURSOR_HOOK_EVENT_MAP;
-   case 'windsurf':
-      return WINDSURF_HOOK_EVENT_MAP;
-   case 'claude-code':
-      return CLAUDE_CODE_HOOK_EVENT_MAP;
-   case 'copilot':
-      return COPILOT_HOOK_EVENT_MAP;
-   default:
-      return null;
+      case 'cursor':
+         return CURSOR_HOOK_EVENT_MAP;
+      case 'windsurf':
+         return WINDSURF_HOOK_EVENT_MAP;
+      case 'claude-code':
+         return CLAUDE_CODE_HOOK_EVENT_MAP;
+      case 'copilot':
+         return COPILOT_HOOK_EVENT_MAP;
+      default:
+         return null;
    }
 }
 
 function getHookToolMatcherMap(editor: EditorName): Record<string, string> {
    switch (editor) {
-   case 'claude-code':
-      return CLAUDE_CODE_HOOK_TOOL_MATCHERS;
-   case 'copilot':
-      return COPILOT_HOOK_TOOL_MATCHERS;
-   default:
-      return {};
+      case 'claude-code':
+         return CLAUDE_CODE_HOOK_TOOL_MATCHERS;
+      case 'copilot':
+         return COPILOT_HOOK_TOOL_MATCHERS;
+      default:
+         return {};
    }
 }
 
@@ -620,28 +620,28 @@ function getHookConfigPath(editor: EditorName, projectRoot: string | undefined, 
    }
 
    switch (source) {
-   case 'global':
-      return join(homedir(), configDir, hooksPath);
-   case 'project':
-      if (!projectRoot) {
-         return null;
-      }
-      return join(projectRoot, configDir, hooksPath);
+      case 'global':
+         return join(homedir(), configDir, hooksPath);
+      case 'project':
+         if (!projectRoot) {
+            return null;
+         }
+         return join(projectRoot, configDir, hooksPath);
    }
 }
 
 function getHooksConfigPathRelative(editor: EditorName): string | null {
    switch (editor) {
-   case 'cursor':
-      return 'hooks.json';
-   case 'windsurf':
-      return 'hooks.json';
-   case 'claude-code':
-      return 'settings.json';
-   case 'copilot':
-      return '../.github/hooks/hooks.json';
-   default:
-      return null;
+      case 'cursor':
+         return 'hooks.json';
+      case 'windsurf':
+         return 'hooks.json';
+      case 'claude-code':
+         return 'settings.json';
+      case 'copilot':
+         return '../.github/hooks/hooks.json';
+      default:
+         return null;
    }
 }
 

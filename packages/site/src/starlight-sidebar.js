@@ -8,19 +8,27 @@ const editorDetailLinks = editorSupportProfiles.map((profile) => ({
 export const docsSidebar = [
    {
       label: 'Getting Started',
-      autogenerate: { directory: 'getting-started' },
+      items: [
+         { autogenerate: { directory: 'getting-started' } },
+      ],
    },
    {
       label: 'Configuration',
-      autogenerate: { directory: 'configuration' },
+      items: [
+         { autogenerate: { directory: 'configuration' } },
+      ],
    },
    {
       label: 'Concepts',
-      autogenerate: { directory: 'concepts' },
+      items: [
+         { autogenerate: { directory: 'concepts' } },
+      ],
    },
    {
       label: 'CLI Reference',
-      autogenerate: { directory: 'cli' },
+      items: [
+         { autogenerate: { directory: 'cli' } },
+      ],
    },
    {
       label: 'Editors',

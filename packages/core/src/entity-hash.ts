@@ -30,19 +30,19 @@ export function canonicalJson(value: unknown): string {
    }
 
    switch (typeof value) {
-   case 'boolean':
-      return value ? 'true' : 'false';
-   case 'number':
-      if (!Number.isFinite(value)) {
-         throw new Error('Cannot canonicalize non-finite JSON number');
-      }
-      return JSON.stringify(value);
-   case 'string':
-      return JSON.stringify(value);
-   case 'object':
-      return canonicalJsonObject(value);
-   default:
-      throw new Error(`Cannot canonicalize ${typeof value} value`);
+      case 'boolean':
+         return value ? 'true' : 'false';
+      case 'number':
+         if (!Number.isFinite(value)) {
+            throw new Error('Cannot canonicalize non-finite JSON number');
+         }
+         return JSON.stringify(value);
+      case 'string':
+         return JSON.stringify(value);
+      case 'object':
+         return canonicalJsonObject(value);
+      default:
+         throw new Error(`Cannot canonicalize ${typeof value} value`);
    }
 }
 

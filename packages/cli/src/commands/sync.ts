@@ -306,12 +306,12 @@ export default class Sync extends BaseCommand<typeof Sync> {
 
    private getChangePrefix(action: FileChange['action']): string {
       switch (action) {
-      case 'create':
-      case 'update':
-      case 'unchanged':
-         return this.output.green('✓');
-      case 'delete':
-         return this.output.red('-');
+         case 'create':
+         case 'update':
+         case 'unchanged':
+            return this.output.green('✓');
+         case 'delete':
+            return this.output.red('-');
       }
    }
 

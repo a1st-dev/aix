@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-const __dirname = dirname(fileURLToPath(import.meta.url)),
-      root = join(__dirname, '../..');
+const testDirname = dirname(fileURLToPath(import.meta.url)),
+      root = join(testDirname, '../..');
 const maxBuffer = 1024 * 1024 * 10,
       binPath = join(root, 'bin', 'run.js');
 const TEST_DIR_CLEANUP_RETRIES = 12,

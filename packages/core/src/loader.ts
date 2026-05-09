@@ -1,10 +1,9 @@
 import { dirname } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
-import type { ZodError } from 'zod';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
 import { ConfigNotFoundError, ConfigParseError } from './errors.js';
-import { extractValidationIssues, toConfigValidationError } from './format-error.js';
+import { extractValidationIssues, isZodErrorLike, toConfigValidationError } from './format-error.js';
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -151,9 +150,8 @@ function mergeLocalOverrides(
          hasLocalOverrides: true,
       };
    } catch (error) {
-      if (error instanceof Error && 'issues' in error) {
-         const zodError = error as ZodError,
-               issues = extractValidationIssues(zodError, localParsed);
+      if (isZodErrorLike(error)) {
+         const issues = extractValidationIssues(error, localParsed);
 
          throw new ConfigParseError('Validation failed', localPath, issues);
       }

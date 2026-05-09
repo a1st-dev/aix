@@ -135,20 +135,20 @@ export async function installSingleItem(
    const config = createEmptyConfig() as AiJsonConfig & Record<string, unknown>;
 
    switch (section) {
-   case 'mcp':
-      (config as any).mcp = { [name]: value };
-      break;
-   case 'skills':
-      (config as any).skills = { [name]: value };
-      break;
-   case 'rules':
-      (config as any).rules = { [name]: value };
-      break;
-   case 'prompts':
-      (config as any).prompts = { [name]: value };
-      break;
-   default:
-      return { installed: false, results: [], editors: [] };
+      case 'mcp':
+         (config as any).mcp = { [name]: value };
+         break;
+      case 'skills':
+         (config as any).skills = { [name]: value };
+         break;
+      case 'rules':
+         (config as any).rules = { [name]: value };
+         break;
+      case 'prompts':
+         (config as any).prompts = { [name]: value };
+         break;
+      default:
+         return { installed: false, results: [], editors: [] };
    }
 
    const results = await pMap(

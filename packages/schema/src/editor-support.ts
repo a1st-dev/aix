@@ -961,8 +961,8 @@ export const editorSupportProfileMap = Object.freeze(
 
 export const editorFeatureDefinitionMap = Object.freeze(
    editorFeatureDefinitions.reduce<Record<EditorFeatureId, (typeof editorFeatureDefinitions)[number]>>(
-      (memo, feature) => {
-         memo[feature.id] = feature;
+      (memo, f) => {
+         memo[f.id] = f;
          return memo;
       },
       {} as Record<EditorFeatureId, (typeof editorFeatureDefinitions)[number]>,

@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import { runCommand } from '@oclif/test';
 
-const __dirname = dirname(fileURLToPath(import.meta.url)),
-      root = join(__dirname, '../..'),
+const testDirname = dirname(fileURLToPath(import.meta.url)),
+      root = join(testDirname, '../..'),
       loadOpts = { root, devPlugins: false };
 const runCli = (args: string[] | string) =>
    runCommand(args, loadOpts, { testNodeEnv: 'production' });

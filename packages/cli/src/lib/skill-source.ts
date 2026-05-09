@@ -154,31 +154,31 @@ function convertParsedSkillRefToValue(source: string, refOverride?: string): Par
    const parsed = parseSkillRef('__aix_add_skill__', source);
 
    switch (parsed.type) {
-   case 'local':
-      return {
-         value: { path: toSkillDirectoryPath(parsed.path) },
-         inferredName: inferSkillName(parsed.path),
-      };
-   case 'git':
-      return {
-         value: {
-            git: parsed.url,
-            ...(refOverride ?? parsed.ref ? { ref: refOverride ?? parsed.ref } : {}),
-            ...(parsed.path ? { path: toSkillDirectoryPath(parsed.path) } : {}),
-         },
-         inferredName: inferSkillName(parsed.path ?? parsed.url),
-      };
-   case 'npm': {
-      const packageName =
-         !source.includes('/') && !source.includes(':') && !source.startsWith('aix-skill-')
-            ? `aix-skill-${source}`
-            : parsed.packageName;
+      case 'local':
+         return {
+            value: { path: toSkillDirectoryPath(parsed.path) },
+            inferredName: inferSkillName(parsed.path),
+         };
+      case 'git':
+         return {
+            value: {
+               git: parsed.url,
+               ...(refOverride ?? parsed.ref ? { ref: refOverride ?? parsed.ref } : {}),
+               ...(parsed.path ? { path: toSkillDirectoryPath(parsed.path) } : {}),
+            },
+            inferredName: inferSkillName(parsed.path ?? parsed.url),
+         };
+      case 'npm': {
+         const packageName =
+            !source.includes('/') && !source.includes(':') && !source.startsWith('aix-skill-')
+               ? `aix-skill-${source}`
+               : parsed.packageName;
 
-      return {
-         value: packageName,
-         inferredName: inferSkillName(packageName.replace(/^@[^/]+\//, '').replace(/^aix-skill-/, '')),
-      };
-   }
+         return {
+            value: packageName,
+            inferredName: inferSkillName(packageName.replace(/^@[^/]+\//, '').replace(/^aix-skill-/, '')),
+         };
+      }
    }
 }
 

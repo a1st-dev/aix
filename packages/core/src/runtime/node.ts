@@ -66,15 +66,15 @@ async function downloadTemplate(
    template: string,
    options: RuntimeGitDownloadOptions,
 ): Promise<RuntimeGitDownloadResult> {
-   const { downloadTemplate } = await import('giget');
+   const { downloadTemplate: gigetDownload } = await import('giget');
 
-   return downloadTemplate(template, options);
+   return gigetDownload(template, options);
 }
 
 async function ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void> {
-   const { ensureDependencyInstalled } = await import('nypm');
+   const { ensureDependencyInstalled: nypmEnsureInstalled } = await import('nypm');
 
-   await ensureDependencyInstalled(packageSpec, { cwd });
+   await nypmEnsureInstalled(packageSpec, { cwd });
 }
 
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
