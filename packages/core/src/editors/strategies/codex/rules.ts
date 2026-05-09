@@ -1,5 +1,7 @@
-import type { RulesStrategy } from '../types.js';
+import { join } from 'pathe';
+import type { ImportedRulesResult, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Codex CLI rules strategy. Uses `AGENTS.md` files at the project root (and optionally in
@@ -27,6 +29,30 @@ export class CodexRulesStrategy implements RulesStrategy {
          rules.push(content.trim());
       }
       return { rules, warnings: [] };
+   }
+
+   async importProjectRules(projectRoot: string): Promise<ImportedRulesResult> {
+      const warnings: string[] = [],
+            agentsPath = join(projectRoot, 'AGENTS.md');
+
+      try {
+         const content = await getRuntimeAdapter().fs.readFile(agentsPath, 'utf-8');
+
+         if (content.trim()) {
+            return {
+               rules: [{ content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' }],
+               paths: { AGENTS: agentsPath },
+               scopes: { AGENTS: 'project' },
+               warnings,
+            };
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read Codex rules from ${agentsPath}: ${(err as Error).message}`);
+         }
+      }
+
+      return { rules: [], paths: {}, scopes: {}, warnings };
    }
 
    formatRule(rule: EditorRule): string {

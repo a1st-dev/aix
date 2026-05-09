@@ -24,6 +24,14 @@ export class NativeSkillsStrategy implements SkillsStrategy {
       return '.aix/skills';
    }
 
+   getProjectImportDirs(): readonly string[] {
+      return [this.editorSkillsDir];
+   }
+
+   getGlobalImportDirs(): readonly string[] {
+      return [this.userEditorSkillsDir];
+   }
+
    isNative(): boolean {
       return true;
    }

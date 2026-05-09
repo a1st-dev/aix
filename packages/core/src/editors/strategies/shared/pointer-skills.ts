@@ -16,6 +16,14 @@ export class PointerSkillsStrategy implements SkillsStrategy {
       return '.aix/skills';
    }
 
+   getProjectImportDirs(): readonly string[] {
+      return [this.getSkillsDir()];
+   }
+
+   getGlobalImportDirs(): readonly string[] {
+      return [];
+   }
+
    isNative(): boolean {
       return false;
    }

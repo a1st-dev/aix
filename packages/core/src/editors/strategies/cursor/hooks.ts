@@ -1,5 +1,6 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, UnsupportedHookField, ParsedHooksImportResult } from '../types.js';
+import { parseFlatImportedHooks, parseHookObject, type ImportedHookEntry } from '../shared/hook-import-utils.js';
 
 /**
  * Map from generic ai.json hook events to Cursor's camelCase event names.
@@ -129,6 +130,64 @@ function buildCursorEntry(action: HookAction, matcher: HookMatcher): CursorEntry
    return entry;
 }
 
+function parseCursorEntry(value: unknown): ImportedHookEntry | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const entry = value as Record<string, unknown>;
+
+   if (entry.type === 'prompt') {
+      if (typeof entry.prompt !== 'string' || entry.prompt.length === 0) {
+         return null;
+      }
+
+      const action: HookAction = {
+         type: 'prompt',
+         prompt: entry.prompt,
+      };
+
+      if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+         action.timeout = entry.timeout;
+      }
+      if (typeof entry.model === 'string' && entry.model.length > 0) {
+         action.model = entry.model;
+      }
+      if (entry.failClosed === true) {
+         action.fail_closed = true;
+      }
+      if (typeof entry.loop_limit === 'number') {
+         action.loop_limit = entry.loop_limit;
+      }
+
+      return {
+         action,
+         matcher: typeof entry.matcher === 'string' && entry.matcher.length > 0 ? entry.matcher : undefined,
+      };
+   }
+
+   if (typeof entry.command !== 'string' || entry.command.length === 0) {
+      return null;
+   }
+
+   const action: HookAction = { command: entry.command };
+
+   if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+      action.timeout = entry.timeout;
+   }
+   if (entry.failClosed === true) {
+      action.fail_closed = true;
+   }
+   if (typeof entry.loop_limit === 'number') {
+      action.loop_limit = entry.loop_limit;
+   }
+
+   return {
+      action,
+      matcher: typeof entry.matcher === 'string' && entry.matcher.length > 0 ? entry.matcher : undefined,
+   };
+}
+
 /**
  * Cursor hooks strategy. Writes hooks to `hooks.json` in the `.cursor` directory.
  * Translates generic ai.json event names to Cursor's camelCase format and wraps the
@@ -180,6 +239,19 @@ export class CursorHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return Array.from(new Set(Object.values(EVENT_MAP))).toSorted();
+   }
+
+   parseImportedConfig(content: string): ParsedHooksImportResult {
+      const parsed = parseHookObject(content);
+
+      if (!parsed.rawHooks) {
+         return { hooks: {}, warnings: parsed.warnings };
+      }
+
+      return {
+         hooks: parseFlatImportedHooks(parsed.rawHooks, EVENT_MAP, parseCursorEntry),
+         warnings: parsed.warnings,
+      };
    }
 
    formatConfig(hooks: HooksConfig): string {

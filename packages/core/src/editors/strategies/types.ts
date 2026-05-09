@@ -1,5 +1,6 @@
 import type { McpServerConfig, ParsedSkill, HooksConfig, ActivationMode } from '@a1st/aix-schema';
 import type { EditorPrompt, EditorRule, FileChange } from '../types.js';
+import type { NamedRule } from '../../import-writer.js';
 
 /**
  * Result of parsing editor-specific frontmatter for rules.
@@ -32,6 +33,49 @@ export interface ParsedPromptFrontmatter {
 }
 
 /**
+ * Supported import scopes for editor-owned config.
+ */
+export type EditorImportScope = 'project' | 'user';
+
+/**
+ * Result shape for rule imports.
+ */
+export interface ImportedRulesResult {
+   rules: NamedRule[];
+   paths: Record<string, string>;
+   scopes: Record<string, EditorImportScope>;
+   warnings: string[];
+}
+
+/**
+ * Result shape for prompt imports.
+ */
+export interface ImportedPromptsResult {
+   prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, EditorImportScope>;
+   warnings: string[];
+}
+
+/**
+ * Result shape for skill imports.
+ */
+export interface ImportedSkillsResult {
+   skills: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, EditorImportScope>;
+   warnings: string[];
+}
+
+/**
+ * Result shape for hook imports.
+ */
+export interface ParsedHooksImportResult {
+   hooks: HooksConfig;
+   warnings: string[];
+}
+
+/**
  * Strategy for formatting and writing rules to an editor. Each editor has different rule file
  * formats and activation mode syntax.
  */
@@ -48,8 +92,17 @@ export interface RulesStrategy {
    /** Get the global rules path relative to home directory, or null if not supported */
    getGlobalRulesPath(): string | null;
 
+   /** Get extra global rule directories relative to home directory, if any. */
+   getGlobalRuleImportDirs?(): readonly string[];
+
    /** Parse rules from file content. Returns array of rule strings. */
    parseGlobalRules(content: string): { rules: string[]; warnings: string[] };
+
+   /** Override global rule import for editors with non-standard layouts. */
+   importGlobalRules?(): Promise<ImportedRulesResult>;
+
+   /** Override project rule import for editors with non-standard layouts. */
+   importProjectRules?(projectRoot: string, editorConfigDir: string): Promise<ImportedRulesResult>;
 
    /** Detect if raw content appears to be in this editor's frontmatter format */
    detectFormat?(content: string): boolean;
@@ -92,6 +145,12 @@ export interface McpStrategy {
    /** Get the global MCP config path relative to home directory, or null if not supported */
    getGlobalMcpConfigPath(): string | null;
 
+   /** Get candidate global import paths, ordered by preference. */
+   getGlobalImportPaths?(): readonly string[];
+
+   /** Get candidate project import paths, ordered by preference. */
+   getProjectImportPaths?(projectRoot: string, editorConfigDir: string): readonly string[];
+
    /** Parse MCP config from file content */
    parseGlobalMcpConfig(content: string): {
       mcp: Record<string, McpServerConfig>;
@@ -127,6 +186,12 @@ export interface SkillsStrategy {
 
    /** Get the central skills directory path relative to project root */
    getSkillsDir(): string;
+
+   /** Get project-local skill directories relative to the project root. */
+   getProjectImportDirs(): readonly string[];
+
+   /** Get user-level skill directories relative to the home directory. */
+   getGlobalImportDirs(): readonly string[];
 
    /** Whether this strategy uses native Agent Skills support (symlinks) or pointer rules */
    isNative(): boolean;
@@ -167,6 +232,12 @@ export interface PromptsStrategy {
 
    /** Get the global prompts directory path relative to home directory, or null if not supported */
    getGlobalPromptsPath(): string | null;
+
+   /** Override global prompt import for editors with non-standard layouts. */
+   importGlobalPrompts?(): Promise<ImportedPromptsResult>;
+
+   /** Override project prompt import for editors with non-standard layouts. */
+   importProjectPrompts?(projectRoot: string, editorConfigDir: string): Promise<ImportedPromptsResult>;
 
    /**
     * Parse prompts from directory. Receives file list and reader function.
@@ -228,6 +299,9 @@ export interface HooksStrategy {
     * support matrix uses this to enforce that `supportedValues` matches the strategy.
     */
    getNativeEventNames(): readonly string[];
+
+   /** Parse an editor-native hook config into generic aix hooks. */
+   parseImportedConfig(content: string): ParsedHooksImportResult;
 }
 
 /**
@@ -238,4 +312,16 @@ export interface UnsupportedHookField {
    matcherIndex: number;
    actionIndex: number;
    fields: string[];
+}
+
+/**
+ * Public strategy bundle exposed by adapters so import/export flows share the same editor wiring.
+ */
+export interface EditorStrategyBundle {
+   configDir: string;
+   mcpStrategy: McpStrategy;
+   rulesStrategy: RulesStrategy;
+   skillsStrategy: SkillsStrategy;
+   promptsStrategy: PromptsStrategy;
+   hooksStrategy: HooksStrategy;
 }

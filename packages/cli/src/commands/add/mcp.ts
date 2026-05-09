@@ -1,14 +1,20 @@
 import { Args, Flags } from '@oclif/core';
 import { select } from '@inquirer/prompts';
 import { BaseCommand } from '../../base-command.js';
-import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
-import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
-import { updateConfig, updateLocalConfig, getLocalConfigPath } from '@a1st/aix-core';
-import { McpRegistryClient, type ServerResponse, type Package } from '@a1st/mcp-registry-client';
+import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
+import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
 import type { McpServerConfig } from '@a1st/aix-schema';
+import {
+   buildMcpServerConfig,
+   findCompatibleNpmPackage,
+   installAddedItem,
+   persistAddedItem,
+   refreshLockfileAfterAdd,
+} from '../../lib/add-command-helper.js';
 
 export default class AddMcp extends BaseCommand<typeof AddMcp> {
    static override description = 'Add an MCP server to ai.json';
@@ -66,26 +72,25 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       }
 
       if (flags.command) {
-         const config: Record<string, unknown> = { command: flags.command };
+         const argsList = flags.args?.split(',').map((arg) => arg.trim());
+         const envEntries = flags.env?.split(',').map((entry) => {
+            const idx = entry.indexOf('=');
 
-         if (flags.args) {
-            config.args = flags.args.split(',').map((a) => a.trim());
-         }
-         if (flags.env) {
-            config.env = Object.fromEntries(
-               flags.env.split(',').map((e) => {
-                  const idx = e.indexOf('=');
+            if (idx === -1) {
+               return [entry.trim(), ''];
+            }
 
-                  if (idx === -1) {
-                     return [e.trim(), ''];
-                  }
-                  return [e.slice(0, idx).trim(), e.slice(idx + 1).trim()];
-               }),
-            );
-         }
-         serverConfig = config as McpServerConfig;
+            return [entry.slice(0, idx).trim(), entry.slice(idx + 1).trim()];
+         });
+         const env = envEntries ? Object.fromEntries(envEntries) : undefined;
+
+         serverConfig = {
+            command: flags.command,
+            ...(argsList ? { args: argsList } : {}),
+            ...(env ? { env } : {}),
+         };
       } else if (flags.url) {
-         serverConfig = { url: flags.url } as McpServerConfig;
+         serverConfig = { url: flags.url };
       } else {
          // No --command or --url provided: search the MCP Registry
          const result = await this.searchRegistry(args.name);
@@ -98,61 +103,48 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       }
 
       // Update ai.json if it exists (or ai.local.json with --local)
-      if (flags.local) {
-         const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
+      await persistAddedItem({
+         loaded,
+         local: flags.local,
+         output: this.output,
+         localSuccessMessage: `Added MCP server "${serverName}" to ai.local.json`,
+         projectSuccessMessage: `Added MCP server "${serverName}"`,
+         saveLocal: async (localPath) => {
+            await updateLocalConfig(localPath, (config) => ({
+               ...config,
+               mcp: {
+                  ...config.mcp,
+                  [serverName]: serverConfig,
+               },
+            }));
+         },
+         saveProject: async (configPath) => {
+            await updateConfig(configPath, (config) => ({
+               ...config,
+               mcp: {
+                  ...config.mcp,
+                  [serverName]: serverConfig,
+               },
+            }));
+         },
+      });
 
-         await updateLocalConfig(localPath, (config) => ({
-            ...config,
-            mcp: {
-               ...config.mcp,
-               [serverName]: serverConfig,
-            },
-         }));
-         this.output.success(`Added MCP server "${serverName}" to ai.local.json`);
-      } else if (loaded) {
-         await updateConfig(loaded.path, (config) => ({
-            ...config,
-            mcp: {
-               ...config.mcp,
-               [serverName]: serverConfig,
-            },
-         }));
-         this.output.success(`Added MCP server "${serverName}"`);
-      } else {
-         this.output.info('No ai.json found — installing directly to editors');
-      }
+      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
 
-      if (flags.lock && lockableConfigPath) {
-         lockfilePath = await refreshLockfile(lockableConfigPath);
-         this.output.success(`Updated ${lockfilePath}`);
-      }
-
-      // Install to editors unless --no-install
-      if (!flags['no-install']) {
-         if (loaded && !flags.local) {
-            const installResult = await installAfterAdd({
-               configPath: loaded.path,
-               sections: ['mcp'],
-               scope: targetScope,
-            });
-
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         } else {
-            const installResult = await installSingleItem({
-               section: 'mcp',
-               name: serverName,
-               value: serverConfig,
-               scope: targetScope,
-               projectRoot: process.cwd(),
-            });
-
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         }
-      }
+      await installAddedItem({
+         logInstallResults: (results) => {
+            this.logInstallResults(results);
+         },
+         skipInstall: flags['no-install'],
+         loaded,
+         local: flags.local,
+         installSections: ['mcp'],
+         itemSection: 'mcp',
+         itemName: serverName,
+         itemValue: serverConfig,
+         scope: targetScope,
+         projectRoot: process.cwd(),
+      });
 
       if (this.flags.json) {
          this.output.json({
@@ -222,7 +214,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       }
 
       // Find an npm package with stdio transport
-      const pkg = this.findNpmPackage(selected.server.packages);
+      const pkg = findCompatibleNpmPackage(selected.server.packages);
 
       if (!pkg) {
          this.error(
@@ -232,7 +224,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       }
 
       // Build the config from the registry package info
-      const config = this.buildConfigFromPackage(pkg);
+      const config = buildMcpServerConfig(pkg);
 
       // Use a friendly name (last part of reverse-DNS name)
       const nameParts = selected.server.name.split('/');
@@ -241,41 +233,4 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       return { config, name: friendlyName };
    }
 
-   /**
-    * Find the first npm package with stdio transport from the packages array.
-    */
-   private findNpmPackage(packages: Package[] | null | undefined): Package | undefined {
-      if (!packages) {
-         return undefined;
-      }
-      return packages.find((p) => p.registryType === 'npm' && p.transport.type === 'stdio');
-   }
-
-   /**
-    * Build an MCP server config from a registry package.
-    */
-   private buildConfigFromPackage(pkg: Package): McpServerConfig {
-      const config: Record<string, unknown> = {
-         command: `npx ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ''}`,
-      };
-
-      // Add environment variables if specified
-      if (pkg.environmentVariables && pkg.environmentVariables.length > 0) {
-         const env: Record<string, string> = {};
-
-         for (const envVar of pkg.environmentVariables) {
-            // Use default value, or placeholder for required secrets
-            if (envVar.default) {
-               env[envVar.name] = envVar.default;
-            } else if (envVar.isRequired) {
-               env[envVar.name] = envVar.isSecret ? '<YOUR_SECRET>' : '<REQUIRED>';
-            }
-         }
-         if (Object.keys(env).length > 0) {
-            config.env = env;
-         }
-      }
-
-      return config as McpServerConfig;
-   }
 }

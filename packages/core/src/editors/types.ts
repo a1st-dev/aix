@@ -1,5 +1,6 @@
 import type { AiJsonConfig, McpServerConfig, HooksConfig } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
+import type { EditorStrategyBundle } from './strategies/types.js';
 
 /**
  * Describes features in ai.json that won't be applied to an editor because the editor doesn't
@@ -235,4 +236,9 @@ export interface EditorAdapter {
       config: AiJsonConfig,
       targetScope: 'project' | 'user',
    ): TargetScopeLimitations;
+
+   /**
+    * Get the editor-owned strategy bundle so import and install use the same wiring.
+    */
+   getStrategyBundle(): EditorStrategyBundle;
 }

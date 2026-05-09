@@ -18,6 +18,7 @@ import type {
    SkillsStrategy,
    PromptsStrategy,
    HooksStrategy,
+   EditorStrategyBundle,
 } from '../strategies/types.js';
 import { deepMergeJson, mcpConfigMergeResolver } from '../../json.js';
 import { loadPrompts as loadPromptsFromConfig, type LoadedPrompt } from '../../prompts/loader.js';
@@ -115,6 +116,17 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
    /** Strategy for formatting and writing hooks */
    protected abstract readonly hooksStrategy: HooksStrategy;
+
+   getStrategyBundle(): EditorStrategyBundle {
+      return {
+         configDir: this.configDir,
+         mcpStrategy: this.mcpStrategy,
+         rulesStrategy: this.rulesStrategy,
+         skillsStrategy: this.skillsStrategy,
+         promptsStrategy: this.promptsStrategy,
+         hooksStrategy: this.hooksStrategy,
+      };
+   }
 
    async detect(projectRoot: string): Promise<boolean> {
       const configPath = join(projectRoot, this.configDir);

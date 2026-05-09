@@ -1,10 +1,11 @@
 import { updateConfig, loadConfig, type EditorName } from '@a1st/aix-core';
-import { McpRegistryClient, type ServerResponse, type Package } from '@a1st/mcp-registry-client';
-import { normalizeEditors, resolveScope, type ConfigScope, type McpServerConfig } from '@a1st/aix-schema';
+import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
+import { normalizeEditors, resolveScope, type ConfigScope } from '@a1st/aix-schema';
 import { dirname } from 'pathe';
 import { installAfterAdd } from './install-helper.js';
 import { isValidSkillName, normalizeSkillName, parseSkillSource } from './skill-source.js';
 import { computeFilesToDelete, deleteFiles } from './delete-helper.js';
+import { buildMcpServerConfig, findCompatibleNpmPackage } from './add-command-helper.js';
 
 export interface AddSkillOptions {
    configPath: string;
@@ -73,42 +74,6 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
 }
 
 /**
- * Find the first npm package with stdio transport from the packages array.
- */
-function findNpmPackage(packages: Package[] | null | undefined): Package | undefined {
-   if (!packages) {
-      return undefined;
-   }
-   return packages.find((p) => p.registryType === 'npm' && p.transport.type === 'stdio');
-}
-
-/**
- * Build an MCP server config from a registry package.
- */
-function buildConfigFromPackage(pkg: Package): McpServerConfig {
-   const config: Record<string, unknown> = {
-      command: `npx ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ''}`,
-   };
-
-   if (pkg.environmentVariables && pkg.environmentVariables.length > 0) {
-      const env: Record<string, string> = {};
-
-      for (const envVar of pkg.environmentVariables) {
-         if (envVar.default) {
-            env[envVar.name] = envVar.default;
-         } else if (envVar.isRequired) {
-            env[envVar.name] = envVar.isSecret ? '<YOUR_SECRET>' : '<REQUIRED>';
-         }
-      }
-      if (Object.keys(env).length > 0) {
-         config.env = env;
-      }
-   }
-
-   return config as McpServerConfig;
-}
-
-/**
  * Add an MCP server to ai.json programmatically by searching the MCP Registry.
  */
 export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
@@ -129,7 +94,7 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
 
       // Use the first result
       const selected = results[0] as ServerResponse,
-            pkg = findNpmPackage(selected.server.packages);
+            pkg = findCompatibleNpmPackage(selected.server.packages);
 
       if (!pkg) {
          return {
@@ -139,7 +104,7 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
          };
       }
 
-      const serverConfig = buildConfigFromPackage(pkg),
+      const serverConfig = buildMcpServerConfig(pkg),
             nameParts = selected.server.name.split('/'),
             friendlyName = nameParts[nameParts.length - 1] ?? selected.server.name;
 

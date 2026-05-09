@@ -1,5 +1,5 @@
 import type { HooksConfig } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
 
 /**
  * No-op hooks strategy for editors that don't support hooks. Reports every supplied
@@ -36,5 +36,9 @@ export class NoHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return [];
+   }
+
+   parseImportedConfig(_content: string): ParsedHooksImportResult {
+      return { hooks: {}, warnings: [] };
    }
 }

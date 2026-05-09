@@ -1,4 +1,5 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
+import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
 
@@ -21,6 +22,13 @@ export class CopilotMcpStrategy implements McpStrategy {
 
    getGlobalMcpConfigPath(): string | null {
       return '.copilot/mcp-config.json';
+   }
+
+   getProjectImportPaths(projectRoot: string): readonly string[] {
+      return [
+         join(projectRoot, this.getConfigPath()),
+         join(projectRoot, '.github', 'mcp.json'),
+      ];
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {

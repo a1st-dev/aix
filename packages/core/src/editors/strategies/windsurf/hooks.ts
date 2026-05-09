@@ -1,5 +1,6 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
+import { parseFlatImportedHooks, parseHookObject, type ImportedHookEntry } from '../shared/hook-import-utils.js';
 
 /**
  * Map from generic ai.json hook events to Windsurf's snake_case event names.
@@ -75,6 +76,38 @@ function buildWindsurfEntry(action: HookAction): WindsurfHookEntry | undefined {
    return entry;
 }
 
+function parseWindsurfEntry(value: unknown): ImportedHookEntry | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const entry = value as Record<string, unknown>,
+         command = typeof entry.command === 'string' && entry.command.length > 0 ? entry.command : undefined,
+         powershell =
+            typeof entry.powershell === 'string' && entry.powershell.length > 0 ? entry.powershell : undefined;
+
+   if (!command && !powershell) {
+      return null;
+   }
+
+   const action: HookAction = {};
+
+   if (command) {
+      action.command = command;
+   }
+   if (powershell) {
+      action.powershell = powershell;
+   }
+   if (typeof entry.show_output === 'boolean') {
+      action.show_output = entry.show_output;
+   }
+   if (typeof entry.working_directory === 'string' && entry.working_directory.length > 0) {
+      action.working_directory = entry.working_directory;
+   }
+
+   return { action };
+}
+
 /**
  * Windsurf hooks strategy. Writes hooks to `hooks.json` in the `.windsurf` directory.
  * Translates generic ai.json event names to Windsurf's snake_case format.
@@ -121,6 +154,19 @@ export class WindsurfHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return Array.from(new Set(Object.values(EVENT_MAP))).toSorted();
+   }
+
+   parseImportedConfig(content: string): ParsedHooksImportResult {
+      const parsed = parseHookObject(content);
+
+      if (!parsed.rawHooks) {
+         return { hooks: {}, warnings: parsed.warnings };
+      }
+
+      return {
+         hooks: parseFlatImportedHooks(parsed.rawHooks, EVENT_MAP, parseWindsurfEntry),
+         warnings: parsed.warnings,
+      };
    }
 
    formatConfig(hooks: HooksConfig): string {

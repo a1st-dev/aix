@@ -289,14 +289,14 @@ describe('Editor Config Import', () => {
                JSON.stringify({
                   hooks: {
                      preToolUse: [{
-                        matcher: 'Bash',
+                        matcher: 'bash|powershell',
                         hooks: [{
                            type: 'command',
                            command: 'echo pre',
                            timeout: 15,
                         }],
                      }],
-                     stop: [{
+                     agentStop: [{
                         matcher: '',
                         hooks: [{
                            type: 'command',
@@ -326,6 +326,60 @@ describe('Editor Config Import', () => {
             }]);
             expect(result.scopes.hooks.pre_command).toBe('user');
             expect(result.paths.hooks.pre_command).toBe(join(fakeHome, '.copilot', 'hooks', 'hooks.json'));
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports user-scoped Gemini hooks into generic hook events', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-gemini-hooks-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME;
+
+         process.env.HOME = fakeHome;
+
+         try {
+            await mkdir(join(fakeHome, '.gemini'), { recursive: true });
+            await writeFile(
+               join(fakeHome, '.gemini', 'settings.json'),
+               JSON.stringify({
+                  hooks: {
+                     BeforeTool: [{
+                        matcher: 'Shell',
+                        sequential: true,
+                        hooks: [{
+                           type: 'command',
+                           command: 'echo pre',
+                           timeout: 1000,
+                           name: 'audit',
+                        }],
+                     }],
+                  },
+               }),
+               'utf-8',
+            );
+
+            const result = await importFromEditor('gemini', {
+               projectRoot,
+               scope: 'user',
+            });
+
+            expect(result.hooks.pre_tool_use).toEqual([{
+               matcher: 'Shell',
+               sequential: true,
+               hooks: [{
+                  command: 'echo pre',
+                  timeout: 1,
+                  name: 'audit',
+               }],
+            }]);
+            expect(result.scopes.hooks.pre_tool_use).toBe('user');
+            expect(result.paths.hooks.pre_tool_use).toBe(join(fakeHome, '.gemini', 'settings.json'));
          } finally {
             if (originalHome === undefined) {
                delete process.env.HOME;

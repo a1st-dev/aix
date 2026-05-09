@@ -1,17 +1,17 @@
 import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
-import {
-   installAfterAdd,
-   installSingleItem,
-   formatInstallResults,
-} from '../../lib/install-helper.js';
-import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { parseSkillSource } from '../../lib/skill-source.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
-import { getLocalConfigPath, updateConfig, updateLocalConfig } from '@a1st/aix-core';
+import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
+import {
+   installAddedItem,
+   persistAddedItem,
+   refreshLockfileAfterAdd,
+} from '../../lib/add-command-helper.js';
 
 export default class AddSkill extends BaseCommand<typeof AddSkill> {
    static override description = 'Add a skill to ai.json';
@@ -79,60 +79,48 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
       let lockfilePath: string | undefined;
 
-      if (flags.local) {
-         const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
+      await persistAddedItem({
+         loaded,
+         local: flags.local,
+         output: this.output,
+         localSuccessMessage: `Added skill "${skillName}" to ai.local.json`,
+         projectSuccessMessage: `Added skill "${skillName}"`,
+         saveLocal: async (localPath) => {
+            await updateLocalConfig(localPath, (config) => ({
+               ...config,
+               skills: {
+                  ...config.skills,
+                  [skillName]: parsed.value,
+               },
+            }));
+         },
+         saveProject: async (configPath) => {
+            await updateConfig(configPath, (config) => ({
+               ...config,
+               skills: {
+                  ...config.skills,
+                  [skillName]: parsed.value,
+               },
+            }));
+         },
+      });
 
-         await updateLocalConfig(localPath, (config) => ({
-            ...config,
-            skills: {
-               ...config.skills,
-               [skillName]: parsed.value,
-            },
-         }));
-         this.output.success(`Added skill "${skillName}" to ai.local.json`);
-      } else if (loaded) {
-         await updateConfig(loaded.path, (config) => ({
-            ...config,
-            skills: {
-               ...config.skills,
-               [skillName]: parsed.value,
-            },
-         }));
-         this.output.success(`Added skill "${skillName}"`);
-      } else {
-         this.output.info('No ai.json found — installing directly to editors');
-      }
+      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
 
-      if (flags.lock && lockableConfigPath) {
-         lockfilePath = await refreshLockfile(lockableConfigPath);
-         this.output.success(`Updated ${lockfilePath}`);
-      }
-
-      if (!flags['no-install']) {
-         if (loaded && !flags.local) {
-            const installResult = await installAfterAdd({
-               configPath: loaded.path,
-               sections: ['skills'],
-               scope: targetScope,
-            });
-
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         } else {
-            const installResult = await installSingleItem({
-               section: 'skills',
-               name: skillName,
-               value: parsed.value,
-               scope: targetScope,
-               projectRoot: process.cwd(),
-            });
-
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         }
-      }
+      await installAddedItem({
+         logInstallResults: (results) => {
+            this.logInstallResults(results);
+         },
+         skipInstall: flags['no-install'],
+         loaded,
+         local: flags.local,
+         installSections: ['skills'],
+         itemSection: 'skills',
+         itemName: skillName,
+         itemValue: parsed.value,
+         scope: targetScope,
+         projectRoot: process.cwd(),
+      });
 
       if (this.flags.json) {
          this.output.json({

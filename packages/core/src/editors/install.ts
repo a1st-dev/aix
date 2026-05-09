@@ -214,14 +214,7 @@ async function processGlobalFeatures(
    projectRoot: string,
    options?: ApplyOptions,
 ): Promise<GlobalChangesInfo | undefined> {
-   // Access the adapter's strategies (they're protected, so we need to cast)
-   const adapterAny = adapter as unknown as {
-      mcpStrategy: import('./strategies/types.js').McpStrategy;
-      promptsStrategy: import('./strategies/types.js').PromptsStrategy;
-   };
-
-   const mcpStrategy = adapterAny.mcpStrategy,
-         promptsStrategy = adapterAny.promptsStrategy;
+   const { mcpStrategy, promptsStrategy } = adapter.getStrategyBundle();
 
    // Check if this editor has any global-only features
    const hasMcpGlobalOnly = mcpStrategy?.isGlobalOnly?.() && Object.keys(editorConfig.mcp).length > 0,

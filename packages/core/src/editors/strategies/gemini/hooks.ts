@@ -1,5 +1,6 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
+import { parseHookObject, parseMatcherImportedHooks } from '../shared/hook-import-utils.js';
 
 /**
  * Map from generic ai.json hook events to Gemini CLI's PascalCase event names.
@@ -68,6 +69,34 @@ function buildGeminiHook(action: HookAction): GeminiHookConfig | undefined {
    return entry;
 }
 
+function parseGeminiAction(value: unknown): HookAction | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const entry = value as Record<string, unknown>;
+
+   if (entry.type !== 'command' || typeof entry.command !== 'string' || entry.command.length === 0) {
+      return null;
+   }
+
+   const action: HookAction = {
+      command: entry.command,
+   };
+
+   if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+      action.timeout = Math.ceil(entry.timeout / 1000);
+   }
+   if (typeof entry.name === 'string' && entry.name.length > 0) {
+      action.name = entry.name;
+   }
+   if (typeof entry.description === 'string' && entry.description.length > 0) {
+      action.description = entry.description;
+   }
+
+   return action;
+}
+
 /**
  * Gemini CLI hooks strategy. Writes hooks into `.gemini/settings.json` under a top-level
  * `hooks` object. The base adapter's JSON merge keeps unrelated settings keys intact.
@@ -114,6 +143,25 @@ export class GeminiHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return Array.from(new Set(Object.values(EVENT_MAP))).toSorted();
+   }
+
+   parseImportedConfig(content: string): ParsedHooksImportResult {
+      const parsed = parseHookObject(content);
+
+      if (!parsed.rawHooks) {
+         return { hooks: {}, warnings: parsed.warnings };
+      }
+
+      return {
+         hooks: parseMatcherImportedHooks(parsed.rawHooks, {
+            eventMap: EVENT_MAP,
+            parseAction: parseGeminiAction,
+            readSequential: (matcher) => {
+               return typeof matcher.sequential === 'boolean' ? matcher.sequential : undefined;
+            },
+         }),
+         warnings: parsed.warnings,
+      };
    }
 
    formatConfig(hooks: HooksConfig): string {

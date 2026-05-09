@@ -1,5 +1,6 @@
 import type { EditorPrompt } from '../../types.js';
 import type { PromptsStrategy } from '../types.js';
+import { formatPromptFile, parsePromptFiles } from '../shared/prompt-utils.js';
 
 /**
  * Cursor prompts strategy. Uses plain markdown files in `.cursor/commands/`.
@@ -23,70 +24,21 @@ export class CursorPromptsStrategy implements PromptsStrategy {
    }
 
    formatPrompt(prompt: EditorPrompt): string {
-      const lines: string[] = [],
-            contentStartsWithHeading = /^#\s/.test(prompt.content.trim());
-
-      // Only add heading if content doesn't already start with one
-      if (!contentStartsWithHeading) {
-         lines.push(`# ${prompt.name}`, '');
-      }
-
-      // Include description as a paragraph if present (only if we added a heading)
-      if (prompt.description && !contentStartsWithHeading) {
-         lines.push(prompt.description, '');
-      }
-
-      lines.push(prompt.content);
-      return lines.join('\n');
+      return formatPromptFile(prompt, {
+         includeHeading: true,
+         includeDescriptionParagraph: true,
+      });
    }
 
    async parseGlobalPrompts(
       files: string[],
       readFile: (filename: string) => Promise<string>,
    ): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
-      const mdFiles = files.filter((f) => f.endsWith('.md'));
-
-      type ParseResult =
-         | { type: 'prompt'; name: string; content: string }
-         | { type: 'warning'; message: string }
-         | null;
-
-      const results: ParseResult[] = await Promise.all(
-         mdFiles.map(async (file): Promise<ParseResult> => {
-            try {
-               const content = await readFile(file);
-
-               if (content.trim()) {
-                  return {
-                     type: 'prompt',
-                     name: file.replace(/\.md$/, ''),
-                     content: content.trim(),
-                  };
-               }
-               return null;
-            } catch (err) {
-               return {
-                  type: 'warning',
-                  message: `Failed to read prompt ${file}: ${(err as Error).message}`,
-               };
-            }
-         }),
-      );
-
-      const prompts: Record<string, string> = {},
-            warnings: string[] = [];
-
-      for (const result of results) {
-         if (!result) {
-            continue;
-         }
-         if (result.type === 'warning') {
-            warnings.push(result.message);
-         } else {
-            prompts[result.name] = result.content;
-         }
-      }
-
-      return { prompts, warnings };
+      return parsePromptFiles({
+         files,
+         readFile,
+         includeFile: (file) => file.endsWith('.md'),
+         stripSuffix: /\.md$/,
+      });
    }
 }

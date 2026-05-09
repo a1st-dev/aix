@@ -1,5 +1,7 @@
 import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
+import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
+import { getOpenCodeConfigImportPaths } from './import-utils.js';
 
 /**
  * OpenCode stores MCP servers in the top-level `mcp` object in `opencode.json`.
@@ -19,6 +21,14 @@ export class OpenCodeMcpStrategy implements McpStrategy {
 
    getGlobalMcpConfigPath(): string | null {
       return '.config/opencode/opencode.json';
+   }
+
+   getGlobalImportPaths(): readonly string[] {
+      return getOpenCodeConfigImportPaths(this.getGlobalMcpConfigPath() ?? '.config/opencode/opencode.json');
+   }
+
+   getProjectImportPaths(projectRoot: string): readonly string[] {
+      return getOpenCodeConfigImportPaths(join(projectRoot, this.getConfigPath()));
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {

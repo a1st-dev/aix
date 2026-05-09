@@ -5,6 +5,11 @@ import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
 import { parseConfig, normalizeEditors, parseJsonc, resolveScope, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
+import {
+   displayFileChanges,
+   displayGlobalChanges,
+   showUnsupportedFeatureWarnings,
+} from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
@@ -25,9 +30,6 @@ import {
    type ApplyResult,
    type LoadedConfig,
    type ConfigSection,
-   type UnsupportedFeatures,
-   type FileChange,
-   type FileChangeCategory,
    type GitSourceInfo,
 } from '@a1st/aix-core';
 
@@ -401,7 +403,7 @@ export default class Install extends BaseCommand<typeof Install> {
             targetScope,
          });
 
-         this.handleInstallResult(editor, result, projectRoot, isDryRun);
+         this.handleInstallResult(editor, result, isDryRun);
          return result;
       } catch (error) {
          this.output.stopSpinner(false, `Failed to install to ${editor}`);
@@ -418,11 +420,13 @@ export default class Install extends BaseCommand<typeof Install> {
    private handleInstallResult(
       editor: EditorName,
       result: ApplyResult,
-      projectRoot: string,
       isDryRun: boolean,
    ): void {
       const hasLocalChanges = result.changes.length > 0,
-            hasGlobalChanges = this.hasGlobalChanges(result.globalChanges);
+            hasGlobalChanges = Boolean(
+               result.globalChanges
+               && (result.globalChanges.applied.length > 0 || result.globalChanges.skipped.length > 0),
+            );
 
       if (isDryRun) {
          this.output.stopSpinner(true, `Changes for ${editor}:`);
@@ -430,11 +434,25 @@ export default class Install extends BaseCommand<typeof Install> {
             this.output.info('No changes needed (no rules or MCP servers configured)');
          } else {
             if (hasLocalChanges) {
-               this.displayChanges(result.changes, projectRoot, true);
+               displayFileChanges({
+                  output: this.output,
+                  quiet: this.flags.quiet,
+                  changes: result.changes,
+                  showAction: true,
+                  blankBeforeEachCategory: true,
+                  blankAfterEachCategory: true,
+               });
             }
-            this.displayGlobalChanges(result.globalChanges);
+            displayGlobalChanges({
+               output: this.output,
+               quiet: this.flags.quiet,
+               globalChanges: result.globalChanges,
+               blankBeforeEachGroup: true,
+               blankAfterEachGroup: false,
+               finalBlank: true,
+            });
          }
-         this.showUnsupportedFeatureWarnings(editor, result.unsupportedFeatures);
+         showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
          return;
       }
 
@@ -457,9 +475,22 @@ export default class Install extends BaseCommand<typeof Install> {
       this.output.stopSpinner(true, `Installed to ${editor}`);
       if (!this.flags.quiet) {
          if (hasLocalChanges) {
-            this.displayChanges(result.changes, projectRoot);
+            displayFileChanges({
+               output: this.output,
+               quiet: this.flags.quiet,
+               changes: result.changes,
+               blankBeforeEachCategory: true,
+               blankAfterEachCategory: true,
+            });
          }
-         this.displayGlobalChanges(result.globalChanges);
+         displayGlobalChanges({
+            output: this.output,
+            quiet: this.flags.quiet,
+            globalChanges: result.globalChanges,
+            blankBeforeEachGroup: true,
+            blankAfterEachGroup: false,
+            finalBlank: true,
+         });
       }
 
       // Show Codex-specific usage instructions when MCP flags were generated
@@ -474,7 +505,7 @@ export default class Install extends BaseCommand<typeof Install> {
          }
       }
 
-      this.showUnsupportedFeatureWarnings(editor, result.unsupportedFeatures);
+      showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
    }
 
    /**
@@ -635,178 +666,4 @@ export default class Install extends BaseCommand<typeof Install> {
       }
    }
 
-   /**
-    * Display warnings for features that the editor doesn't support.
-    */
-   private showUnsupportedFeatureWarnings(editor: EditorName, unsupported?: UnsupportedFeatures): void {
-      if (!unsupported || this.flags.quiet) {
-         return;
-      }
-
-      if (unsupported.mcp) {
-         this.output.warn(
-            `${editor} does not support MCP. Skipped servers: ${unsupported.mcp.servers.join(', ')}`,
-         );
-      }
-
-      if (unsupported.hooks) {
-         if (unsupported.hooks.allUnsupported) {
-            this.output.warn(`${editor} does not support hooks. All hooks skipped.`);
-         } else if (unsupported.hooks.unsupportedEvents?.length) {
-            this.output.warn(
-               `${editor} does not support these hook events: ${unsupported.hooks.unsupportedEvents.join(', ')}`,
-            );
-         }
-      }
-
-      if (unsupported.prompts) {
-         this.output.warn(
-            `${editor} does not support prompts. Skipped: ${unsupported.prompts.prompts.join(', ')}`,
-         );
-      }
-   }
-
-   /**
-    * Display changes grouped by category with better visual hierarchy.
-    */
-   private displayChanges(changes: FileChange[], _projectRoot: string, showAction = false): void {
-      // Group changes by category
-      const byCategory = new Map<FileChangeCategory, FileChange[]>();
-
-      for (const change of changes) {
-         const category = change.category ?? 'other';
-         const list = byCategory.get(category) ?? [];
-
-         list.push(change);
-         byCategory.set(category, list);
-      }
-
-      // Display order and labels
-      const categoryOrder: Array<{ key: FileChangeCategory; label: string }> = [
-         { key: 'skill', label: 'Skills' },
-         { key: 'rule', label: 'Rules' },
-         { key: 'workflow', label: 'Workflows' },
-         { key: 'mcp', label: 'MCP' },
-         { key: 'hook', label: 'Hooks' },
-         { key: 'other', label: 'Other' },
-      ];
-
-      for (const { key, label } of categoryOrder) {
-         const categoryChanges = byCategory.get(key);
-
-         if (!categoryChanges || categoryChanges.length === 0) {
-            continue;
-         }
-
-         this.output.log('');
-         this.output.log(this.output.cyan(`  ${label}`));
-
-         // For skills, deduplicate by name (each skill has both .aix and editor symlink changes)
-         const seenNames = new Set<string>();
-
-         for (const change of categoryChanges) {
-            const name =
-               key === 'skill' ? this.extractSkillName(change.path) : this.extractFileName(change.path);
-
-            // Skip duplicate skill names
-            if (key === 'skill') {
-               if (seenNames.has(name)) {
-                  continue;
-               }
-               seenNames.add(name);
-            }
-
-            const prefix = this.getChangePrefix(change.action),
-                  action = showAction ? ` ${this.output.dim(`(${change.action})`)}` : '';
-
-            this.output.log(`    ${prefix} ${name}${action}`);
-         }
-      }
-
-      this.output.log('');
-   }
-
-   /**
-    * Check whether global-only processing produced anything worth showing.
-    */
-   private hasGlobalChanges(globalChanges?: ApplyResult['globalChanges']): boolean {
-      return Boolean(globalChanges && (globalChanges.applied.length > 0 || globalChanges.skipped.length > 0));
-   }
-
-   /**
-    * Display global-only feature changes, such as Codex prompts and MCP config.
-    */
-   private displayGlobalChanges(globalChanges?: ApplyResult['globalChanges']): void {
-      if (!this.hasGlobalChanges(globalChanges) || !globalChanges) {
-         return;
-      }
-
-      const groups = [
-         { label: 'Global MCP', type: 'mcp' as const },
-         { label: 'Global Prompts', type: 'prompt' as const },
-      ];
-
-      for (const { label, type } of groups) {
-         const applied = globalChanges.applied.filter((change) => change.type === type),
-               skipped = globalChanges.skipped.filter((change) => change.type === type);
-
-         if (applied.length === 0 && skipped.length === 0) {
-            continue;
-         }
-
-         this.output.log('');
-         this.output.log(this.output.cyan(`  ${label}`));
-
-         for (const change of applied) {
-            this.output.log(`    ${this.output.green('✓')} ${change.name}`);
-         }
-         for (const change of skipped) {
-            this.output.log(`    ${this.output.dim('-')} ${change.name} ${this.output.dim(`(${change.reason})`)}`);
-         }
-      }
-
-      for (const warning of globalChanges.warnings) {
-         this.output.warn(warning);
-      }
-
-      this.output.log('');
-   }
-
-   /**
-    * Get the display prefix for a change action.
-    */
-   private getChangePrefix(action: FileChange['action']): string {
-      switch (action) {
-         case 'create':
-            return this.output.green('✓');
-         case 'update':
-            return this.output.green('✓');
-         case 'unchanged':
-            return this.output.green('✓');
-         case 'delete':
-            return this.output.red('-');
-      }
-   }
-
-   /**
-    * Extract skill name from paths like .aix/skills/pdf or .windsurf/skills/pdf -> pdf
-    */
-   private extractSkillName(path: string): string {
-      // Match shared .aix skill storage plus editor-native skill directories.
-      const match = path.match(
-         /(?:\.aix|\.agents|\.windsurf|\.cursor|\.claude|\.github|\.codex)\/skills\/([^/]+)/,
-      );
-
-      return match?.[1] ?? this.extractFileName(path);
-   }
-
-   /**
-    * Extract filename from path
-    */
-   private extractFileName(path: string): string {
-      const parts = path.split('/'),
-            last = parts[parts.length - 1];
-
-      return last !== undefined ? last : path;
-   }
 }

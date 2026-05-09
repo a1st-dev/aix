@@ -1,5 +1,6 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
+import { parseHookObject, parseMatcherImportedHooks } from '../shared/hook-import-utils.js';
 
 /**
  * Map from generic ai.json hook events to Claude Code's PascalCase event names.
@@ -254,6 +255,116 @@ function claudeEntriesFromAction(action: HookAction): ClaudeHookEntry[] {
    return single ? [ single ] : [];
 }
 
+function parseClaudeHookAction(value: unknown): HookAction | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const entry = value as Record<string, unknown>;
+
+   if (entry.type === 'http') {
+      if (typeof entry.url !== 'string' || entry.url.length === 0) {
+         return null;
+      }
+
+      const action: HookAction = {
+         type: 'http',
+         url: entry.url,
+      };
+
+      if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+         action.timeout = entry.timeout;
+      }
+      if (isStringRecord(entry.headers)) {
+         action.headers = entry.headers;
+      }
+      if (Array.isArray(entry.allowedEnvVars)) {
+         action.allowed_env_vars = entry.allowedEnvVars.map(String);
+      }
+
+      return action;
+   }
+
+   if (entry.type === 'mcp_tool') {
+      if (typeof entry.server !== 'string' || typeof entry.tool !== 'string') {
+         return null;
+      }
+
+      const action: HookAction = {
+         type: 'mcp_tool',
+         mcp_server: entry.server,
+         mcp_tool: entry.tool,
+      };
+
+      if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+         action.timeout = entry.timeout;
+      }
+      if (entry.input && typeof entry.input === 'object') {
+         action.mcp_input = entry.input as Record<string, unknown>;
+      }
+
+      return action;
+   }
+
+   if (entry.type === 'prompt' || entry.type === 'agent') {
+      if (typeof entry.prompt !== 'string' || entry.prompt.length === 0) {
+         return null;
+      }
+
+      const action: HookAction = {
+         type: entry.type,
+         prompt: entry.prompt,
+      };
+
+      if (typeof entry.model === 'string' && entry.model.length > 0) {
+         action.model = entry.model;
+      }
+      if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+         action.timeout = entry.timeout;
+      }
+
+      return action;
+   }
+
+   if (typeof entry.command !== 'string' || entry.command.length === 0) {
+      return null;
+   }
+
+   const action: HookAction = { command: entry.command };
+
+   if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+      action.timeout = entry.timeout;
+   }
+   if (entry.async === true) {
+      action.async = true;
+   }
+   if (entry.asyncRewake === true) {
+      action.async_rewake = true;
+   }
+   if (entry.shell === 'bash' || entry.shell === 'powershell') {
+      action.shell = entry.shell;
+   }
+   if (typeof entry.if === 'string' && entry.if.length > 0) {
+      action.if = entry.if;
+   }
+   if (typeof entry.statusMessage === 'string') {
+      action.status_message = entry.statusMessage;
+   }
+   if (typeof entry.once === 'boolean') {
+      action.once = entry.once;
+   }
+
+   return action;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+   if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
+   }
+
+   return Object.values(value).every((entry) => typeof entry === 'string');
+}
+
 /**
  * Claude Code hooks strategy. Writes hooks to `settings.json` in the `.claude` directory.
  * Translates generic ai.json event names to Claude Code's PascalCase format.
@@ -300,6 +411,23 @@ export class ClaudeCodeHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return Array.from(new Set(Object.values(EVENT_MAP))).toSorted();
+   }
+
+   parseImportedConfig(content: string): ParsedHooksImportResult {
+      const parsed = parseHookObject(content);
+
+      if (!parsed.rawHooks) {
+         return { hooks: {}, warnings: parsed.warnings };
+      }
+
+      return {
+         hooks: parseMatcherImportedHooks(parsed.rawHooks, {
+            eventMap: EVENT_MAP,
+            parseAction: parseClaudeHookAction,
+            toolMatchers: TOOL_MATCHER_MAP,
+         }),
+         warnings: parsed.warnings,
+      };
    }
 
    formatConfig(hooks: HooksConfig): string {

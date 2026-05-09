@@ -1,45 +1,26 @@
-import { dirname, isAbsolute, join } from 'pathe';
+import { join } from 'pathe';
 import {
    createEmptyConfig,
-   type HookEvent,
-   parseJsonc,
    type AiJsonConfig,
-   type HookAction,
-   type HookMatcher,
    type HooksConfig,
    type McpServerConfig,
 } from '@a1st/aix-schema';
 import type { EditorName } from './types.js';
-import type { McpStrategy, RulesStrategy, PromptsStrategy } from './strategies/types.js';
+import type {
+   EditorImportScope,
+   ImportedSkillsResult,
+   McpStrategy,
+   PromptsStrategy,
+   RulesStrategy,
+   SkillsStrategy,
+   HooksStrategy,
+} from './strategies/types.js';
 import type { NamedRule } from '../import-writer.js';
-import { WindsurfRulesStrategy } from './strategies/windsurf/rules.js';
-import { WindsurfPromptsStrategy } from './strategies/windsurf/prompts.js';
-import { WindsurfMcpStrategy } from './strategies/windsurf/mcp.js';
-import { StandardMcpStrategy } from './strategies/shared/standard-mcp.js';
-import { CursorRulesStrategy } from './strategies/cursor/rules.js';
-import { CursorPromptsStrategy } from './strategies/cursor/prompts.js';
-import { ClaudeCodeMcpStrategy } from './strategies/claude-code/mcp.js';
-import { ClaudeCodeRulesStrategy } from './strategies/claude-code/rules.js';
-import { ClaudeCodePromptsStrategy } from './strategies/claude-code/prompts.js';
-import { CopilotMcpStrategy } from './strategies/copilot/mcp.js';
-import { CopilotRulesStrategy } from './strategies/copilot/rules.js';
-import { CopilotPromptsStrategy } from './strategies/copilot/prompts.js';
-import { ZedMcpStrategy } from './strategies/zed/mcp.js';
-import { ZedRulesStrategy } from './strategies/zed/rules.js';
-import { ZedPromptsStrategy } from './strategies/zed/prompts.js';
-import { CodexRulesStrategy } from './strategies/codex/rules.js';
-import { CodexPromptsStrategy } from './strategies/codex/prompts.js';
-import { CodexMcpStrategy } from './strategies/codex/mcp.js';
-import { GeminiRulesStrategy } from './strategies/gemini/rules.js';
-import { GeminiPromptsStrategy } from './strategies/gemini/prompts.js';
-import { GeminiMcpStrategy } from './strategies/gemini/mcp.js';
-import { OpenCodeRulesStrategy } from './strategies/opencode/rules.js';
-import { OpenCodePromptsStrategy } from './strategies/opencode/prompts.js';
-import { OpenCodeMcpStrategy } from './strategies/opencode/mcp.js';
+import { getAdapter } from './install.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter, type RuntimeDirent } from '../runtime/index.js';
 
-type ImportScope = 'project' | 'user';
+type ImportScope = EditorImportScope;
 export type ImportReadScope = ImportScope | 'all';
 
 function existsSync(path: string): boolean {
@@ -67,6 +48,23 @@ function readdir(path: string, options?: { withFileTypes: true }): Promise<strin
       return getRuntimeAdapter().fs.readdir(path, options);
    }
    return getRuntimeAdapter().fs.readdir(path);
+}
+
+function buildGlobalPath(relativePath: string | null): string | null {
+   return relativePath ? join(homedir(), relativePath) : null;
+}
+
+function buildProjectPath(
+   relativePath: string,
+   projectRoot: string | undefined,
+   configDir: string,
+   isProjectRootConfig = false,
+): string | null {
+   if (!projectRoot) {
+      return null;
+   }
+
+   return isProjectRootConfig ? join(projectRoot, relativePath) : join(projectRoot, configDir, relativePath);
 }
 
 export interface ImportResult {
@@ -137,165 +135,6 @@ export interface NormalizedEditorImport {
    hooks: HooksConfig;
 }
 
-interface ImportStrategies {
-   mcp: McpStrategy;
-   rules: RulesStrategy;
-   prompts: PromptsStrategy;
-}
-
-type ImportedHookEvent = HookEvent;
-
-const CURSOR_HOOK_EVENT_MAP: Record<string, string> = {
-   session_start: 'sessionStart',
-   session_end: 'sessionEnd',
-   pre_tool_use: 'preToolUse',
-   post_tool_use: 'postToolUse',
-   pre_file_read: 'beforeReadFile',
-   pre_command: 'beforeShellExecution',
-   post_command: 'afterShellExecution',
-   pre_mcp_tool: 'beforeMCPExecution',
-   post_mcp_tool: 'afterMCPExecution',
-   post_file_write: 'afterFileEdit',
-   pre_prompt: 'beforeSubmitPrompt',
-   agent_stop: 'stop',
-};
-
-const WINDSURF_HOOK_EVENT_MAP: Record<string, string> = {
-   pre_file_read: 'pre_read_code',
-   post_file_read: 'post_read_code',
-   pre_file_write: 'pre_write_code',
-   post_file_write: 'post_write_code',
-   pre_command: 'pre_run_command',
-   post_command: 'post_run_command',
-   pre_mcp_tool: 'pre_mcp_tool_use',
-   post_mcp_tool: 'post_mcp_tool_use',
-   pre_prompt: 'pre_user_prompt',
-   agent_stop: 'post_cascade_response',
-   worktree_setup: 'post_setup_worktree',
-};
-
-const CLAUDE_CODE_HOOK_EVENT_MAP: Record<string, string> = {
-   pre_tool_use: 'PreToolUse',
-   post_tool_use: 'PostToolUse',
-   pre_file_read: 'PreToolUse',
-   post_file_read: 'PostToolUse',
-   pre_file_write: 'PreToolUse',
-   post_file_write: 'PostToolUse',
-   pre_command: 'PreToolUse',
-   post_command: 'PostToolUse',
-   pre_mcp_tool: 'PreToolUse',
-   post_mcp_tool: 'PostToolUse',
-   session_start: 'SessionStart',
-   session_end: 'SessionEnd',
-   agent_stop: 'Stop',
-   pre_prompt: 'UserPromptSubmit',
-   pre_compact: 'PreCompact',
-   post_compact: 'PostCompact',
-   subagent_start: 'SubagentStart',
-   subagent_stop: 'SubagentStop',
-   task_created: 'TaskCreated',
-   task_completed: 'TaskCompleted',
-   worktree_setup: 'WorktreeCreate',
-};
-
-const COPILOT_HOOK_EVENT_MAP: Record<string, string> = {
-   pre_tool_use: 'preToolUse',
-   post_tool_use: 'postToolUse',
-   pre_file_read: 'preToolUse',
-   post_file_read: 'postToolUse',
-   pre_file_write: 'preToolUse',
-   post_file_write: 'postToolUse',
-   pre_command: 'preToolUse',
-   post_command: 'postToolUse',
-   pre_mcp_tool: 'preToolUse',
-   post_mcp_tool: 'postToolUse',
-   session_start: 'sessionStart',
-   session_end: 'sessionEnd',
-   agent_stop: 'stop',
-   pre_prompt: 'userPromptSubmitted',
-   pre_compact: 'preCompact',
-   subagent_start: 'subagentStart',
-   subagent_stop: 'subagentStop',
-};
-
-const CLAUDE_CODE_HOOK_TOOL_MATCHERS: Record<string, string> = {
-   pre_command: 'Bash',
-   post_command: 'Bash',
-   pre_file_read: 'Read',
-   post_file_read: 'Read',
-   pre_file_write: 'Write|Edit',
-   post_file_write: 'Write|Edit',
-   pre_mcp_tool: 'mcp__.*',
-   post_mcp_tool: 'mcp__.*',
-};
-
-const COPILOT_HOOK_TOOL_MATCHERS: Record<string, string> = {
-   pre_command: 'Bash',
-   post_command: 'Bash',
-   pre_file_read: 'Read',
-   post_file_read: 'Read',
-   pre_file_write: 'Write|Edit',
-   post_file_write: 'Write|Edit',
-   pre_mcp_tool: 'mcp__.*',
-   post_mcp_tool: 'mcp__.*',
-};
-
-/**
- * Get the import strategies for an editor.
- */
-function getImportStrategies(editor: EditorName): ImportStrategies {
-   switch (editor) {
-      case 'windsurf':
-         return {
-            mcp: new WindsurfMcpStrategy(),
-            rules: new WindsurfRulesStrategy(),
-            prompts: new WindsurfPromptsStrategy(),
-         };
-      case 'cursor':
-         return {
-            mcp: new StandardMcpStrategy(),
-            rules: new CursorRulesStrategy(),
-            prompts: new CursorPromptsStrategy(),
-         };
-      case 'claude-code':
-         return {
-            mcp: new ClaudeCodeMcpStrategy(),
-            rules: new ClaudeCodeRulesStrategy(),
-            prompts: new ClaudeCodePromptsStrategy(),
-         };
-      case 'copilot':
-         return {
-            mcp: new CopilotMcpStrategy(),
-            rules: new CopilotRulesStrategy(),
-            prompts: new CopilotPromptsStrategy(),
-         };
-      case 'zed':
-         return {
-            mcp: new ZedMcpStrategy(),
-            rules: new ZedRulesStrategy(),
-            prompts: new ZedPromptsStrategy(),
-         };
-      case 'codex':
-         return {
-            mcp: new CodexMcpStrategy(),
-            rules: new CodexRulesStrategy(),
-            prompts: new CodexPromptsStrategy(),
-         };
-      case 'gemini':
-         return {
-            mcp: new GeminiMcpStrategy(),
-            rules: new GeminiRulesStrategy(),
-            prompts: new GeminiPromptsStrategy(),
-         };
-      case 'opencode':
-         return {
-            mcp: new OpenCodeMcpStrategy(),
-            rules: new OpenCodeRulesStrategy(),
-            prompts: new OpenCodePromptsStrategy(),
-         };
-   }
-}
-
 /**
  * Import configuration from an editor and convert to ai.json format.
  * Merges global config with project-local editor config: Object.assign({}, global, local)
@@ -318,25 +157,31 @@ export async function importFromEditor(
             warnings: [],
             sources: { global: false, local: false },
          },
-         strategies = getImportStrategies(editor),
+         strategies = getAdapter(editor).getStrategyBundle(),
          projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
          scope = options.scope ?? 'all';
 
    if (scope === 'all' || scope === 'user') {
       assertGlobalHomeAccess(`importing global ${editor} configuration`);
-      mergeImportMcp(result, await importMcpConfig(strategies.mcp, editor, 'global'));
-      mergeImportRules(result, await importGlobalRules(strategies.rules, editor));
-      mergeImportPrompts(result, await importPrompts(strategies.prompts, editor, 'global'));
-      mergeImportSkills(result, await importGlobalSkills(editor));
-      mergeImportHooks(result, await importHooks(editor, 'global'));
+      mergeImportMcp(result, await importMcpConfig(strategies.mcpStrategy, strategies.configDir, 'global'));
+      mergeImportRules(result, await importGlobalRules(strategies.rulesStrategy, strategies.configDir));
+      mergeImportPrompts(result, await importPrompts(strategies.promptsStrategy, strategies.configDir, 'global'));
+      mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'user', projectRoot));
+      mergeImportHooks(result, await importHooks(strategies.hooksStrategy, strategies.configDir, 'global'));
    }
 
    if (scope === 'all' || scope === 'project') {
-      mergeImportMcp(result, await importLocalMcpConfig(strategies.mcp, editor, projectRoot));
-      mergeImportRules(result, await importLocalRules(strategies.rules, editor, projectRoot));
-      mergeImportPrompts(result, await importLocalPrompts(strategies.prompts, editor, projectRoot));
-      mergeImportSkills(result, await importLocalSkills(editor, projectRoot));
-      mergeImportHooks(result, await importHooks(editor, 'project', projectRoot));
+      mergeImportMcp(result, await importLocalMcpConfig(strategies.mcpStrategy, strategies.configDir, projectRoot));
+      mergeImportRules(result, await importLocalRules(strategies.rulesStrategy, strategies.configDir, projectRoot));
+      mergeImportPrompts(
+         result,
+         await importLocalPrompts(strategies.promptsStrategy, strategies.configDir, projectRoot),
+      );
+      mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'project', projectRoot));
+      mergeImportHooks(
+         result,
+         await importHooks(strategies.hooksStrategy, strategies.configDir, 'project', projectRoot),
+      );
    }
 
    return result;
@@ -392,7 +237,7 @@ function mergeImportPrompts(
 
 function mergeImportSkills(
    result: ImportResult,
-   imported: Awaited<ReturnType<typeof importGlobalSkills>>,
+   imported: Awaited<ReturnType<typeof importSkills>>,
 ): void {
    if (Object.keys(imported.skills).length > 0) {
       for (const scope of Object.values(imported.scopes)) {
@@ -506,15 +351,16 @@ export function normalizeEditorImport(
    editor: EditorName,
    result: ImportResult,
 ): NormalizedEditorImport {
-   const strategies = getImportStrategies(editor),
+   const strategies = getAdapter(editor).getStrategyBundle(),
          usedRuleNames = new Set<string>(),
          usedPromptNames = new Set<string>(),
          usedSkillNames = new Set<string>();
 
    return {
       mcp: result.mcp,
-      rules: result.rules.map((rule) => normalizeImportedRule(strategies.rules, rule, usedRuleNames)),
-      prompts: Object.entries(result.prompts).map((entry) => normalizeImportedPrompt(strategies.prompts, entry, usedPromptNames)),
+      rules: result.rules.map((rule) => normalizeImportedRule(strategies.rulesStrategy, rule, usedRuleNames)),
+      prompts: Object.entries(result.prompts)
+         .map((entry) => normalizeImportedPrompt(strategies.promptsStrategy, entry, usedPromptNames)),
       skills: Object.entries(result.skills).map(([sourceName, ref]) => ({
          name: dedupeImportedName(sourceName, usedSkillNames),
          sourceName,
@@ -581,254 +427,9 @@ export function buildConfigFromEditorImport(
    return config;
 }
 
-function getHookEventMap(editor: EditorName): Record<string, string> | null {
-   switch (editor) {
-      case 'cursor':
-         return CURSOR_HOOK_EVENT_MAP;
-      case 'windsurf':
-         return WINDSURF_HOOK_EVENT_MAP;
-      case 'claude-code':
-         return CLAUDE_CODE_HOOK_EVENT_MAP;
-      case 'copilot':
-         return COPILOT_HOOK_EVENT_MAP;
-      default:
-         return null;
-   }
-}
-
-function getHookToolMatcherMap(editor: EditorName): Record<string, string> {
-   switch (editor) {
-      case 'claude-code':
-         return CLAUDE_CODE_HOOK_TOOL_MATCHERS;
-      case 'copilot':
-         return COPILOT_HOOK_TOOL_MATCHERS;
-      default:
-         return {};
-   }
-}
-
-function getHookConfigPath(editor: EditorName, projectRoot: string | undefined, source: 'global' | 'project'): string | null {
-   if (editor === 'copilot' && source === 'global') {
-      return join(homedir(), '.copilot/hooks/hooks.json');
-   }
-
-   const configDir = EDITOR_CONFIG_DIRS[editor],
-         hooksPath = getHooksConfigPathRelative(editor);
-
-   if (!hooksPath) {
-      return null;
-   }
-
-   switch (source) {
-      case 'global':
-         return join(homedir(), configDir, hooksPath);
-      case 'project':
-         if (!projectRoot) {
-            return null;
-         }
-         return join(projectRoot, configDir, hooksPath);
-   }
-}
-
-function getHooksConfigPathRelative(editor: EditorName): string | null {
-   switch (editor) {
-      case 'cursor':
-         return 'hooks.json';
-      case 'windsurf':
-         return 'hooks.json';
-      case 'claude-code':
-         return 'settings.json';
-      case 'copilot':
-         return '../.github/hooks/hooks.json';
-      default:
-         return null;
-   }
-}
-
-function parseHookAction(value: unknown): HookAction | null {
-   if (!value || typeof value !== 'object') {
-      return null;
-   }
-
-   const hook = value as Record<string, unknown>;
-
-   if (typeof hook.command !== 'string' || hook.command.length === 0) {
-      return null;
-   }
-
-   const action: HookAction = {
-      command: hook.command,
-   };
-
-   if (typeof hook.timeout === 'number' && hook.timeout > 0) {
-      action.timeout = hook.timeout;
-   }
-   if (typeof hook.show_output === 'boolean') {
-      action.show_output = hook.show_output;
-   }
-   if (typeof hook.working_directory === 'string' && hook.working_directory.length > 0) {
-      action.working_directory = hook.working_directory;
-   }
-
-   return action;
-}
-
-function normalizeImportedMatcher(
-   event: string,
-   matcher: string | undefined,
-   toolMatchers: Record<string, string>,
-): string | undefined {
-   if (!matcher) {
-      return undefined;
-   }
-
-   return toolMatchers[event] === matcher ? undefined : matcher;
-}
-
-function pushImportedMatchers(
-   hooks: HooksConfig,
-   event: ImportedHookEvent,
-   matchers: HookMatcher[],
-): void {
-   if (matchers.length === 0) {
-      return;
-   }
-
-   hooks[event] = [ ...(hooks[event] ?? []), ...matchers ];
-}
-
-function parseFlatHookEntries(
-   rawHooks: Record<string, unknown>,
-   eventMap: Record<string, string>,
-): HooksConfig {
-   const hooks: HooksConfig = {},
-         reverseEventMap: Record<string, ImportedHookEvent> = {};
-
-   for (const [event, nativeEvent] of Object.entries(eventMap)) {
-      reverseEventMap[nativeEvent] = event as ImportedHookEvent;
-   }
-
-   for (const [nativeEvent, rawActions] of Object.entries(rawHooks)) {
-      const event = reverseEventMap[nativeEvent];
-
-      if (!event || !Array.isArray(rawActions)) {
-         continue;
-      }
-
-      const actions = rawActions
-         .map((action) => parseHookAction(action))
-         .filter((action): action is HookAction => action !== null);
-
-      pushImportedMatchers(hooks, event, [{ hooks: actions }]);
-   }
-
-   return hooks;
-}
-
-function resolveMatcherBackedEvent(
-   nativeEvent: string,
-   matcher: string | undefined,
-   eventMap: Record<string, string>,
-   toolMatchers: Record<string, string>,
-) : ImportedHookEvent | null {
-   const matchingEvents = Object.entries(eventMap)
-      .filter(([, mappedEvent]) => mappedEvent === nativeEvent)
-      .map(([event]) => event as ImportedHookEvent);
-
-   if (matchingEvents.length === 0) {
-      return null;
-   }
-
-   for (const event of matchingEvents) {
-      if (toolMatchers[event] === matcher) {
-         return event;
-      }
-   }
-
-   return matchingEvents.find((event) => !toolMatchers[event]) ?? matchingEvents[0] ?? null;
-}
-
-function parseMatcherHookEntries(
-   rawHooks: Record<string, unknown>,
-   eventMap: Record<string, string>,
-   toolMatchers: Record<string, string>,
-): HooksConfig {
-   const hooks: HooksConfig = {};
-
-   for (const [nativeEvent, rawMatchers] of Object.entries(rawHooks)) {
-      if (!Array.isArray(rawMatchers)) {
-         continue;
-      }
-
-      for (const rawMatcher of rawMatchers) {
-         if (!rawMatcher || typeof rawMatcher !== 'object') {
-            continue;
-         }
-
-         const matcherValue = rawMatcher as Record<string, unknown>,
-               event = resolveMatcherBackedEvent(
-                  nativeEvent,
-                  typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
-                  eventMap,
-                  toolMatchers,
-               );
-
-         if (!event || !Array.isArray(matcherValue.hooks)) {
-            continue;
-         }
-
-         const actions = matcherValue.hooks
-            .map((action) => parseHookAction(action))
-            .filter((action): action is HookAction => action !== null);
-
-         pushImportedMatchers(hooks, event, [{
-            ...(normalizeImportedMatcher(
-               event,
-               typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
-               toolMatchers,
-            ) && {
-               matcher: normalizeImportedMatcher(
-                  event,
-                  typeof matcherValue.matcher === 'string' ? matcherValue.matcher : undefined,
-                  toolMatchers,
-               ),
-            }),
-            hooks: actions,
-         }]);
-      }
-   }
-
-   return hooks;
-}
-
-function parseImportedHooks(editor: EditorName, content: string): {
-   hooks: HooksConfig;
-   warnings: string[];
-} {
-   const eventMap = getHookEventMap(editor);
-
-   if (!eventMap) {
-      return { hooks: {}, warnings: [] };
-   }
-
-   const parsed = parseJsonc<{ hooks?: Record<string, unknown> }>(content),
-         warnings = parsed.errors.map((error) => `Failed to parse hooks config: ${error.message}`),
-         rawHooks = parsed.data?.hooks;
-
-   if (!rawHooks || typeof rawHooks !== 'object') {
-      return { hooks: {}, warnings };
-   }
-
-   const toolMatchers = getHookToolMatcherMap(editor),
-         hooks = editor === 'cursor' || editor === 'windsurf'
-            ? parseFlatHookEntries(rawHooks, eventMap)
-            : parseMatcherHookEntries(rawHooks, eventMap, toolMatchers);
-
-   return { hooks, warnings };
-}
-
 async function importHooks(
-   editor: EditorName,
+   strategy: HooksStrategy,
+   configDir: string,
    source: 'global' | 'project',
    projectRoot?: string,
 ): Promise<{
@@ -837,7 +438,9 @@ async function importHooks(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
-   const configPath = getHookConfigPath(editor, projectRoot, source);
+   const configPath = source === 'global'
+      ? buildGlobalPath(strategy.getGlobalConfigPath())
+      : buildProjectPath(strategy.getConfigPath(), projectRoot, configDir);
 
    if (!configPath) {
       return { hooks: {}, paths: {}, scopes: {}, warnings: [] };
@@ -845,7 +448,7 @@ async function importHooks(
 
    try {
       const content = await readFile(configPath, 'utf-8'),
-            parsed = parseImportedHooks(editor, content),
+            parsed = strategy.parseImportedConfig(content),
             scope = source === 'global' ? 'user' : 'project',
             eventNames = Object.keys(parsed.hooks);
 
@@ -869,49 +472,12 @@ async function importHooks(
    }
 }
 
-/** Editor config directory names */
-const EDITOR_CONFIG_DIRS: Record<EditorName, string> = {
-   windsurf: '.windsurf',
-   cursor: '.cursor',
-   'claude-code': '.claude',
-   copilot: '.vscode',
-   zed: '.zed',
-   codex: '.codex',
-   gemini: '.gemini',
-   opencode: '.opencode',
-};
-
-const EDITOR_SKILL_DIRS: Record<EditorName, string[]> = {
-   windsurf: ['.windsurf/skills'],
-   cursor: ['.cursor/skills'],
-   'claude-code': ['.claude/skills'],
-   copilot: ['.github/skills'],
-   zed: ['.aix/skills'],
-   codex: ['.agents/skills'],
-   gemini: ['.gemini/skills'],
-   opencode: ['.opencode/skills'],
-};
-
-const EDITOR_GLOBAL_RULE_DIRS: Partial<Record<EditorName, string[]>> = {
-   'claude-code': ['.claude/rules'],
-};
-
-const EDITOR_GLOBAL_SKILL_DIRS: Partial<Record<EditorName, string[]>> = {
-   windsurf: ['.windsurf/skills'],
-   cursor: ['.cursor/skills'],
-   'claude-code': ['.claude/skills'],
-   copilot: ['.copilot/skills'],
-   codex: ['.codex/skills'],
-   gemini: ['.gemini/skills'],
-   opencode: ['.config/opencode/skills'],
-};
-
 /**
  * Import MCP configuration from an editor's global config.
  */
 async function importMcpConfig(
    strategy: McpStrategy,
-   editor: EditorName,
+   _configDir: string,
    _source: 'global',
 ): Promise<{
    mcp: Record<string, McpServerConfig>;
@@ -919,36 +485,12 @@ async function importMcpConfig(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
-   const warnings: string[] = [],
-         configPath = strategy.getGlobalMcpConfigPath();
-
-   if (!configPath) {
-      // Not a warning - some editors don't have global MCP config
-      return { mcp: {}, paths: {}, scopes: {}, warnings };
-   }
-
-   const fullPath = editor === 'opencode'
-      ? resolveOpenCodeConfigPath(join(homedir(), configPath))
-      : join(homedir(), configPath);
-
-   try {
-      const content = await readFile(fullPath, 'utf-8'),
-            result = strategy.parseGlobalMcpConfig(content);
-
-      return {
-         ...result,
-         paths: pathMapForNames(Object.keys(result.mcp), fullPath),
-         scopes: scopeMapForNames(Object.keys(result.mcp), 'user'),
-      };
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(
-            `Failed to read global MCP config at ${fullPath}: ${(err as Error).message}`,
-         );
-      }
-   }
-
-   return { mcp: {}, paths: {}, scopes: {}, warnings };
+   return importMcpFromPaths(
+      strategy,
+      getGlobalMcpImportPaths(strategy),
+      'user',
+      'global MCP config',
+   );
 }
 
 /**
@@ -956,7 +498,7 @@ async function importMcpConfig(
  */
 async function importLocalMcpConfig(
    strategy: McpStrategy,
-   editor: EditorName,
+   configDir: string,
    projectRoot: string,
 ): Promise<{
    mcp: Record<string, McpServerConfig>;
@@ -971,7 +513,7 @@ async function importLocalMcpConfig(
       return { mcp: {}, paths: {}, scopes: {}, warnings };
    }
 
-   for (const fullPath of getLocalMcpImportPaths(strategy, editor, projectRoot)) {
+   for (const fullPath of getLocalMcpImportPaths(strategy, projectRoot, configDir)) {
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
          const content = await readFile(fullPath, 'utf-8'),
@@ -995,22 +537,69 @@ async function importLocalMcpConfig(
    return { mcp: {}, paths: {}, scopes: {}, warnings };
 }
 
-function getLocalMcpImportPaths(strategy: McpStrategy, editor: EditorName, projectRoot: string): string[] {
-   const configDir = EDITOR_CONFIG_DIRS[editor],
-         mcpConfigPath = strategy.getConfigPath(),
-         baseDir = strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir),
-         primaryPath = editor === 'opencode'
-            ? resolveOpenCodeConfigPath(join(baseDir, mcpConfigPath))
-            : join(baseDir, mcpConfigPath);
+function getGlobalMcpImportPaths(strategy: McpStrategy): readonly string[] {
+   const configuredPaths = strategy.getGlobalImportPaths?.();
 
-   if (editor !== 'copilot') {
-      return [primaryPath];
+   if (configuredPaths && configuredPaths.length > 0) {
+      return configuredPaths.map((path) => buildGlobalPath(path)).filter((path): path is string => Boolean(path));
    }
 
-   return [
-      primaryPath,
-      join(projectRoot, '.github/mcp.json'),
-   ];
+   const defaultPath = buildGlobalPath(strategy.getGlobalMcpConfigPath());
+
+   return defaultPath ? [defaultPath] : [];
+}
+
+function getLocalMcpImportPaths(
+   strategy: McpStrategy,
+   projectRoot: string,
+   configDir: string,
+): readonly string[] {
+   const configuredPaths = strategy.getProjectImportPaths?.(projectRoot, configDir);
+
+   if (configuredPaths && configuredPaths.length > 0) {
+      return configuredPaths;
+   }
+
+   const defaultPath = buildProjectPath(strategy.getConfigPath(), projectRoot, configDir, strategy.isProjectRootConfig?.());
+
+   return defaultPath ? [defaultPath] : [];
+}
+
+async function importMcpFromPaths(
+   strategy: McpStrategy,
+   paths: readonly string[],
+   scope: ImportScope,
+   label: string,
+): Promise<{
+   mcp: Record<string, McpServerConfig>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   const warnings: string[] = [];
+
+   for (const fullPath of paths) {
+      try {
+         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+         const content = await readFile(fullPath, 'utf-8'),
+               result = strategy.parseGlobalMcpConfig(content);
+
+         return {
+            ...result,
+            paths: pathMapForNames(Object.keys(result.mcp), fullPath),
+            scopes: scopeMapForNames(Object.keys(result.mcp), scope),
+         };
+      } catch (err) {
+         if (
+            (err as NodeJS.ErrnoException).code !== 'ENOENT' &&
+            (err as NodeJS.ErrnoException).code !== 'EISDIR'
+         ) {
+            warnings.push(`Failed to read ${label} at ${fullPath}: ${(err as Error).message}`);
+         }
+      }
+   }
+
+   return { mcp: {}, paths: {}, scopes: {}, warnings };
 }
 
 /**
@@ -1018,13 +607,17 @@ function getLocalMcpImportPaths(strategy: McpStrategy, editor: EditorName, proje
  */
 async function importGlobalRules(
    strategy: RulesStrategy,
-   editor: EditorName,
+   _configDir: string,
 ): Promise<{
    rules: NamedRule[];
    paths: Record<string, string>;
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
+   if (strategy.importGlobalRules) {
+      return strategy.importGlobalRules();
+   }
+
    const warnings: string[] = [],
          rulesPath = strategy.getGlobalRulesPath(),
          rules: NamedRule[] = [],
@@ -1055,17 +648,7 @@ async function importGlobalRules(
       }
    }
 
-   if (editor === 'opencode') {
-      const configPath = resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
-            imported = await importOpenCodeInstructionRules(configPath, dirname(configPath), 'user');
-
-      rules.push(...imported.rules);
-      Object.assign(paths, imported.paths);
-      Object.assign(scopes, imported.scopes);
-      warnings.push(...imported.warnings);
-   }
-
-   const ruleDirs = EDITOR_GLOBAL_RULE_DIRS[editor] ?? [];
+   const ruleDirs = strategy.getGlobalRuleImportDirs?.() ?? [];
 
    for (const ruleDir of ruleDirs) {
       const fullPath = join(homedir(), ruleDir);
@@ -1126,7 +709,7 @@ async function readGlobalRuleFile(
  */
 async function importLocalRules(
    strategy: RulesStrategy,
-   editor: EditorName,
+   configDir: string,
    projectRoot: string,
 ): Promise<{
    rules: NamedRule[];
@@ -1134,26 +717,11 @@ async function importLocalRules(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
-   // Codex uses AGENTS.md at the project root (not inside .codex/), so use a dedicated reader
-   if (editor === 'codex') {
-      return importCodexLocalRules(projectRoot);
-   }
-
-   // Gemini uses GEMINI.md at the project root (not inside .gemini/), similar to Codex
-   if (editor === 'gemini') {
-      return importGeminiLocalRules(projectRoot);
-   }
-
-   if (editor === 'opencode') {
-      return importOpenCodeLocalRules(projectRoot);
-   }
-
-   if (editor === 'zed') {
-      return importZedLocalRules(projectRoot);
+   if (strategy.importProjectRules) {
+      return strategy.importProjectRules(projectRoot, configDir);
    }
 
    const warnings: string[] = [],
-         configDir = EDITOR_CONFIG_DIRS[editor],
          rulesDir = strategy.getRulesDir(),
          fullPath = join(projectRoot, configDir, rulesDir);
 
@@ -1190,158 +758,12 @@ async function importLocalRules(
    return { rules: [], paths: {}, scopes: {}, warnings };
 }
 
-async function importZedLocalRules(projectRoot: string): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         rulesPath = join(projectRoot, '.rules');
-
-   try {
-      const content = await readFile(rulesPath, 'utf-8');
-
-      if (content.trim()) {
-         return {
-            rules: [
-               {
-                  content: content.trim(),
-                  name: 'project rules',
-                  path: rulesPath,
-                  scope: 'project',
-               },
-            ],
-            paths: { 'project rules': rulesPath },
-            scopes: { 'project rules': 'project' },
-            warnings,
-         };
-      }
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read Zed rules from ${rulesPath}: ${(err as Error).message}`);
-      }
-   }
-
-   return { rules: [], paths: {}, scopes: {}, warnings };
-}
-
-/**
- * Import Codex rules from AGENTS.md at the project root. Codex discovers one AGENTS.md per
- * directory from root→CWD, so we read the root file and tag it accordingly.
- */
-async function importCodexLocalRules(projectRoot: string): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         agentsPath = join(projectRoot, 'AGENTS.md');
-
-   try {
-      const content = await readFile(agentsPath, 'utf-8');
-
-      if (content.trim()) {
-         return {
-            rules: [
-               { content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' },
-            ],
-            paths: { AGENTS: agentsPath },
-            scopes: { AGENTS: 'project' },
-            warnings,
-         };
-      }
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read Codex rules from ${agentsPath}: ${(err as Error).message}`);
-      }
-   }
-
-   return { rules: [], paths: {}, scopes: {}, warnings };
-}
-
-/**
- * Import Gemini rules from GEMINI.md at the project root. Gemini CLI reads GEMINI.md for
- * project-level context and instructions.
- */
-async function importGeminiLocalRules(projectRoot: string): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         geminiPath = join(projectRoot, 'GEMINI.md');
-
-   try {
-      const content = await readFile(geminiPath, 'utf-8');
-
-      if (content.trim()) {
-         return {
-            rules: [
-               { content: content.trim(), name: 'GEMINI', path: geminiPath, scope: 'project' },
-            ],
-            paths: { GEMINI: geminiPath },
-            scopes: { GEMINI: 'project' },
-            warnings,
-         };
-      }
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read Gemini rules from ${geminiPath}: ${(err as Error).message}`);
-      }
-   }
-
-   return { rules: [], paths: {}, scopes: {}, warnings };
-}
-
-async function importOpenCodeLocalRules(projectRoot: string): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         agentsPath = join(projectRoot, 'AGENTS.md'),
-         rules: NamedRule[] = [],
-         paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {};
-
-   try {
-      const content = await readFile(agentsPath, 'utf-8');
-
-      if (content.trim()) {
-         rules.push({ content: content.trim(), name: 'AGENTS', path: agentsPath, scope: 'project' });
-         paths.AGENTS = agentsPath;
-         scopes.AGENTS = 'project';
-      }
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-         warnings.push(`Failed to read OpenCode rules from ${agentsPath}: ${(err as Error).message}`);
-      }
-   }
-
-   const imported = await importOpenCodeInstructionRules(
-      resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')),
-      projectRoot,
-      'project',
-   );
-
-   rules.push(...imported.rules);
-   Object.assign(paths, imported.paths);
-   Object.assign(scopes, imported.scopes);
-   warnings.push(...imported.warnings);
-
-   return { rules, paths, scopes, warnings };
-}
-
 /**
  * Import prompts/workflows from an editor's global config.
  */
 async function importPrompts(
    strategy: PromptsStrategy,
-   editor: EditorName,
+   _configDir: string,
    _source: 'global',
 ): Promise<{
    prompts: Record<string, string>;
@@ -1349,6 +771,10 @@ async function importPrompts(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
+   if (strategy.importGlobalPrompts) {
+      return strategy.importGlobalPrompts();
+   }
+
    const warnings: string[] = [],
          promptsPath = strategy.getGlobalPromptsPath();
 
@@ -1371,28 +797,11 @@ async function importPrompts(
          scopes: scopeMapForNames(Object.keys(result.prompts), 'user'),
       };
 
-      if (editor !== 'opencode') {
-         return imported;
-      }
-
-      return mergePromptImports(
-         await importOpenCodeConfigPrompts(
-            resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
-            'user',
-         ),
-         imported,
-      );
+      return imported;
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read global prompts from ${fullPath}: ${(err as Error).message}`);
       }
-   }
-
-   if (editor === 'opencode') {
-      return importOpenCodeConfigPrompts(
-         resolveOpenCodeConfigPath(join(homedir(), '.config/opencode/opencode.json')),
-         'user',
-      );
    }
 
    return { prompts: {}, paths: {}, scopes: {}, warnings };
@@ -1403,7 +812,7 @@ async function importPrompts(
  */
 async function importLocalPrompts(
    strategy: PromptsStrategy,
-   editor: EditorName,
+   configDir: string,
    projectRoot: string,
 ): Promise<{
    prompts: Record<string, string>;
@@ -1411,8 +820,11 @@ async function importLocalPrompts(
    scopes: Record<string, ImportScope>;
    warnings: string[];
 }> {
+   if (strategy.importProjectPrompts) {
+      return strategy.importProjectPrompts(projectRoot, configDir);
+   }
+
    const warnings: string[] = [],
-         configDir = EDITOR_CONFIG_DIRS[editor],
          promptsDir = strategy.getPromptsDir(),
          fullPath = join(projectRoot, configDir, promptsDir);
 
@@ -1433,344 +845,30 @@ async function importLocalPrompts(
          scopes: scopeMapForNames(Object.keys(result.prompts), 'project'),
       };
 
-      if (editor !== 'opencode') {
-         return imported;
-      }
-
-      return mergePromptImports(
-         await importOpenCodeConfigPrompts(resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')), 'project'),
-         imported,
-      );
+      return imported;
    } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
          warnings.push(`Failed to read local prompts from ${fullPath}: ${(err as Error).message}`);
       }
    }
 
-   if (editor === 'opencode') {
-      return importOpenCodeConfigPrompts(resolveOpenCodeConfigPath(join(projectRoot, 'opencode.json')), 'project');
-   }
-
    return { prompts: {}, paths: {}, scopes: {}, warnings };
 }
 
-interface OpenCodeConfigCommand {
-   template?: unknown;
-   description?: unknown;
-}
-
-interface OpenCodeConfig {
-   instructions?: unknown;
-   command?: Record<string, OpenCodeConfigCommand>;
-}
-
-async function readOpenCodeConfig(configPath: string): Promise<OpenCodeConfig | null> {
-   try {
-      const parsed = parseJsonc<OpenCodeConfig>(await readFile(configPath, 'utf-8'));
-
-      if (parsed.errors.length > 0 || !parsed.data) {
-         throw new Error('invalid JSONC');
-      }
-
-      return parsed.data;
-   } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-         return null;
-      }
-      throw err;
-   }
-}
-
-function resolveOpenCodeConfigPath(jsonPath: string): string {
-   if (existsSync(jsonPath)) {
-      return jsonPath;
-   }
-
-   const jsoncPath = jsonPath.replace(/\.json$/, '.jsonc');
-
-   return existsSync(jsoncPath) ? jsoncPath : jsonPath;
-}
-
-async function importOpenCodeInstructionRules(
-   configPath: string,
-   baseDir: string,
-   scope: ImportScope,
-): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         rules: NamedRule[] = [],
-         paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {};
-
-   let config: OpenCodeConfig | null;
-
-   try {
-      config = await readOpenCodeConfig(configPath);
-   } catch (err) {
-      warnings.push(`Failed to read OpenCode config from ${configPath}: ${(err as Error).message}`);
-      return { rules, paths, scopes, warnings };
-   }
-
-   if (!Array.isArray(config?.instructions)) {
-      return { rules, paths, scopes, warnings };
-   }
-
-   for (const instruction of config.instructions) {
-      if (typeof instruction !== 'string') {
-         warnings.push(`Skipping OpenCode instruction from ${configPath}: expected string path`);
-         continue;
-      }
-
-      // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
-      const imported = await importOpenCodeInstructionPattern(instruction, baseDir, scope);
-
-      rules.push(...imported.rules);
-      Object.assign(paths, imported.paths);
-      Object.assign(scopes, imported.scopes);
-      warnings.push(...imported.warnings);
-   }
-
-   return { rules, paths, scopes, warnings };
-}
-
-async function importOpenCodeInstructionPattern(
-   instruction: string,
-   baseDir: string,
-   scope: ImportScope,
-): Promise<{
-   rules: NamedRule[];
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const pathsToRead = hasGlobSyntax(instruction)
-            ? await expandInstructionGlob(instruction, baseDir)
-            : [resolveInstructionPath(instruction, baseDir)],
-         rules: NamedRule[] = [],
-         paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {},
-         warnings: string[] = [];
-
-   if (pathsToRead.length === 0) {
-      warnings.push(`OpenCode instruction pattern matched no files: ${instruction}`);
-   }
-
-   for (const path of pathsToRead) {
-      try {
-         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
-         const content = await readFile(path, 'utf-8'),
-               name = basenameWithoutMarkdown(path);
-
-         if (!content.trim()) {
-            continue;
-         }
-         rules.push({ content: content.trim(), name, path, scope });
-         paths[name] = path;
-         scopes[name] = scope;
-      } catch (err) {
-         warnings.push(`Failed to read OpenCode instruction ${path}: ${(err as Error).message}`);
-      }
-   }
-
-   return { rules, paths, scopes, warnings };
-}
-
-async function expandInstructionGlob(pattern: string, baseDir: string): Promise<string[]> {
-   const root = isAbsolute(pattern) ? getGlobRoot(pattern) : baseDir,
-         files = await listFilesRecursive(root),
-         matcher = globToRegExp(isAbsolute(pattern) ? pattern : join(baseDir, pattern));
-
-   return files.filter((file) => matcher.test(file)).toSorted();
-}
-
-async function listFilesRecursive(root: string): Promise<string[]> {
-   const result: string[] = [];
-
-   async function visit(dir: string): Promise<void> {
-      let entries: RuntimeDirent[];
-
-      try {
-         entries = await readdir(dir, { withFileTypes: true }) as RuntimeDirent[];
-      } catch {
-         return;
-      }
-
-      for (const entry of entries) {
-         const path = join(dir, entry.name);
-
-         if (entry.isDirectory()) {
-            // eslint-disable-next-line no-await-in-loop -- Recursive walk is easier to reason about sequentially
-            await visit(path);
-         } else if (entry.isFile()) {
-            result.push(path);
-         }
-      }
-   }
-
-   await visit(root);
-   return result;
-}
-
-function hasGlobSyntax(value: string): boolean {
-   return /[*?[\]{}]/.test(value);
-}
-
-function getGlobRoot(pattern: string): string {
-   const parts = pattern.split('/'),
-         rootParts: string[] = [];
-
-   for (const part of parts) {
-      if (hasGlobSyntax(part)) {
-         break;
-      }
-      rootParts.push(part);
-   }
-
-   return rootParts.join('/') || '/';
-}
-
-function globToRegExp(pattern: string): RegExp {
-   const segments = pattern.split('/');
-   let normalized = '^',
-       startIndex = 0;
-
-   if (segments[0] === '') {
-      normalized += '/';
-      startIndex = 1;
-   }
-
-   for (let i = startIndex; i < segments.length; i++) {
-      const segment = segments[i] ?? '',
-            isLast = i === segments.length - 1;
-
-      if (segment === '**') {
-         normalized += '(?:[^/]+/)*';
-         continue;
-      }
-
-      normalized += escapeGlobSegment(segment);
-
-      if (!isLast) {
-         normalized += '/';
-      }
-   }
-
-   return new RegExp(`${normalized}$`);
-}
-
-function escapeGlobSegment(segment: string): string {
-   return segment
-      .replace(/[.+^${}()|\\]/g, '\\$&')
-      .replace(/\*/g, '[^/]*')
-      .replace(/\?/g, '[^/]');
-}
-
-function resolveInstructionPath(instruction: string, baseDir: string): string {
-   return isAbsolute(instruction) ? instruction : join(baseDir, instruction);
-}
-
-function basenameWithoutMarkdown(path: string): string {
-   const name = path.split('/').pop() ?? 'instruction';
-
-   return name.replace(/\.(md|markdown|txt)$/i, '');
-}
-
-async function importOpenCodeConfigPrompts(
-   configPath: string,
-   scope: ImportScope,
-): Promise<{
-   prompts: Record<string, string>;
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const prompts: Record<string, string> = {},
-         paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {},
-         warnings: string[] = [];
-
-   let config: OpenCodeConfig | null;
-
-   try {
-      config = await readOpenCodeConfig(configPath);
-   } catch (err) {
-      warnings.push(`Failed to read OpenCode config from ${configPath}: ${(err as Error).message}`);
-      return { prompts, paths, scopes, warnings };
-   }
-
-   if (!config?.command) {
-      return { prompts, paths, scopes, warnings };
-   }
-
-   for (const [name, command] of Object.entries(config.command)) {
-      if (typeof command.template !== 'string') {
-         warnings.push(`Skipping OpenCode command "${name}" from ${configPath}: missing template`);
-         continue;
-      }
-
-      prompts[name] = formatOpenCodeConfigPrompt(command);
-      paths[name] = configPath;
-      scopes[name] = scope;
-   }
-
-   return { prompts, paths, scopes, warnings };
-}
-
-function formatOpenCodeConfigPrompt(command: OpenCodeConfigCommand): string {
-   if (typeof command.description !== 'string' || !command.description) {
-      return String(command.template);
-   }
-
-   return `---\ndescription: ${JSON.stringify(command.description)}\n---\n\n${String(command.template)}`;
-}
-
-function mergePromptImports(
-   base: {
-      prompts: Record<string, string>;
-      paths: Record<string, string>;
-      scopes: Record<string, ImportScope>;
-      warnings: string[];
-   },
-   overlay: {
-      prompts: Record<string, string>;
-      paths: Record<string, string>;
-      scopes: Record<string, ImportScope>;
-      warnings: string[];
-   },
-): {
-   prompts: Record<string, string>;
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-} {
-   return {
-      prompts: { ...base.prompts, ...overlay.prompts },
-      paths: { ...base.paths, ...overlay.paths },
-      scopes: { ...base.scopes, ...overlay.scopes },
-      warnings: [...base.warnings, ...overlay.warnings],
-   };
-}
-
-async function importLocalSkills(
-   editor: EditorName,
+async function importSkills(
+   strategy: SkillsStrategy,
+   source: ImportScope,
    projectRoot: string,
-): Promise<{
-   skills: Record<string, string>;
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
+): Promise<ImportedSkillsResult> {
    const warnings: string[] = [],
          skills: Record<string, string> = {},
          paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {};
+         scopes: Record<string, ImportScope> = {},
+         skillDirs = source === 'user' ? strategy.getGlobalImportDirs() : strategy.getProjectImportDirs(),
+         root = source === 'user' ? homedir() : projectRoot;
 
-   for (const skillDir of EDITOR_SKILL_DIRS[editor]) {
-      const fullPath = join(projectRoot, skillDir);
+   for (const skillDir of skillDirs) {
+      const fullPath = join(root, skillDir);
 
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
@@ -1788,55 +886,11 @@ async function importLocalSkills(
             }
             skills[entry.name] = path;
             paths[entry.name] = path;
-            scopes[entry.name] = 'project';
+            scopes[entry.name] = source;
          }
       } catch (err) {
          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
             warnings.push(`Failed to read skills from ${fullPath}: ${(err as Error).message}`);
-         }
-      }
-   }
-
-   return { skills, paths, scopes, warnings };
-}
-
-async function importGlobalSkills(editor: EditorName): Promise<{
-   skills: Record<string, string>;
-   paths: Record<string, string>;
-   scopes: Record<string, ImportScope>;
-   warnings: string[];
-}> {
-   const warnings: string[] = [],
-         skills: Record<string, string> = {},
-         paths: Record<string, string> = {},
-         scopes: Record<string, ImportScope> = {};
-
-   for (const skillDir of EDITOR_GLOBAL_SKILL_DIRS[editor] ?? []) {
-      const fullPath = join(homedir(), skillDir);
-
-      try {
-         // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
-         const entries = await readdir(fullPath, { withFileTypes: true });
-
-         for (const entry of entries) {
-            if (!entry.isDirectory() && !entry.isSymbolicLink()) {
-               continue;
-            }
-
-            const path = join(fullPath, entry.name);
-
-            if (!existsSync(join(path, 'SKILL.md'))) {
-               continue;
-            }
-            skills[entry.name] = path;
-            paths[entry.name] = path;
-            scopes[entry.name] = 'user';
-         }
-      } catch (err) {
-         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-            warnings.push(
-               `Failed to read global skills from ${fullPath}: ${(err as Error).message}`,
-            );
          }
       }
    }
@@ -1868,11 +922,5 @@ function promptPathMap(names: string[], files: string[], basePath: string): Reco
  * Get the global config path for an editor.
  */
 export function getGlobalConfigPath(editor: EditorName): string | null {
-   const strategies = getImportStrategies(editor),
-         configPath = strategies.mcp.getGlobalMcpConfigPath();
-
-   if (!configPath) {
-      return null;
-   }
-   return join(homedir(), configPath);
+   return buildGlobalPath(getAdapter(editor).getStrategyBundle().mcpStrategy.getGlobalMcpConfigPath());
 }

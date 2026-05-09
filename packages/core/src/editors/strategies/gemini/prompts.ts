@@ -1,5 +1,6 @@
 import type { EditorPrompt } from '../../types.js';
 import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
+import { parsePromptFiles } from '../shared/prompt-utils.js';
 
 /**
  * Gemini CLI prompts strategy. Gemini uses TOML files in `.gemini/commands/` for custom
@@ -44,50 +45,12 @@ export class GeminiPromptsStrategy implements PromptsStrategy {
       files: string[],
       readFile: (filename: string) => Promise<string>,
    ): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
-      const tomlFiles = files.filter((f) => f.endsWith('.toml'));
-
-      type ParseResult =
-         | { type: 'prompt'; name: string; content: string }
-         | { type: 'warning'; message: string }
-         | null;
-
-      const results = await Promise.all(
-         tomlFiles.map(async (file): Promise<ParseResult> => {
-            try {
-               const content = await readFile(file);
-
-               if (content.trim()) {
-                  return {
-                     type: 'prompt',
-                     name: file.replace(/\.toml$/, ''),
-                     content: content.trim(),
-                  };
-               }
-               return null;
-            } catch (err) {
-               return {
-                  type: 'warning',
-                  message: `Failed to read prompt ${file}: ${(err as Error).message}`,
-               };
-            }
-         }),
-      );
-
-      const prompts: Record<string, string> = {},
-            warnings: string[] = [];
-
-      for (const result of results) {
-         if (!result) {
-            continue;
-         }
-         if (result.type === 'warning') {
-            warnings.push(result.message);
-         } else {
-            prompts[result.name] = result.content;
-         }
-      }
-
-      return { prompts, warnings };
+      return parsePromptFiles({
+         files,
+         readFile,
+         includeFile: (file) => file.endsWith('.toml'),
+         stripSuffix: /\.toml$/,
+      });
    }
 
    /**

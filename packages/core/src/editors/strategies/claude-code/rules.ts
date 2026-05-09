@@ -20,6 +20,10 @@ export class ClaudeCodeRulesStrategy implements RulesStrategy {
       return '.claude/CLAUDE.md';
    }
 
+   getGlobalRuleImportDirs(): readonly string[] {
+      return ['.claude/rules'];
+   }
+
    parseGlobalRules(content: string): { rules: string[]; warnings: string[] } {
       const rules: string[] = [];
 

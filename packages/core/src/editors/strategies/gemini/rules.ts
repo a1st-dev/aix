@@ -1,5 +1,7 @@
-import type { RulesStrategy } from '../types.js';
+import { join } from 'pathe';
+import type { ImportedRulesResult, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
  * Gemini CLI rules strategy. Uses `GEMINI.md` at the project root for project-level context and
@@ -27,6 +29,30 @@ export class GeminiRulesStrategy implements RulesStrategy {
          rules.push(content.trim());
       }
       return { rules, warnings: [] };
+   }
+
+   async importProjectRules(projectRoot: string): Promise<ImportedRulesResult> {
+      const warnings: string[] = [],
+            geminiPath = join(projectRoot, 'GEMINI.md');
+
+      try {
+         const content = await getRuntimeAdapter().fs.readFile(geminiPath, 'utf-8');
+
+         if (content.trim()) {
+            return {
+               rules: [{ content: content.trim(), name: 'GEMINI', path: geminiPath, scope: 'project' }],
+               paths: { GEMINI: geminiPath },
+               scopes: { GEMINI: 'project' },
+               warnings,
+            };
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read Gemini rules from ${geminiPath}: ${(err as Error).message}`);
+         }
+      }
+
+      return { rules: [], paths: {}, scopes: {}, warnings };
    }
 
    formatRule(rule: EditorRule): string {

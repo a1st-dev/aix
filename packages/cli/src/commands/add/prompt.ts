@@ -1,19 +1,22 @@
 import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
-import { installAfterAdd, installSingleItem, formatInstallResults } from '../../lib/install-helper.js';
-import { refreshLockfile, getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import {
-   getLocalConfigPath,
    loadPrompt,
    parseSourceReference,
    updateConfig,
    updateLocalConfig,
 } from '@a1st/aix-core';
 import type { PromptValue } from '@a1st/aix-schema';
+import {
+   installAddedItem,
+   persistAddedItem,
+   refreshLockfileAfterAdd,
+} from '../../lib/add-command-helper.js';
 
 export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    static override description = 'Add a prompt/command to ai.json';
@@ -108,59 +111,46 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       }
 
       // Update ai.json / ai.local.json if present
-      if (flags.local) {
-         const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
-
-         await updateLocalConfig(localPath, (config) => {
-            return {
-               ...config,
-               prompts: { ...config.prompts, [promptName]: promptValue },
-            };
-         });
-         this.output.success(`Added prompt "${promptName}" to ai.local.json`);
-      } else if (loaded) {
-         await updateConfig(loaded.path, (config) => {
-            return {
-               ...config,
-               prompts: { ...config.prompts, [promptName]: promptValue },
-            };
-         });
-         this.output.success(`Added prompt "${promptName}"`);
-      } else {
-         this.output.info('No ai.json found — installing directly to editors');
-      }
-
-      if (flags.lock && lockableConfigPath) {
-         lockfilePath = await refreshLockfile(lockableConfigPath);
-         this.output.success(`Updated ${lockfilePath}`);
-      }
-
-      // Install to editors unless --no-install
-      if (!flags['no-install']) {
-         if (loaded && !flags.local) {
-            const installResult = await installAfterAdd({
-               configPath: loaded.path,
-               sections: ['editors'], // prompts are under editors scope
-               scope: targetScope,
+      await persistAddedItem({
+         loaded,
+         local: flags.local,
+         output: this.output,
+         localSuccessMessage: `Added prompt "${promptName}" to ai.local.json`,
+         projectSuccessMessage: `Added prompt "${promptName}"`,
+         saveLocal: async (localPath) => {
+            await updateLocalConfig(localPath, (config) => {
+               return {
+                  ...config,
+                  prompts: { ...config.prompts, [promptName]: promptValue },
+               };
             });
-
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         } else {
-            const installResult = await installSingleItem({
-               section: 'prompts',
-               name: promptName,
-               value: promptValue,
-               scope: targetScope,
-               projectRoot: process.cwd(),
+         },
+         saveProject: async (configPath) => {
+            await updateConfig(configPath, (config) => {
+               return {
+                  ...config,
+                  prompts: { ...config.prompts, [promptName]: promptValue },
+               };
             });
+         },
+      });
 
-            if (installResult.installed) {
-               this.logInstallResults(formatInstallResults(installResult.results));
-            }
-         }
-      }
+      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
+
+      await installAddedItem({
+         logInstallResults: (results) => {
+            this.logInstallResults(results);
+         },
+         skipInstall: flags['no-install'],
+         loaded,
+         local: flags.local,
+         installSections: ['editors'],
+         itemSection: 'prompts',
+         itemName: promptName,
+         itemValue: promptValue,
+         scope: targetScope,
+         projectRoot: process.cwd(),
+      });
 
       if (this.flags.json) {
          this.output.json({

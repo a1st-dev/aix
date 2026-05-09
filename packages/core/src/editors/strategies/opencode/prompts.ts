@@ -1,7 +1,14 @@
-import pMap from 'p-map';
+import { join } from 'pathe';
 import type { EditorPrompt } from '../../types.js';
-import type { ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
-import { extractFrontmatter, parseYamlValue } from '../../../frontmatter-utils.js';
+import type { ImportedPromptsResult, ParsedPromptFrontmatter, PromptsStrategy } from '../types.js';
+import {
+   formatPromptFile,
+   hasPromptFrontmatterFields,
+   parsePromptFiles,
+   parsePromptFrontmatter,
+} from '../shared/prompt-utils.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
+import { getOpenCodeConfigImportPaths, importOpenCodeConfigPrompts } from './import-utils.js';
 
 /**
  * OpenCode custom commands are markdown files in `.opencode/commands/` or
@@ -25,106 +32,130 @@ export class OpenCodePromptsStrategy implements PromptsStrategy {
    }
 
    formatPrompt(prompt: EditorPrompt): string {
-      const frontmatter: Record<string, string> = {};
-
-      if (prompt.description) {
-         frontmatter.description = prompt.description;
-      }
-      if (prompt.argumentHint) {
-         frontmatter['argument-hint'] = prompt.argumentHint;
-      }
-
-      const lines: string[] = [];
-
-      if (Object.keys(frontmatter).length > 0) {
-         lines.push('---');
-         for (const [key, value] of Object.entries(frontmatter)) {
-            lines.push(`${key}: ${JSON.stringify(value)}`);
-         }
-         lines.push('---', '');
-      }
-
-      lines.push(prompt.content);
-      return lines.join('\n') + '\n';
+      return formatPromptFile(prompt, {
+         frontmatterFields: [
+            { key: 'description', value: prompt.description },
+            { key: 'argument-hint', value: prompt.argumentHint },
+         ],
+         valueFormatter: JSON.stringify,
+         trailingNewline: true,
+      });
    }
 
    async parseGlobalPrompts(
       files: string[],
       readFile: (filename: string) => Promise<string>,
    ): Promise<{ prompts: Record<string, string>; warnings: string[] }> {
-      const mdFiles = files.filter((f) => f.endsWith('.md'));
+      return parsePromptFiles({
+         files,
+         readFile,
+         includeFile: (file) => file.endsWith('.md'),
+         stripSuffix: /\.md$/,
+         concurrency: 5,
+      });
+   }
 
-      type ParseResult =
-         | { type: 'prompt'; name: string; content: string }
-         | { type: 'warning'; message: string }
-         | null;
-
-      const results = await pMap(
-         mdFiles,
-         async (file): Promise<ParseResult> => {
-            try {
-               const content = await readFile(file);
-
-               if (content.trim()) {
-                  return {
-                     type: 'prompt',
-                     name: file.replace(/\.md$/, ''),
-                     content: content.trim(),
-                  };
-               }
-               return null;
-            } catch (err) {
-               return {
-                  type: 'warning',
-                  message: `Failed to read prompt ${file}: ${(err as Error).message}`,
-               };
-            }
-         },
-         { concurrency: 5 },
+   async importGlobalPrompts(): Promise<ImportedPromptsResult> {
+      return importPromptsWithConfigOverlay(
+         join(getRuntimeAdapter().os.homedir(), this.getGlobalPromptsPath() ?? '.config/opencode/commands'),
+         getOpenCodeConfigImportPaths(join(getRuntimeAdapter().os.homedir(), '.config', 'opencode', 'opencode.json')),
+         'user',
+         this,
       );
+   }
 
-      const prompts: Record<string, string> = {},
-            warnings: string[] = [];
-
-      for (const result of results) {
-         if (!result) {
-            continue;
-         }
-         if (result.type === 'warning') {
-            warnings.push(result.message);
-         } else {
-            prompts[result.name] = result.content;
-         }
-      }
-
-      return { prompts, warnings };
+   async importProjectPrompts(projectRoot: string, editorConfigDir: string): Promise<ImportedPromptsResult> {
+      return importPromptsWithConfigOverlay(
+         join(projectRoot, editorConfigDir, this.getPromptsDir()),
+         getOpenCodeConfigImportPaths(join(projectRoot, 'opencode.json')),
+         'project',
+         this,
+      );
    }
 
    detectFormat(content: string): boolean {
-      const { frontmatter, hasFrontmatter } = extractFrontmatter(content);
-
-      if (!hasFrontmatter) {
-         return false;
-      }
-
-      return frontmatter.split('\n').some((line) => /^description\s*:/.test(line));
+      return hasPromptFrontmatterFields(content, ['description']);
    }
 
    parseFrontmatter(rawContent: string): ParsedPromptFrontmatter {
-      const { frontmatter, content, hasFrontmatter } = extractFrontmatter(rawContent);
+      return parsePromptFrontmatter(rawContent, ['description', 'argument-hint']);
+   }
+}
 
-      if (!hasFrontmatter) {
-         return { content: rawContent };
+async function importPromptsWithConfigOverlay(
+   promptsDir: string,
+   configPaths: readonly string[],
+   scope: 'project' | 'user',
+   strategy: OpenCodePromptsStrategy,
+): Promise<ImportedPromptsResult> {
+   const directoryPrompts = await importPromptDirectory(promptsDir, scope, strategy);
+
+   for (const configPath of configPaths) {
+      // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
+      const configPrompts = await importOpenCodeConfigPrompts(configPath, scope);
+
+      if (Object.keys(configPrompts.prompts).length > 0 || configPrompts.warnings.length > 0) {
+         return mergePromptImports(configPrompts, directoryPrompts);
       }
+   }
 
-      const lines = frontmatter.split('\n'),
-            description = parseYamlValue(lines, 'description') as string | undefined,
-            argumentHint = parseYamlValue(lines, 'argument-hint') as string | undefined;
+   return directoryPrompts;
+}
+
+async function importPromptDirectory(
+   fullPath: string,
+   scope: 'project' | 'user',
+   strategy: OpenCodePromptsStrategy,
+): Promise<ImportedPromptsResult> {
+   const warnings: string[] = [];
+
+   try {
+      const files = await getRuntimeAdapter().fs.readdir(fullPath),
+            result = await strategy.parseGlobalPrompts(files, (filename) => {
+               return getRuntimeAdapter().fs.readFile(join(fullPath, filename), 'utf-8');
+            });
 
       return {
-         content,
-         description,
-         argumentHint,
+         ...result,
+         paths: promptPathMap(Object.keys(result.prompts), files, fullPath),
+         scopes: scopeMapForNames(Object.keys(result.prompts), scope),
       };
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+         warnings.push(`Failed to read prompts from ${fullPath}: ${(err as Error).message}`);
+      }
    }
+
+   return { prompts: {}, paths: {}, scopes: {}, warnings };
+}
+
+function mergePromptImports(
+   base: ImportedPromptsResult,
+   overlay: ImportedPromptsResult,
+): ImportedPromptsResult {
+   return {
+      prompts: { ...base.prompts, ...overlay.prompts },
+      paths: { ...base.paths, ...overlay.paths },
+      scopes: { ...base.scopes, ...overlay.scopes },
+      warnings: [...base.warnings, ...overlay.warnings],
+   };
+}
+
+function promptPathMap(names: string[], files: string[], basePath: string): Record<string, string> {
+   const fileByName = new Map(files.map((file) => [file.replace(/\.md$/, ''), file]));
+
+   return Object.fromEntries(
+      names.flatMap((name) => {
+         const file = fileByName.get(name);
+
+         return file ? [[name, join(basePath, file)]] : [];
+      }),
+   );
+}
+
+function scopeMapForNames(
+   names: string[],
+   scope: 'project' | 'user',
+): Record<string, 'project' | 'user'> {
+   return Object.fromEntries(names.map((name) => [name, scope]));
 }

@@ -1,5 +1,6 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
-import type { HooksStrategy, UnsupportedHookField } from '../types.js';
+import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
+import { parseHookObject, parseMatcherImportedHooks } from '../shared/hook-import-utils.js';
 
 /**
  * Map from generic ai.json hook events to GitHub Copilot CLI's camelCase event names.
@@ -129,6 +130,90 @@ function buildPromptEntry(action: HookAction): CopilotPromptEntry | undefined {
    return { type: 'prompt', prompt: action.prompt };
 }
 
+function parseCopilotAction(value: unknown): HookAction | null {
+   if (!value || typeof value !== 'object') {
+      return null;
+   }
+
+   const entry = value as Record<string, unknown>;
+
+   if (entry.type === 'prompt') {
+      if (typeof entry.prompt !== 'string' || entry.prompt.length === 0) {
+         return null;
+      }
+
+      return {
+         type: 'prompt',
+         prompt: entry.prompt,
+      };
+   }
+
+   const command = typeof entry.command === 'string' && entry.command.length > 0 ? entry.command : undefined,
+         bash = typeof entry.bash === 'string' && entry.bash.length > 0 ? entry.bash : command,
+         powershell =
+            typeof entry.powershell === 'string' && entry.powershell.length > 0 ? entry.powershell : undefined;
+
+   if (!bash && !powershell) {
+      return null;
+   }
+
+   const action: HookAction = {};
+
+   if (command) {
+      action.command = command;
+   } else if (bash) {
+      action.bash = bash;
+   }
+   if (powershell) {
+      action.powershell = powershell;
+   }
+   if (typeof entry.cwd === 'string' && entry.cwd.length > 0) {
+      action.cwd = entry.cwd;
+   }
+   if (isStringRecord(entry.env)) {
+      action.env = entry.env;
+   }
+   if (typeof entry.timeoutSec === 'number' && entry.timeoutSec > 0) {
+      action.timeout = entry.timeoutSec;
+   } else if (typeof entry.timeout === 'number' && entry.timeout > 0) {
+      action.timeout = entry.timeout;
+   }
+
+   return action;
+}
+
+function normalizeImportedMatcher(matcher: string | undefined): string | undefined {
+   switch (matcher) {
+      case 'Bash':
+         return 'bash|powershell';
+      case 'Read':
+         return 'view';
+      case 'Write|Edit':
+         return 'create|edit';
+      default:
+         return matcher;
+   }
+}
+
+function normalizeImportedHookObject(rawHooks: Record<string, unknown>): Record<string, unknown> {
+   if (rawHooks.stop !== undefined && rawHooks.agentStop === undefined) {
+      return {
+         ...rawHooks,
+         agentStop: rawHooks.stop,
+      };
+   }
+
+   return rawHooks;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+   if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
+   }
+
+   return Object.values(value).every((entry) => typeof entry === 'string');
+}
+
 /**
  * GitHub Copilot CLI hooks strategy. Writes hooks to `.github/hooks/hooks.json` (project)
  * or `~/.copilot/hooks/hooks.json` (user). Wraps output with `version: 1`.
@@ -182,6 +267,24 @@ export class CopilotHooksStrategy implements HooksStrategy {
 
    getNativeEventNames(): readonly string[] {
       return Array.from(new Set(Object.values(EVENT_MAP))).toSorted();
+   }
+
+   parseImportedConfig(content: string): ParsedHooksImportResult {
+      const parsed = parseHookObject(content);
+
+      if (!parsed.rawHooks) {
+         return { hooks: {}, warnings: parsed.warnings };
+      }
+
+      return {
+         hooks: parseMatcherImportedHooks(normalizeImportedHookObject(parsed.rawHooks), {
+            eventMap: EVENT_MAP,
+            parseAction: parseCopilotAction,
+            toolMatchers: TOOL_MATCHER_MAP,
+            normalizeMatcher: normalizeImportedMatcher,
+         }),
+         warnings: parsed.warnings,
+      };
    }
 
    formatConfig(hooks: HooksConfig): string {
