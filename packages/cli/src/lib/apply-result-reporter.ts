@@ -74,6 +74,12 @@ export function showUnsupportedFeatureWarnings(
          `${editor} does not support prompts. Skipped: ${unsupported.prompts.prompts.join(', ')}`,
       );
    }
+
+   if (unsupported.agents) {
+      output.warn(
+         `${editor} does not support custom agents. Skipped: ${unsupported.agents.agents.join(', ')}`,
+      );
+   }
 }
 
 export function displayFileChanges(options: DisplayFileChangesOptions): void {

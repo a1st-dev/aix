@@ -1,10 +1,10 @@
-import type { AiJsonConfig, RulesConfig, PromptsConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, RulesConfig, PromptsConfig, AgentsConfig } from '@a1st/aix-schema';
 import { deepMergeJson } from './json.js';
 
 /**
  * Valid section names for filtering config sections.
  */
-export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts';
+export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts' | 'agents';
 
 /** @deprecated Use `ConfigSection` instead. */
 export type ConfigScope = ConfigSection;
@@ -35,6 +35,11 @@ export function filterConfigBySections(
          case 'prompts':
             if (config.prompts) {
                result.prompts = config.prompts;
+            }
+            break;
+         case 'agents':
+            if (config.agents) {
+               result.agents = config.agents;
             }
             break;
          case 'mcp':
@@ -115,6 +120,7 @@ function mergeWithFalseSupport<T extends Record<string, unknown>>(
  * - `skills`: Object merge by key, replace entire value on key conflict
  * - `rules`: Object merge by key, replace entire value on key conflict
  * - `prompts`: Object merge by key, replace entire value on key conflict
+ * - `agents`: Object merge by key, replace entire value on key conflict
  * - `mcp`: Object merge by key, replace entire value on key conflict
  * - `editors`: Object merge by key, deep merge on key conflict
  * - `$schema`, `extends`: Remote wins
@@ -149,6 +155,14 @@ export function mergeConfigs(local: AiJsonConfig, remote: Partial<AiJsonConfig>)
          local.prompts as Record<string, unknown> | undefined,
          remote.prompts as Record<string, unknown> | undefined,
       ) as PromptsConfig;
+   }
+
+   // Merge agents (key-level replacement with false support)
+   if (remote.agents !== undefined) {
+      result.agents = mergeWithFalseSupport(
+         local.agents as Record<string, unknown> | undefined,
+         remote.agents as Record<string, unknown> | undefined,
+      ) as AgentsConfig;
    }
 
    // Merge mcp (with false support for disabling servers)

@@ -3,7 +3,7 @@ import type { ConfigScope } from '@a1st/aix-schema';
 /**
  * The section types that can be tracked in state.
  */
-export type StateSection = 'mcp' | 'skills' | 'rules' | 'prompts';
+export type StateSection = 'mcp' | 'skills' | 'rules' | 'prompts' | 'agents';
 
 /**
  * Metadata for a single installed item.
@@ -36,5 +36,6 @@ export interface StateFile {
       skills: InstalledItems;
       rules: InstalledItems;
       prompts: InstalledItems;
+      agents: InstalledItems;
    };
 }

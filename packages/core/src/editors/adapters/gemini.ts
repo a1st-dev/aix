@@ -9,12 +9,13 @@ import {
    GeminiPromptsStrategy,
    GeminiHooksStrategy,
 } from '../strategies/gemini/index.js';
-import { NativeSkillsStrategy } from '../strategies/shared/index.js';
+import { MarkdownAgentsStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
@@ -46,6 +47,11 @@ export class GeminiAdapter extends BaseEditorAdapter {
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new GeminiPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
+      projectAgentsDir: 'agents',
+      userAgentsDir: '.gemini/agents',
+      extraFrontmatter: (agent) => agent.editor?.gemini ?? {},
+   });
    protected readonly hooksStrategy: HooksStrategy = new GeminiHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
@@ -62,11 +68,12 @@ export class GeminiAdapter extends BaseEditorAdapter {
                targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
+            agents = await this.loadAgents(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),
             hooks = config.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp, hooks };
+      return { rules, prompts, agents, mcp, hooks };
    }
 
    /**

@@ -14,13 +14,14 @@ import {
    CodexPromptsStrategy,
    CodexMcpStrategy,
 } from '../strategies/codex/index.js';
-import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { NativeSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
@@ -61,6 +62,7 @@ export class CodexAdapter extends BaseEditorAdapter {
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new CodexPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];

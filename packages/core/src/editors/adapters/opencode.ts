@@ -7,12 +7,13 @@ import {
    OpenCodePromptsStrategy,
    OpenCodeRulesStrategy,
 } from '../strategies/opencode/index.js';
-import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { MarkdownAgentsStrategy, NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
@@ -54,6 +55,11 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new OpenCodePromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
+      projectAgentsDir: 'agents',
+      userAgentsDir: '.config/opencode/agents',
+      extraFrontmatter: (agent) => agent.editor?.opencode ?? {},
+   });
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
@@ -72,10 +78,13 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
             prompts = await this.loadPrompts(config, projectRoot, {
                configBaseDir: options.configBaseDir,
             }),
+            agents = await this.loadAgents(config, projectRoot, {
+               configBaseDir: options.configBaseDir,
+            }),
             mcp = filterMcpConfig(config.mcp);
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp };
+      return { rules, prompts, agents, mcp };
    }
 
    protected override async planChanges(

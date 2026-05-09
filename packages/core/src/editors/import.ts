@@ -11,6 +11,7 @@ import type {
    ImportedSkillsResult,
    McpStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    RulesStrategy,
    SkillsStrategy,
    HooksStrategy,
@@ -72,12 +73,14 @@ export interface ImportResult {
    rules: NamedRule[];
    skills: Record<string, string>;
    prompts: Record<string, string>;
+   agents: Record<string, import('./types.js').EditorAgent>;
    hooks: HooksConfig;
    paths: {
       mcp: Record<string, string>;
       rules: Record<string, string>;
       skills: Record<string, string>;
       prompts: Record<string, string>;
+      agents: Record<string, string>;
       hooks: Record<string, string>;
    };
    scopes: {
@@ -85,6 +88,7 @@ export interface ImportResult {
       rules: Record<string, ImportScope>;
       skills: Record<string, ImportScope>;
       prompts: Record<string, ImportScope>;
+      agents: Record<string, ImportScope>;
       hooks: Record<string, ImportScope>;
    };
    warnings: string[];
@@ -131,6 +135,7 @@ export interface NormalizedEditorImport {
    mcp: ImportResult['mcp'];
    rules: NormalizedImportedRule[];
    prompts: NormalizedImportedPrompt[];
+   agents: import('./types.js').EditorAgent[];
    skills: NormalizedImportedSkill[];
    hooks: HooksConfig;
 }
@@ -151,9 +156,10 @@ export async function importFromEditor(
             rules: [],
             skills: {},
             prompts: {},
+            agents: {},
             hooks: {},
-            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
-            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
             warnings: [],
             sources: { global: false, local: false },
          },
@@ -166,6 +172,7 @@ export async function importFromEditor(
       mergeImportMcp(result, await importMcpConfig(strategies.mcpStrategy, strategies.configDir, 'global'));
       mergeImportRules(result, await importGlobalRules(strategies.rulesStrategy, strategies.configDir));
       mergeImportPrompts(result, await importPrompts(strategies.promptsStrategy, strategies.configDir, 'global'));
+      mergeImportAgents(result, await importAgents(strategies.agentsStrategy, strategies.configDir, 'global'));
       mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'user', projectRoot));
       mergeImportHooks(result, await importHooks(strategies.hooksStrategy, strategies.configDir, 'global'));
    }
@@ -176,6 +183,10 @@ export async function importFromEditor(
       mergeImportPrompts(
          result,
          await importLocalPrompts(strategies.promptsStrategy, strategies.configDir, projectRoot),
+      );
+      mergeImportAgents(
+         result,
+         await importAgents(strategies.agentsStrategy, strategies.configDir, 'project', projectRoot),
       );
       mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'project', projectRoot));
       mergeImportHooks(
@@ -232,6 +243,22 @@ function mergeImportPrompts(
    Object.assign(result.prompts, imported.prompts);
    Object.assign(result.paths.prompts, imported.paths);
    Object.assign(result.scopes.prompts, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportAgents(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importAgents>>,
+): void {
+   if (Object.keys(imported.agents).length > 0) {
+      for (const scope of Object.values(imported.scopes)) {
+         result.sources[scope === 'user' ? 'global' : 'local'] = true;
+      }
+   }
+
+   Object.assign(result.agents, imported.agents);
+   Object.assign(result.paths.agents, imported.paths);
+   Object.assign(result.scopes.agents, imported.scopes);
    result.warnings.push(...imported.warnings);
 }
 
@@ -354,6 +381,7 @@ export function normalizeEditorImport(
    const strategies = getAdapter(editor).getStrategyBundle(),
          usedRuleNames = new Set<string>(),
          usedPromptNames = new Set<string>(),
+         usedAgentNames = new Set<string>(),
          usedSkillNames = new Set<string>();
 
    return {
@@ -361,6 +389,9 @@ export function normalizeEditorImport(
       rules: result.rules.map((rule) => normalizeImportedRule(strategies.rulesStrategy, rule, usedRuleNames)),
       prompts: Object.entries(result.prompts)
          .map((entry) => normalizeImportedPrompt(strategies.promptsStrategy, entry, usedPromptNames)),
+      agents: Object.values(result.agents).map((agent) => Object.assign({}, agent, {
+         name: dedupeImportedName(agent.name, usedAgentNames),
+      })),
       skills: Object.entries(result.skills).map(([sourceName, ref]) => ({
          name: dedupeImportedName(sourceName, usedSkillNames),
          sourceName,
@@ -418,6 +449,37 @@ export function buildConfigFromEditorImport(
          return [prompt.name, value];
       }),
    );
+   config.agents = Object.fromEntries(
+      normalized.agents.map((agent) => {
+         const value: Record<string, unknown> = {
+            content: agent.content,
+         };
+
+         if (agent.description) {
+            value.description = agent.description;
+         }
+         if (agent.mode) {
+            value.mode = agent.mode;
+         }
+         if (agent.model) {
+            value.model = agent.model;
+         }
+         if (agent.tools && agent.tools.length > 0) {
+            value.tools = agent.tools;
+         }
+         if (agent.permissions && Object.keys(agent.permissions).length > 0) {
+            value.permissions = agent.permissions;
+         }
+         if (agent.mcp && Object.keys(agent.mcp).length > 0) {
+            value.mcp = agent.mcp;
+         }
+         if (agent.editor && Object.keys(agent.editor).length > 0) {
+            value.editor = agent.editor;
+         }
+
+         return [agent.name, value];
+      }),
+   );
    config.skills = Object.fromEntries(normalized.skills.map((skill) => [skill.name, skill.ref]));
 
    if (Object.keys(normalized.hooks).length > 0) {
@@ -425,6 +487,72 @@ export function buildConfigFromEditorImport(
    }
 
    return config;
+}
+
+async function importAgents(
+   strategy: AgentsStrategy,
+   configDir: string,
+   source: 'global' | 'project',
+   projectRoot?: string,
+): Promise<{
+   agents: Record<string, import('./types.js').EditorAgent>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}> {
+   if (!strategy.isSupported()) {
+      return { agents: {}, paths: {}, scopes: {}, warnings: [] };
+   }
+
+   if (source === 'global' && strategy.importGlobalAgents) {
+      return strategy.importGlobalAgents();
+   }
+
+   if (source === 'project' && projectRoot && strategy.importProjectAgents) {
+      return strategy.importProjectAgents(projectRoot, configDir);
+   }
+
+   const agentsPath = source === 'global'
+      ? buildGlobalPath(strategy.getGlobalAgentsPath())
+      : buildProjectPath(strategy.getAgentsDir(), projectRoot, configDir);
+
+   if (!agentsPath) {
+      return { agents: {}, paths: {}, scopes: {}, warnings: [] };
+   }
+
+   try {
+      const files = await readdir(agentsPath),
+            markdownFiles = files.filter((file) => file.endsWith(strategy.getFileExtension())),
+            entries = await Promise.all(
+               markdownFiles.map(async (file) => {
+                  const filePath = join(agentsPath, file),
+                        content = await readFile(filePath, 'utf-8'),
+                        sourceName = file.slice(0, -strategy.getFileExtension().length),
+                        agent = strategy.parseAgent(sourceName, content);
+
+                  return { name: agent.name, path: filePath, agent };
+               }),
+            ),
+            scope = source === 'global' ? 'user' : 'project';
+
+      return {
+         agents: Object.fromEntries(entries.map((entry) => [entry.name, entry.agent])),
+         paths: Object.fromEntries(entries.map((entry) => [entry.name, entry.path])),
+         scopes: Object.fromEntries(entries.map((entry) => [entry.name, scope])),
+         warnings: [],
+      };
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+         return { agents: {}, paths: {}, scopes: {}, warnings: [] };
+      }
+
+      return {
+         agents: {},
+         paths: {},
+         scopes: {},
+         warnings: [`Failed to read agents at ${agentsPath}: ${(err as Error).message}`],
+      };
+   }
 }
 
 async function importHooks(

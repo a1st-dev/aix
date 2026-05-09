@@ -15,6 +15,7 @@ export function createEmptyConfig(scope?: ConfigScope): AiJsonConfig {
       mcp: {},
       rules: {},
       prompts: {},
+      agents: {},
    };
 }
 

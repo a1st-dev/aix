@@ -19,11 +19,11 @@ import {
 } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
 
-const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts'];
+const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents'];
 const VALID_EDITORS = getAvailableEditors() as EditorName[];
 
 type EditorItemRow = {
-   type: 'mcp' | 'rule' | 'skill' | 'prompt';
+   type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent';
    name: string;
    source: 'aix' | 'external';
    scope: 'project' | 'user' | undefined;
@@ -157,9 +157,9 @@ export default class List extends BaseCommand<typeof List> {
    ): Record<string, unknown> {
       const result: Record<string, unknown> = {};
 
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'editors'] as const) {
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'editors'] as const) {
          if (includesSection(sections, section)) {
-            result[section] = (config as any)[section] ?? {};
+            result[section] = (config as Record<string, unknown>)[section] ?? {};
          }
       }
       return result;
@@ -177,12 +177,12 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    private printConfigSections(config: Record<string, unknown>, sections: Section[]): void {
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'editors'] as const) {
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'editors'] as const) {
          if (!includesSection(sections, section)) {
             continue;
          }
 
-         const items = (config as any)[section] ?? {};
+         const items = (config as Record<string, unknown>)[section] ?? {};
          const entries = Object.entries(items);
 
          this.output.header(this.formatSectionName(section));
@@ -267,6 +267,7 @@ export default class List extends BaseCommand<typeof List> {
          mcp: 'MCP Servers',
          rules: 'Rules',
          prompts: 'Prompts',
+         agents: 'Agents',
          editors: 'Editors',
       };
 
@@ -353,7 +354,8 @@ export default class List extends BaseCommand<typeof List> {
          Object.keys(result.mcp).length > 0 ||
          result.rules.length > 0 ||
          Object.keys(result.skills).length > 0 ||
-         Object.keys(result.prompts).length > 0
+         Object.keys(result.prompts).length > 0 ||
+         Object.keys(result.agents).length > 0
       );
    }
 
@@ -445,6 +447,27 @@ export default class List extends BaseCommand<typeof List> {
          }
          if (Object.keys(items).length > 0) {
             out.prompts = items;
+         }
+      }
+
+      if (includesSection(sections, 'agents') && Object.keys(result.agents).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const [name] of Object.entries(result.agents)) {
+            const managed = this.isAixManaged(name, 'agents', projectState, userState);
+            const scope = managed?.scope ?? result.scopes.agents[name];
+
+            if (scopeFilter && scope !== scopeFilter) {
+               continue;
+            }
+            items[name] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.agents[name],
+            };
+         }
+         if (Object.keys(items).length > 0) {
+            out.agents = items;
          }
       }
 
@@ -541,6 +564,23 @@ export default class List extends BaseCommand<typeof List> {
                      section: 'prompts',
                      path: result.paths.prompts[name],
                      detectedScope: result.scopes.prompts[name],
+                  },
+                  context,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'agents')) {
+         rows.push(
+            ...Object.keys(result.agents).flatMap((name) =>
+               this.toEditorItemRow(
+                  {
+                     type: 'agent',
+                     name,
+                     section: 'agents',
+                     path: result.paths.agents[name],
+                     detectedScope: result.scopes.agents[name],
                   },
                   context,
                ),

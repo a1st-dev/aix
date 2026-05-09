@@ -8,11 +8,13 @@ import {
    WindsurfMcpStrategy,
    WindsurfSkillsStrategy,
 } from '../strategies/windsurf/index.js';
+import { NoAgentsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 
@@ -38,6 +40,7 @@ export class WindsurfAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new WindsurfMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new WindsurfSkillsStrategy();
    protected readonly promptsStrategy: PromptsStrategy = new WindsurfPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new WindsurfHooksStrategy();
 
    // Store skill changes from generateConfig for use in planChanges

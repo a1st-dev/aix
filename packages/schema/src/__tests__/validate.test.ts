@@ -90,6 +90,55 @@ describe('validateConfig', () => {
       expect(Object.keys(result.data?.rules ?? {})).toHaveLength(1);
    });
 
+   it('validates a config with agent objects', () => {
+      const config = {
+         agents: {
+            'code-reviewer': {
+               description: 'Review code changes.',
+               mode: 'subagent',
+               model: 'sonnet',
+               tools: [ 'Read', 'Grep' ],
+               permissions: {
+                  edit: 'deny',
+                  bash: 'ask',
+               },
+               mcp: {
+                  docs: {
+                     command: 'docs-mcp',
+                  },
+               },
+               content: 'Review the current diff.',
+               editor: {
+                  gemini: {
+                     temperature: 0.2,
+                  },
+               },
+            },
+         },
+      };
+
+      const result = validateConfig(config);
+
+      expect(result.success).toBe(true);
+      expect(result.data?.agents?.['code-reviewer']).toBeDefined();
+   });
+
+   it('rejects an agent with multiple content sources', () => {
+      const config = {
+         agents: {
+            'code-reviewer': {
+               content: 'Review the current diff.',
+               path: './agents/reviewer.md',
+            },
+         },
+      };
+
+      const result = validateConfig(config);
+
+      expect(result.success).toBe(false);
+      expect(result.errors?.[0]?.message).toContain('Exactly one content source required');
+   });
+
    it('validates editors array shorthand', () => {
       const config = {
          editors: ['windsurf', 'cursor', 'opencode'],

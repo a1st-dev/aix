@@ -6,12 +6,13 @@ import {
    CursorPromptsStrategy,
    CursorHooksStrategy,
 } from '../strategies/cursor/index.js';
-import { StandardMcpStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
+import { MarkdownAgentsStrategy, StandardMcpStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 
@@ -39,6 +40,10 @@ export class CursorAdapter extends BaseEditorAdapter {
       editorSkillsDir: '.cursor/skills',
    });
    protected readonly promptsStrategy: PromptsStrategy = new CursorPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
+      projectAgentsDir: 'agents',
+      userAgentsDir: '.cursor/agents',
+   });
    protected readonly hooksStrategy: HooksStrategy = new CursorHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
@@ -55,11 +60,12 @@ export class CursorAdapter extends BaseEditorAdapter {
                targetScope: options.targetScope,
             }),
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
+            agents = await this.loadAgents(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),
             hooks = config.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp, hooks };
+      return { rules, prompts, agents, mcp, hooks };
    }
 
    protected override async planChanges(

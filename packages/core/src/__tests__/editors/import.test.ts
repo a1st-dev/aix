@@ -222,6 +222,51 @@ describe('Editor Config Import', () => {
          }
       });
 
+      it('imports Claude Code project agents into unified agents', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-claude-agents-'));
+
+         try {
+            const agentsDir = join(projectRoot, '.claude', 'agents');
+
+            await mkdir(agentsDir, { recursive: true });
+            await writeFile(
+               join(agentsDir, 'code-reviewer.md'),
+               [
+                  '---',
+                  'name: "code-reviewer"',
+                  'description: "Review code changes."',
+                  'model: "sonnet"',
+                  'tools:',
+                  '  - "Read"',
+                  '  - "Grep"',
+                  'permissions:',
+                  '  edit: deny',
+                  '---',
+                  '',
+                  'Review the current diff.',
+                  '',
+               ].join('\n'),
+               'utf-8',
+            );
+
+            const result = await importFromEditor('claude-code', { projectRoot, scope: 'project' }),
+                  config = buildConfigFromEditorImport('claude-code', result);
+
+            expect(result.agents['code-reviewer']?.content).toBe('Review the current diff.');
+            expect(result.agents['code-reviewer']?.tools).toEqual(['Read', 'Grep']);
+            expect(result.paths.agents['code-reviewer']).toBe(join(agentsDir, 'code-reviewer.md'));
+            expect(result.scopes.agents['code-reviewer']).toBe('project');
+            expect(config.agents?.['code-reviewer']).toMatchObject({
+               content: 'Review the current diff.',
+               description: 'Review code changes.',
+               model: 'sonnet',
+               tools: ['Read', 'Grep'],
+            });
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
       it('imports user-scoped Cursor hooks into generic hook events', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-cursor-hooks-import-')),
                fakeHome = join(projectRoot, 'fake-home');
@@ -626,6 +671,7 @@ describe('Editor Config Import', () => {
                'Release Skill': '/tmp/release-skill',
             },
             prompts: {},
+            agents: {},
             hooks: {
                pre_command: [{
                   hooks: [{
@@ -633,8 +679,8 @@ describe('Editor Config Import', () => {
                   }],
                }],
             },
-            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
-            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
             warnings: [],
             sources: { global: false, local: false },
          };
@@ -653,9 +699,10 @@ describe('Editor Config Import', () => {
                   'Review this code.',
                ].join('\n'),
             },
+            agents: {},
             hooks: {},
-            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
-            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, hooks: {} },
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
             warnings: [],
             sources: { global: false, local: false },
          };

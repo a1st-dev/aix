@@ -10,6 +10,7 @@ import {
    normalizeEditors,
 } from '@a1st/aix-schema';
 import { loadPrompts } from './prompts/loader.js';
+import { loadAgents } from './agents/loader.js';
 import { loadRules } from './rules/loader.js';
 import { resolveAllSkills } from './skills/resolve.js';
 import { ConfigParseError, type ConfigParseIssue } from './errors.js';
@@ -181,6 +182,7 @@ async function createLockedEntities(
             skills: {},
             rules: {},
             prompts: {},
+            agents: {},
             mcp: {},
             hooks: {},
             editors: {},
@@ -190,6 +192,7 @@ async function createLockedEntities(
    await addSkillEntities(entities, config, configBaseDir, projectRoot);
    await addRuleEntities(entities, config, basePath);
    await addPromptEntities(entities, config, basePath);
+   await addAgentEntities(entities, config, basePath);
    addStructuredEntities(entities, 'mcp', config.mcp ?? {});
    addStructuredEntities(entities, 'hooks', config.hooks ?? {});
 
@@ -298,6 +301,43 @@ async function addPromptEntities(
          metadata: {
             argumentHint: prompt.argumentHint,
             description: prompt.description,
+         },
+      });
+   }
+}
+
+async function addAgentEntities(
+   entities: LockedEntities,
+   config: AiJsonConfig,
+   basePath: string,
+): Promise<void> {
+   if (Object.keys(config.agents ?? {}).length === 0) {
+      return;
+   }
+
+   const agents = await loadAgents(config.agents, basePath);
+
+   for (const name of Object.keys(agents).toSorted()) {
+      const agent = agents[name];
+
+      if (!agent) {
+         continue;
+      }
+
+      entities.agents[name] = createEntitySnapshot({
+         name,
+         section: 'agents',
+         content: agent.content,
+         source: config.agents[name],
+         resolved: agent.sourcePath ? { sourcePath: normalizeResolvedPath(agent.sourcePath, dirname(basePath)) } : undefined,
+         metadata: {
+            description: agent.description,
+            mode: agent.mode,
+            model: agent.model,
+            tools: agent.tools,
+            permissions: agent.permissions,
+            mcp: agent.mcp,
+            editor: agent.editor,
          },
       });
    }

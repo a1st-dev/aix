@@ -12,6 +12,7 @@ import { getRuntimeAdapter } from './runtime/index.js';
 export interface WrittenImports {
    rules: Record<string, string>;
    prompts: Record<string, string>;
+   agents: Record<string, string>;
 }
 
 /** A rule with a suggested name for the output file. */
@@ -25,6 +26,7 @@ export interface NamedRule {
 export interface ImportContent {
    rules: NamedRule[];
    prompts: Record<string, string>;
+   agents?: Record<string, string>;
 }
 
 export interface LocalizedConfig {
@@ -75,7 +77,8 @@ export async function writeImportedContent(
    const stagingDir = getImportStagingDir(projectRoot),
          stagingRulesDir = join(stagingDir, 'rules'),
          stagingPromptsDir = join(stagingDir, 'prompts'),
-         result: WrittenImports = { rules: {}, prompts: {} };
+         stagingAgentsDir = join(stagingDir, 'agents'),
+         result: WrittenImports = { rules: {}, prompts: {}, agents: {} };
 
    // Clean any existing staging
    await safeRm(stagingDir, { force: true });
@@ -83,6 +86,7 @@ export async function writeImportedContent(
    // Create staging directories
    await getRuntimeAdapter().fs.mkdir(stagingRulesDir, { recursive: true });
    await getRuntimeAdapter().fs.mkdir(stagingPromptsDir, { recursive: true });
+   await getRuntimeAdapter().fs.mkdir(stagingAgentsDir, { recursive: true });
 
    // Deduplicate rule names: if multiple rules share a name, append -1, -2, etc.
    const nameCount = new Map<string, number>();
@@ -112,8 +116,17 @@ export async function writeImportedContent(
       return getRuntimeAdapter().fs.writeFile(stagingPath, promptContent, 'utf-8');
    });
 
+   const agentWrites = Object.entries(content.agents ?? {}).map(([name, agentContent]) => {
+      const fileName = `${sanitizeFileName(name)}.md`,
+            stagingPath = join(stagingAgentsDir, fileName),
+            relativePath = `./.aix/imported/agents/${fileName}`;
+
+      result.agents[name] = relativePath;
+      return getRuntimeAdapter().fs.writeFile(stagingPath, agentContent, 'utf-8');
+   });
+
    // Execute all writes in parallel
-   await Promise.all([...ruleWrites, ...promptWrites]);
+   await Promise.all([...ruleWrites, ...promptWrites, ...agentWrites]);
 
    return result;
 }
@@ -217,7 +230,7 @@ function getRelativePath(item: unknown): string | undefined {
 }
 
 /**
- * Build copy tasks for rules, prompts, and skills with relative paths.
+ * Build copy tasks for rules, prompts, agents, and skills with relative paths.
  */
 function buildCopyTasks(
    config: Partial<AiJsonConfig>,
@@ -228,6 +241,7 @@ function buildCopyTasks(
          warnings: string[] = [],
          stagingRulesDir = join(stagingDir, 'rules'),
          stagingPromptsDir = join(stagingDir, 'prompts'),
+         stagingAgentsDir = join(stagingDir, 'agents'),
          stagingSkillsDir = join(stagingDir, 'skills');
 
    // Process rules
@@ -290,6 +304,37 @@ function buildCopyTasks(
             name,
             newPath: `./.aix/imported/prompts/${fileName}`,
             itemRef: config.prompts[name] as Record<string, unknown>,
+         });
+      }
+   }
+
+   // Process agents
+   if (config.agents && typeof config.agents === 'object') {
+      for (const [name, agent] of Object.entries(config.agents)) {
+         const relativePath = getRelativePath(agent);
+
+         if (!relativePath) {
+            continue;
+         }
+         const srcPath = resolve(configBaseDir, relativePath),
+               fileName = basename(srcPath);
+
+         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
+            warnings.push(`Agent "${name}": source file not found: ${relativePath}`);
+            continue;
+         }
+
+         if (typeof agent === 'string') {
+            config.agents[name] = { path: agent };
+         }
+
+         tasks.push({
+            type: 'file',
+            src: srcPath,
+            dest: join(stagingAgentsDir, fileName),
+            name,
+            newPath: `./.aix/imported/agents/${fileName}`,
+            itemRef: config.agents[name] as Record<string, unknown>,
          });
       }
    }

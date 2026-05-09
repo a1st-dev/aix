@@ -45,6 +45,12 @@ export const editorFeatureDefinitions = [
       shortDescription: 'Reusable agent workflows or skill bundles.',
    },
    {
+      id: 'agents',
+      label: 'Agents',
+      kind: 'managed',
+      shortDescription: 'Specialized primary agents and delegated subagents.',
+   },
+   {
       id: 'hooks',
       label: 'Hooks',
       kind: 'managed',
@@ -227,6 +233,15 @@ export const editorSupportProfiles = [
             project: nativeScope('.cursor/commands/*.md'),
             user: nativeScope('~/.cursor/commands/*.md'),
          }),
+         agents: feature({
+            id: 'agents',
+            summary: 'native',
+            terminology: 'Agents',
+            implementation: 'Markdown agent files with YAML frontmatter.',
+            project: nativeScope('.cursor/agents/*.md'),
+            user: nativeScope('~/.cursor/agents/*.md'),
+            supportedValues: [ 'description', 'mode', 'model', 'tools', 'permissions', 'mcp', 'editor.cursor' ],
+         }),
          mcp: feature({
             id: 'mcp',
             summary: 'native',
@@ -332,6 +347,17 @@ export const editorSupportProfiles = [
                supportedValues: [ 'name', 'description', 'argument-hint' ],
             },
          ),
+         agents: feature(
+            'agents',
+            'native',
+            'Agents',
+            'Markdown custom agent files with YAML frontmatter.',
+            nativeScope('.github/agents/*.md'),
+            nativeScope('~/.copilot/agents/*.md'),
+            {
+               supportedValues: [ 'description', 'mode', 'model', 'tools', 'permissions', 'mcp-servers', 'editor.copilot' ],
+            },
+         ),
          mcp: feature(
             'mcp',
             'native',
@@ -435,6 +461,17 @@ export const editorSupportProfiles = [
             nativeScope('~/.claude/commands/*.md'),
             {
                supportedValues: [ 'description', 'argument-hint' ],
+            },
+         ),
+         agents: feature(
+            'agents',
+            'native',
+            'Subagents',
+            'Markdown subagent files with YAML frontmatter.',
+            nativeScope('.claude/agents/*.md'),
+            nativeScope('~/.claude/agents/*.md'),
+            {
+               supportedValues: [ 'description', 'mode', 'model', 'tools', 'permissions', 'mcp', 'editor.claude-code' ],
             },
          ),
          mcp: feature(
@@ -551,6 +588,14 @@ export const editorSupportProfiles = [
                supportedValues: [ 'description' ],
             },
          ),
+         agents: feature(
+            'agents',
+            'unsupported',
+            'Agents',
+            'Windsurf does not document custom agent files that aix can write safely.',
+            unsupportedScope('aix reports configured agents as unsupported for Windsurf.'),
+            unsupportedScope('aix reports configured agents as unsupported for Windsurf.'),
+         ),
          mcp: feature(
             'mcp',
             'native',
@@ -655,6 +700,14 @@ export const editorSupportProfiles = [
                notes: [ 'Zed does support MCP server-side prompts, but not file-based user prompts.' ],
             },
          ),
+         agents: feature(
+            'agents',
+            'unsupported',
+            'Agents',
+            'Zed does not document custom agent files that aix can write safely.',
+            unsupportedScope('aix reports configured agents as unsupported for Zed.'),
+            unsupportedScope('aix reports configured agents as unsupported for Zed.'),
+         ),
          mcp: feature(
             'mcp',
             'native',
@@ -729,6 +782,14 @@ export const editorSupportProfiles = [
             'Prompt-to-skill conversion during install.',
             shimScope('.agents/skills/prompt-{name}/', 'Prompts are installed as instruction-only Agent Skills.'),
             shimScope('~/.codex/skills/prompt-{name}/', 'User-scoped prompts are also converted to skills.'),
+         ),
+         agents: feature(
+            'agents',
+            'unsupported',
+            'Agents',
+            'Codex does not document custom subagent files that aix can write safely.',
+            unsupportedScope('aix reports configured agents as unsupported for Codex.'),
+            unsupportedScope('aix reports configured agents as unsupported for Codex.'),
          ),
          mcp: feature(
             'mcp',
@@ -808,6 +869,17 @@ export const editorSupportProfiles = [
             'TOML command files with `description` and `prompt` fields.',
             nativeScope('.gemini/commands/*.toml'),
             nativeScope('~/.gemini/commands/*.toml'),
+         ),
+         agents: feature(
+            'agents',
+            'native',
+            'Subagents',
+            'Markdown subagent files with YAML frontmatter.',
+            nativeScope('.gemini/agents/*.md'),
+            nativeScope('~/.gemini/agents/*.md'),
+            {
+               supportedValues: [ 'description', 'mode', 'model', 'tools', 'temperature', 'maxTurns', 'editor.gemini' ],
+            },
          ),
          mcp: feature(
             'mcp',
@@ -904,6 +976,17 @@ export const editorSupportProfiles = [
             nativeScope('~/.config/opencode/commands/*.md'),
             {
                supportedValues: [ 'description', 'argument-hint' ],
+            },
+         ),
+         agents: feature(
+            'agents',
+            'native',
+            'Agents',
+            'Markdown agent files with YAML frontmatter.',
+            nativeScope('.opencode/agents/*.md'),
+            nativeScope('~/.config/opencode/agents/*.md'),
+            {
+               supportedValues: [ 'description', 'mode', 'model', 'tools', 'permissions', 'editor.opencode' ],
             },
          ),
          mcp: feature(

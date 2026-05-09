@@ -45,6 +45,7 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 | `mcp`     | `object`             | Map of server names to MCP server configs                                        |
 | `rules`   | `object`             | Map of rule names to rule definitions                                            |
 | `prompts` | `object`             | Map of prompt names to prompt definitions                                        |
+| `agents`  | `object`             | Map of agent names to agent definitions                                          |
 | `editors` | `object \| string[]` | Editor targeting and editor-specific settings                                    |
 | `hooks`   | `object`             | Lifecycle hooks for AI agent events                                              |
 | `aix`     | `object`             | aix tool settings (cache, backups)                                               |
@@ -308,6 +309,55 @@ Map of prompt names to prompt definitions. See [Prompts](/concepts/prompts/).
 | `path`         | `string` | Path to a markdown file                         |
 | `git`          | `object` | `{ url, ref, path }` for git-hosted prompts     |
 | `npm`          | `object` | `{ npm, path, version }` for npm-hosted prompts |
+
+---
+
+## `agents`
+
+Map of specialized agent names to agent definitions. See [Agents](/concepts/agents/).
+
+### String shorthand
+
+```json
+{
+   "agents": {
+      "code-reviewer": "./agents/code-reviewer.md"
+   }
+}
+```
+
+### Object form
+
+```json
+{
+   "agents": {
+      "code-reviewer": {
+         "description": "Review code changes",
+         "mode": "subagent",
+         "model": "sonnet",
+         "tools": ["Read", "Grep"],
+         "permissions": {
+            "edit": "deny"
+         },
+         "content": "Review the current diff."
+      }
+   }
+}
+```
+
+| Field         | Type     | Description                                                     |
+| ------------- | -------- | --------------------------------------------------------------- |
+| `description` | `string` | When the editor should use the agent                            |
+| `mode`        | `string` | `"primary"` or `"subagent"`                                     |
+| `model`       | `string` | Editor model alias or model ID                                  |
+| `tools`       | `array`  | Tool names available to the agent                               |
+| `permissions` | `object` | Portable `allow`, `ask`, or `deny` capability policies          |
+| `mcp`         | `object` | MCP servers available to this agent when supported              |
+| `content`     | `string` | Inline agent instructions                                       |
+| `path`        | `string` | Path to a markdown file                                         |
+| `git`         | `object` | `{ url, ref, path }` for git-hosted agents                      |
+| `npm`         | `object` | `{ npm, path, version }` for npm-hosted agents                  |
+| `editor`      | `object` | Editor-specific fields keyed by editor ID for round-trip safety |
 
 ---
 

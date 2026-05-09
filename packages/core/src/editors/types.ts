@@ -1,4 +1,4 @@
-import type { AiJsonConfig, McpServerConfig, HooksConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, McpServerConfig, HooksConfig, AgentObject } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
 import type { EditorStrategyBundle } from './strategies/types.js';
 
@@ -24,6 +24,11 @@ export interface UnsupportedFeatures {
    prompts?: {
       reason: string;
       prompts: string[];
+   };
+   /** Agents that won't be configured (editor doesn't support agents) */
+   agents?: {
+      reason: string;
+      agents: string[];
    };
 }
 
@@ -84,11 +89,29 @@ export interface EditorPrompt {
 }
 
 /**
+ * Editor-specific agent/subagent format after translation from ai.json agents.
+ */
+export interface EditorAgent {
+   name: string;
+   content: string;
+   description?: string;
+   mode?: 'primary' | 'subagent';
+   model?: string;
+   tools?: string[];
+   permissions?: Record<string, 'allow' | 'ask' | 'deny'>;
+   mcp?: AiJsonConfig['mcp'];
+   editor?: AgentObject['editor'];
+   /** Source path for deriving filename (e.g., git URL with path, local file path) */
+   sourcePath?: string;
+}
+
+/**
  * Generated configuration for an editor, ready to be written to disk.
  */
 export interface EditorConfig {
    rules: EditorRule[];
    prompts: EditorPrompt[];
+   agents?: EditorAgent[];
    mcp: Record<string, McpServerConfig>;
    hooks?: HooksConfig;
 }

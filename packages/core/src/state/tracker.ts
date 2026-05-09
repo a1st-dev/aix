@@ -52,6 +52,7 @@ function createEmptyState(scope: ConfigScope): StateFile {
          skills: {},
          rules: {},
          prompts: {},
+         agents: {},
       },
    };
 }
@@ -68,7 +69,11 @@ export async function readState(scope: ConfigScope, projectRoot?: string): Promi
    try {
       const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8');
 
-      return JSON.parse(raw) as StateFile;
+      const parsed = JSON.parse(raw) as StateFile;
+
+      parsed.installed.agents ??= {};
+
+      return parsed;
    } catch {
       return createEmptyState(scope);
    }

@@ -17,7 +17,7 @@ interface InstallPromptsAsSkillsOptions {
  */
 export async function installPromptsAsSkills(options: InstallPromptsAsSkillsOptions): Promise<FileChange[]> {
    const { prompts, skills, skillsStrategy, projectRoot, applyOptions } = options,
-         scopes = applyOptions.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
+         scopes = applyOptions.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'editors'];
 
    if (prompts.length === 0 || (!scopes.includes('editors') && !scopes.includes('prompts'))) {
       return [];

@@ -959,6 +959,41 @@ Skill instructions.
          );
       });
 
+      it('installs agents when scope is agents', async () => {
+         const config = createConfig({
+            agents: {
+               'code-reviewer': {
+                  description: 'Review code changes.',
+                  mode: 'subagent',
+                  model: 'sonnet',
+                  tools: ['Read', 'Grep'],
+                  permissions: {
+                     edit: 'deny',
+                  },
+                  content: 'Review the current diff.',
+               },
+            },
+            prompts: {
+               review: { content: 'Review this change.' },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir, {
+            dryRun: true,
+            scopes: ['agents'],
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(
+            join(testDir, '.claude/agents/code-reviewer.md'),
+         );
+         expect(result.changes.map((c) => c.path)).not.toContain(
+            join(testDir, '.claude/commands/review.md'),
+         );
+         expect(result.changes[0]?.content).toContain('model: "sonnet"');
+         expect(result.changes[0]?.content).toContain('edit');
+      });
+
       it('uses user-level MCP paths when targetScope is user', async () => {
          const config = createConfig({
             mcp: {
@@ -1307,6 +1342,20 @@ Skill instructions.
 
          expect(result.unsupportedFeatures?.hooks).toBeDefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+      });
+
+      it('Codex reports unsupported agents', async () => {
+         const config = createConfig({
+            agents: {
+               'code-reviewer': {
+                  content: 'Review this change.',
+               },
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir, { dryRun: true });
+
+         expect(result.unsupportedFeatures?.agents?.agents).toContain('code-reviewer');
       });
 
       it('Codex does not report prompts as unsupported because they convert to skills', async () => {

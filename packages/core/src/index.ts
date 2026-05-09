@@ -16,6 +16,7 @@ export * from './frontmatter-utils.js';
 export * from './remote-loader.js';
 export * from './merge.js';
 export * from './prompts/index.js';
+export * from './agents/index.js';
 export * from './npm/index.js';
 export * from './import-writer.js';
 export * from './global/index.js';

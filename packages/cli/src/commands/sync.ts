@@ -201,6 +201,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
       this.output.log(`    ${this.output.green('✓')} MCP servers: ${Object.keys(normalized.mcp).length}`);
       this.output.log(`    ${this.output.green('✓')} rules: ${normalized.rules.length}`);
       this.output.log(`    ${this.output.green('✓')} prompts: ${normalized.prompts.length}`);
+      this.output.log(`    ${this.output.green('✓')} agents: ${normalized.agents.length}`);
       this.output.log(`    ${this.output.green('✓')} skills: ${normalized.skills.length}`);
       this.output.log(`    ${this.output.green('✓')} hooks: ${Object.keys(normalized.hooks).length}`);
       this.output.log('');
@@ -251,6 +252,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
          result.unsupportedFeatures?.mcp ||
          result.unsupportedFeatures?.hooks ||
          result.unsupportedFeatures?.prompts ||
+         result.unsupportedFeatures?.agents ||
          result.targetScopeLimitations?.rules ||
          result.targetScopeLimitations?.skills ||
          result.targetScopeLimitations?.hooks,

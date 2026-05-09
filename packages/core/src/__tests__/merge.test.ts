@@ -21,6 +21,7 @@ describe('mergeConfigs', () => {
       mcp: {},
       rules: {},
       prompts: {},
+      agents: {},
    };
 
    describe('with empty local', () => {
@@ -52,6 +53,7 @@ describe('mergeConfigs', () => {
             },
             rules: {},
             prompts: {},
+            agents: {},
          };
 
          const result = mergeConfigs(local, {});
@@ -234,6 +236,7 @@ describe('mergeConfigs with false values', () => {
       mcp: {},
       rules: {},
       prompts: {},
+      agents: {},
    };
 
    describe('false removes entry from merged result', () => {
@@ -354,6 +357,7 @@ describe('filterConfigByScopes', () => {
       },
       rules: { 'test-rule': { content: 'test rule' } },
       prompts: {},
+      agents: {},
       editors: {
          windsurf: { enabled: true },
       },
@@ -407,6 +411,7 @@ describe('filterConfigByScopes', () => {
          mcp: {},
          rules: {},
          prompts: {},
+         agents: {},
       };
 
       const result = filterConfigByScopes(sparseConfig, ['editors']);

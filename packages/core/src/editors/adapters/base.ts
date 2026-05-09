@@ -17,11 +17,13 @@ import type {
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
    EditorStrategyBundle,
 } from '../strategies/types.js';
 import { deepMergeJson, mcpConfigMergeResolver } from '../../json.js';
 import { loadPrompts as loadPromptsFromConfig, type LoadedPrompt } from '../../prompts/loader.js';
+import { loadAgents as loadAgentsFromConfig, type LoadedAgent } from '../../agents/loader.js';
 import { mergeRules, type MergedRule } from '../../rules/merger.js';
 import { resolveAllSkills } from '../../skills/resolve.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
@@ -114,6 +116,9 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    /** Strategy for formatting and writing prompts/commands */
    protected abstract readonly promptsStrategy: PromptsStrategy;
 
+   /** Strategy for formatting and writing agents */
+   protected abstract readonly agentsStrategy: AgentsStrategy;
+
    /** Strategy for formatting and writing hooks */
    protected abstract readonly hooksStrategy: HooksStrategy;
 
@@ -124,6 +129,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          rulesStrategy: this.rulesStrategy,
          skillsStrategy: this.skillsStrategy,
          promptsStrategy: this.promptsStrategy,
+         agentsStrategy: this.agentsStrategy,
          hooksStrategy: this.hooksStrategy,
       };
    }
@@ -157,7 +163,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          errors: [],
       };
 
-      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
+      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'editors'];
 
       try {
          // Clean the .aix folder if requested (ensures exact match with ai.json)
@@ -307,7 +313,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       // Use configBaseDir for resolving relative paths (important for remote configs)
       const configBaseDir = options.configBaseDir ?? projectRoot,
             basePath = join(configBaseDir, 'ai.json'),
-            scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
+            scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'editors'];
       let skillChanges: FileChange[] = [],
           skillRules: EditorRule[] = [],
           resolvedSkills = new Map<string, ParsedSkill>();
@@ -487,6 +493,35 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          }
       }
 
+      // Agents (markdown files - always overwrite, no merge)
+      if (
+         (scopes.includes('editors') || scopes.includes('agents')) &&
+         this.agentsStrategy.isSupported() &&
+         editorConfig.agents &&
+         editorConfig.agents.length > 0
+      ) {
+         const globalAgentsPath = this.agentsStrategy.getGlobalAgentsPath(),
+               agentsDir =
+                  targetScope === 'user' && globalAgentsPath
+                     ? join(getRuntimeAdapter().os.homedir(), globalAgentsPath)
+                     : join(configDir, this.agentsStrategy.getAgentsDir()),
+               ext = this.agentsStrategy.getFileExtension();
+
+         const agentChanges = await Promise.all(
+            editorConfig.agents.map(async (agent) => {
+               const fileName = this.sanitizeFileName(this.deriveAgentName(agent)) + ext,
+                     filePath = join(agentsDir, fileName),
+                     content = this.agentsStrategy.formatAgent(agent),
+                     existing = await this.readExisting(filePath),
+                     action = this.determineAction(existing, content);
+
+               return { path: filePath, action, content, category: 'workflow' as const };
+            }),
+         );
+
+         changes.push(...agentChanges);
+      }
+
       return changes;
    }
 
@@ -609,6 +644,25 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    }
 
    /**
+    * Derive an agent name from the agent's name field or sourcePath.
+    */
+   protected deriveAgentName(agent: import('../types.js').EditorAgent): string {
+      if (agent.name) {
+         return agent.name;
+      }
+
+      if (agent.sourcePath) {
+         const fileName = this.extractFileNameFromPath(agent.sourcePath);
+
+         if (fileName) {
+            return fileName.replace(/\.(md|txt)$/i, '');
+         }
+      }
+
+      return 'agent';
+   }
+
+   /**
     * Load prompts from config. Resolves content from inline, path, or git sources.
     */
    protected async loadPrompts(
@@ -631,6 +685,36 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          description: p.description,
          argumentHint: p.argumentHint,
          sourcePath: p.sourcePath,
+      }));
+   }
+
+   /**
+    * Load agents from config. Resolves content from inline, path, git, or npm sources.
+    */
+   protected async loadAgents(
+      config: AiJsonConfig,
+      projectRoot: string,
+      options: { configBaseDir?: string } = {},
+   ): Promise<import('../types.js').EditorAgent[]> {
+      if (!config.agents || Object.keys(config.agents).length === 0) {
+         return [];
+      }
+
+      const configBaseDir = options.configBaseDir ?? projectRoot,
+            basePath = join(configBaseDir, 'ai.json'),
+            loaded = await loadAgentsFromConfig(config.agents, basePath);
+
+      return Object.values(loaded).map((agent: LoadedAgent) => ({
+         name: agent.name,
+         content: agent.content,
+         description: agent.description,
+         mode: agent.mode,
+         model: agent.model,
+         tools: agent.tools,
+         permissions: agent.permissions,
+         mcp: agent.mcp,
+         editor: agent.editor,
+         sourcePath: agent.sourcePath,
       }));
    }
 
@@ -676,6 +760,16 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          unsupported.prompts = {
             reason: `${this.name} does not support prompts/commands`,
             prompts: promptNames,
+         };
+      }
+
+      // Check agents support
+      const agentNames = Object.keys(config.agents ?? {});
+
+      if (agentNames.length > 0 && !this.agentsStrategy.isSupported()) {
+         unsupported.agents = {
+            reason: `${this.name} does not support custom agents`,
+            agents: agentNames,
          };
       }
 

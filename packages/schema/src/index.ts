@@ -6,6 +6,7 @@ export * from './skill.js';
 export * from './mcp.js';
 export * from './rules.js';
 export * from './prompts.js';
+export * from './agents.js';
 export * from './hooks.js';
 export * from './editors.js';
 export * from './editor-support.js';

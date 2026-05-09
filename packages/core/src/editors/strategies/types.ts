@@ -1,5 +1,5 @@
 import type { McpServerConfig, ParsedSkill, HooksConfig, ActivationMode } from '@a1st/aix-schema';
-import type { EditorPrompt, EditorRule, FileChange } from '../types.js';
+import type { EditorAgent, EditorPrompt, EditorRule, FileChange } from '../types.js';
 import type { NamedRule } from '../../import-writer.js';
 
 /**
@@ -52,6 +52,16 @@ export interface ImportedRulesResult {
  */
 export interface ImportedPromptsResult {
    prompts: Record<string, string>;
+   paths: Record<string, string>;
+   scopes: Record<string, EditorImportScope>;
+   warnings: string[];
+}
+
+/**
+ * Result shape for agent imports.
+ */
+export interface ImportedAgentsResult {
+   agents: Record<string, EditorAgent>;
    paths: Record<string, string>;
    scopes: Record<string, EditorImportScope>;
    warnings: string[];
@@ -256,6 +266,36 @@ export interface PromptsStrategy {
 }
 
 /**
+ * Strategy for formatting and writing agents/subagents to an editor.
+ */
+export interface AgentsStrategy {
+   /** Whether this editor supports custom agents */
+   isSupported(): boolean;
+
+   /** Format a single agent for this editor, including any frontmatter */
+   formatAgent(agent: EditorAgent): string;
+
+   /** Get the agents directory path relative to the editor config dir */
+   getAgentsDir(): string;
+
+   /** Get the file extension for agent files */
+   getFileExtension(): string;
+
+   /** Get the global agents directory path relative to home directory, or null if unsupported */
+   getGlobalAgentsPath(): string | null;
+
+   /** Parse an agent file into the unified editor agent shape */
+   parseAgent(name: string, content: string): EditorAgent;
+
+   /** Override global agent import for editors with non-standard layouts. */
+   importGlobalAgents?(): Promise<ImportedAgentsResult>;
+
+   /** Override project agent import for editors with non-standard layouts. */
+   importProjectAgents?(projectRoot: string, editorConfigDir: string): Promise<ImportedAgentsResult>;
+}
+
+
+/**
  * Strategy for formatting and writing hooks to an editor. Each editor has different hook event
  * names, config file locations, and JSON structures.
  */
@@ -323,5 +363,6 @@ export interface EditorStrategyBundle {
    rulesStrategy: RulesStrategy;
    skillsStrategy: SkillsStrategy;
    promptsStrategy: PromptsStrategy;
+   agentsStrategy: AgentsStrategy;
    hooksStrategy: HooksStrategy;
 }

@@ -4,6 +4,7 @@ import { skillsSchema } from './skills.js';
 import { mcpSchema } from './mcp.js';
 import { rulesSchema } from './rules.js';
 import { promptsSchema } from './prompts.js';
+import { agentsSchema } from './agents.js';
 import { editorsSchema } from './editors.js';
 import { hooksSchema } from './hooks.js';
 import { aixSettingsSchema } from './aix.js';
@@ -13,6 +14,7 @@ export const aiJsonConfigSchema = configMetaSchema.extend({
    mcp: mcpSchema.optional().default({}),
    rules: rulesSchema.optional().default({}),
    prompts: promptsSchema.optional().default({}),
+   agents: agentsSchema.optional().default({}),
    editors: editorsSchema.optional(),
    hooks: hooksSchema.optional().describe('Lifecycle hooks for AI agent events'),
    aix: aixSettingsSchema.optional().describe('aix CLI tool settings'),
@@ -31,6 +33,7 @@ export const localConfigSchema = z
       mcp: mcpSchema.optional(),
       rules: rulesSchema.optional(),
       prompts: promptsSchema.optional(),
+      agents: agentsSchema.optional(),
       editors: editorsSchema.optional(),
       hooks: hooksSchema.optional().describe('Lifecycle hooks for AI agent events'),
       aix: aixSettingsSchema.optional().describe('aix CLI tool settings'),

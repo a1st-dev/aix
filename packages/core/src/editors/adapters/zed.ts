@@ -3,12 +3,13 @@ import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
 import { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from '../strategies/zed/index.js';
-import { PointerSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { PointerSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
@@ -34,6 +35,7 @@ export class ZedAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new ZedMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new PointerSkillsStrategy();
    protected readonly promptsStrategy: PromptsStrategy = new ZedPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];

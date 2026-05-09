@@ -3,7 +3,7 @@ import type { ConfigScope } from '@a1st/aix-schema';
 
 // --- Section filter (formerly --scope, now --only) ---
 
-export const VALID_SECTIONS = ['rules', 'prompts', 'mcp', 'skills', 'editors'] as const;
+export const VALID_SECTIONS = ['rules', 'prompts', 'mcp', 'skills', 'agents', 'editors'] as const;
 export type Section = (typeof VALID_SECTIONS)[number];
 
 /**

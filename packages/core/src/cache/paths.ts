@@ -43,6 +43,13 @@ export function getPromptsCacheDir(projectRoot: string): string {
 }
 
 /**
+ * Get the agents cache directory path.
+ */
+export function getAgentsCacheDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', '.tmp', 'cache', 'agents');
+}
+
+/**
  * Get the npm cache directory path (for standalone ai.json).
  */
 export function getNpmCacheDir(projectRoot: string): string {

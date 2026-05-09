@@ -8,12 +8,13 @@ import {
    CopilotPromptsStrategy,
    CopilotHooksStrategy,
 } from '../strategies/copilot/index.js';
-import { NativeSkillsStrategy } from '../strategies/shared/index.js';
+import { MarkdownAgentsStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
    PromptsStrategy,
+   AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
@@ -72,6 +73,14 @@ export class CopilotAdapter extends BaseEditorAdapter {
       userEditorSkillsDir: '.copilot/skills',
    });
    protected readonly promptsStrategy: PromptsStrategy = new CopilotPromptsStrategy();
+   protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
+      projectAgentsDir: '../.github/agents',
+      userAgentsDir: '.copilot/agents',
+      extraFrontmatter: (agent) => ({
+         ...(agent.mcp ? { 'mcp-servers': agent.mcp } : {}),
+         ...agent.editor?.copilot,
+      }),
+   });
    protected readonly hooksStrategy: HooksStrategy = new CopilotHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
@@ -88,6 +97,7 @@ export class CopilotAdapter extends BaseEditorAdapter {
          targetScope: options.targetScope,
       });
       const prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
+            agents = await this.loadAgents(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),
             hooks = config.hooks,
             shouldConvertPromptInstalls = this.shouldConvertPromptsToSkills(options.targetScope),
@@ -102,7 +112,7 @@ export class CopilotAdapter extends BaseEditorAdapter {
                : [];
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: shouldConvertPromptInstalls ? [] : prompts, mcp, hooks };
+      return { rules, prompts: shouldConvertPromptInstalls ? [] : prompts, agents, mcp, hooks };
    }
 
    protected override async planChanges(

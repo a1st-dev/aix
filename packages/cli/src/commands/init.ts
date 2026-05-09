@@ -155,7 +155,8 @@ export default class Init extends BaseCommand<typeof Init> {
       const mcpCount = Object.keys(result.mcp).length,
             rulesCount = result.rules.length,
             skillsCount = Object.keys(result.skills).length,
-            promptsCount = Object.keys(result.prompts).length;
+            promptsCount = Object.keys(result.prompts).length,
+            agentsCount = Object.keys(result.agents).length;
 
       if (mcpCount > 0) {
          this.output.success(`Imported ${mcpCount} MCP server${mcpCount === 1 ? '' : 's'}`);
@@ -173,7 +174,11 @@ export default class Init extends BaseCommand<typeof Init> {
          this.output.success(`Imported ${promptsCount} prompt${promptsCount === 1 ? '' : 's'}`);
       }
 
-      if (mcpCount === 0 && rulesCount === 0 && skillsCount === 0 && promptsCount === 0) {
+      if (agentsCount > 0) {
+         this.output.success(`Imported ${agentsCount} agent${agentsCount === 1 ? '' : 's'}`);
+      }
+
+      if (mcpCount === 0 && rulesCount === 0 && skillsCount === 0 && promptsCount === 0 && agentsCount === 0) {
          this.output.warn('No configuration found to import');
       }
 
@@ -185,6 +190,9 @@ export default class Init extends BaseCommand<typeof Init> {
                })),
                prompts: Object.fromEntries(
                   normalized.prompts.map((prompt) => [prompt.name, prompt.rawContent]),
+               ),
+               agents: Object.fromEntries(
+                  normalized.agents.map((agent) => [agent.name, agent.content]),
                ),
             }),
             config = buildConfigFromEditorImport(editor, result);
@@ -203,10 +211,17 @@ export default class Init extends BaseCommand<typeof Init> {
          prompts[name] = { path: relativePath };
       }
 
+      const agents: Record<string, { path: string }> = {};
+
+      for (const [name, relativePath] of Object.entries(written.agents)) {
+         agents[name] = { path: relativePath };
+      }
+
       return {
          ...config,
          rules,
          prompts,
+         agents,
       };
    }
 }
