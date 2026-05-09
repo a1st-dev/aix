@@ -429,6 +429,105 @@ describe('Editor Adapters', () => {
          expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/hooks/hooks.json'));
       });
 
+      it('keeps project-scope prompts as native Copilot prompt files', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review the current change.',
+                  argumentHint: '[diff]',
+                  content: 'Review this diff.',
+               },
+            },
+         });
+
+         await installToEditor('copilot', config, testDir);
+
+         const promptContent = await readFile(join(testDir, '.github/prompts/review.prompt.md'), 'utf-8');
+
+         expect(promptContent).toContain('name: "review"');
+         expect(promptContent).toContain('description: "Review the current change."');
+         expect(promptContent).toContain('argument-hint: "[diff]"');
+         expect(promptContent).toContain('Review this diff.');
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(false);
+      });
+
+      it('converts user-scope prompts into Copilot skills', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review the current change.',
+                  argumentHint: '[diff]',
+                  content: 'Review this diff.',
+               },
+            },
+         });
+
+         const result = await installToEditor('copilot', config, testDir, { targetScope: 'user' });
+
+         expect(result.success).toBe(true);
+         expect(existsSync(join(fakeHome, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.copilot/skills/review'))).toBe(true);
+         expect(existsSync(join(fakeHome, 'Library/Application Support/Code/User/prompts/review.prompt.md'))).toBe(false);
+
+         const skillContent = await readFile(join(fakeHome, '.aix/skills/review/SKILL.md'), 'utf-8');
+
+         expect(skillContent).toContain('name: review');
+         expect(skillContent).toContain('Argument hint from the original prompt: `[diff]`');
+         expect(skillContent).toContain('Review this diff.');
+      });
+
+      it('renames user-scope prompt skills when they conflict with Copilot skills', async () => {
+         const skillDir = join(testDir, 'skills', 'review'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: review
+description: Review code as a skill.
+---
+
+Skill instructions.
+`,
+         );
+
+         const config = createConfig({
+            skills: {
+               review: './skills/review',
+            },
+            prompts: {
+               review: {
+                  description: 'Review code as a prompt.',
+                  content: 'Prompt instructions.',
+               },
+            },
+         });
+
+         const result = await installToEditor('copilot', config, testDir, { targetScope: 'user' });
+
+         expect(result.success).toBe(true);
+         expect(existsSync(join(fakeHome, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.aix/skills/prompt-review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.copilot/skills/review'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.copilot/skills/prompt-review'))).toBe(true);
+         expect(existsSync(join(fakeHome, 'Library/Application Support/Code/User/prompts/review.prompt.md'))).toBe(false);
+
+         const promptSkillContent = await readFile(
+            join(fakeHome, '.aix/skills/prompt-review/SKILL.md'),
+            'utf-8',
+         );
+
+         expect(promptSkillContent).toContain('name: prompt-review');
+         expect(promptSkillContent).toContain('Original prompt name: `review`.');
+         expect(promptSkillContent).toContain('Prompt instructions.');
+      });
+
       it('uses user-level Copilot skills path when targetScope is user', async () => {
          const skillDir = join(testDir, 'skills', 'demo-skill'),
                fakeHome = join(testDir, 'fake-home');

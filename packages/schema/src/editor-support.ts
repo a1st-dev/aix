@@ -298,11 +298,12 @@ export const editorSupportProfiles = [
    {
       id: 'copilot',
       name: 'GitHub Copilot',
-      summary: 'Native rules, prompt files, hooks, and MCP with repo-root MCP config.',
+      summary: 'Native project prompts, skill-backed user prompts, hooks, and repo-root MCP config.',
       migrationPitch: 'Copilot keeps most features native, but its repo instruction surfaces differ from other editors.',
       notes: [
          'aix writes project MCP config to `.mcp.json` and still imports `.github/mcp.json` as a fallback.',
-         'Copilot prompt installs use explicit frontmatter so slash commands keep the configured prompt name.',
+         'Project Copilot prompt installs use explicit frontmatter so slash commands keep the configured prompt name.',
+         'User-scope Copilot prompt installs are converted into native skills under `~/.copilot/skills/`.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Prompt files' },
@@ -326,7 +327,7 @@ export const editorSupportProfiles = [
             'Prompt files',
             'Markdown prompt files with YAML frontmatter.',
             nativeScope('.github/prompts/*.prompt.md'),
-            nativeScope('VS Code user prompts directory'),
+            shimScope('~/.copilot/skills/{name}/', 'aix converts user-scope prompts into instruction-only Copilot skills.'),
             {
                supportedValues: [ 'name', 'description', 'argument-hint' ],
             },

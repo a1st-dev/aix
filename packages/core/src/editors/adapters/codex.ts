@@ -15,7 +15,7 @@ import {
    CodexMcpStrategy,
 } from '../strategies/codex/index.js';
 import { NativeSkillsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
-import { convertPromptsToSkills } from '../../prompts/to-skills.js';
+import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -203,26 +203,13 @@ export class CodexAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions,
    ): Promise<FileChange[]> {
-      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'editors'];
-
-      if (prompts.length === 0 || (!scopes.includes('editors') && !scopes.includes('prompts'))) {
-         return [];
-      }
-
-      const existingSkillNames = new Set<string>();
-
-      for (const [name, skill] of skills) {
-         existingSkillNames.add(name);
-         if (skill.frontmatter.name) {
-            existingSkillNames.add(skill.frontmatter.name);
-         }
-      }
-
-      const { skills: promptSkills } = await convertPromptsToSkills(prompts, {
-         existingSkillNames,
+      return installPromptsAsSkills({
+         prompts,
+         skills,
+         skillsStrategy: this.skillsStrategy,
+         projectRoot,
+         applyOptions: options,
       });
-
-      return this.skillsStrategy.installSkills(promptSkills, projectRoot, options);
    }
 }
 

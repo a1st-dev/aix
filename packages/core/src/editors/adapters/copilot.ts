@@ -17,13 +17,14 @@ import type {
    HooksStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
  * MCP config to `.mcp.json` (or `~/.copilot/mcp-config.json` for user scope), skills to
  * `.github/skills/` / `~/.copilot/skills/`, and hooks to `.github/hooks/hooks.json` /
- * `~/.copilot/hooks/hooks.json`. Skills are installed into `.aix/skills/{name}/` and symlinked
- * into GitHub Copilot's native skills directories.
+ * `~/.copilot/hooks/hooks.json`. Project-scope prompts stay native, while user-scope prompts are
+ * converted into skills and installed through Copilot's native skills directories.
  */
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
@@ -80,7 +81,7 @@ export class CopilotAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+      const { rules, skillChanges, skills } = await this.loadRules(config, projectRoot, {
          dryRun: options.dryRun,
          scopes: options.scopes,
          configBaseDir: options.configBaseDir,
@@ -88,10 +89,20 @@ export class CopilotAdapter extends BaseEditorAdapter {
       });
       const prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp),
-            hooks = config.hooks;
+            hooks = config.hooks,
+            shouldConvertPromptInstalls = this.shouldConvertPromptsToSkills(options.targetScope),
+            promptSkillChanges = shouldConvertPromptInstalls
+               ? await installPromptsAsSkills({
+                  prompts,
+                  skills,
+                  skillsStrategy: this.skillsStrategy,
+                  projectRoot,
+                  applyOptions: options,
+               })
+               : [];
 
-      this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp, hooks };
+      this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
+      return { rules, prompts: shouldConvertPromptInstalls ? [] : prompts, mcp, hooks };
    }
 
    protected override async planChanges(
@@ -106,5 +117,13 @@ export class CopilotAdapter extends BaseEditorAdapter {
       this.pendingSkillChanges = [];
 
       return changes;
+   }
+
+   private shouldConvertPromptsToSkills(targetScope: ApplyOptions['targetScope'] = 'project'): boolean {
+      if (targetScope === 'user') {
+         return true;
+      }
+
+      return this.promptsStrategy.isGlobalOnly?.() === true || this.promptsStrategy.getPromptsDir().length === 0;
    }
 }
