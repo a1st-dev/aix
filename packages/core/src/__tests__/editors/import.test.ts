@@ -27,7 +27,8 @@ describe('Editor Config Import', () => {
       it('returns path for claude-code', () => {
          const path = getGlobalConfigPath('claude-code');
 
-         expect(path).toContain('Claude');
+         expect(path).toContain('.claude.json');
+         expect(path).not.toContain('claude_desktop_config.json');
       });
 
       it('returns path for copilot', () => {
@@ -336,11 +337,18 @@ describe('Editor Config Import', () => {
       });
 
       it('imports OpenCode project rules, MCP, prompts, and skills', async () => {
-         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-import-'));
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME,
+               originalUserProfile = process.env.USERPROFILE;
+
+         process.env.HOME = fakeHome;
+         process.env.USERPROFILE = fakeHome;
 
          try {
             const skillPath = join(projectRoot, '.opencode', 'skills', 'release');
 
+            await mkdir(fakeHome, { recursive: true });
             await mkdir(join(projectRoot, '.opencode', 'commands'), { recursive: true });
             await mkdir(join(projectRoot, 'docs'), { recursive: true });
             await mkdir(skillPath, { recursive: true });
@@ -391,14 +399,31 @@ describe('Editor Config Import', () => {
             expect(result.prompts.test).toContain('Test this change.');
             expect(result.skills.release).toBe(skillPath);
          } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            if (originalUserProfile === undefined) {
+               delete process.env.USERPROFILE;
+            } else {
+               process.env.USERPROFILE = originalUserProfile;
+            }
             await rm(projectRoot, { recursive: true, force: true });
          }
       });
 
       it('imports OpenCode project JSONC config', async () => {
-         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-jsonc-import-'));
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-jsonc-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME,
+               originalUserProfile = process.env.USERPROFILE;
+
+         process.env.HOME = fakeHome;
+         process.env.USERPROFILE = fakeHome;
 
          try {
+            await mkdir(fakeHome, { recursive: true });
             await mkdir(join(projectRoot, 'docs'), { recursive: true });
             await writeFile(join(projectRoot, 'docs', 'rules.md'), 'Use JSONC instructions.', 'utf-8');
             await writeFile(
@@ -428,6 +453,16 @@ describe('Editor Config Import', () => {
             expect(result.prompts.review).toContain('Review from JSONC.');
             expect(result.mcp.docs).toEqual({ url: 'https://example.com/mcp' });
          } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            if (originalUserProfile === undefined) {
+               delete process.env.USERPROFILE;
+            } else {
+               process.env.USERPROFILE = originalUserProfile;
+            }
             await rm(projectRoot, { recursive: true, force: true });
          }
       });

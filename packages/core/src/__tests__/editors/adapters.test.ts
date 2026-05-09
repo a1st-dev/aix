@@ -877,6 +877,23 @@ Skill instructions.
          expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.cursor/mcp.json'));
       });
 
+      it('uses Claude Code user-level MCP path when targetScope is user', async () => {
+         const config = createConfig({
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir, {
+            dryRun: true,
+            scopes: ['mcp'],
+            targetScope: 'user',
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.claude.json'));
+      });
+
       it('uses user-level hooks paths when targetScope is user', async () => {
          const config = createConfig({
             hooks: {

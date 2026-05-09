@@ -4,8 +4,9 @@ import { StandardMcpStrategy } from '../shared/standard-mcp.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 /**
- * Claude Code MCP strategy. Uses `.mcp.json` (dot-prefixed) with a `mcpServers` object. Each server
- * entry includes a `type` field (`"stdio"` or `"http"`) as required by the Claude Code CLI.
+ * Claude Code MCP strategy. Uses `.mcp.json` (dot-prefixed) at the project root and
+ * `~/.claude.json` for user scope, with a `mcpServers` object. Each server entry includes a `type`
+ * field (`"stdio"` or `"http"`) as required by the Claude Code CLI.
  */
 export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStrategy {
    override getConfigPath(): string {
@@ -17,10 +18,10 @@ export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStr
    }
 
    override getGlobalMcpConfigPath(): string | null {
-      const paths: Record<string, string> = {
-         darwin: 'Library/Application Support/Claude/claude_desktop_config.json',
-         linux: '.config/Claude/claude_desktop_config.json',
-         win32: 'AppData/Roaming/Claude/claude_desktop_config.json',
+      const paths: Partial<Record<NodeJS.Platform, string>> = {
+         darwin: '.claude.json',
+         linux: '.claude.json',
+         win32: '.claude.json',
       };
 
       return paths[getRuntimeAdapter().os.platform()] ?? null;

@@ -442,7 +442,7 @@ export const editorSupportProfiles = [
             'MCP servers',
             'JSON `mcpServers` configuration.',
             nativeScope('.mcp.json'),
-            nativeScope('Claude desktop config file'),
+            nativeScope('~/.claude.json'),
          ),
          skills: feature(
             'skills',

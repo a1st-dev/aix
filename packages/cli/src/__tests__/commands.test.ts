@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
+import { setTimeout as delay } from 'node:timers/promises';
 import { safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
@@ -12,6 +13,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url)),
       root = join(__dirname, '../..');
 const maxBuffer = 1024 * 1024 * 10,
       binPath = join(root, 'bin', 'run.js');
+const TEST_DIR_CLEANUP_RETRIES = 12,
+      TEST_DIR_CLEANUP_DELAY_MS = 250,
+      RETRYABLE_CLEANUP_ERROR_CODES = new Set([ 'EBUSY', 'ENOTEMPTY', 'EPERM' ]);
 
 interface CommandResult {
    error?: Error;
@@ -28,6 +32,10 @@ function runCli(args: string[], _unused?: unknown): Promise<CommandResult> {
             cwd: process.cwd(),
             env: {
                ...process.env,
+               AIX_CACHE_DIR: join(process.cwd(), '.oclif', 'cache'),
+               AIX_CONFIG_DIR: join(process.cwd(), '.oclif', 'config'),
+               AIX_DATA_DIR: join(process.cwd(), '.oclif', 'data'),
+               AIX_DISABLE_AUTOUPDATE: '1',
                NODE_ENV: 'production',
             },
             maxBuffer,
@@ -41,6 +49,36 @@ function runCli(args: string[], _unused?: unknown): Promise<CommandResult> {
          },
       );
    });
+}
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+   return error instanceof Error && 'code' in error;
+}
+
+function shouldRetryCleanup(error: unknown, attempt: number): boolean {
+   return (
+      process.platform === 'win32' &&
+      attempt < TEST_DIR_CLEANUP_RETRIES &&
+      isErrnoException(error) &&
+      typeof error.code === 'string' &&
+      RETRYABLE_CLEANUP_ERROR_CODES.has(error.code)
+   );
+}
+
+async function removeTestDir(path: string, attempt: number = 0): Promise<void> {
+   try {
+      await safeRm(path, { force: true });
+   } catch (error) {
+      if (!shouldRetryCleanup(error, attempt)) {
+         throw error;
+      }
+
+      const nextAttempt = attempt + 1;
+
+      await delay(TEST_DIR_CLEANUP_DELAY_MS * nextAttempt);
+
+      return removeTestDir(path, nextAttempt);
+   }
 }
 
 /**
@@ -114,7 +152,7 @@ describe('CLI Commands', () => {
       } else {
          process.env.HOME = originalHome;
       }
-      await safeRm(testDir, { force: true });
+      await removeTestDir(testDir);
    });
 
    describe('init', () => {
