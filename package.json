@@ -34,6 +34,8 @@
       "@stylistic/eslint-plugin": "5.10.0",
       "@types/node": "24.10.9",
       "eslint": "10.3.0",
+      "node-addon-api": "8.7.0",
+      "node-gyp": "12.3.0",
       "oxfmt": "0.48.0",
       "oxlint": "1.63.0",
       "tslib": "2.8.1",
