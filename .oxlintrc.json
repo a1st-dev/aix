@@ -8,26 +8,75 @@
    },
    "rules": {
       "curly": "error",
-      "@stylistic/brace-style": ["error", "1tbs", { "allowSingleLine": false }],
-      "@stylistic/indent": ["error", 3, { "VariableDeclarator": "first" }],
+      "@stylistic/brace-style": [
+         "error",
+         "1tbs",
+         {
+            "allowSingleLine": false
+         }
+      ],
+      "@stylistic/indent": [
+         "error",
+         3,
+         {
+            "VariableDeclarator": "first"
+         }
+      ],
       "@stylistic/padding-line-between-statements": [
          "error",
-         { "blankLine": "always", "prev": ["const", "let"], "next": "*" },
-         { "blankLine": "any", "prev": ["const", "let"], "next": ["const", "let"] }
+         {
+            "blankLine": "always",
+            "prev": ["const", "let"],
+            "next": "*"
+         },
+         {
+            "blankLine": "any",
+            "prev": ["const", "let"],
+            "next": ["const", "let"]
+         }
       ],
-      "@stylistic/quotes": ["error", "single", { "avoidEscape": true }],
+      "@stylistic/quotes": [
+         "error",
+         "single",
+         {
+            "avoidEscape": true
+         }
+      ],
       "@stylistic/semi": ["error", "always"],
       "no-unused-vars": [
          "error",
-         { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+         {
+            "argsIgnorePattern": "^_",
+            "varsIgnorePattern": "^_",
+            "caughtErrorsIgnorePattern": "^_"
+         }
       ],
-      "max-depth": ["warn", { "max": 4 }],
-      "max-nested-callbacks": ["warn", { "max": 3 }],
+      "max-depth": [
+         "warn",
+         {
+            "max": 4
+         }
+      ],
+      "max-nested-callbacks": [
+         "warn",
+         {
+            "max": 3
+         }
+      ],
       "max-lines-per-function": [
          "warn",
-         { "max": 300, "skipBlankLines": true, "skipComments": true }
+         {
+            "max": 300,
+            "skipBlankLines": true,
+            "skipComments": true
+         }
       ],
-      "max-params": ["warn", { "max": 4 }],
+      "max-params": [
+         "warn",
+         {
+            "max": 4
+         }
+      ],
       "typescript/triple-slash-reference": "off"
    },
    "overrides": [
@@ -59,6 +108,7 @@
       "**/.aix/**",
       "**/.beads/**",
       "**/AGENTS.md",
-      "**/GEMINI.md"
+      "**/GEMINI.md",
+      "**.turbo/**"
    ]
 }

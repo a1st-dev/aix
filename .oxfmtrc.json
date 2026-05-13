@@ -24,6 +24,7 @@
       "**/AGENTS.md",
       "**/GEMINI.md",
       "package-lock.json",
-      "packages/cli/oclif.manifest.json"
+      "packages/cli/oclif.manifest.json",
+      "**/.turbo/**"
    ]
 }
