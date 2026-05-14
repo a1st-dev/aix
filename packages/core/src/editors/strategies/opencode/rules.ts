@@ -3,6 +3,7 @@ import type { ImportedRulesResult, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 import { getOpenCodeConfigImportPaths, importOpenCodeInstructionRules } from './import-utils.js';
+import { formatPlainMarkdownRule } from '../shared/rule-utils.js';
 
 /**
  * OpenCode reads `AGENTS.md` files for project and global rules. The adapter handles managed
@@ -103,15 +104,7 @@ export class OpenCodeRulesStrategy implements RulesStrategy {
    }
 
    formatRule(rule: EditorRule): string {
-      const lines: string[] = [],
-            contentStartsWithHeading = /^#\s/.test(rule.content.trim());
-
-      if (rule.name && !contentStartsWithHeading) {
-         lines.push(`## ${rule.name}`, '');
-      }
-
-      lines.push(rule.content);
-      return lines.join('\n');
+      return formatPlainMarkdownRule(rule, '##');
    }
 }
 

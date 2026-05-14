@@ -2,6 +2,7 @@ import { join } from 'pathe';
 import type { ImportedRulesResult, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
+import { formatPlainMarkdownRule } from '../shared/rule-utils.js';
 
 /**
  * Codex CLI rules strategy. Uses `AGENTS.md` files at the project root (and optionally in
@@ -56,17 +57,6 @@ export class CodexRulesStrategy implements RulesStrategy {
    }
 
    formatRule(rule: EditorRule): string {
-      const lines: string[] = [];
-
-      // Codex uses plain markdown without frontmatter
-      // Include rule name as heading for context, but only if content doesn't already start with one
-      const contentStartsWithHeading = /^#\s/.test(rule.content.trim());
-
-      if (rule.name && !contentStartsWithHeading) {
-         lines.push(`## ${rule.name}`, '');
-      }
-
-      lines.push(rule.content);
-      return lines.join('\n');
+      return formatPlainMarkdownRule(rule, '##');
    }
 }

@@ -38,6 +38,16 @@ const createConfig = (overrides: Partial<AiJsonConfig> = {}): AiJsonConfig =>
       ...overrides,
    }) as AiJsonConfig;
 
+const createFrontmatterRuleContent = (body: string): string => [
+   '---',
+   'description: "source rule metadata"',
+   'paths:',
+   '  - "src/**/*.ts"',
+   '---',
+   '',
+   body,
+].join('\n');
+
 describe('Editor Adapters', () => {
    let testDir: string;
    let originalHome: string | undefined;
@@ -642,6 +652,25 @@ description: Demo skill
          expect(ruleContent).toContain('Zed content');
       });
 
+      it('strips source rule frontmatter before inlining rules into .rules', async () => {
+         const config = createConfig({
+            rules: {
+               'zed-rule': {
+                  content: createFrontmatterRuleContent('Zed body content'),
+               },
+            },
+         });
+
+         await installToEditor('zed', config, testDir);
+
+         const ruleContent = await readFile(join(testDir, '.rules'), 'utf-8');
+
+         expect(ruleContent).toContain('# zed-rule');
+         expect(ruleContent).toContain('Zed body content');
+         expect(ruleContent).not.toContain('source rule metadata');
+         expect(ruleContent).not.toContain('paths:');
+      });
+
       it('writes pointer rules during skills-only installs', async () => {
          const skillDir = join(testDir, 'skills', 'demo-skill');
 
@@ -771,6 +800,25 @@ description: Demo skill
          expect(agentsContent).toContain('First rule content');
          expect(agentsContent).toContain('## rule-two');
          expect(agentsContent).toContain('Second rule content');
+      });
+
+      it('strips source rule frontmatter before inlining rules into AGENTS.md', async () => {
+         const config = createConfig({
+            rules: {
+               'codex-rule': {
+                  content: createFrontmatterRuleContent('Codex body content'),
+               },
+            },
+         });
+
+         await installToEditor('codex', config, testDir);
+
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(agentsContent).toContain('## codex-rule');
+         expect(agentsContent).toContain('Codex body content');
+         expect(agentsContent).not.toContain('source rule metadata');
+         expect(agentsContent).not.toContain('paths:');
       });
 
       it('places glob-scoped rules in subdirectory AGENTS.md files', async () => {
@@ -1531,6 +1579,25 @@ Skill instructions.
          expect(geminiContent).toContain('<!-- END AIX MANAGED SECTION -->');
       });
 
+      it('strips source rule frontmatter before inlining rules into GEMINI.md', async () => {
+         const config = createConfig({
+            rules: {
+               'gemini-rule': {
+                  content: createFrontmatterRuleContent('Gemini body content'),
+               },
+            },
+         });
+
+         await installToEditor('gemini', config, testDir);
+
+         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
+
+         expect(geminiContent).toContain('## gemini-rule');
+         expect(geminiContent).toContain('Gemini body content');
+         expect(geminiContent).not.toContain('source rule metadata');
+         expect(geminiContent).not.toContain('paths:');
+      });
+
       it('preserves existing GEMINI.md user content on install', async () => {
          // Create a pre-existing GEMINI.md with user content
          await writeFile(join(testDir, 'GEMINI.md'), '# GEMINI.md\n\nProject conventions here.\n');
@@ -1720,6 +1787,25 @@ Skill instructions.
          expect(agentsContent).toContain('## opencode-rule');
          expect(agentsContent).toContain('OpenCode rule content');
          expect(agentsContent).toContain('<!-- END AIX MANAGED SECTION -->');
+      });
+
+      it('strips source rule frontmatter before inlining rules into AGENTS.md', async () => {
+         const config = createConfig({
+            rules: {
+               'opencode-rule': {
+                  content: createFrontmatterRuleContent('OpenCode body content'),
+               },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const agentsContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
+
+         expect(agentsContent).toContain('## opencode-rule');
+         expect(agentsContent).toContain('OpenCode body content');
+         expect(agentsContent).not.toContain('source rule metadata');
+         expect(agentsContent).not.toContain('paths:');
       });
 
       it('preserves existing AGENTS.md user content on install', async () => {
