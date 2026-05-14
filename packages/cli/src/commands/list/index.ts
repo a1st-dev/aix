@@ -83,11 +83,8 @@ export default class List extends BaseCommand<typeof List> {
                undefined,
             );
 
-      // If --all flag is set, show all editor config
-      if (this.flags.all) {
-         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
-         return;
-      }
+      // If --all flag is set, we will show all editor config at the end.
+      const showAll = this.flags.all;
 
       // Load ai.json config if available
       const loaded = await this.loadConfig();
@@ -95,6 +92,13 @@ export default class List extends BaseCommand<typeof List> {
       // Load state for both scopes
       const projectState = await readState('project', process.cwd()),
             userState = await readState('user');
+
+      // In JSON mode, --all should return editor-discovered config rather than the local
+      // ai.json/state summary.
+      if (showAll && this.flags.json) {
+         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
+         return;
+      }
 
       if (this.flags.json) {
          const result: Record<string, unknown> = {};
@@ -144,10 +148,15 @@ export default class List extends BaseCommand<typeof List> {
          this.printStateSections(userState, sections, 'user');
       }
 
-      if (!loaded && !this.hasStateItems(projectState) && !this.hasStateItems(userState)) {
+      if (!loaded && !this.hasStateItems(projectState) && !this.hasStateItems(userState) && !showAll) {
          this.output.info(
             'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
          );
+      }
+
+      // Show all editor config if requested
+      if (showAll) {
+         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
       }
    }
 
@@ -298,7 +307,7 @@ export default class List extends BaseCommand<typeof List> {
       for (const editor of editors) {
          try {
             // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
-            const result = await importFromEditor(editor, { projectRoot });
+            const result = await importFromEditor(editor, { projectRoot, scope: scopeFilter });
 
             if (this.hasEditorItems(result)) {
                allResults.push({ editor, result });
@@ -346,6 +355,10 @@ export default class List extends BaseCommand<typeof List> {
          if (didPrint) {
             printed++;
          }
+      }
+
+      if (printed === 0 && !this.flags.json) {
+         this.output.info('No external AI configuration found matching the given filters.');
       }
    }
 

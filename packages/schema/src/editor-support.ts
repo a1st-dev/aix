@@ -318,7 +318,7 @@ export const editorSupportProfiles = [
       notes: [
          'aix writes project MCP config to `.mcp.json` and still imports `.github/mcp.json` as a fallback.',
          'Project Copilot prompt installs use explicit frontmatter so slash commands keep the configured prompt name.',
-         'User-scope Copilot prompt installs are converted into native skills under `~/.copilot/skills/`.',
+         'User-scope Copilot prompt installs are converted into native skills under `~/.config/github-copilot/skills/`.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Prompt files' },
@@ -333,7 +333,7 @@ export const editorSupportProfiles = [
             nativeScope('.github/instructions/*.instructions.md'),
             unsupportedScope('aix does not yet write user-scope Copilot instructions as separate files.', {
                editorSupported: true,
-               editorPath: '~/.copilot/instructions/*.instructions.md',
+               editorPath: '~/.config/github-copilot/instructions/*.instructions.md',
             }),
          ),
          prompts: feature(
@@ -342,7 +342,7 @@ export const editorSupportProfiles = [
             'Prompt files',
             'Markdown prompt files with YAML frontmatter.',
             nativeScope('.github/prompts/*.prompt.md'),
-            shimScope('~/.copilot/skills/{name}/', 'aix converts user-scope prompts into instruction-only Copilot skills.'),
+            shimScope('~/.config/github-copilot/skills/{name}/', 'aix converts user-scope prompts into instruction-only Copilot skills.'),
             {
                supportedValues: [ 'name', 'description', 'argument-hint' ],
             },
@@ -353,7 +353,7 @@ export const editorSupportProfiles = [
             'Agents',
             'Markdown custom agent files with YAML frontmatter.',
             nativeScope('.github/agents/*.md'),
-            nativeScope('~/.copilot/agents/*.md'),
+            nativeScope('~/.config/github-copilot/agents/*.md'),
             {
                supportedValues: [ 'description', 'mode', 'model', 'tools', 'permissions', 'mcp-servers', 'editor.copilot' ],
             },
@@ -364,7 +364,7 @@ export const editorSupportProfiles = [
             'MCP servers',
             'JSON `mcpServers` configuration.',
             nativeScope('.mcp.json'),
-            nativeScope('~/.copilot/mcp-config.json'),
+            nativeScope('~/.config/github-copilot/mcp-config.json'),
             {
                notes: [ 'Imports also fall back to `.github/mcp.json` when `.mcp.json` is absent.' ],
             },
@@ -375,7 +375,7 @@ export const editorSupportProfiles = [
             'Skills',
             'Symlinked native skill directories backed by `.aix/skills/`.',
             nativeScope('.github/skills/{name}/'),
-            nativeScope('~/.copilot/skills/{name}/'),
+            nativeScope('~/.config/github-copilot/skills/{name}/'),
             {
                notes: [ 'Copilot also discovers `.agents/skills/` as a compatibility surface.' ],
             },
@@ -386,7 +386,7 @@ export const editorSupportProfiles = [
             'Hooks',
             'JSON hooks with `version: 1`, matcher-based tool routing, and cross-platform `bash` / `powershell` fields.',
             nativeScope('.github/hooks/hooks.json'),
-            nativeScope('~/.copilot/hooks/hooks.json'),
+            nativeScope('~/.config/github-copilot/hooks/hooks.json'),
             {
                supportedValues: [
                   'agentStop',

@@ -34,7 +34,7 @@ describe('Editor Config Import', () => {
       it('returns path for copilot', () => {
          const path = getGlobalConfigPath('copilot');
 
-         expect(path).toContain('.copilot');
+         expect(path).toContain('.config/github-copilot');
          expect(path).toContain('mcp-config.json');
       });
 
@@ -136,7 +136,7 @@ describe('Editor Config Import', () => {
          }
       });
 
-      it('imports Copilot user MCP from ~/.copilot/mcp-config.json', async () => {
+      it('imports Copilot user MCP from ~/.config/github-copilot/mcp-config.json', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-copilot-user-mcp-')),
                fakeHome = join(projectRoot, 'fake-home');
          const originalHome = process.env.HOME;
@@ -144,9 +144,9 @@ describe('Editor Config Import', () => {
          process.env.HOME = fakeHome;
 
          try {
-            await mkdir(join(fakeHome, '.copilot'), { recursive: true });
+            await mkdir(join(fakeHome, '.config/github-copilot'), { recursive: true });
             await writeFile(
-               join(fakeHome, '.copilot', 'mcp-config.json'),
+               join(fakeHome, '.config/github-copilot', 'mcp-config.json'),
                JSON.stringify({
                   mcpServers: {
                      github: {
@@ -168,7 +168,7 @@ describe('Editor Config Import', () => {
                command: 'npx',
                args: ['-y', '@modelcontextprotocol/server-github'],
             });
-            expect(result.paths.mcp.github).toBe(join(fakeHome, '.copilot', 'mcp-config.json'));
+            expect(result.paths.mcp.github).toBe(join(fakeHome, '.config/github-copilot', 'mcp-config.json'));
             expect(result.scopes.mcp.github).toBe('user');
          } finally {
             if (originalHome === undefined) {
@@ -328,9 +328,9 @@ describe('Editor Config Import', () => {
          process.env.HOME = fakeHome;
 
          try {
-            await mkdir(join(fakeHome, '.copilot', 'hooks'), { recursive: true });
+            await mkdir(join(fakeHome, '.config/github-copilot', 'hooks'), { recursive: true });
             await writeFile(
-               join(fakeHome, '.copilot', 'hooks', 'hooks.json'),
+               join(fakeHome, '.config/github-copilot', 'hooks', 'hooks.json'),
                JSON.stringify({
                   hooks: {
                      preToolUse: [{
@@ -370,7 +370,7 @@ describe('Editor Config Import', () => {
                }],
             }]);
             expect(result.scopes.hooks.pre_command).toBe('user');
-            expect(result.paths.hooks.pre_command).toBe(join(fakeHome, '.copilot', 'hooks', 'hooks.json'));
+            expect(result.paths.hooks.pre_command).toBe(join(fakeHome, '.config/github-copilot', 'hooks', 'hooks.json'));
          } finally {
             if (originalHome === undefined) {
                delete process.env.HOME;

@@ -387,7 +387,7 @@ describe('Editor Adapters', () => {
          });
 
          expect(result.success).toBe(true);
-         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/mcp-config.json'));
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.config/github-copilot/mcp-config.json'));
       });
 
       it('writes hooks to .github/hooks/hooks.json', async () => {
@@ -426,7 +426,7 @@ describe('Editor Adapters', () => {
          });
 
          expect(result.success).toBe(true);
-         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.copilot/hooks/hooks.json'));
+         expect(result.changes.map((c) => c.path)).toContain(join(homedir(), '.config/github-copilot/hooks/hooks.json'));
       });
 
       it('keeps project-scope prompts as native Copilot prompt files', async () => {
@@ -470,7 +470,7 @@ describe('Editor Adapters', () => {
 
          expect(result.success).toBe(true);
          expect(existsSync(join(fakeHome, '.aix/skills/review/SKILL.md'))).toBe(true);
-         expect(existsSync(join(fakeHome, '.copilot/skills/review'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.config/github-copilot/skills/review'))).toBe(true);
          expect(existsSync(join(fakeHome, 'Library/Application Support/Code/User/prompts/review.prompt.md'))).toBe(false);
 
          const skillContent = await readFile(join(fakeHome, '.aix/skills/review/SKILL.md'), 'utf-8');
@@ -514,8 +514,8 @@ Skill instructions.
          expect(result.success).toBe(true);
          expect(existsSync(join(fakeHome, '.aix/skills/review/SKILL.md'))).toBe(true);
          expect(existsSync(join(fakeHome, '.aix/skills/prompt-review/SKILL.md'))).toBe(true);
-         expect(existsSync(join(fakeHome, '.copilot/skills/review'))).toBe(true);
-         expect(existsSync(join(fakeHome, '.copilot/skills/prompt-review'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.config/github-copilot/skills/review'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.config/github-copilot/skills/prompt-review'))).toBe(true);
          expect(existsSync(join(fakeHome, 'Library/Application Support/Code/User/prompts/review.prompt.md'))).toBe(false);
 
          const promptSkillContent = await readFile(
@@ -555,7 +555,7 @@ description: Demo skill
          );
 
          expect(result.success).toBe(true);
-         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.copilot/skills', 'demo-skill'));
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.config/github-copilot/skills', 'demo-skill'));
          expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.aix/skills', 'demo-skill'));
       });
    });

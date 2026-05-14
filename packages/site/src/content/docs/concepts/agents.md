@@ -51,7 +51,7 @@ Supported native destinations:
 
 - Claude Code: `.claude/agents/*.md` and `~/.claude/agents/*.md`
 - Cursor: `.cursor/agents/*.md` and `~/.cursor/agents/*.md`
-- GitHub Copilot: `.github/agents/*.md` and `~/.copilot/agents/*.md`
+- GitHub Copilot: `.github/agents/*.md` and `~/.config/github-copilot/agents/*.md`
 - Gemini: `.gemini/agents/*.md` and `~/.gemini/agents/*.md`
 - OpenCode: `.opencode/agents/*.md` and `~/.config/opencode/agents/*.md`
 

@@ -35,7 +35,7 @@ aix maps these prompts to the native feature in each editor when one exists:
 - **Claude Code**: Maps to `.claude/commands/`.
 - **GitHub Copilot**: Project installs map to `.github/prompts/*.prompt.md`, with native
   prompt-file frontmatter for `name`, `description`, and `argument-hint`. User-scope installs
-  are converted into Copilot skills under `~/.copilot/skills/`.
+  are converted into Copilot skills under `~/.config/github-copilot/skills/`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
 - **Gemini**: Maps to project/global TOML files in `.gemini/commands/`.

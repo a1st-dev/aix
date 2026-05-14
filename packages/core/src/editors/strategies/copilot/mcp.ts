@@ -3,9 +3,17 @@ import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
 
+import { getRuntimeAdapter } from '../../../runtime/index.js';
+
+function getGlobalCopilotDir(): string {
+   const platform = getRuntimeAdapter().os.platform();
+
+   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
+}
+
 /**
  * GitHub Copilot MCP strategy. Copilot CLI uses `.mcp.json` at the project root and
- * `~/.copilot/mcp-config.json` for user-scoped config.
+ * OS-specific `mcp-config.json` for user-scoped config.
  */
 export class CopilotMcpStrategy implements McpStrategy {
    isSupported(): boolean {
@@ -21,7 +29,7 @@ export class CopilotMcpStrategy implements McpStrategy {
    }
 
    getGlobalMcpConfigPath(): string | null {
-      return '.copilot/mcp-config.json';
+      return `${getGlobalCopilotDir()}/mcp-config.json`;
    }
 
    getProjectImportPaths(projectRoot: string): readonly string[] {

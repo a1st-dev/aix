@@ -22,20 +22,28 @@ import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
- * MCP config to `.mcp.json` (or `~/.copilot/mcp-config.json` for user scope), skills to
- * `.github/skills/` / `~/.copilot/skills/`, and hooks to `.github/hooks/hooks.json` /
- * `~/.copilot/hooks/hooks.json`. Project-scope prompts stay native, while user-scope prompts are
+ * MCP config to `.mcp.json` (or OS specific `mcp-config.json` for user scope), skills to
+ * `.github/skills/` / OS specific `skills/`, and hooks to `.github/hooks/hooks.json` /
+ * OS specific `hooks/hooks.json`. Project-scope prompts stay native, while user-scope prompts are
  * converted into skills and installed through Copilot's native skills directories.
  */
+function getGlobalCopilotDir(): string {
+   const platform = getRuntimeAdapter().os.platform();
+
+   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
+}
+
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
    readonly configDir = '.vscode';
 
    getGlobalDataPaths(): Record<string, string[]> {
+      const globalDir = getGlobalCopilotDir();
+
       return {
-         darwin: ['.copilot', 'Library/Application Support/Code'],
-         linux: ['.copilot', '.config/Code'],
-         win32: ['.copilot', 'AppData/Roaming/Code'],
+         darwin: [globalDir, 'Library/Application Support/Code'],
+         linux: [globalDir, '.config/Code'],
+         win32: [globalDir, 'AppData/Roaming/Code'],
       };
    }
 
@@ -70,12 +78,12 @@ export class CopilotAdapter extends BaseEditorAdapter {
    protected readonly mcpStrategy: McpStrategy = new CopilotMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.github/skills',
-      userEditorSkillsDir: '.copilot/skills',
+      userEditorSkillsDir: `${getGlobalCopilotDir()}/skills`,
    });
    protected readonly promptsStrategy: PromptsStrategy = new CopilotPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
       projectAgentsDir: '../.github/agents',
-      userAgentsDir: '.copilot/agents',
+      userAgentsDir: `${getGlobalCopilotDir()}/agents`,
       extraFrontmatter: (agent) => ({
          ...(agent.mcp ? { 'mcp-servers': agent.mcp } : {}),
          ...agent.editor?.copilot,

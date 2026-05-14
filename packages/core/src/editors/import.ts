@@ -178,21 +178,28 @@ export async function importFromEditor(
    }
 
    if (scope === 'all' || scope === 'project') {
-      mergeImportMcp(result, await importLocalMcpConfig(strategies.mcpStrategy, strategies.configDir, projectRoot));
-      mergeImportRules(result, await importLocalRules(strategies.rulesStrategy, strategies.configDir, projectRoot));
-      mergeImportPrompts(
-         result,
-         await importLocalPrompts(strategies.promptsStrategy, strategies.configDir, projectRoot),
-      );
-      mergeImportAgents(
-         result,
-         await importAgents(strategies.agentsStrategy, strategies.configDir, 'project', projectRoot),
-      );
-      mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'project', projectRoot));
-      mergeImportHooks(
-         result,
-         await importHooks(strategies.hooksStrategy, strategies.configDir, 'project', projectRoot),
-      );
+      const isHome = projectRoot === getRuntimeAdapter().os.homedir();
+
+      // If we are importing everything ('all') and we are in the home directory,
+      // skip local imports because the local config is the exact same as the global config.
+      // Importing it again would incorrectly overwrite its scope to 'project'.
+      if (!isHome || scope !== 'all') {
+         mergeImportMcp(result, await importLocalMcpConfig(strategies.mcpStrategy, strategies.configDir, projectRoot));
+         mergeImportRules(result, await importLocalRules(strategies.rulesStrategy, strategies.configDir, projectRoot));
+         mergeImportPrompts(
+            result,
+            await importLocalPrompts(strategies.promptsStrategy, strategies.configDir, projectRoot),
+         );
+         mergeImportAgents(
+            result,
+            await importAgents(strategies.agentsStrategy, strategies.configDir, 'project', projectRoot),
+         );
+         mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'project', projectRoot));
+         mergeImportHooks(
+            result,
+            await importHooks(strategies.hooksStrategy, strategies.configDir, 'project', projectRoot),
+         );
+      }
    }
 
    return result;

@@ -214,9 +214,17 @@ function isStringRecord(value: unknown): value is Record<string, string> {
    return Object.values(value).every((entry) => typeof entry === 'string');
 }
 
+import { getRuntimeAdapter } from '../../../runtime/index.js';
+
+function getGlobalCopilotDir(): string {
+   const platform = getRuntimeAdapter().os.platform();
+
+   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
+}
+
 /**
  * GitHub Copilot CLI hooks strategy. Writes hooks to `.github/hooks/hooks.json` (project)
- * or `~/.copilot/hooks/hooks.json` (user). Wraps output with `version: 1`.
+ * or `~/.config/github-copilot/hooks/hooks.json` (user). Wraps output with `version: 1`.
  */
 export class CopilotHooksStrategy implements HooksStrategy {
    isSupported(): boolean {
@@ -229,7 +237,7 @@ export class CopilotHooksStrategy implements HooksStrategy {
    }
 
    getGlobalConfigPath(): string {
-      return '.copilot/hooks/hooks.json';
+      return `${getGlobalCopilotDir()}/hooks/hooks.json`;
    }
 
    getUnsupportedEvents(hooks: HooksConfig): string[] {

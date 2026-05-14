@@ -200,13 +200,13 @@ Post-hooks cannot block.
 
 ## Editor-native config locations
 
-| Editor      | Project                                                  | User                             |
-| ----------- | -------------------------------------------------------- | -------------------------------- |
-| Claude Code | `.claude/settings.json`                                  | `~/.claude/settings.json`        |
-| Cursor      | `.cursor/hooks.json` (with `version: 1`)                 | `~/.cursor/hooks.json`           |
-| Copilot     | `.github/hooks/hooks.json`                               | `~/.copilot/hooks/hooks.json`    |
-| Windsurf    | `.windsurf/hooks.json`                                   | `~/.codeium/windsurf/hooks.json` |
-| Gemini      | `.gemini/settings.json` (under `hooks`, merged with MCP) | `~/.gemini/settings.json`        |
+| Editor      | Project                                                  | User                                        |
+| ----------- | -------------------------------------------------------- | ------------------------------------------- |
+| Claude Code | `.claude/settings.json`                                  | `~/.claude/settings.json`                   |
+| Cursor      | `.cursor/hooks.json` (with `version: 1`)                 | `~/.cursor/hooks.json`                      |
+| Copilot     | `.github/hooks/hooks.json`                               | `~/.config/github-copilot/hooks/hooks.json` |
+| Windsurf    | `.windsurf/hooks.json`                                   | `~/.codeium/windsurf/hooks.json`            |
+| Gemini      | `.gemini/settings.json` (under `hooks`, merged with MCP) | `~/.gemini/settings.json`                   |
 
 Editors not in the table (Codex, Zed, OpenCode) do not currently support hooks. aix
 warns when you target them with a hook config.
