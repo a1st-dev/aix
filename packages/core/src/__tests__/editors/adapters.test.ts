@@ -20,6 +20,7 @@ import {
 } from '../../editors/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
 import { safeRm } from '../../fs/safe-rm.js';
+import { AIX_SECTION_BEGIN, AIX_SECTION_END } from '../../editors/section-managed-markdown.js';
 
 const createMcpServer = (command: string, args: string[] = []): McpServerConfig => {
    const config: Record<string, unknown> = { command };
@@ -293,6 +294,59 @@ describe('Editor Adapters', () => {
                mcpConfig = JSON.parse(mcpContent);
 
          expect(mcpConfig.mcpServers.server).toBeDefined();
+      });
+
+      it('writes user-scope rules as separate files imported from CLAUDE.md', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(
+            join(fakeHome, '.claude/CLAUDE.md'),
+            '# Personal Claude rules\n\nKeep this user-authored note.\n',
+            'utf-8',
+         );
+
+         const config = createConfig({
+            rules: {
+               typescript: {
+                  activation: 'glob',
+                  globs: ['src/**/*.ts'],
+                  content: 'Use TypeScript carefully.',
+               },
+               testing: {
+                  activation: 'always',
+                  content: 'Run relevant tests.',
+               },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir, {
+            targetScope: 'user',
+            scopes: ['rules'],
+         });
+
+         expect(result.success).toBe(true);
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.claude/CLAUDE.md'));
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.claude/rules/typescript.md'));
+         expect(result.changes.map((c) => c.path)).toContain(join(fakeHome, '.claude/rules/testing.md'));
+
+         const claudeContent = await readFile(join(fakeHome, '.claude/CLAUDE.md'), 'utf-8'),
+               typescriptContent = await readFile(join(fakeHome, '.claude/rules/typescript.md'), 'utf-8'),
+               testingContent = await readFile(join(fakeHome, '.claude/rules/testing.md'), 'utf-8');
+
+         expect(claudeContent).toContain('# Personal Claude rules');
+         expect(claudeContent).toContain('Keep this user-authored note.');
+         expect(claudeContent).toContain(AIX_SECTION_BEGIN);
+         expect(claudeContent).toContain('## aix rules');
+         expect(claudeContent).toContain('@rules/typescript.md');
+         expect(claudeContent).toContain('@rules/testing.md');
+         expect(claudeContent).toContain(AIX_SECTION_END);
+         expect(claudeContent).not.toContain('Use TypeScript carefully.');
+         expect(typescriptContent).toContain('paths:');
+         expect(typescriptContent).toContain('Use TypeScript carefully.');
+         expect(testingContent).toContain('Run relevant tests.');
       });
    });
 

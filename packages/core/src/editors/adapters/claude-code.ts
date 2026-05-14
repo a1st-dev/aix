@@ -1,6 +1,7 @@
 import type { AiJsonConfig, HooksConfig } from '@a1st/aix-schema';
+import { basename, join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
+import type { EditorConfig, FileChange, ApplyOptions, EditorRule } from '../types.js';
 import {
    ClaudeCodeRulesStrategy,
    ClaudeCodeMcpStrategy,
@@ -16,6 +17,8 @@ import type {
    AgentsStrategy,
    HooksStrategy,
 } from '../strategies/types.js';
+import { upsertManagedSection } from '../section-managed-markdown.js';
+import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
  * Claude Code editor adapter. Writes rules to `.claude/rules/*.md` and MCP config to
@@ -82,8 +85,16 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
       scopes: string[],
       options: ApplyOptions = {},
    ): Promise<FileChange[]> {
+      const targetScope = options.targetScope ?? 'project',
+            shouldWriteUserRules = targetScope === 'user' && scopes.includes('rules'),
+            baseScopes = shouldWriteUserRules ? scopes.filter((scope) => scope !== 'rules') : scopes;
+
       // Get base changes from parent (rules, MCP, prompts, hooks)
-      const changes = await super.planChanges(editorConfig, projectRoot, scopes, options);
+      const changes = await super.planChanges(editorConfig, projectRoot, baseScopes, options);
+
+      if (shouldWriteUserRules && editorConfig.rules.length > 0) {
+         changes.unshift(...await this.planUserRuleChanges(editorConfig.rules));
+      }
 
       // Add skill changes only if skills scope is included
       if (scopes.includes('skills')) {
@@ -92,5 +103,47 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
       this.pendingSkillChanges = [];
 
       return changes;
+   }
+
+   /**
+    * User-level Claude Code rules stay as separate files in `~/.claude/rules/`.
+    * `~/.claude/CLAUDE.md` only gets an aix-managed import list so user content survives.
+    */
+   private async planUserRuleChanges(rules: EditorRule[]): Promise<FileChange[]> {
+      const homeDir = getRuntimeAdapter().os.homedir(),
+            rulesDir = join(homeDir, this.configDir, this.rulesStrategy.getRulesDir()),
+            claudePath = join(
+               homeDir,
+               this.rulesStrategy.getGlobalRulesPath() ?? join(this.configDir, 'CLAUDE.md'),
+            ),
+            ruleChanges = await Promise.all(
+               rules.map(async (rule) => {
+                  const fileName = this.sanitizeFileName(this.deriveRuleName(rule)) +
+                           this.rulesStrategy.getFileExtension(),
+                        filePath = join(rulesDir, fileName),
+                        content = this.rulesStrategy.formatRule(rule),
+                        existing = await this.readExisting(filePath),
+                        action = this.determineAction(existing, content);
+
+                  return { path: filePath, action, content, category: 'rule' as const };
+               }),
+            ),
+            managedContent = this.formatUserRuleImports(ruleChanges),
+            existing = await this.readExisting(claudePath),
+            content = upsertManagedSection(existing, managedContent),
+            action = this.determineAction(existing, content);
+
+      return [
+         { path: claudePath, action, content, category: 'rule' },
+         ...ruleChanges,
+      ];
+   }
+
+   private formatUserRuleImports(ruleChanges: FileChange[]): string {
+      const importLines = ruleChanges.map((change) => {
+         return `@rules/${basename(change.path)}`;
+      });
+
+      return ['## aix rules', '', ...importLines].join('\n');
    }
 }
