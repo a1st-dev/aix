@@ -36,6 +36,12 @@ When you run `aix install`, each enabled editor adapter translates that block in
 editor's native config format and writes it to the right file. Unsupported events are
 warned about — never silently dropped.
 
+To install one hook fragment without creating `ai.json`, use direct install:
+
+```bash
+aix install ./hooks/pre-command.jsonc --type hook --target claude-code --user
+```
+
 ## Hook events
 
 aix defines a normalized event vocabulary covering every event surfaced by the supported

@@ -1,5 +1,5 @@
 import { getLocalConfigPath, type ConfigSection, type LoadedConfig } from '@a1st/aix-core';
-import type { Package } from '@a1st/mcp-registry-client';
+import { McpRegistryClient, type Package } from '@a1st/mcp-registry-client';
 import type { ConfigScope, McpServerConfig } from '@a1st/aix-schema';
 import { refreshLockfile } from './lockfile-helper.js';
 import { formatInstallResults, installAfterAdd, installSingleItem } from './install-helper.js';
@@ -135,4 +135,29 @@ export function buildMcpServerConfig(pkg: Package): McpServerConfig {
       : {
          command: `npx ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ''}`,
       };
+}
+
+export async function resolveMcpFromRegistry(query: string): Promise<{ config: McpServerConfig; name: string }> {
+   const client = new McpRegistryClient(),
+         response = await client.search(query),
+         results = response.servers ?? [];
+
+   if (results.length === 0) {
+      throw new Error(`No MCP servers found matching "${query}"`);
+   }
+
+   for (const selected of results) {
+      const pkg = findCompatibleNpmPackage(selected.server.packages);
+
+      if (!pkg) {
+         continue;
+      }
+
+      const nameParts = selected.server.name.split('/'),
+            friendlyName = nameParts[nameParts.length - 1] ?? selected.server.name;
+
+      return { config: buildMcpServerConfig(pkg), name: friendlyName };
+   }
+
+   throw new Error(`No MCP servers found matching "${query}" with a compatible npm stdio package`);
 }

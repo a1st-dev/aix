@@ -52,7 +52,7 @@ const FETCH_TIMEOUT_MS = 30000;
 /**
  * Fetch content from a URL with timeout.
  */
-async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
+export async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
    const controller = getRuntimeAdapter().network.createAbortController(),
          timeout = setTimeout(() => controller.abort(), timeoutMs);
 

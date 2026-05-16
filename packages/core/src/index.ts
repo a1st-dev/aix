@@ -26,4 +26,5 @@ export * from './reference-resolver.js';
 export * from './entity-hash.js';
 export * from './lockfile.js';
 export * from './runtime/index.js';
+export * from './direct-install.js';
 export { safeRm, UnsafePathError } from './fs/safe-rm.js';

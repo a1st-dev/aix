@@ -71,6 +71,13 @@ When you run `aix install`, skills are:
 
 When you install with `--user`, the canonical managed copy lives under `~/.aix/skills/{name}/` instead of the project-local `.aix/skills/{name}/`.
 
+To install one skill without creating `ai.json`, use direct install:
+
+```bash
+aix install ./skills/review --type skill --target claude-code --user
+aix install github:org/aix-skills/review#v1.0.0 --type skill --target cursor
+```
+
 ## Creating a Skill
 
 1. Create a directory: `mkdir skills/my-skill`

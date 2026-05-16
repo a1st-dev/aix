@@ -43,6 +43,20 @@ export function getPromptsCacheDir(projectRoot: string): string {
 }
 
 /**
+ * Get the hooks cache directory path.
+ */
+export function getHooksCacheDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', '.tmp', 'cache', 'hooks');
+}
+
+/**
+ * Get the MCP cache directory path.
+ */
+export function getMcpCacheDir(projectRoot: string): string {
+   return join(projectRoot, '.aix', '.tmp', 'cache', 'mcp');
+}
+
+/**
  * Get the agents cache directory path.
  */
 export function getAgentsCacheDir(projectRoot: string): string {

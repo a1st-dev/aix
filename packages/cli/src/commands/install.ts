@@ -12,6 +12,7 @@ import {
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import {
    installToEditor,
    getAvailableEditors,
@@ -31,6 +32,9 @@ import {
    type LoadedConfig,
    type ConfigSection,
    type GitSourceInfo,
+   resolveDirectInstallConfig,
+   redactDirectInstallConfig,
+   type DirectInstallType,
 } from '@a1st/aix-core';
 
 const VALID_EDITORS = getAvailableEditors();
@@ -49,6 +53,8 @@ export default class Install extends BaseCommand<typeof Install> {
       '<%= config.bin %> <%= command.id %> -t cursor -t windsurf',
       '<%= config.bin %> <%= command.id %> --dry-run',
       '<%= config.bin %> <%= command.id %> --only mcp',
+      '<%= config.bin %> <%= command.id %> playwright --type mcp --target claude-code --user',
+      '<%= config.bin %> <%= command.id %> ./skills/review --type skill --target claude-code --user',
       '<%= config.bin %> <%= command.id %> github:org/shared-config --save',
       '<%= config.bin %> <%= command.id %> github:org/shared-config --save --overwrite',
       '<%= config.bin %> <%= command.id %> github:org/shared-config --save --only mcp --only rules',
@@ -70,6 +76,47 @@ export default class Install extends BaseCommand<typeof Install> {
          description: 'Target specific editor (repeatable, case-insensitive)',
          multiple: true,
          options: getAvailableEditors(),
+      }),
+      type: Flags.string({
+         description: 'Install one direct artifact without a local ai.json',
+         options: ['mcp', 'skill', 'rule', 'hook', 'prompt'],
+      }),
+      name: Flags.string({
+         char: 'n',
+         description: 'Name for direct installs when it cannot be inferred',
+      }),
+      ref: Flags.string({
+         char: 'r',
+         description: 'Git ref for direct install sources',
+      }),
+      command: Flags.string({
+         description: 'MCP command for direct MCP installs',
+      }),
+      args: Flags.string({
+         description: 'Command arguments for direct MCP installs (comma-separated)',
+      }),
+      env: Flags.string({
+         description: 'Environment variables for direct MCP installs (KEY=value,KEY2=value2)',
+      }),
+      url: Flags.string({
+         description: 'Remote Streamable HTTP MCP URL for direct MCP installs',
+      }),
+      header: Flags.string({
+         description: 'HTTP header for direct remote MCP installs (repeatable KEY=value)',
+         multiple: true,
+      }),
+      description: Flags.string({
+         description: 'Rule or prompt description for direct installs',
+      }),
+      activation: Flags.string({
+         description: 'Rule activation mode for direct rule installs',
+         options: ['always', 'auto', 'glob', 'manual'],
+      }),
+      globs: Flags.string({
+         description: 'Rule glob patterns for direct rule installs (comma-separated)',
+      }),
+      'argument-hint': Flags.string({
+         description: 'Prompt argument hint for direct prompt installs',
       }),
       'dry-run': Flags.boolean({
          char: 'd',
@@ -104,6 +151,11 @@ export default class Install extends BaseCommand<typeof Install> {
 
    async run(): Promise<void> {
       const { args } = await this.parse(Install);
+
+      if (this.flags.type) {
+         await this.runDirectInstall(args.source);
+         return;
+      }
 
       // Load config from source argument or fall back to local discovery
       let loaded: LoadedConfig;
@@ -295,6 +347,245 @@ export default class Install extends BaseCommand<typeof Install> {
             dryRun: isDryRun,
             sections,
             results,
+         });
+      }
+   }
+
+   private parseList(value: string | undefined): string[] | undefined {
+      if (!value) {
+         return undefined;
+      }
+
+      const values = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+
+      return values.length > 0 ? values : undefined;
+   }
+
+   private parseKeyValueMap(value: string | undefined, flagName: string): Record<string, string> | undefined {
+      if (!value) {
+         return undefined;
+      }
+
+      const map: Record<string, string> = {};
+
+      for (const entry of value.split(',')) {
+         const idx = entry.indexOf('=');
+
+         if (idx === -1) {
+            this.error(`${flagName} entries must use KEY=value format`);
+         }
+
+         const key = entry.slice(0, idx).trim(),
+               entryValue = entry.slice(idx + 1).trim();
+
+         if (!key) {
+            this.error(`${flagName} entries must include a key`);
+         }
+         map[key] = entryValue;
+      }
+
+      return Object.keys(map).length > 0 ? map : undefined;
+   }
+
+   private parseHeaders(values: string[] | undefined): Record<string, string> | undefined {
+      if (!values || values.length === 0) {
+         return undefined;
+      }
+
+      const map: Record<string, string> = {};
+
+      for (const entry of values) {
+         const idx = entry.indexOf('=');
+
+         if (idx === -1) {
+            this.error('--header entries must use KEY=value format');
+         }
+
+         const key = entry.slice(0, idx).trim(),
+               value = entry.slice(idx + 1).trim();
+
+         if (!key) {
+            this.error('--header entries must include a key');
+         }
+         map[key] = value;
+      }
+
+      return map;
+   }
+
+   private isRegistryMcpSource(source: string | undefined): source is string {
+      return Boolean(
+         source &&
+         !source.startsWith('@') &&
+         !source.startsWith('npm:') &&
+         !source.startsWith('./') &&
+         !source.startsWith('../') &&
+         !source.startsWith('/') &&
+         !source.startsWith('file:') &&
+         !source.startsWith('http://') &&
+         !source.startsWith('https://') &&
+         !source.startsWith('github:') &&
+         !source.startsWith('gitlab:') &&
+         !source.startsWith('bitbucket:') &&
+         !source.includes('/'),
+      );
+   }
+
+   private getDirectInstallSections(type: DirectInstallType, sections: readonly string[]): ConfigSection[] {
+      if (sections.length === 0) {
+         switch (type) {
+            case 'hook':
+               return ['hooks'];
+            case 'skill':
+               return ['skills'];
+            case 'prompt':
+               return ['prompts'];
+            case 'rule':
+               return ['rules'];
+            case 'mcp':
+               return ['mcp'];
+         }
+      }
+
+      return sections.map((section) => section as ConfigSection);
+   }
+
+   private collectSensitiveValues(value: unknown): string[] {
+      if (Array.isArray(value)) {
+         return value.flatMap((entry) => this.collectSensitiveValues(entry));
+      }
+      if (typeof value !== 'object' || value === null) {
+         return [];
+      }
+
+      const record = value as Record<string, unknown>,
+            values: string[] = [];
+
+      for (const [key, entry] of Object.entries(record)) {
+         if ((key === 'env' || key === 'headers') && typeof entry === 'object' && entry !== null) {
+            values.push(
+               ...Object.values(entry as Record<string, unknown>).filter((item): item is string => {
+                  return typeof item === 'string' && item.length > 0;
+               }),
+            );
+         } else {
+            values.push(...this.collectSensitiveValues(entry));
+         }
+      }
+
+      return values;
+   }
+
+   private redactString(value: string, sensitiveValues: readonly string[]): string {
+      let redacted = value;
+
+      for (const sensitiveValue of sensitiveValues) {
+         redacted = redacted.split(sensitiveValue).join('<redacted>');
+      }
+
+      return redacted;
+   }
+
+   private redactDirectResults(results: ApplyResult[], config: AiJsonConfig): ApplyResult[] {
+      const sensitiveValues = this.collectSensitiveValues(config);
+
+      if (sensitiveValues.length === 0) {
+         return results;
+      }
+
+      return results.map((result) => ({
+         ...result,
+         changes: result.changes.map((change) => ({
+            ...change,
+            ...(change.content ? { content: this.redactString(change.content, sensitiveValues) } : {}),
+         })),
+      }));
+   }
+
+   private async runDirectInstall(source: string | undefined): Promise<void> {
+      const type = this.flags.type as DirectInstallType,
+            isDryRun = this.flags['dry-run'],
+            editors = this.flags.target?.map((editor) => editor.toLowerCase() as EditorName) ?? [],
+            targetScope = resolveConfigScope(
+               this.flags as { scope?: string; user?: boolean; project?: boolean },
+               'project',
+            );
+
+      if (this.flags.lock) {
+         this.error('--lock requires a local ai.json and cannot be used with direct installs');
+      }
+      if (this.flags.save) {
+         this.error('--save cannot be used with direct installs');
+      }
+      if (this.flags.only && this.flags.only.length > 0) {
+         this.error('--only cannot be used with direct installs; use --type to choose the artifact');
+      }
+      if (editors.length === 0) {
+         this.error('Direct installs require --target <editor>');
+      }
+
+      for (const editor of editors) {
+         if (!VALID_EDITORS.includes(editor)) {
+            this.error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
+         }
+      }
+
+      const registryMcp = type === 'mcp' &&
+            !this.flags.command &&
+            !this.flags.url &&
+            this.isRegistryMcpSource(source)
+         ? await resolveMcpFromRegistry(source)
+         : undefined;
+
+      const direct = await resolveDirectInstallConfig({
+               type,
+               source: registryMcp ? undefined : source,
+               name: this.flags.name ?? registryMcp?.name,
+               ref: this.flags.ref,
+               cwd: process.cwd(),
+               mcp: {
+                  serverConfig: registryMcp?.config,
+                  command: this.flags.command,
+                  args: this.parseList(this.flags.args),
+                  env: this.parseKeyValueMap(this.flags.env, '--env'),
+                  url: this.flags.url,
+                  headers: this.parseHeaders(this.flags.header),
+               },
+               rule: {
+                  description: this.flags.description,
+                  activation: this.flags.activation as 'always' | 'auto' | 'glob' | 'manual' | undefined,
+                  globs: this.parseList(this.flags.globs),
+               },
+               prompt: {
+                  description: this.flags.description,
+                  argumentHint: this.flags['argument-hint'],
+               },
+            }),
+            sections = this.getDirectInstallSections(type, direct.sections),
+            results: ApplyResult[] = [];
+
+      for (const editor of editors) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential for user feedback and file safety
+         const result = await this.installToSingleEditor(editor, direct.config, process.cwd(), {
+            isDryRun,
+            sections,
+            clean: this.flags.clean,
+            targetScope,
+         });
+
+         results.push(result);
+      }
+
+      if (this.flags.json) {
+         this.output.json({
+            dryRun: isDryRun,
+            directInstall: {
+               type,
+               name: direct.name,
+               sections,
+               ...(isDryRun ? { transientConfig: redactDirectInstallConfig(direct.config) } : {}),
+            },
+            results: isDryRun ? this.redactDirectResults(results, direct.config) : results,
          });
       }
    }

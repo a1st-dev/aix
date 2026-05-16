@@ -20,6 +20,7 @@ aix init --from cursor                # Bootstrap ai.json from an editor
 aix sync cursor --to claude-code      # Sync supported config editor -> editor
 aix search <query>                    # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
+aix install playwright --type mcp --target claude-code --user # Direct install
 aix add skill <source>                # Add a skill
 aix add mcp <name>                    # Add MCP server from registry
 aix list [scope]                      # List skills, mcp, rules, prompts, or editors

@@ -11,6 +11,7 @@ type NodeFsPromisesModule = typeof import('node:fs/promises');
 type NodeOsModule = typeof import('node:os');
 type NodeUrlModule = typeof import('node:url');
 type NodeCryptoModule = typeof import('node:crypto');
+type NodeModuleModule = typeof import('node:module');
 type BuiltinModuleProcess = NodeJS.Process & {
    getBuiltinModule(id: string): unknown;
 };
@@ -52,6 +53,10 @@ function getCryptoModule(): NodeCryptoModule {
    return getBuiltinModule<NodeCryptoModule>('crypto');
 }
 
+function getModuleModule(): NodeModuleModule {
+   return getBuiltinModule<NodeModuleModule>('module');
+}
+
 function getFileUrlForPath(path: string): string {
    const url = getUrlModule().pathToFileURL(path).href;
 
@@ -78,9 +83,10 @@ async function ensureDependencyInstalled(packageSpec: string, cwd: string): Prom
 }
 
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
-   const resolvedUrl = import.meta.resolve(`${packageName}/${subpath}`, getFileUrlForPath(projectRoot));
+   const projectRequire = getModuleModule().createRequire(new URL('package.json', getFileUrlForPath(projectRoot))),
+         resolvedPath = projectRequire.resolve(`${packageName}/${subpath}`);
 
-   return getUrlModule().fileURLToPath(resolvedUrl);
+   return resolvedPath;
 }
 
 function getNodeProcess(): NodeJS.Process {

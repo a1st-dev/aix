@@ -57,6 +57,12 @@ Rules can be defined:
 - **Git**: `git: { url: "...", path: "..." }`
 - **npm**: `npm: { package: "...", path: "..." }`
 
+You can install one rule without creating `ai.json`:
+
+```bash
+aix install ./rules/typescript.md --type rule --name typescript --target claude-code
+```
+
 ## Common Use Cases
 
 - **Code Style**: Indentation, naming conventions, preferred libraries.

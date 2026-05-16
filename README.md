@@ -22,6 +22,8 @@ aix add rule ../rules/typescript-rules.md
 aix add prompt ../prompts/review.md
 # Install all of the above to any supported editor. Outputs workspace-specific config
 aix install --target claude-code --target cursor
+# Install one item directly without creating ai.json
+aix install playwright --type mcp --target claude-code --user
 # Sync supported config directly from one editor to another
 aix sync cursor --to claude-code
 ```
@@ -80,6 +82,7 @@ aix sync cursor --to claude-code      # Copy supported config editor -> editor
 aix sync cursor --to zed --scope project # Read and write project config
 aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
+aix install playwright --type mcp --target claude-code --user # Direct install
 aix install --lock                    # Refresh ai.lock.json, then install
 aix install --save --only mcp         # Merge specific sections
 aix add skill ./skills/custom         # Add a skill and install to editors

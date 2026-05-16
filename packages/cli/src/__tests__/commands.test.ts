@@ -259,6 +259,75 @@ describe('CLI Commands', () => {
    });
 
    describe('install', () => {
+      it('directly installs a user-scope Claude Code MCP server without ai.json', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const { error } = await runCli(
+            [
+               'install',
+               '--type',
+               'mcp',
+               '--target',
+               'claude-code',
+               '--user',
+               '--name',
+               'demo',
+               '--command',
+               'npx demo-mcp',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(testDir, 'ai.json'))).toBe(false);
+
+         const content = await readFile(join(fakeHome, '.claude.json'), 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.mcpServers.demo).toEqual({
+            type: 'stdio',
+            command: 'npx demo-mcp',
+         });
+      });
+
+      it('includes redacted transient config in direct dry-run json output', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const { error, stdout } = await runCli(
+            [
+               'install',
+               '--type',
+               'mcp',
+               '--target',
+               'claude-code',
+               '--user',
+               '--name',
+               'demo',
+               '--command',
+               'npx demo-mcp',
+               '--env',
+               'TOKEN=secret',
+               '--dry-run',
+               '--json',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const result = JSON.parse(stdout);
+
+         expect(stdout).not.toContain('secret');
+         expect(result.directInstall.transientConfig.mcp.demo.env.TOKEN).toBe('<redacted>');
+         expect(result.results[0].changes[0].content).toContain('<redacted>');
+         expect(result.results[0].changes[0].path).toBe(join(fakeHome, '.claude.json'));
+         expect(existsSync(join(fakeHome, '.claude.json'))).toBe(false);
+      });
+
       it('refreshes a stale local lockfile when saving a source config with --lock', async () => {
          const configPath = join(testDir, 'ai.json'),
                sourceDir = join(testDir, 'source'),

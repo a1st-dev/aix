@@ -163,7 +163,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          errors: [],
       };
 
-      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'editors'];
+      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'editors'];
 
       try {
          // Clean the .aix folder if requested (ensures exact match with ai.json)
@@ -472,7 +472,11 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       // Hooks (JSON file - merge by default unless overwrite is set)
-      if (scopes.includes('editors') && this.hooksStrategy.isSupported() && editorConfig.hooks) {
+      if (
+         (scopes.includes('editors') || scopes.includes('hooks')) &&
+         this.hooksStrategy.isSupported() &&
+         editorConfig.hooks
+      ) {
          const hookEvents = Object.keys(editorConfig.hooks);
 
          if (hookEvents.length > 0) {

@@ -70,6 +70,12 @@ Some prompts take arguments. Use the `argumentHint` property to explicitly tell 
 
 The content of the prompt will be prefixed to the user's input.
 
+To install one prompt without creating `ai.json`, use direct install:
+
+```bash
+aix install ./prompts/review.md --type prompt --name review --target claude-code --user
+```
+
 ## Codex conversion
 
 Codex uses [Agent Skills][codex-skills] for reusable workflows. When you install an `ai.json` that contains prompts to Codex, aix converts each prompt into a skill and links it into `.agents/skills/`. The generated skill keeps the prompt content as instructions and includes the prompt description as the skill description.

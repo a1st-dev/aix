@@ -4,7 +4,7 @@ import { deepMergeJson } from './json.js';
 /**
  * Valid section names for filtering config sections.
  */
-export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts' | 'agents';
+export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts' | 'agents' | 'hooks';
 
 /** @deprecated Use `ConfigSection` instead. */
 export type ConfigScope = ConfigSection;
@@ -55,6 +55,11 @@ export function filterConfigBySections(
          case 'editors':
             if (config.editors) {
                result.editors = config.editors;
+            }
+            break;
+         case 'hooks':
+            if (config.hooks) {
+               result.hooks = config.hooks;
             }
             break;
       }

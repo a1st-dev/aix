@@ -84,3 +84,10 @@ aix search --type mcp
 ```
 
 This interactive command lets you find servers (like GitHub, Slack, Postgres, Brave Search) and add them to your `ai.json` with one click.
+
+You can also install one MCP server without creating `ai.json`:
+
+```bash
+aix install playwright --type mcp --target claude-code --user
+aix install https://example.com/mcp --type mcp --name docs --target claude-code --user
+```
