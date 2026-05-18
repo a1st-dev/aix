@@ -1,6 +1,7 @@
 import type { HookAction, HooksConfig, HookMatcher } from '@a1st/aix-schema';
 import type { HooksStrategy, ParsedHooksImportResult, UnsupportedHookField } from '../types.js';
 import { parseHookObject, parseMatcherImportedHooks } from '../shared/hook-import-utils.js';
+import { getGlobalCopilotDir } from './paths.js';
 
 /**
  * Map from generic ai.json hook events to GitHub Copilot CLI's camelCase event names.
@@ -212,14 +213,6 @@ function isStringRecord(value: unknown): value is Record<string, string> {
    }
 
    return Object.values(value).every((entry) => typeof entry === 'string');
-}
-
-import { getRuntimeAdapter } from '../../../runtime/index.js';
-
-function getGlobalCopilotDir(): string {
-   const platform = getRuntimeAdapter().os.platform();
-
-   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
 }
 
 /**

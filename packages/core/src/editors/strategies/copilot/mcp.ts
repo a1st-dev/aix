@@ -2,18 +2,11 @@ import type { McpServerConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
 import { getTransport } from '../../../mcp/normalize.js';
-
-import { getRuntimeAdapter } from '../../../runtime/index.js';
-
-function getGlobalCopilotDir(): string {
-   const platform = getRuntimeAdapter().os.platform();
-
-   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
-}
+import { getGlobalCopilotDir } from './paths.js';
 
 /**
  * GitHub Copilot MCP strategy. Copilot CLI uses `.mcp.json` at the project root and
- * OS-specific `mcp-config.json` for user-scoped config.
+ * `.config/github-copilot/mcp-config.json` for user-scoped config.
  */
 export class CopilotMcpStrategy implements McpStrategy {
    isSupported(): boolean {

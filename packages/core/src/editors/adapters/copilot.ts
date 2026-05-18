@@ -19,20 +19,16 @@ import type {
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
+import { getGlobalCopilotDir } from '../strategies/copilot/paths.js';
 
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
- * MCP config to `.mcp.json` (or OS specific `mcp-config.json` for user scope), skills to
- * `.github/skills/` / OS specific `skills/`, and hooks to `.github/hooks/hooks.json` /
- * OS specific `hooks/hooks.json`. Project-scope prompts stay native, while user-scope prompts are
- * converted into skills and installed through Copilot's native skills directories.
+ * MCP config to `.mcp.json` (or `.config/github-copilot/mcp-config.json` for user scope),
+ * skills to `.github/skills/` / `.config/github-copilot/skills/`, and hooks to
+ * `.github/hooks/hooks.json` / `.config/github-copilot/hooks/hooks.json`. Project-scope prompts
+ * stay native, while user-scope prompts are converted into skills and installed through Copilot's
+ * native skills directories.
  */
-function getGlobalCopilotDir(): string {
-   const platform = getRuntimeAdapter().os.platform();
-
-   return platform === 'win32' ? 'AppData/Local/github-copilot' : '.config/github-copilot';
-}
-
 export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
    readonly configDir = '.vscode';
