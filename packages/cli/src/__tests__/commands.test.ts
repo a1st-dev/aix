@@ -380,6 +380,7 @@ describe('CLI Commands', () => {
          await mkdir(join(fakeHome, '.config', 'github-copilot'), { recursive: true });
          await mkdir(join(fakeHome, '.gemini'), { recursive: true });
          await mkdir(join(fakeHome, '.config', 'opencode'), { recursive: true });
+         await mkdir(join(fakeHome, 'AppData', 'Roaming', 'opencode'), { recursive: true });
 
          const added = await runCli(
             [
