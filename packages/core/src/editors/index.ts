@@ -33,6 +33,14 @@ export {
 } from './install.js';
 
 export {
+   removeMcpFromEditor,
+   removeMcpFromEditors,
+} from './remove.js';
+export type {
+   RemoveMcpFromEditorResult,
+} from './remove.js';
+
+export {
    importFromEditor,
    getGlobalConfigPath,
    normalizeEditorImport,

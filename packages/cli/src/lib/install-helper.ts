@@ -22,6 +22,7 @@ export interface InstallAfterAddOptions {
    sections: ConfigSection[];
    scope?: ConfigScope;
    quiet?: boolean;
+   editors?: EditorName[];
 }
 
 export interface InstallAfterAddResult {
@@ -59,8 +60,8 @@ export function formatInstallResults(
 }
 
 /**
- * Install to configured editors after an add operation. Only installs if editors are configured in
- * ai.json. Returns info about what was installed.
+ * Install to configured editors after an add operation. Explicit editors override ai.json editor
+ * settings. Returns info about what was installed.
  */
 export async function installAfterAdd(
    options: InstallAfterAddOptions,
@@ -71,14 +72,9 @@ export async function installAfterAdd(
       return { installed: false, results: [], editors: [] };
    }
 
-   const configuredEditors = loaded.config.editors;
-
-   if (!configuredEditors) {
-      return { installed: false, results: [], editors: [] };
-   }
-
-   const normalizedEditors = normalizeEditors(configuredEditors),
-         editors = Object.keys(normalizedEditors) as EditorName[];
+   const configuredEditors = loaded.config.editors,
+         normalizedEditors = configuredEditors ? normalizeEditors(configuredEditors) : {},
+         editors = options.editors ?? (Object.keys(normalizedEditors) as EditorName[]);
 
    if (editors.length === 0) {
       return { installed: false, results: [], editors: [] };
@@ -132,20 +128,20 @@ export async function installSingleItem(
    }
 
    // Build a minimal config containing only the item to install
-   const config = createEmptyConfig() as AiJsonConfig & Record<string, unknown>;
+   const config: AiJsonConfig = createEmptyConfig();
 
    switch (section) {
       case 'mcp':
-         (config as any).mcp = { [name]: value };
+         config.mcp = { [name]: value as AiJsonConfig['mcp'][string] };
          break;
       case 'skills':
-         (config as any).skills = { [name]: value };
+         config.skills = { [name]: value as AiJsonConfig['skills'][string] };
          break;
       case 'rules':
-         (config as any).rules = { [name]: value };
+         config.rules = { [name]: value as AiJsonConfig['rules'][string] };
          break;
       case 'prompts':
-         (config as any).prompts = { [name]: value };
+         config.prompts = { [name]: value as AiJsonConfig['prompts'][string] };
          break;
       default:
          return { installed: false, results: [], editors: [] };

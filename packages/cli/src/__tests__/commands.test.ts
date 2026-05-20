@@ -371,6 +371,117 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('add mcp and remove mcp', () => {
+      it('removes a user-scope MCP server from the same detected editors add installs to', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await mkdir(join(fakeHome, '.config', 'github-copilot'), { recursive: true });
+         await mkdir(join(fakeHome, '.gemini'), { recursive: true });
+         await mkdir(join(fakeHome, '.config', 'opencode'), { recursive: true });
+
+         const added = await runCli(
+            [
+               'add',
+               'mcp',
+               'pieces',
+               '--url',
+               'http://localhost:39300/model_context_protocol/2025-03-26/mcp',
+               '--user',
+            ],
+            { root },
+         );
+
+         expect(added.error).toBeUndefined();
+
+         const claudePath = join(fakeHome, '.claude.json'),
+               copilotPath = join(fakeHome, '.config', 'github-copilot', 'mcp-config.json'),
+               geminiPath = join(fakeHome, '.gemini', 'settings.json'),
+               opencodePath = join(fakeHome, '.config', 'opencode', 'opencode.json');
+
+         expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.pieces).toBeDefined();
+         expect(JSON.parse(await readFile(copilotPath, 'utf-8')).mcpServers.pieces).toBeDefined();
+         expect(JSON.parse(await readFile(geminiPath, 'utf-8')).mcpServers.pieces).toBeDefined();
+         expect(JSON.parse(await readFile(opencodePath, 'utf-8')).mcp.pieces).toBeDefined();
+
+         const removed = await runCli(['remove', 'mcp', 'pieces', '--user', '--yes'], { root });
+
+         expect(removed.error).toBeUndefined();
+         expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.pieces).toBeUndefined();
+         expect(JSON.parse(await readFile(copilotPath, 'utf-8')).mcpServers.pieces).toBeUndefined();
+         expect(JSON.parse(await readFile(geminiPath, 'utf-8')).mcpServers.pieces).toBeUndefined();
+         expect(JSON.parse(await readFile(opencodePath, 'utf-8')).mcp.pieces).toBeUndefined();
+      });
+
+      it('uses --target to limit add and remove MCP editor writes', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const added = await runCli(
+            [
+               'add',
+               'mcp',
+               'targeted',
+               '--url',
+               'http://localhost:39300/model_context_protocol/2025-03-26/mcp',
+               '--user',
+               '--target',
+               'claude-code',
+            ],
+            { root },
+         );
+
+         expect(added.error).toBeUndefined();
+
+         const claudePath = join(fakeHome, '.claude.json'),
+               copilotPath = join(fakeHome, '.config', 'github-copilot', 'mcp-config.json');
+
+         expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.targeted).toBeDefined();
+         expect(existsSync(copilotPath)).toStrictEqual(false);
+
+         const removed = await runCli(
+            ['remove', 'mcp', 'targeted', '--user', '--yes', '--target', 'claude-code'],
+            { root },
+         );
+
+         expect(removed.error).toBeUndefined();
+         expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.targeted).toBeUndefined();
+         expect(existsSync(copilotPath)).toStrictEqual(false);
+      });
+
+      it('uses --target even when ai.json has no configured editors', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await writeValidConfig(configPath);
+
+         const added = await runCli(
+            [
+               'add',
+               'mcp',
+               'configured',
+               '--url',
+               'http://localhost:39300/model_context_protocol/2025-03-26/mcp',
+               '--user',
+               '--target',
+               'claude-code',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         expect(added.error).toBeUndefined();
+
+         const claudePath = join(fakeHome, '.claude.json');
+
+         expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.configured).toBeDefined();
+      });
+   });
+
    describe('sync', () => {
       it('rejects identical source and destination editors', async () => {
          const { error } = await runCli(['sync', 'cursor', '--to', 'cursor'], {

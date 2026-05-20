@@ -5,6 +5,7 @@ import { parseSkillSource } from '../../lib/skill-source.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
 import {
@@ -36,6 +37,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       name: Flags.string({
          char: 'n',
          description: 'Override inferred skill name',
@@ -59,7 +61,8 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
             ),
             lockableConfigPath = getLockableConfigPath(loaded),
             parsed = await parseSkillSource(args.source, flags.ref),
-            skillName = flags.name ?? parsed.inferredName;
+            skillName = flags.name ?? parsed.inferredName,
+            targetEditors = resolveTargetEditors(flags.target);
 
       if (!skillName) {
          this.error('Could not infer skill name from source. Please provide --name.');
@@ -76,6 +79,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
+      validateTargetEditors(targetEditors, this.error.bind(this));
 
       let lockfilePath: string | undefined;
 
@@ -120,6 +124,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
          itemValue: parsed.value,
          scope: targetScope,
          projectRoot: process.cwd(),
+         editors: targetEditors,
       });
 
       if (this.flags.json) {

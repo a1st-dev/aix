@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadRule,
    parseSourceReference,
@@ -42,6 +43,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       name: Flags.string({
          char: 'n',
          description: 'Rule name (inferred from source if not provided)',
@@ -76,7 +78,8 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
             lockableConfigPath = getLockableConfigPath(loaded),
             parsed = parseSourceReference(args.source, { type: 'rule', refOverride: flags.ref }),
-            ruleName = flags.name ?? parsed.inferredName;
+            ruleName = flags.name ?? parsed.inferredName,
+            targetEditors = resolveTargetEditors(flags.target);
 
       if (!ruleName) {
          this.error('Could not infer rule name from source. Please provide --name.');
@@ -85,6 +88,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
+      validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Build the rule value
       let ruleValue: RuleValue = parsed.value as RuleValue;
@@ -151,6 +155,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          itemValue: ruleValue,
          scope: targetScope,
          projectRoot: process.cwd(),
+         editors: targetEditors,
       });
 
       if (this.flags.json) {

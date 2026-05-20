@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadPrompt,
    parseSourceReference,
@@ -41,6 +42,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       name: Flags.string({
          char: 'n',
          description: 'Prompt name (inferred from source if not provided)',
@@ -69,7 +71,8 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
             lockableConfigPath = getLockableConfigPath(loaded),
             parsed = parseSourceReference(args.source, { type: 'prompt', refOverride: flags.ref }),
-            promptName = flags.name ?? parsed.inferredName;
+            promptName = flags.name ?? parsed.inferredName,
+            targetEditors = resolveTargetEditors(flags.target);
 
       if (!promptName) {
          this.error('Could not infer prompt name from source. Please provide --name.');
@@ -78,6 +81,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
+      validateTargetEditors(targetEditors, this.error.bind(this));
 
       let lockfilePath: string | undefined;
 
@@ -150,6 +154,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          itemValue: promptValue,
          scope: targetScope,
          projectRoot: process.cwd(),
+         editors: targetEditors,
       });
 
       if (this.flags.json) {

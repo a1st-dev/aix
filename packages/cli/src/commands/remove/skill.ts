@@ -3,6 +3,7 @@ import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval, type EditorName } from '@a1st/aix-core';
 import { normalizeEditors, resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
@@ -34,6 +35,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
    static override flags = {
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
          description: 'Skip confirmation prompt',
@@ -49,6 +51,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
       const { args, flags } = await this.parse(RemoveSkill);
       const loaded = await this.loadConfig();
       const normalizedName = isValidSkillName(args.name) ? args.name : normalizeSkillName(args.name);
+      const targetEditors = resolveTargetEditors(flags.target);
       const resolvedName =
          loaded?.config.skills?.[args.name] !== undefined
             ? args.name
@@ -60,6 +63,8 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          loaded && !flags.local ? resolveScope(loaded.config) : undefined,
       );
 
+      validateTargetEditors(targetEditors, this.error.bind(this));
+
       // Check if skill exists in merged config (if we have one)
       if (loaded && !loaded.config.skills?.[resolvedName]) {
          this.error(`Skill "${args.name}" not found in configuration`);
@@ -68,9 +73,9 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
       // Compute files to delete
       const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
             configuredEditors = loaded?.config.editors,
-            editors = configuredEditors
+            editors = targetEditors ?? (configuredEditors
                ? (Object.keys(normalizeEditors(configuredEditors)) as EditorName[])
-               : [];
+               : []);
 
       let filesToDelete: FilesToDelete[] = [],
           shouldDeleteFiles = false;
@@ -154,6 +159,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
                sections: ['skills', 'rules'],
                scope: targetScope,
                quiet: true,
+               editors: targetEditors,
             });
          }
       }

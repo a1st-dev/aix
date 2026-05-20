@@ -12,10 +12,10 @@ import {
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import {
    installToEditor,
-   getAvailableEditors,
    detectEditors,
    updateConfig,
    loadConfig,
@@ -36,8 +36,6 @@ import {
    redactDirectInstallConfig,
    type DirectInstallType,
 } from '@a1st/aix-core';
-
-const VALID_EDITORS = getAvailableEditors();
 
 export default class Install extends BaseCommand<typeof Install> {
    static override aliases = ['i'];
@@ -71,12 +69,7 @@ export default class Install extends BaseCommand<typeof Install> {
    static override flags = {
       ...onlyFlag,
       ...configScopeFlags,
-      target: Flags.string({
-         char: 't',
-         description: 'Target specific editor (repeatable, case-insensitive)',
-         multiple: true,
-         options: getAvailableEditors(),
-      }),
+      ...targetFlag,
       type: Flags.string({
          description: 'Install one direct artifact without a local ai.json',
          options: ['mcp', 'skill', 'rule', 'hook', 'prompt'],
@@ -505,7 +498,7 @@ export default class Install extends BaseCommand<typeof Install> {
    private async runDirectInstall(source: string | undefined): Promise<void> {
       const type = this.flags.type as DirectInstallType,
             isDryRun = this.flags['dry-run'],
-            editors = this.flags.target?.map((editor) => editor.toLowerCase() as EditorName) ?? [],
+            editors = resolveTargetEditors(this.flags.target) ?? [],
             targetScope = resolveConfigScope(
                this.flags as { scope?: string; user?: boolean; project?: boolean },
                'project',
@@ -524,11 +517,7 @@ export default class Install extends BaseCommand<typeof Install> {
          this.error('Direct installs require --target <editor>');
       }
 
-      for (const editor of editors) {
-         if (!VALID_EDITORS.includes(editor)) {
-            this.error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
-         }
-      }
+      validateTargetEditors(editors, this.error.bind(this));
 
       const registryMcp = type === 'mcp' &&
             !this.flags.command &&
@@ -622,12 +611,8 @@ export default class Install extends BaseCommand<typeof Install> {
       let shouldPromptToSave = false;
 
       if (this.flags.target && this.flags.target.length > 0) {
-         editors = this.flags.target.map((e) => e.toLowerCase() as EditorName);
-         for (const editor of editors) {
-            if (!VALID_EDITORS.includes(editor)) {
-               this.error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
-            }
-         }
+         editors = resolveTargetEditors(this.flags.target) ?? [];
+         validateTargetEditors(editors, this.error.bind(this));
       } else {
          // Prefer local editors config over remote config's editors
          const configEditors = localEditors ?? config.editors;

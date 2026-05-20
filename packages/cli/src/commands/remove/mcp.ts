@@ -1,24 +1,20 @@
 import { Args, Flags } from '@oclif/core';
-import { homedir } from 'node:os';
-import { join } from 'pathe';
+import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
+   detectEditors,
    updateConfig,
    updateLocalConfig,
    getLocalConfigPath,
-   removeFromGlobalMcpConfig,
+   removeMcpFromEditors,
    trackRemoval,
+   type EditorName,
 } from '@a1st/aix-core';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
-
-/** Global MCP config paths for editors with global-only MCP support */
-const GLOBAL_MCP_PATHS: Record<string, string> = {
-   windsurf: '.codeium/windsurf/mcp_config.json',
-   codex: '.codex/config.toml',
-};
 
 export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    static override description = 'Remove an MCP server from ai.json';
@@ -39,6 +35,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    static override flags = {
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
          description: 'Skip confirmation prompt',
@@ -54,6 +51,9 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       const { args, flags } = await this.parse(RemoveMcp);
       const loaded = await this.loadConfig();
       const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
+      const targetEditors = resolveTargetEditors(flags.target);
+
+      validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if MCP server exists in merged config (if we have one)
       if (loaded && !loaded.config.mcp?.[args.name]) {
@@ -101,30 +101,15 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
          this.output.success(`Removed MCP server "${args.name}"`);
       }
 
-      // Remove from global MCP configs for editors with global-only MCP (Windsurf, Codex)
+      // Sync editor MCP configs so removals affect the same editor set as add/install.
       if (!flags['no-sync']) {
-         for (const editor of ['windsurf', 'codex']) {
-            const globalPath = GLOBAL_MCP_PATHS[editor];
-
-            if (!globalPath) {
-               continue;
-            }
-
-            const fullPath = join(homedir(), globalPath),
-                  // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-                  removed = await removeFromGlobalMcpConfig(fullPath, args.name);
-
-            if (removed) {
-               this.output.success(`Removed "${args.name}" from global ${editor} MCP config`);
-            }
-         }
-
          // Re-install MCP config to update editor configs (regenerates without the removed server)
          if (loaded && !flags.local) {
             const installResult = await installAfterAdd({
                configPath: loaded.path,
                sections: ['mcp'],
                scope: targetScope,
+               editors: targetEditors,
             });
 
             if (installResult.installed) {
@@ -135,7 +120,19 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
                      }),
                   ),
                );
+
+               await this.removeMcpFromEditorConfigs(
+                  installResult.editors,
+                  args.name,
+                  dirname(loaded.path),
+                  targetScope,
+               );
             }
+         } else {
+            const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+                  editors = targetEditors ?? await detectEditors(projectRoot);
+
+            await this.removeMcpFromEditorConfigs(editors, args.name, projectRoot, targetScope);
          }
       }
 
@@ -148,6 +145,26 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             type: 'mcp',
             name: args.name,
          });
+      }
+   }
+
+   private async removeMcpFromEditorConfigs(
+      editors: readonly EditorName[],
+      name: string,
+      projectRoot: string,
+      targetScope: 'project' | 'user',
+   ): Promise<void> {
+      const results = await removeMcpFromEditors(editors, name, projectRoot, { targetScope });
+
+      for (const result of results) {
+         if (!result.success) {
+            this.output.error(`Failed to remove "${name}" from ${result.editor}: ${result.errors.join(', ')}`);
+            continue;
+         }
+
+         if (result.removed) {
+            this.output.success(`Removed "${name}" from ${result.editor} MCP config`);
+         }
       }
    }
 }

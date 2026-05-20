@@ -1,4 +1,4 @@
-import { getLocalConfigPath, type ConfigSection, type LoadedConfig } from '@a1st/aix-core';
+import { getLocalConfigPath, type ConfigSection, type EditorName, type LoadedConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type Package } from '@a1st/mcp-registry-client';
 import type { ConfigScope, McpServerConfig } from '@a1st/aix-schema';
 import { refreshLockfile } from './lockfile-helper.js';
@@ -26,6 +26,7 @@ export interface InstallAddedItemOptions {
    itemValue: unknown;
    scope: ConfigScope;
    projectRoot: string;
+   editors?: EditorName[];
 }
 
 export async function persistAddedItem(options: PersistAddedItemOptions): Promise<void> {
@@ -83,6 +84,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
       itemValue,
       scope,
       projectRoot,
+      editors,
    } = options;
 
    if (skipInstall) {
@@ -94,6 +96,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
          configPath: loaded.path,
          sections: installSections,
          scope,
+         editors,
       })
       : await installSingleItem({
          section: itemSection,
@@ -101,6 +104,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
          value: itemValue,
          scope,
          projectRoot,
+         editors,
       });
 
    if (installResult.installed) {

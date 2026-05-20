@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
 import type { McpServerConfig } from '@a1st/aix-schema';
@@ -39,6 +40,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...targetFlag,
       command: Flags.string({
          description: 'Command to run (stdio transport)',
       }),
@@ -61,6 +63,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       const { args, flags } = await this.parse(AddMcp);
       const loaded = await this.loadConfig();
       const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
+      const targetEditors = resolveTargetEditors(flags.target);
       const lockableConfigPath = getLockableConfigPath(loaded);
 
       let serverConfig: McpServerConfig;
@@ -70,6 +73,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
+      validateTargetEditors(targetEditors, this.error.bind(this));
 
       if (flags.command) {
          const argsList = flags.args?.split(',').map((arg) => arg.trim());
@@ -144,6 +148,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          itemValue: serverConfig,
          scope: targetScope,
          projectRoot: process.cwd(),
+         editors: targetEditors,
       });
 
       if (this.flags.json) {
