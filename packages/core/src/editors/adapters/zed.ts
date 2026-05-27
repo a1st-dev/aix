@@ -64,8 +64,14 @@ export class ZedAdapter extends BaseEditorAdapter {
          applyOptions: options,
       });
 
+      // At user scope, Zed has no global rules file. Drop all rules so nothing is written to
+      // the project-local .rules file. Skills are still installed to ~/.aix/skills/, but Zed
+      // cannot activate them without a project-local .rules pointer -- a known limitation
+      // reported via getTargetScopeLimitations.
+      const effectiveRules = options.targetScope === 'user' ? [] : rules;
+
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: [], mcp };
+      return { rules: effectiveRules, prompts: [], mcp };
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {

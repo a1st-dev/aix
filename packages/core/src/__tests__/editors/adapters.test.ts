@@ -701,7 +701,7 @@ description: Demo skill
          );
       });
 
-      it('writes user-scoped pointer rules to the user-managed .aix path', async () => {
+      it('installs user-scoped skills to ~/.aix without writing a project-local .rules', async () => {
          const skillDir = join(testDir, 'skills', 'demo-skill'),
                fakeHome = join(testDir, 'fake-home');
 
@@ -729,9 +729,8 @@ description: Demo skill
 
          expect(existsSync(join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'))).toBe(true);
          expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill'))).toBe(false);
-         await expect(readFile(join(testDir, '.rules'), 'utf-8')).resolves.toContain(
-            join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'),
-         );
+
+         expect(existsSync(join(testDir, '.rules'))).toBe(false);
       });
 
       it('reports user-scope pointer-skill limitations in strict mode', async () => {
@@ -835,6 +834,23 @@ description: Demo skill
          // Both MCP servers must be present
          expect(settings.context_servers['new-server']).toBeDefined();
          expect(settings.context_servers['old-server']).toBeDefined();
+      });
+
+      it('does not write .rules at project root when targetScope is user', async () => {
+         process.env.HOME = testDir;
+
+         const config = createConfig({
+            rules: {
+               'my-rule': { activation: 'always', content: 'A rule.' },
+            },
+            mcp: {
+               server: createMcpServer('cmd'),
+            },
+         });
+
+         await installToEditor('zed', config, testDir, { targetScope: 'user' });
+
+         expect(existsSync(join(testDir, '.rules'))).toBe(false);
       });
    });
 

@@ -308,6 +308,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       } = {},
    ): Promise<{
       rules: EditorRule[];
+      skillRules: EditorRule[];
       skillChanges: FileChange[];
       skills: Map<string, ParsedSkill>;
    }> {
@@ -355,7 +356,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       // Combine config rules with skill rules
       const rules = [...configRules, ...skillRules];
 
-      return { rules, skillChanges, skills: resolvedSkills };
+      return { rules, skillRules, skillChanges, skills: resolvedSkills };
    }
 
    /**
