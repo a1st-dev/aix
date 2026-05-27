@@ -1,9 +1,10 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
+import type { EditorConfig, FileChange, ApplyOptions, UnsupportedFeatures } from '../types.js';
 import { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from '../strategies/zed/index.js';
 import { PointerSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -17,7 +18,8 @@ import { getRuntimeAdapter } from '../../runtime/index.js';
 /**
  * Zed editor adapter. Writes rules to `.rules` at project root and MCP config to
  * `.zed/settings.json`. Skills are installed to `.aix/skills/{name}/` with pointer rules since Zed
- * doesn't have native Agent Skills support. Zed does not support hooks or prompts.
+ * doesn't have native Agent Skills support. Prompts are converted to skills. Zed does not support
+ * hooks.
  */
 export class ZedAdapter extends BaseEditorAdapter {
    readonly name = 'zed' as const;
@@ -45,7 +47,7 @@ export class ZedAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+      const { rules, skillChanges, skills } = await this.loadRules(config, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
@@ -54,8 +56,24 @@ export class ZedAdapter extends BaseEditorAdapter {
             prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
             mcp = filterMcpConfig(config.mcp);
 
-      this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp };
+      const promptSkillChanges = await installPromptsAsSkills({
+         prompts,
+         skills,
+         skillsStrategy: this.skillsStrategy,
+         projectRoot,
+         applyOptions: options,
+      });
+
+      this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
+      return { rules, prompts: [], mcp };
+   }
+
+   override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
+      const unsupported = super.getUnsupportedFeatures(config);
+
+      delete unsupported.prompts;
+
+      return unsupported;
    }
 
    /**

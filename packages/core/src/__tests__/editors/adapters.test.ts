@@ -764,6 +764,78 @@ description: Demo skill
          expect(result.targetScopeLimitations?.skills?.skills).toEqual(['demo-skill']);
          expect(result.changes).toEqual([]);
       });
+
+      it('converts prompts to Zed skills', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  description: 'Review the current change.',
+                  content: 'Review this change.',
+               },
+            },
+         });
+
+         const result = await installToEditor('zed', config, testDir);
+
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(true);
+
+         const skillContent = await readFile(join(testDir, '.aix/skills/review/SKILL.md'), 'utf-8');
+
+         expect(skillContent).toContain('name: review');
+         expect(skillContent).toContain('description: "Review the current change."');
+         expect(skillContent).toContain('Review this change.');
+      });
+
+      it('does not report prompts as unsupported because they convert to skills', async () => {
+         const config = createConfig({
+            prompts: {
+               review: { content: 'Review this change.' },
+            },
+         });
+
+         const result = await installToEditor('zed', config, testDir, { dryRun: true });
+
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+      });
+
+      it('merges MCP config into an existing settings.json with JSONC comments', async () => {
+         const settingsPath = join(testDir, '.zed', 'settings.json');
+
+         await mkdir(join(testDir, '.zed'), { recursive: true });
+         // Simulate an existing Zed settings.json with JSONC comments and existing user settings
+         await writeFile(
+            settingsPath,
+            [
+               '// Zed settings file',
+               '{',
+               '   "theme": "One Dark",',
+               '   "font_size": 16, // user preference',
+               '   "context_servers": {',
+               '      "old-server": { "command": "old", "args": [] }',
+               '   }',
+               '}',
+            ].join('\n'),
+         );
+
+         const config = createConfig({
+            mcp: {
+               'new-server': createMcpServer('new-cmd'),
+            },
+         });
+
+         await installToEditor('zed', config, testDir);
+
+         const settingsContent = await readFile(settingsPath, 'utf-8');
+         const settings = JSON.parse(settingsContent);
+
+         // Existing user settings must be preserved
+         expect(settings.theme).toBe('One Dark');
+         expect(settings.font_size).toBe(16);
+         // Both MCP servers must be present
+         expect(settings.context_servers['new-server']).toBeDefined();
+         expect(settings.context_servers['old-server']).toBeDefined();
+      });
    });
 
    describe('CodexAdapter', () => {

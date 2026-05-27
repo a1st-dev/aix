@@ -1,5 +1,6 @@
 import { join, dirname, basename } from 'pathe';
 import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
+import { parseJsonc } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
    EditorConfig,
@@ -569,9 +570,19 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          return { path: filePath, action, content: newContent };
       }
 
-      // Merge existing JSON with new JSON
+      // Merge existing JSON with new JSON. Use parseJsonc so files with comments or
+      // trailing commas (e.g., Zed's settings.json) are parsed correctly instead of
+      // triggering the fallback overwrite path.
+      const existingParseResult = parseJsonc<Record<string, unknown>>(existing);
+
+      if (existingParseResult.errors.length > 0 || !isRecord(existingParseResult.data)) {
+         const action = this.determineAction(existing, newContent);
+
+         return { path: filePath, action, content: newContent };
+      }
+
       try {
-         const existingJson = normalizeFlatMcpConfigForMerge(JSON.parse(existing) as Record<string, unknown>),
+         const existingJson = normalizeFlatMcpConfigForMerge(existingParseResult.data),
                newJson = JSON.parse(newContent) as Record<string, unknown>,
                merged = deepMergeJson(existingJson, newJson, { resolver: mcpConfigMergeResolver }),
                mergedContent = JSON.stringify(merged, null, 2) + '\n',
@@ -579,7 +590,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          return { path: filePath, action, content: mergedContent };
       } catch {
-         // If JSON parsing fails, fall back to overwrite
          const action = this.determineAction(existing, newContent);
 
          return { path: filePath, action, content: newContent };
