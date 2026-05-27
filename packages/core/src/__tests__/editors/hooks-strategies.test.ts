@@ -4,6 +4,7 @@ import { ClaudeCodeHooksStrategy } from '../../editors/strategies/claude-code/ho
 import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.js';
 import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js';
 import { GeminiHooksStrategy } from '../../editors/strategies/gemini/hooks.js';
+import { CodexHooksStrategy } from '../../editors/strategies/codex/hooks.js';
 import type { HooksConfig } from '@a1st/aix-schema';
 
 describe('CursorHooksStrategy', () => {
@@ -1049,6 +1050,62 @@ describe('CopilotHooksStrategy', () => {
       expect(native).toContain('permissionRequest');
       expect(native).toContain('postToolUseFailure');
       expect(native).not.toContain('stop');
+   });
+});
+
+describe('CodexHooksStrategy', () => {
+   const strategy = new CodexHooksStrategy();
+
+   it('writes hooks.json config paths', () => {
+      expect(strategy.isSupported()).toBe(true);
+      expect(strategy.getConfigPath()).toBe('hooks.json');
+      expect(strategy.getGlobalConfigPath()).toBe('.codex/hooks.json');
+   });
+
+   it('maps command hooks to Codex event names and tool matchers', () => {
+      const hooks: HooksConfig = {
+         session_start: [{ matcher: 'startup|resume', hooks: [{ command: 'echo start' }] }],
+         pre_command: [{ hooks: [{ command: 'echo pre', status_message: 'Checking Bash' }] }],
+         permission_request: [{ hooks: [{ command: 'echo approval' }] }],
+         agent_stop: [{ hooks: [{ command: 'echo stop', timeout: 30 }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.SessionStart[0].matcher).toBe('startup|resume');
+      expect(output.hooks.PreToolUse[0]).toEqual({
+         matcher: 'Bash',
+         hooks: [{ type: 'command', command: 'echo pre', statusMessage: 'Checking Bash' }],
+      });
+      expect(output.hooks.PermissionRequest[0].hooks[0].command).toBe('echo approval');
+      expect(output.hooks.Stop[0].hooks[0].timeout).toBe(30);
+   });
+
+   it('imports Codex hooks into generic events', () => {
+      const result = strategy.parseImportedConfig(JSON.stringify({
+         hooks: {
+            PreToolUse: [{
+               matcher: 'Bash',
+               hooks: [{ type: 'command', command: 'echo pre' }],
+            }],
+            Stop: [{
+               hooks: [{ type: 'command', command: 'echo stop', timeout: 30 }],
+            }],
+         },
+      }));
+
+      expect(result.hooks.pre_command?.[0]?.hooks[0]?.command).toBe('echo pre');
+      expect(result.hooks.agent_stop?.[0]?.hooks[0]?.timeout).toBe(30);
+   });
+
+   it('reports unsupported events and non-command hook fields', () => {
+      const hooks: HooksConfig = {
+         session_end: [{ hooks: [{ command: 'echo end' }] }],
+         agent_stop: [{ hooks: [{ type: 'prompt', prompt: 'continue' }] }],
+      };
+
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual(['session_end']);
+      expect(strategy.getUnsupportedFields(hooks)[0]?.fields).toContain('prompt');
    });
 });
 

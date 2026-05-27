@@ -471,31 +471,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          changes.push(...promptChanges);
       }
 
-      // Hooks (JSON file - merge by default unless overwrite is set)
-      if (
-         (scopes.includes('editors') || scopes.includes('hooks')) &&
-         this.hooksStrategy.isSupported() &&
-         editorConfig.hooks
-      ) {
-         const hookEvents = Object.keys(editorConfig.hooks);
-
-         if (hookEvents.length > 0) {
-            const formattedHooks = this.hooksStrategy.formatConfig(editorConfig.hooks),
-                  globalHooksPath = this.hooksStrategy.getGlobalConfigPath();
-
-            // Only write hooks file if formatConfig produced actual hooks (not just empty wrapper)
-            const parsedHooks = JSON.parse(formattedHooks) as { hooks?: Record<string, unknown> };
-
-            if (parsedHooks.hooks && Object.keys(parsedHooks.hooks).length > 0) {
-               const hooksPath = targetScope === 'user' && globalHooksPath
-                  ? join(getRuntimeAdapter().os.homedir(), globalHooksPath)
-                  : join(configDir, this.hooksStrategy.getConfigPath());
-               const change = await this.planJsonFileChange(hooksPath, formattedHooks, options);
-
-               changes.push({ ...change, category: 'hook' });
-            }
-         }
-      }
+      changes.push(...await this.planHookChanges(editorConfig, configDir, scopes, options));
 
       // Agents (markdown files - always overwrite, no merge)
       if (
@@ -525,6 +501,46 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          changes.push(...agentChanges);
       }
+
+      return changes;
+   }
+
+   protected async planHookChanges(
+      editorConfig: EditorConfig,
+      configDir: string,
+      scopes: string[],
+      options: ApplyOptions = {},
+   ): Promise<FileChange[]> {
+      const changes: FileChange[] = [];
+
+      if (
+         !(scopes.includes('editors') || scopes.includes('hooks')) ||
+         !this.hooksStrategy.isSupported() ||
+         !editorConfig.hooks
+      ) {
+         return changes;
+      }
+
+      const hookEvents = Object.keys(editorConfig.hooks);
+
+      if (hookEvents.length === 0) {
+         return changes;
+      }
+
+      const formattedHooks = this.hooksStrategy.formatConfig(editorConfig.hooks),
+            globalHooksPath = this.hooksStrategy.getGlobalConfigPath(),
+            parsedHooks = JSON.parse(formattedHooks) as { hooks?: Record<string, unknown> };
+
+      if (!parsedHooks.hooks || Object.keys(parsedHooks.hooks).length === 0) {
+         return changes;
+      }
+
+      const hooksPath = options.targetScope === 'user' && globalHooksPath
+         ? join(getRuntimeAdapter().os.homedir(), globalHooksPath)
+         : join(configDir, this.hooksStrategy.getConfigPath());
+      const change = await this.planJsonFileChange(hooksPath, formattedHooks, options);
+
+      changes.push({ ...change, category: 'hook' });
 
       return changes;
    }

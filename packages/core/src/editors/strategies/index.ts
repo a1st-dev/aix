@@ -30,5 +30,5 @@ export {
 } from './claude-code/index.js';
 export { CopilotRulesStrategy, CopilotMcpStrategy, CopilotPromptsStrategy } from './copilot/index.js';
 export { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from './zed/index.js';
-export { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy } from './codex/index.js';
+export { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy, CodexHooksStrategy } from './codex/index.js';
 export { GeminiRulesStrategy, GeminiMcpStrategy, GeminiPromptsStrategy } from './gemini/index.js';

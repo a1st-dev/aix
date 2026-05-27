@@ -1433,7 +1433,28 @@ Skill instructions.
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
       });
 
-      it('Codex reports unsupported hooks', async () => {
+      it('Codex writes project hooks', async () => {
+         const config = createConfig({
+            hooks: {
+               pre_command: [{ hooks: [{ command: 'echo pre', status_message: 'Checking command' }] }],
+               agent_stop: [{ hooks: [{ command: 'echo stop', timeout: 30 }] }],
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir);
+
+         expect(result.unsupportedFeatures?.hooks).toBeUndefined();
+
+         const hooksContent = await readFile(join(testDir, '.codex/hooks.json'), 'utf-8');
+
+         expect(hooksContent).toContain('"PreToolUse"');
+         expect(hooksContent).toContain('"matcher": "Bash"');
+         expect(hooksContent).toContain('"statusMessage": "Checking command"');
+         expect(hooksContent).toContain('"Stop"');
+         expect(hooksContent).toContain('"timeout": 30');
+      });
+
+      it('Codex reports unsupported hook events', async () => {
          const config = createConfig({
             hooks: {
                session_end: [{ hooks: [{ command: 'echo end' }] }],
@@ -1442,8 +1463,7 @@ Skill instructions.
 
          const result = await installToEditor('codex', config, testDir);
 
-         expect(result.unsupportedFeatures?.hooks).toBeDefined();
-         expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toEqual(['session_end']);
       });
 
       it('Codex reports unsupported agents', async () => {
@@ -1908,6 +1928,32 @@ Release instructions.
 
          expect(existsSync(join(testDir, '.aix/skills/release/SKILL.md'))).toBe(true);
          expect(existsSync(join(testDir, '.opencode/skills/release'))).toBe(true);
+      });
+
+      it('writes agents with OpenCode permission frontmatter instead of deprecated tools', async () => {
+         const config = createConfig({
+            agents: {
+               reviewer: {
+                  description: 'Review code changes.',
+                  mode: 'subagent',
+                  tools: ['read', 'grep'],
+                  permissions: {
+                     edit: 'deny',
+                     bash: 'ask',
+                  },
+                  content: 'Review the current diff.',
+               },
+            },
+         });
+
+         await installToEditor('opencode', config, testDir);
+
+         const agentContent = await readFile(join(testDir, '.opencode/agents/reviewer.md'), 'utf-8');
+
+         expect(agentContent).not.toContain('tools:');
+         expect(agentContent).toContain('permission:');
+         expect(agentContent).toContain('"bash": "ask"');
+         expect(agentContent).toContain('Review the current diff.');
       });
 
       it('uses user-scope OpenCode paths', async () => {

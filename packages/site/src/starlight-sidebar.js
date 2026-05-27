@@ -38,6 +38,10 @@ export const docsSidebar = [
             link: '/editors/supported-editors/',
          },
          {
+            label: 'Editor Changelog',
+            link: '/editors/changelog/',
+         },
+         {
             label: 'By editor',
             items: editorDetailLinks,
          },

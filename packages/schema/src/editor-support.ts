@@ -753,7 +753,7 @@ export const editorSupportProfiles = [
    {
       id: 'codex',
       name: 'Codex',
-      summary: 'Rules and skills are native, prompts become skills, and aix still treats MCP as global-only.',
+      summary: 'Rules, skills, and hooks are native, prompts become skills, and aix still treats MCP as global-only.',
       migrationPitch: 'Codex is strongest when AGENTS.md and Agent Skills are the destination format you want.',
       notes: [
          'Codex prompts are converted into skills because aix no longer writes native prompt files for Codex.',
@@ -812,11 +812,25 @@ export const editorSupportProfiles = [
          ),
          hooks: feature(
             'hooks',
-            'unsupported',
+            'native',
             'Hooks',
-            'Hooks are not supported.',
-            unsupportedScope('Codex does not support lifecycle hooks in aix.'),
-            unsupportedScope('Codex does not support lifecycle hooks in aix.'),
+            'JSON hooks with Codex event names.',
+            nativeScope('.codex/hooks.json'),
+            nativeScope('~/.codex/hooks.json'),
+            {
+               supportedValues: [
+                  'PermissionRequest',
+                  'PostToolUse',
+                  'PreToolUse',
+                  'SessionStart',
+                  'Stop',
+                  'UserPromptSubmit',
+               ],
+               notes: [
+                  'Codex command hooks use seconds-based `timeout` values.',
+                  'Codex currently runs command hooks only; aix reports prompt, agent, HTTP, and MCP hook handlers as unsupported fields.',
+               ],
+            },
          ),
          'agents-md': feature(
             'agents-md',

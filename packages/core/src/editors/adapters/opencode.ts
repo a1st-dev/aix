@@ -59,6 +59,8 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
       projectAgentsDir: 'agents',
       userAgentsDir: '.config/opencode/agents',
       extraFrontmatter: (agent) => agent.editor?.opencode ?? {},
+      toolsKey: null,
+      permissionsKey: 'permission',
    });
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
 

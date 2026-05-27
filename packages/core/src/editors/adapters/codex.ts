@@ -13,8 +13,9 @@ import {
    CodexRulesStrategy,
    CodexPromptsStrategy,
    CodexMcpStrategy,
+   CodexHooksStrategy,
 } from '../strategies/codex/index.js';
-import { NativeSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { NativeSkillsStrategy, NoAgentsStrategy } from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
@@ -30,9 +31,9 @@ import { getRuntimeAdapter } from '../../runtime/index.js';
  * Codex CLI editor adapter. Writes rules to `AGENTS.md` at the project root (and optionally in
  * subdirectories for glob-scoped rules) using section-managed markdown to preserve user content.
  * Project skills go to `.agents/skills/{name}/`, while user-scoped skills go to
- * `~/.codex/skills/{name}/`. MCP config is global-only (`~/.codex/config.toml`). Codex does not
- * support prompt deployment or hooks, so aix converts configured prompts into skills during
- * install.
+ * `~/.codex/skills/{name}/`. MCP config is global-only (`~/.codex/config.toml`). Codex hooks go
+ * to `.codex/hooks.json` or `~/.codex/hooks.json`. Codex does not support prompt deployment, so
+ * aix converts configured prompts into skills during install.
  *
  * Codex discovers AGENTS.md files by walking from the project root down to the CWD, reading at
  * most one per directory. Rules with a clear single-directory glob prefix (e.g. `src/utils/**`) are
@@ -63,7 +64,7 @@ export class CodexAdapter extends BaseEditorAdapter {
 
    protected readonly promptsStrategy: PromptsStrategy = new CodexPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
-   protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
+   protected readonly hooksStrategy: HooksStrategy = new CodexHooksStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -81,7 +82,8 @@ export class CodexAdapter extends BaseEditorAdapter {
             prompts = await this.loadPrompts(config, projectRoot, {
                configBaseDir: options.configBaseDir,
             }),
-            mcp = filterMcpConfig(config.mcp);
+            mcp = filterMcpConfig(config.mcp),
+            hooks = config.hooks;
 
       const promptSkillChanges = await this.installPromptSkills(
          prompts,
@@ -91,7 +93,7 @@ export class CodexAdapter extends BaseEditorAdapter {
       );
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: [], mcp };
+      return { rules, prompts: [], mcp, hooks };
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
@@ -156,6 +158,13 @@ export class CodexAdapter extends BaseEditorAdapter {
             }
          }
       }
+
+      changes.push(...await this.planHookChanges(
+         editorConfig,
+         join(projectRoot, this.configDir),
+         scopes,
+         options,
+      ));
 
       // Add skill changes
       changes.unshift(...this.pendingSkillChanges);

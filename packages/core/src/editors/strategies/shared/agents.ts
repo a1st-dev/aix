@@ -9,6 +9,9 @@ export interface MarkdownAgentsConfig {
    projectAgentsDir: string;
    userAgentsDir: string | null;
    extraFrontmatter?: (agent: EditorAgent) => Record<string, unknown>;
+   toolsKey?: string | null;
+   permissionsKey?: string;
+   mcpKey?: string;
 }
 
 function yamlValue(value: unknown): string {
@@ -40,15 +43,19 @@ function formatRecord(name: string, value: Record<string, unknown> | undefined):
    ];
 }
 
-function formatFrontmatter(agent: EditorAgent, extra: Record<string, unknown> = {}): string {
+function formatFrontmatter(agent: EditorAgent, config: MarkdownAgentsConfig): string {
+   const extra = config.extraFrontmatter?.(agent) ?? {},
+         toolsKey = config.toolsKey === undefined ? 'tools' : config.toolsKey,
+         permissionsKey = config.permissionsKey ?? 'permissions',
+         mcpKey = config.mcpKey ?? 'mcp';
    const lines = [
       `name: ${quoteYamlString(agent.name)}`,
       ...(agent.description ? [`description: ${quoteYamlString(agent.description)}`] : []),
       ...(agent.mode ? [`mode: ${quoteYamlString(agent.mode)}`] : []),
       ...(agent.model ? [`model: ${quoteYamlString(agent.model)}`] : []),
-      ...formatList('tools', agent.tools),
-      ...formatRecord('permissions', agent.permissions),
-      ...formatRecord('mcp', agent.mcp),
+      ...(toolsKey ? formatList(toolsKey, agent.tools) : []),
+      ...formatRecord(permissionsKey, agent.permissions),
+      ...formatRecord(mcpKey, agent.mcp),
       ...Object.entries(extra).map(([key, value]) => `${key}: ${yamlValue(value)}`),
    ];
 
@@ -98,7 +105,7 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
    }
 
    formatAgent(agent: EditorAgent): string {
-      return formatFrontmatter(agent, this.config.extraFrontmatter?.(agent));
+      return formatFrontmatter(agent, this.config);
    }
 
    getAgentsDir(): string {

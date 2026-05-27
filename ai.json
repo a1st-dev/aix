@@ -2,6 +2,7 @@
    "$schema": "https://x.a1st.dev/schemas/v1/ai.json",
    "extends": "github:yokuze/aix-config",
    "skills": {
+      "editor-release-research": "./examples/custom/skills/editor-release-research",
       "mastering-typescript": {
          "git": "https://github.com/spillwavesolutions/mastering-typescript-skill",
          "path": "mastering-typescript"

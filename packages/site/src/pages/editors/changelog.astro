@@ -1,0 +1,314 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { editorSupportProfiles } from '../../lib/editor-support';
+import {
+   listEditorResearchEntries,
+   type EditorResearchStatus,
+} from '../../lib/editor-research';
+import { docsSidebar } from '../../starlight-sidebar.js';
+
+const entries = listEditorResearchEntries(),
+      totalChanges = entries.reduce((memo, entry) => memo + entry.changes.length, 0),
+      statusLabels: Record<EditorResearchStatus, string> = {
+         supported: 'Already handled',
+         'follow-up': 'Needs follow-up',
+         'no-change': 'No repo change',
+         unknown: 'Needs review',
+      };
+
+function getEditorName(editorID: string): string {
+   return editorSupportProfiles.find((profile) => profile.id === editorID)?.name ?? editorID;
+}
+
+function formatTimestamp(value: string): string {
+   return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+   }).format(new Date(value));
+}
+---
+
+<StarlightPage
+   frontmatter={{
+      title: 'Editor changelog',
+      description: 'Research notes for editor release changes that affect aix implementation and user workflows.',
+      editUrl: false,
+   }}
+   sidebar={docsSidebar}
+>
+   <p>
+      This page is generated from markdown notes in <code>docs/editor-research/</code>. Each note
+      records the editor version checked, the research timestamp, source links, and what aix needs
+      to do about the change.
+   </p>
+
+   <div class="editor-changelog__summary" aria-label="Editor changelog summary">
+      <div>
+         <strong>{entries.length}</strong>
+         <span>version notes</span>
+      </div>
+      <div>
+         <strong>{totalChanges}</strong>
+         <span>tracked changes</span>
+      </div>
+      <div>
+         <strong>{editorSupportProfiles.length}</strong>
+         <span>supported editors</span>
+      </div>
+   </div>
+
+   <form class="editor-changelog__filters" data-editor-research-filters>
+      <label>
+         <span>Editor</span>
+         <select name="editor" data-editor-filter>
+            <option value="all">All editors</option>
+            {editorSupportProfiles.map((profile) => (
+               <option value={profile.id}>{profile.name}</option>
+            ))}
+         </select>
+      </label>
+
+      <label>
+         <span>aix status</span>
+         <select name="status" data-status-filter>
+            <option value="all">All statuses</option>
+            {Object.entries(statusLabels).map(([ status, label ]) => (
+               <option value={status}>{label}</option>
+            ))}
+         </select>
+      </label>
+   </form>
+
+   <div class="editor-changelog__empty" data-empty-state hidden>
+      No editor research notes match those filters.
+   </div>
+
+   <div class="editor-changelog__entries">
+      {entries.map((entry) => (
+         <article
+            class="editor-changelog__entry"
+            data-editor-entry
+            data-editor={entry.editorID}
+            data-statuses={entry.changes.map((change) => change.status).join(' ')}
+         >
+            <header class="editor-changelog__entry-header">
+               <div>
+                  <p class="editor-changelog__eyebrow">{getEditorName(entry.editorID)}</p>
+                  <h2>{entry.editorVersion}</h2>
+               </div>
+               <time datetime={entry.researchPerformedAt}>{formatTimestamp(entry.researchPerformedAt)}</time>
+            </header>
+
+            {entry.sourceURLs.length > 0 && (
+               <p class="editor-changelog__sources">
+                  Sources:{' '}
+                  {entry.sourceURLs.map((sourceURL, index) => (
+                     <>
+                        {index > 0 && ', '}
+                        <a href={sourceURL}>{new URL(sourceURL).hostname}</a>
+                     </>
+                  ))}
+               </p>
+            )}
+
+            <ul class="editor-changelog__changes">
+               {entry.changes.map((change) => (
+                  <li class={`editor-changelog__change editor-changelog__change--${change.status}`}>
+                     <p>{change.summary}</p>
+                     <div>
+                        <span>{statusLabels[change.status]}</span>
+                        <p>{change.aixStatus}</p>
+                     </div>
+                  </li>
+               ))}
+            </ul>
+         </article>
+      ))}
+   </div>
+
+   <script is:inline>
+      const filterForm = document.querySelector('[data-editor-research-filters]');
+      const editorFilter = document.querySelector('[data-editor-filter]');
+      const statusFilter = document.querySelector('[data-status-filter]');
+      const entries = Array.from(document.querySelectorAll('[data-editor-entry]'));
+      const emptyState = document.querySelector('[data-empty-state]');
+
+      function applyEditorResearchFilters() {
+         const selectedEditor = editorFilter.value;
+         const selectedStatus = statusFilter.value;
+         let visibleCount = 0;
+
+         entries.forEach((entry) => {
+            const editorMatches = selectedEditor === 'all' || entry.dataset.editor === selectedEditor;
+            const statuses = entry.dataset.statuses || '';
+            const statusMatches = selectedStatus === 'all' || statuses.split(' ').includes(selectedStatus);
+            const isVisible = editorMatches && statusMatches;
+
+            entry.hidden = !isVisible;
+            if (isVisible) {
+               visibleCount += 1;
+            }
+         });
+
+         emptyState.hidden = visibleCount > 0;
+      }
+
+      filterForm.addEventListener('change', applyEditorResearchFilters);
+   </script>
+
+   <style>
+      .editor-changelog__summary {
+         display: grid;
+         gap: 0.75rem;
+         grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+         margin: 1.5rem 0;
+      }
+
+      .editor-changelog__summary div {
+         display: grid;
+         gap: 0.15rem;
+         padding: 0.8rem 0;
+         border-block: 1px solid var(--sl-color-hairline-light);
+      }
+
+      .editor-changelog__summary strong {
+         color: var(--sl-color-accent-high);
+         font-size: 1.45rem;
+         line-height: 1;
+      }
+
+      .editor-changelog__summary span,
+      .editor-changelog__eyebrow,
+      .editor-changelog__sources {
+         color: var(--sl-color-gray-3);
+      }
+
+      .editor-changelog__filters {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 0.8rem;
+         margin: 1.5rem 0;
+      }
+
+      .editor-changelog__filters label {
+         display: grid;
+         gap: 0.35rem;
+         min-width: min(100%, 14rem);
+      }
+
+      .editor-changelog__filters span {
+         font-size: 0.85rem;
+         font-weight: 600;
+      }
+
+      .editor-changelog__filters select {
+         min-height: 2.35rem;
+         padding: 0.4rem 0.6rem;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 6px;
+         background: var(--sl-color-bg);
+         color: var(--sl-color-white);
+      }
+
+      .editor-changelog__empty {
+         padding: 1rem 0;
+         color: var(--sl-color-gray-3);
+      }
+
+      .editor-changelog__entries {
+         display: grid;
+         gap: 1rem;
+      }
+
+      .editor-changelog__entry {
+         padding: 1rem;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 8px;
+         background: color-mix(in srgb, var(--sl-color-bg) 90%, var(--sl-color-accent-low));
+      }
+
+      .editor-changelog__entry-header {
+         display: flex;
+         gap: 1rem;
+         align-items: start;
+         justify-content: space-between;
+      }
+
+      .editor-changelog__entry-header h2,
+      .editor-changelog__eyebrow,
+      .editor-changelog__sources,
+      .editor-changelog__change p {
+         margin: 0;
+      }
+
+      .editor-changelog__entry-header time {
+         color: var(--sl-color-gray-3);
+         font-size: 0.85rem;
+         white-space: nowrap;
+      }
+
+      .editor-changelog__eyebrow {
+         font-family: var(--sl-font-system-mono);
+         font-size: 0.72rem;
+         letter-spacing: 0.08em;
+         text-transform: uppercase;
+      }
+
+      .editor-changelog__sources {
+         margin-block: 0.4rem 1rem;
+         font-size: 0.9rem;
+      }
+
+      .editor-changelog__changes {
+         display: grid;
+         gap: 0.75rem;
+         padding: 0;
+         margin: 0;
+         list-style: none;
+      }
+
+      .editor-changelog__change {
+         display: grid;
+         gap: 0.55rem;
+         padding-inline-start: 0.75rem;
+         border-inline-start: 3px solid var(--sl-color-hairline-light);
+      }
+
+      .editor-changelog__change--supported {
+         border-inline-start-color: var(--aix-success);
+      }
+
+      .editor-changelog__change--follow-up {
+         border-inline-start-color: var(--sl-color-accent);
+      }
+
+      .editor-changelog__change--no-change {
+         border-inline-start-color: var(--sl-color-gray-3);
+      }
+
+      .editor-changelog__change div {
+         display: grid;
+         gap: 0.25rem;
+      }
+
+      .editor-changelog__change span {
+         width: fit-content;
+         padding: 0.18rem 0.45rem;
+         border-radius: 999px;
+         background: var(--sl-color-accent-low);
+         color: var(--sl-color-accent-high);
+         font-size: 0.75rem;
+         font-weight: 600;
+      }
+
+      @media (max-width: 40rem) {
+         .editor-changelog__entry-header {
+            display: grid;
+         }
+
+         .editor-changelog__entry-header time {
+            white-space: normal;
+         }
+      }
+   </style>
+</StarlightPage>
