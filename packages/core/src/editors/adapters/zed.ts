@@ -3,7 +3,7 @@ import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions, UnsupportedFeatures } from '../types.js';
 import { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from '../strategies/zed/index.js';
-import { PointerSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import { NativeSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
@@ -16,10 +16,10 @@ import type {
 import { getRuntimeAdapter } from '../../runtime/index.js';
 
 /**
- * Zed editor adapter. Writes rules to `.rules` at project root and MCP config to
- * `.zed/settings.json`. Skills are installed to `.aix/skills/{name}/` with pointer rules since Zed
- * doesn't have native Agent Skills support. Prompts are converted to skills. Zed does not support
- * hooks.
+ * Zed editor adapter. Writes rules to `.rules` at project scope or `~/.config/zed/AGENTS.md` at
+ * user scope. MCP config goes to `.zed/settings.json`. Skills use native Zed Agent Skills at
+ * `.agents/skills/{name}/` (managed in `.aix/skills/` with symlinks). Prompts are converted to
+ * skills. Zed does not support hooks.
  */
 export class ZedAdapter extends BaseEditorAdapter {
    readonly name = 'zed' as const;
@@ -35,7 +35,7 @@ export class ZedAdapter extends BaseEditorAdapter {
 
    protected readonly rulesStrategy: RulesStrategy = new ZedRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new ZedMcpStrategy();
-   protected readonly skillsStrategy: SkillsStrategy = new PointerSkillsStrategy();
+   protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({ editorSkillsDir: '.agents/skills' });
    protected readonly promptsStrategy: PromptsStrategy = new ZedPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
@@ -64,14 +64,8 @@ export class ZedAdapter extends BaseEditorAdapter {
          applyOptions: options,
       });
 
-      // At user scope, Zed has no global rules file. Drop all rules so nothing is written to
-      // the project-local .rules file. Skills are still installed to ~/.aix/skills/, but Zed
-      // cannot activate them without a project-local .rules pointer -- a known limitation
-      // reported via getTargetScopeLimitations.
-      const effectiveRules = options.targetScope === 'user' ? [] : rules;
-
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules: effectiveRules, prompts: [], mcp };
+      return { rules, prompts: [], mcp };
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
@@ -83,26 +77,36 @@ export class ZedAdapter extends BaseEditorAdapter {
    }
 
    /**
-    * Override planChanges to write all rules to a single .rules file at project root.
+    * Override planChanges to write rules to a single `.rules` file at project scope or to
+    * `~/.config/zed/AGENTS.md` at user scope.
     */
    protected override async planChanges(
       editorConfig: EditorConfig,
       projectRoot: string,
       scopes: string[],
-      _options: ApplyOptions = {},
+      options: ApplyOptions = {},
    ): Promise<FileChange[]> {
       const changes: FileChange[] = [],
-            configDir = join(projectRoot, this.configDir);
+            configDir = join(projectRoot, this.configDir),
+            targetScope = options.targetScope ?? 'project';
 
-      // Rules - Zed uses a single .rules file at project root. Skill installs for Zed also need
-      // pointer rules, so skills-only flows still write `.rules` when skill-derived rules exist.
-      if ((scopes.includes('rules') || scopes.includes('skills')) && editorConfig.rules.length > 0) {
-         const rulesPath = join(projectRoot, '.rules'),
-               content = this.formatRulesFile(editorConfig.rules),
-               existing = await this.readExisting(rulesPath),
-               action = this.determineAction(existing, content);
+      if (scopes.includes('rules') && editorConfig.rules.length > 0) {
+         if (targetScope === 'user') {
+            const globalRulesPath = this.rulesStrategy.getGlobalRulesPath()!,
+                  filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
+                  content = editorConfig.rules.map((rule) => this.rulesStrategy.formatRule(rule)).join('\n\n'),
+                  existing = await this.readExisting(filePath),
+                  action = this.determineAction(existing, content);
 
-         changes.push({ path: rulesPath, action, content, category: 'rule' });
+            changes.push({ path: filePath, action, content, category: 'rule' });
+         } else {
+            const rulesPath = join(projectRoot, '.rules'),
+                  content = this.formatRulesFile(editorConfig.rules),
+                  existing = await this.readExisting(rulesPath),
+                  action = this.determineAction(existing, content);
+
+            changes.push({ path: rulesPath, action, content, category: 'rule' });
+         }
       }
 
       // MCP config (JSON file - merge by default)
@@ -111,20 +115,20 @@ export class ZedAdapter extends BaseEditorAdapter {
 
          if (mcpEntries.length > 0) {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
-                  mcpPath = _options.targetScope === 'user' && globalMcpPath
+                  mcpPath = targetScope === 'user' && globalMcpPath
                      ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                      : join(configDir, this.mcpStrategy.getConfigPath()),
                   change = await this.planJsonFileChange(
                      mcpPath,
                      this.mcpStrategy.formatConfig(editorConfig.mcp),
-                     _options,
+                     options,
                   );
 
             changes.push({ ...change, category: 'mcp' });
          }
       }
 
-      // Add skill changes
+      // Add skill changes (copy to .aix/skills/ + symlink to .agents/skills/)
       changes.unshift(...this.pendingSkillChanges);
       this.pendingSkillChanges = [];
 

@@ -671,7 +671,7 @@ description: Demo skill
          expect(ruleContent).not.toContain('paths:');
       });
 
-      it('writes pointer rules during skills-only installs', async () => {
+      it('installs skills to .agents/skills/ as native symlinks', async () => {
          const skillDir = join(testDir, 'skills', 'demo-skill');
 
          await mkdir(skillDir, { recursive: true });
@@ -696,9 +696,8 @@ description: Demo skill
          );
 
          expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill', 'SKILL.md'))).toBe(true);
-         await expect(readFile(join(testDir, '.rules'), 'utf-8')).resolves.toContain(
-            '.aix/skills/demo-skill/SKILL.md',
-         );
+         expect(existsSync(join(testDir, '.agents', 'skills', 'demo-skill'))).toBe(true);
+         expect(existsSync(join(testDir, '.rules'))).toBe(false);
       });
 
       it('installs user-scoped skills to ~/.aix without writing a project-local .rules', async () => {
@@ -728,12 +727,13 @@ description: Demo skill
          );
 
          expect(existsSync(join(fakeHome, '.aix', 'skills', 'demo-skill', 'SKILL.md'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.agents', 'skills', 'demo-skill'))).toBe(true);
          expect(existsSync(join(testDir, '.aix', 'skills', 'demo-skill'))).toBe(false);
 
          expect(existsSync(join(testDir, '.rules'))).toBe(false);
       });
 
-      it('reports user-scope pointer-skill limitations in strict mode', async () => {
+      it('installs skills at user scope without limitations', async () => {
          const skillDir = join(testDir, 'skills', 'demo-skill'),
                fakeHome = join(testDir, 'fake-home');
 
@@ -760,8 +760,7 @@ description: Demo skill
          );
 
          expect(result.success).toBe(true);
-         expect(result.targetScopeLimitations?.skills?.skills).toEqual(['demo-skill']);
-         expect(result.changes).toEqual([]);
+         expect(result.targetScopeLimitations?.skills).toBeUndefined();
       });
 
       it('converts prompts to Zed skills', async () => {
@@ -851,6 +850,12 @@ description: Demo skill
          await installToEditor('zed', config, testDir, { targetScope: 'user' });
 
          expect(existsSync(join(testDir, '.rules'))).toBe(false);
+         expect(existsSync(join(testDir, '.config', 'zed', 'AGENTS.md'))).toBe(true);
+
+         const agentsContent = await readFile(join(testDir, '.config', 'zed', 'AGENTS.md'), 'utf-8');
+
+         expect(agentsContent).toContain('my-rule');
+         expect(agentsContent).toContain('A rule.');
       });
    });
 

@@ -20,8 +20,8 @@ export class ZedRulesStrategy implements RulesStrategy {
    }
 
    getGlobalRulesPath(): string | null {
-      // Zed doesn't have global rules file
-      return null;
+      // Zed 1.4.2+ uses ~/.config/zed/AGENTS.md for user-scope rules.
+      return '.config/zed/AGENTS.md';
    }
 
    parseGlobalRules(_content: string): { rules: string[]; warnings: string[] } {
