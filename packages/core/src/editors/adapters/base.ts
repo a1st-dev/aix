@@ -28,6 +28,7 @@ import { loadAgents as loadAgentsFromConfig, type LoadedAgent } from '../../agen
 import { mergeRules, type MergedRule } from '../../rules/merger.js';
 import { resolveAllSkills } from '../../skills/resolve.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import { upsertManagedSection } from '../section-managed-markdown.js';
 
 /**
  * Filter out `false` values from MCP config (used to disable inherited servers).
@@ -379,10 +380,11 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          if (targetScope === 'user' && globalRulesPath) {
             const filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
-                  content = editorConfig.rules
+                  managedContent = editorConfig.rules
                      .map((rule) => this.rulesStrategy.formatRule(rule))
                      .join('\n\n'),
                   existing = await this.readExisting(filePath),
+                  content = upsertManagedSection(existing, managedContent),
                   action = this.determineAction(existing, content);
 
             changes.push({ path: filePath, action, content, category: 'rule' });

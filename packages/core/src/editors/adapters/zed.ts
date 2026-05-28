@@ -14,6 +14,7 @@ import type {
    HooksStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import { upsertManagedSection } from '../section-managed-markdown.js';
 
 /**
  * Zed editor adapter. Writes rules to `.rules` at project scope or `~/.config/zed/AGENTS.md` at
@@ -94,8 +95,11 @@ export class ZedAdapter extends BaseEditorAdapter {
          if (targetScope === 'user') {
             const globalRulesPath = this.rulesStrategy.getGlobalRulesPath()!,
                   filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
-                  content = editorConfig.rules.map((rule) => this.rulesStrategy.formatRule(rule)).join('\n\n'),
+                  managedContent = editorConfig.rules
+                     .map((rule) => this.rulesStrategy.formatRule(rule))
+                     .join('\n\n'),
                   existing = await this.readExisting(filePath),
+                  content = upsertManagedSection(existing, managedContent),
                   action = this.determineAction(existing, content);
 
             changes.push({ path: filePath, action, content, category: 'rule' });

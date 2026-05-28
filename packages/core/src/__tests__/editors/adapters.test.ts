@@ -854,8 +854,10 @@ description: Demo skill
 
          const agentsContent = await readFile(join(testDir, '.config', 'zed', 'AGENTS.md'), 'utf-8');
 
+         expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
          expect(agentsContent).toContain('my-rule');
          expect(agentsContent).toContain('A rule.');
+         expect(agentsContent).toContain('<!-- END AIX MANAGED SECTION');
       });
    });
 
