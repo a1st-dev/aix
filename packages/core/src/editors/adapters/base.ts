@@ -381,7 +381,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          if (targetScope === 'user' && globalRulesPath) {
             const filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
                   managedContent = editorConfig.rules
-                     .map((rule) => this.rulesStrategy.formatRule(rule))
+                     .map((rule) => this.rulesStrategy.formatGlobalRule?.(rule) ?? this.rulesStrategy.formatRule(rule))
                      .join('\n\n'),
                   existing = await this.readExisting(filePath),
                   content = upsertManagedSection(existing, managedContent),

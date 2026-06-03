@@ -93,6 +93,9 @@ export interface RulesStrategy {
    /** Format a single rule for this editor, including any frontmatter */
    formatRule(rule: EditorRule): string;
 
+   /** Format a rule for a global managed markdown section, when that differs from rule files. */
+   formatGlobalRule?(rule: EditorRule): string;
+
    /** Get the rules directory path relative to the editor config dir (e.g., 'rules') */
    getRulesDir(): string;
 

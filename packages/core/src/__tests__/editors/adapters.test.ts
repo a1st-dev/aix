@@ -187,6 +187,34 @@ describe('Editor Adapters', () => {
          expect(ruleContent).toContain('Glob rule content');
       });
 
+      it('writes user-scoped global rules without YAML frontmatter', async () => {
+         process.env.HOME = testDir;
+
+         const config = createConfig({
+            rules: {
+               'global-rule': {
+                  activation: 'always',
+                  content: createFrontmatterRuleContent('Windsurf global body content'),
+               },
+            },
+         });
+
+         await installToEditor('windsurf', config, testDir, { targetScope: 'user' });
+
+         const globalRulesContent = await readFile(
+            join(testDir, '.codeium/windsurf/memories/global_rules.md'),
+            'utf-8',
+         );
+
+         expect(globalRulesContent).toContain(AIX_SECTION_BEGIN);
+         expect(globalRulesContent).toContain('## global-rule');
+         expect(globalRulesContent).toContain('Windsurf global body content');
+         expect(globalRulesContent).toContain(AIX_SECTION_END);
+         expect(globalRulesContent).not.toContain('trigger:');
+         expect(globalRulesContent).not.toContain('source rule metadata');
+         expect(globalRulesContent).not.toContain('paths:');
+      });
+
       // Note: Windsurf MCP is global-only (~/.codeium/windsurf/mcp_config.json), so project-level MCP is not supported
 
       it('respects dry-run option', async () => {

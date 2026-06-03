@@ -2,6 +2,7 @@ import type { ActivationMode } from '@a1st/aix-schema';
 import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
+import { formatPlainMarkdownRule } from '../shared/rule-utils.js';
 
 /**
  * Windsurf rules strategy. Uses markdown files with YAML frontmatter containing a `trigger` field
@@ -48,6 +49,10 @@ export class WindsurfRulesStrategy implements RulesStrategy {
       lines.push('---', '');
       lines.push(rule.content);
       return lines.join('\n');
+   }
+
+   formatGlobalRule(rule: EditorRule): string {
+      return formatPlainMarkdownRule(rule, '##');
    }
 
    parseGlobalRules(content: string): { rules: string[]; warnings: string[] } {
