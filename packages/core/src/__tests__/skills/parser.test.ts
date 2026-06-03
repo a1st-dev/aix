@@ -77,6 +77,57 @@ Content here.
       expect(result.source).toBe('npm');
    });
 
+   it('parses unquoted frontmatter values containing colons', async () => {
+      const skillDir = join(testDir, 'figma-spec-processor');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+         join(skillDir, 'SKILL.md'),
+         `---
+name: figma-spec-processor
+description: Process Figma spec screenshots for agent consumption using OpenCV
+compatibility: Requires Python 3.9+ with opencv-python (cv2). Optional: pytesseract
+---
+
+Content here.
+`,
+      );
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter.name).toBe('figma-spec-processor');
+      expect(result.frontmatter.compatibility).toBe('Requires Python 3.9+ with opencv-python (cv2). Optional: pytesseract');
+   });
+
+   it('parses metadata arrays', async () => {
+      const skillDir = join(testDir, 'metadata-array-skill');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(
+         join(skillDir, 'SKILL.md'),
+         `---
+name: metadata-array-skill
+description: A skill with metadata arrays
+metadata:
+  sources:
+    - packages/cli/README.md
+    - docs/guides/cli.md
+---
+
+Content here.
+`,
+      );
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter.metadata).toEqual({
+         sources: [
+            'packages/cli/README.md',
+            'docs/guides/cli.md',
+         ],
+      });
+   });
+
    it('parses SKILL.md without frontmatter and uses folder name', async () => {
       const skillDir = join(testDir, 'no-frontmatter');
 

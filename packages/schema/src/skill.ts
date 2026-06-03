@@ -17,7 +17,7 @@ export const skillFrontmatterSchema = z.object({
    description: z.string().min(1).max(1024).optional(),
    license: z.string().optional(),
    compatibility: z.string().max(500).optional(),
-   metadata: z.record(z.string()).optional(),
+   metadata: z.record(z.union([z.string(), z.array(z.string())])).optional(),
    'allowed-tools': z.string().optional(),
 });
 

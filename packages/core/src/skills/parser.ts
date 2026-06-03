@@ -1,6 +1,6 @@
 import { join, basename } from 'pathe';
-import { parse as parseYaml } from 'yaml';
 import { skillFrontmatterSchema, type ParsedSkill, type SkillFrontmatter } from '@a1st/aix-schema';
+import { parseAllFrontmatter } from '../frontmatter-utils.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
@@ -49,7 +49,7 @@ export async function parseSkillMd(
       };
    }
 
-   const rawFrontmatter = parseYaml(yamlContent) as unknown,
+   const rawFrontmatter = parseAllFrontmatter(yamlContent),
          parsed = skillFrontmatterSchema.parse(rawFrontmatter),
          frontmatter: SkillFrontmatter = parsed.name ? parsed : { ...parsed, name: folderName };
 
