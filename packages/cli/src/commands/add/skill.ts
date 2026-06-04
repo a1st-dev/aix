@@ -7,15 +7,18 @@ import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
+import { resolveScope, type AiJsonConfig } from '@a1st/aix-schema';
 import {
+   getAddSources,
    installAddedItem,
    persistAddedItem,
+   rejectMultiSourceFlags,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
 
 export default class AddSkill extends BaseCommand<typeof AddSkill> {
    static override description = 'Add a skill to ai.json';
+   static override strict = false;
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> typescript',
@@ -53,86 +56,125 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
    };
 
    async run(): Promise<void> {
-      const { args, flags } = await this.parse(AddSkill),
+      const { args, flags, argv } = await this.parse(AddSkill),
             loaded = await this.loadConfig(),
             targetScope = resolveConfigScope(
                flags as { scope?: string; user?: boolean; project?: boolean },
                loaded && !flags.local ? resolveScope(loaded.config) : undefined,
             ),
             lockableConfigPath = getLockableConfigPath(loaded),
-            parsed = await parseSkillSource(args.source, flags.ref),
-            skillName = flags.name ?? parsed.inferredName,
+            sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
-
-      if (!skillName) {
-         this.error('Could not infer skill name from source. Please provide --name.');
-      }
-
-      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(skillName)) {
-         this.error(
-            `Invalid skill name "${skillName}". ` +
-               'Must be lowercase alphanumeric with single hyphens (e.g., "pdf-processing"). ' +
-               'Use --name to specify a valid name.',
-         );
-      }
 
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
       validateTargetEditors(targetEditors, this.error.bind(this));
-
-      let lockfilePath: string | undefined;
-
-      await persistAddedItem({
-         loaded,
-         local: flags.local,
-         output: this.output,
-         localSuccessMessage: `Added skill "${skillName}" to ai.local.json`,
-         projectSuccessMessage: `Added skill "${skillName}"`,
-         saveLocal: async (localPath) => {
-            await updateLocalConfig(localPath, (config) => ({
-               ...config,
-               skills: {
-                  ...config.skills,
-                  [skillName]: parsed.value,
-               },
-            }));
-         },
-         saveProject: async (configPath) => {
-            await updateConfig(configPath, (config) => ({
-               ...config,
-               skills: {
-                  ...config.skills,
-                  [skillName]: parsed.value,
-               },
-            }));
-         },
+      rejectMultiSourceFlags({
+         sources,
+         flags,
+         disallowedFlags: ['name', 'ref'],
+         error: this.error.bind(this),
       });
 
-      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
+      const addedItems = await sources.reduce<Promise<Array<{ name: string; value: AiJsonConfig['skills'][string] }>>>(
+         async (memoPromise, source) => {
+            const memo = await memoPromise,
+                  parsed = await parseSkillSource(source, flags.ref),
+                  skillName = flags.name ?? parsed.inferredName;
 
-      await installAddedItem({
-         logInstallResults: (results) => {
-            this.logInstallResults(results);
-         },
-         skipInstall: flags['no-install'],
-         loaded,
-         local: flags.local,
-         installSections: ['skills'],
-         itemSection: 'skills',
-         itemName: skillName,
-         itemValue: parsed.value,
-         scope: targetScope,
-         projectRoot: process.cwd(),
-         editors: targetEditors,
-      });
+            if (!skillName) {
+               this.error(`Could not infer skill name from source "${source}". Please provide --name.`);
+            }
+
+            if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(skillName)) {
+               this.error(
+                  `Invalid skill name "${skillName}". ` +
+                  'Must be lowercase alphanumeric with single hyphens (e.g., "pdf-processing"). ' +
+                  'Use --name to specify a valid name.',
+               );
+            }
+
+            await persistAddedItem({
+               loaded,
+               local: flags.local,
+               output: this.output,
+               localSuccessMessage: `Added skill "${skillName}" to ai.local.json`,
+               projectSuccessMessage: `Added skill "${skillName}"`,
+               saveLocal: async (localPath) => {
+                  await updateLocalConfig(localPath, (config) => ({
+                     ...config,
+                     skills: {
+                        ...config.skills,
+                        [skillName]: parsed.value,
+                     },
+                  }));
+               },
+               saveProject: async (configPath) => {
+                  await updateConfig(configPath, (config) => ({
+                     ...config,
+                     skills: {
+                        ...config.skills,
+                        [skillName]: parsed.value,
+                     },
+                  }));
+               },
+            });
+
+            memo.push({ name: skillName, value: parsed.value });
+
+            if (!loaded || flags.local) {
+               await installAddedItem({
+                  logInstallResults: (results) => {
+                     this.logInstallResults(results);
+                  },
+                  skipInstall: flags['no-install'],
+                  loaded,
+                  local: flags.local,
+                  installSections: ['skills'],
+                  itemSection: 'skills',
+                  itemName: skillName,
+                  itemValue: parsed.value,
+                  scope: targetScope,
+                  projectRoot: process.cwd(),
+                  editors: targetEditors,
+               });
+            }
+
+            return memo;
+         }, Promise.resolve([]));
+
+      const lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output),
+            firstItem = addedItems[0];
+
+      if (loaded && !flags.local && firstItem) {
+         await installAddedItem({
+            logInstallResults: (results) => {
+               this.logInstallResults(results);
+            },
+            skipInstall: flags['no-install'],
+            loaded,
+            local: flags.local,
+            installSections: ['skills'],
+            itemSection: 'skills',
+            itemName: firstItem.name,
+            itemValue: firstItem.value,
+            scope: targetScope,
+            projectRoot: process.cwd(),
+            editors: targetEditors,
+         });
+      }
 
       if (this.flags.json) {
          this.output.json({
             action: 'add',
             type: 'skill',
-            name: skillName,
-            value: parsed.value,
+            ...(addedItems.length === 1 && firstItem ? {
+               name: firstItem.name,
+               value: firstItem.value,
+            } : {
+               items: addedItems,
+            }),
             ...(lockfilePath && { lockfilePath }),
          });
       }

@@ -586,6 +586,128 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('add rule', () => {
+      it('adds multiple local rule files from shell-expanded arguments', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               rulesDir = join(testDir, 'rules');
+
+         await writeValidConfig(configPath);
+         await mkdir(rulesDir, { recursive: true });
+         await writeFile(join(rulesDir, 'coding-standards.md'), 'Use direct language.');
+         await writeFile(join(rulesDir, 'commit-standards.md'), 'Use conventional commits.');
+
+         const { error } = await runCli(
+            [
+               'add',
+               'rule',
+               './rules/coding-standards.md',
+               './rules/commit-standards.md',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.rules['coding-standards']).toBe('./rules/coding-standards.md');
+         expect(config.rules['commit-standards']).toBe('./rules/commit-standards.md');
+      });
+
+      it('rejects source-specific metadata flags with multiple rule sources', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               rulesDir = join(testDir, 'rules');
+
+         await writeValidConfig(configPath);
+         await mkdir(rulesDir, { recursive: true });
+         await writeFile(join(rulesDir, 'one.md'), 'One');
+         await writeFile(join(rulesDir, 'two.md'), 'Two');
+
+         const { error, stderr } = await runCli(
+            [
+               'add',
+               'rule',
+               './rules/one.md',
+               './rules/two.md',
+               '--description',
+               'Only one rule',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('These flags can only be used with one source: --description');
+      });
+   });
+
+   describe('add prompt', () => {
+      it('adds multiple local prompt files from shell-expanded arguments', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               promptsDir = join(testDir, 'prompts');
+
+         await writeValidConfig(configPath);
+         await mkdir(promptsDir, { recursive: true });
+         await writeFile(join(promptsDir, 'review.md'), 'Review this code.');
+         await writeFile(join(promptsDir, 'plan.md'), 'Plan this change.');
+
+         const { error } = await runCli(
+            [
+               'add',
+               'prompt',
+               './prompts/review.md',
+               './prompts/plan.md',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.prompts.review).toBe('./prompts/review.md');
+         expect(config.prompts.plan).toBe('./prompts/plan.md');
+      });
+
+      it('rejects source-specific metadata flags with multiple prompt sources', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               promptsDir = join(testDir, 'prompts');
+
+         await writeValidConfig(configPath);
+         await mkdir(promptsDir, { recursive: true });
+         await writeFile(join(promptsDir, 'review.md'), 'Review this code.');
+         await writeFile(join(promptsDir, 'plan.md'), 'Plan this change.');
+
+         const { error, stderr } = await runCli(
+            [
+               'add',
+               'prompt',
+               './prompts/review.md',
+               './prompts/plan.md',
+               '--argument-hint',
+               '[file]',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('These flags can only be used with one source: --argument-hint');
+      });
+   });
+
    describe('add skill', () => {
       it('refreshes a stale lockfile when adding with --lock', async () => {
          const configPath = join(testDir, 'ai.json');
@@ -764,6 +886,61 @@ describe('CLI Commands', () => {
          expect(existsSync(join(testDir, '.github', 'skills', 'project-default'))).toBe(true);
          expect(existsSync(join(fakeHome, '.aix', 'skills', 'project-default'))).toBe(false);
          expect(existsSync(join(fakeHome, '.github', 'skills', 'project-default'))).toBe(false);
+      });
+
+      it('adds multiple local skill directories from shell-expanded arguments', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+         await writeSkillDir(testDir, 'alpha-skill');
+         await writeSkillDir(testDir, 'beta-skill');
+
+         const { error } = await runCli(
+            [
+               'add',
+               'skill',
+               './skills/alpha-skill',
+               './skills/beta-skill',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.skills['alpha-skill']).toEqual({ path: './skills/alpha-skill' });
+         expect(config.skills['beta-skill']).toEqual({ path: './skills/beta-skill' });
+      });
+
+      it('rejects source-specific flags with multiple skill sources', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+         await writeSkillDir(testDir, 'alpha-skill');
+         await writeSkillDir(testDir, 'beta-skill');
+
+         const { error, stderr } = await runCli(
+            [
+               'add',
+               'skill',
+               './skills/alpha-skill',
+               './skills/beta-skill',
+               '--name',
+               'shared-name',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('These flags can only be used with one source: --name');
       });
    });
 

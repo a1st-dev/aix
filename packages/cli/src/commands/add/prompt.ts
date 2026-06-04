@@ -14,13 +14,16 @@ import {
 } from '@a1st/aix-core';
 import type { PromptValue } from '@a1st/aix-schema';
 import {
+   getAddSources,
    installAddedItem,
    persistAddedItem,
+   rejectMultiSourceFlags,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
 
 export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    static override description = 'Add a prompt/command to ai.json';
+   static override strict = false;
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> ./prompts/review.md --name review',
@@ -66,103 +69,135 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    };
 
    async run(): Promise<void> {
-      const { args, flags } = await this.parse(AddPrompt),
+      const { args, flags, argv } = await this.parse(AddPrompt),
             loaded = await this.loadConfig(),
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
             lockableConfigPath = getLockableConfigPath(loaded),
-            parsed = parseSourceReference(args.source, { type: 'prompt', refOverride: flags.ref }),
-            promptName = flags.name ?? parsed.inferredName,
+            sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
-
-      if (!promptName) {
-         this.error('Could not infer prompt name from source. Please provide --name.');
-      }
 
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
       validateTargetEditors(targetEditors, this.error.bind(this));
+      rejectMultiSourceFlags({
+         sources,
+         flags,
+         disallowedFlags: ['name', 'description', 'argument-hint', 'ref'],
+         error: this.error.bind(this),
+      });
 
-      let lockfilePath: string | undefined;
-
-      // Build the prompt value
-      let promptValue: PromptValue = parsed.value as PromptValue;
-
-      // Add metadata if provided (convert string shorthand to object if needed)
-      if (flags.description || flags['argument-hint']) {
-         if (typeof promptValue === 'string') {
-            // Convert string shorthand to object form
-            promptValue = { path: promptValue };
-         }
-         if (flags.description) {
-            promptValue = { ...promptValue, description: flags.description };
-         }
-         if (flags['argument-hint']) {
-            promptValue = { ...promptValue, argumentHint: flags['argument-hint'] };
-         }
-      }
-
-      // Validate the source is accessible BEFORE updating ai.json
-      // This prevents adding broken references to the config
       const basePath = loaded?.path ?? resolve(process.cwd(), 'ai.json');
 
-      try {
-         await loadPrompt(promptName, promptValue, basePath);
-      } catch (error) {
-         const message = error instanceof Error ? error.message : String(error);
+      const addedItems = await sources.reduce<Promise<Array<{ name: string; value: PromptValue }>>>(
+         async (memoPromise, source) => {
+            const memo = await memoPromise,
+                  parsed = parseSourceReference(source, { type: 'prompt', refOverride: flags.ref }),
+                  promptName = flags.name ?? parsed.inferredName;
 
-         this.error(`Failed to load prompt: ${message}`);
+            if (!promptName) {
+               this.error(`Could not infer prompt name from source "${source}". Please provide --name.`);
+            }
+
+            let promptValue: PromptValue = parsed.value as PromptValue;
+
+            if (flags.description || flags['argument-hint']) {
+               if (typeof promptValue === 'string') {
+                  promptValue = { path: promptValue };
+               }
+               if (flags.description) {
+                  promptValue = { ...promptValue, description: flags.description };
+               }
+               if (flags['argument-hint']) {
+                  promptValue = { ...promptValue, argumentHint: flags['argument-hint'] };
+               }
+            }
+
+            try {
+               await loadPrompt(promptName, promptValue, basePath);
+            } catch (error) {
+               const message = error instanceof Error ? error.message : String(error);
+
+               this.error(`Failed to load prompt: ${message}`);
+            }
+
+            await persistAddedItem({
+               loaded,
+               local: flags.local,
+               output: this.output,
+               localSuccessMessage: `Added prompt "${promptName}" to ai.local.json`,
+               projectSuccessMessage: `Added prompt "${promptName}"`,
+               saveLocal: async (localPath) => {
+                  await updateLocalConfig(localPath, (config) => {
+                     return {
+                        ...config,
+                        prompts: { ...config.prompts, [promptName]: promptValue },
+                     };
+                  });
+               },
+               saveProject: async (configPath) => {
+                  await updateConfig(configPath, (config) => {
+                     return {
+                        ...config,
+                        prompts: { ...config.prompts, [promptName]: promptValue },
+                     };
+                  });
+               },
+            });
+
+            memo.push({ name: promptName, value: promptValue });
+
+            if (!loaded || flags.local) {
+               await installAddedItem({
+                  logInstallResults: (results) => {
+                     this.logInstallResults(results);
+                  },
+                  skipInstall: flags['no-install'],
+                  loaded,
+                  local: flags.local,
+                  installSections: ['editors'],
+                  itemSection: 'prompts',
+                  itemName: promptName,
+                  itemValue: promptValue,
+                  scope: targetScope,
+                  projectRoot: process.cwd(),
+                  editors: targetEditors,
+               });
+            }
+            return memo;
+         }, Promise.resolve([]));
+
+      const lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output),
+            firstItem = addedItems[0];
+
+      if (loaded && !flags.local && firstItem) {
+         await installAddedItem({
+            logInstallResults: (results) => {
+               this.logInstallResults(results);
+            },
+            skipInstall: flags['no-install'],
+            loaded,
+            local: flags.local,
+            installSections: ['editors'],
+            itemSection: 'prompts',
+            itemName: firstItem.name,
+            itemValue: firstItem.value,
+            scope: targetScope,
+            projectRoot: process.cwd(),
+            editors: targetEditors,
+         });
       }
-
-      // Update ai.json / ai.local.json if present
-      await persistAddedItem({
-         loaded,
-         local: flags.local,
-         output: this.output,
-         localSuccessMessage: `Added prompt "${promptName}" to ai.local.json`,
-         projectSuccessMessage: `Added prompt "${promptName}"`,
-         saveLocal: async (localPath) => {
-            await updateLocalConfig(localPath, (config) => {
-               return {
-                  ...config,
-                  prompts: { ...config.prompts, [promptName]: promptValue },
-               };
-            });
-         },
-         saveProject: async (configPath) => {
-            await updateConfig(configPath, (config) => {
-               return {
-                  ...config,
-                  prompts: { ...config.prompts, [promptName]: promptValue },
-               };
-            });
-         },
-      });
-
-      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
-
-      await installAddedItem({
-         logInstallResults: (results) => {
-            this.logInstallResults(results);
-         },
-         skipInstall: flags['no-install'],
-         loaded,
-         local: flags.local,
-         installSections: ['editors'],
-         itemSection: 'prompts',
-         itemName: promptName,
-         itemValue: promptValue,
-         scope: targetScope,
-         projectRoot: process.cwd(),
-         editors: targetEditors,
-      });
 
       if (this.flags.json) {
          this.output.json({
             action: 'add',
             type: 'prompt',
-            name: promptName,
-            value: promptValue,
+            ...(addedItems.length === 1 && firstItem ? {
+               name: firstItem.name,
+               value: firstItem.value,
+            } : {
+               items: addedItems,
+            }),
             ...(lockfilePath && { lockfilePath }),
          });
       }

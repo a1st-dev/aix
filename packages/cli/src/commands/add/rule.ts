@@ -14,8 +14,10 @@ import {
 } from '@a1st/aix-core';
 import type { RuleValue } from '@a1st/aix-schema';
 import {
+   getAddSources,
    installAddedItem,
    persistAddedItem,
+   rejectMultiSourceFlags,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
 
@@ -23,6 +25,7 @@ type ActivationMode = 'always' | 'auto' | 'glob' | 'manual';
 
 export default class AddRule extends BaseCommand<typeof AddRule> {
    static override description = 'Add a rule to ai.json';
+   static override strict = false;
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> "Always use TypeScript for new files" --name typescript-rule',
@@ -73,97 +76,131 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
    };
 
    async run(): Promise<void> {
-      const { args, flags } = await this.parse(AddRule),
+      const { args, flags, argv } = await this.parse(AddRule),
             loaded = await this.loadConfig(),
             targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
             lockableConfigPath = getLockableConfigPath(loaded),
-            parsed = parseSourceReference(args.source, { type: 'rule', refOverride: flags.ref }),
-            ruleName = flags.name ?? parsed.inferredName,
+            sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
-
-      if (!ruleName) {
-         this.error('Could not infer rule name from source. Please provide --name.');
-      }
 
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
       validateTargetEditors(targetEditors, this.error.bind(this));
+      rejectMultiSourceFlags({
+         sources,
+         flags,
+         disallowedFlags: ['name', 'description', 'ref'],
+         error: this.error.bind(this),
+      });
 
-      // Build the rule value
-      let ruleValue: RuleValue = parsed.value as RuleValue;
-      let lockfilePath: string | undefined;
-
-      // Add metadata if provided (convert string shorthand to object if needed)
-      if (flags.description || flags.activation !== 'always' || flags.globs) {
-         if (typeof ruleValue === 'string') {
-            // Convert string shorthand to object form
-            ruleValue = { path: ruleValue };
-         }
-         ruleValue = { ...ruleValue, ...this.buildMetadata(flags) };
-      }
-
-      // Validate the source is accessible BEFORE updating ai.json
-      // This prevents adding broken references to the config
       const basePath = loaded?.path ?? resolve(process.cwd(), 'ai.json');
 
-      try {
-         await loadRule(ruleName, ruleValue, basePath);
-      } catch (error) {
-         const message = error instanceof Error ? error.message : String(error);
+      const addedItems = await sources.reduce<Promise<Array<{ name: string; value: RuleValue }>>>(
+         async (memoPromise, source) => {
+            const memo = await memoPromise,
+                  parsed = parseSourceReference(source, { type: 'rule', refOverride: flags.ref }),
+                  ruleName = flags.name ?? parsed.inferredName;
 
-         this.error(`Failed to load rule: ${message}`);
+            if (!ruleName) {
+               this.error(`Could not infer rule name from source "${source}". Please provide --name.`);
+            }
+
+            let ruleValue: RuleValue = parsed.value as RuleValue;
+
+            if (flags.description || flags.activation !== 'always' || flags.globs) {
+               if (typeof ruleValue === 'string') {
+                  ruleValue = { path: ruleValue };
+               }
+               ruleValue = { ...ruleValue, ...this.buildMetadata(flags) };
+            }
+
+            try {
+               await loadRule(ruleName, ruleValue, basePath);
+            } catch (error) {
+               const message = error instanceof Error ? error.message : String(error);
+
+               this.error(`Failed to load rule: ${message}`);
+            }
+
+            await persistAddedItem({
+               loaded,
+               local: flags.local,
+               output: this.output,
+               localSuccessMessage: `Added rule "${ruleName}" to ai.local.json`,
+               projectSuccessMessage: `Added rule "${ruleName}"`,
+               saveLocal: async (localPath) => {
+                  await updateLocalConfig(localPath, (config) => {
+                     return {
+                        ...config,
+                        rules: { ...config.rules, [ruleName]: ruleValue },
+                     };
+                  });
+               },
+               saveProject: async (configPath) => {
+                  await updateConfig(configPath, (config) => {
+                     return {
+                        ...config,
+                        rules: { ...config.rules, [ruleName]: ruleValue },
+                     };
+                  });
+               },
+            });
+
+            memo.push({ name: ruleName, value: ruleValue });
+
+            if (!loaded || flags.local) {
+               await installAddedItem({
+                  logInstallResults: (results) => {
+                     this.logInstallResults(results);
+                  },
+                  skipInstall: flags['no-install'],
+                  loaded,
+                  local: flags.local,
+                  installSections: ['rules'],
+                  itemSection: 'rules',
+                  itemName: ruleName,
+                  itemValue: ruleValue,
+                  scope: targetScope,
+                  projectRoot: process.cwd(),
+                  editors: targetEditors,
+               });
+            }
+
+            return memo;
+         }, Promise.resolve([]));
+
+      const lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output),
+            firstItem = addedItems[0];
+
+      if (loaded && !flags.local && firstItem) {
+         await installAddedItem({
+            logInstallResults: (results) => {
+               this.logInstallResults(results);
+            },
+            skipInstall: flags['no-install'],
+            loaded,
+            local: flags.local,
+            installSections: ['rules'],
+            itemSection: 'rules',
+            itemName: firstItem.name,
+            itemValue: firstItem.value,
+            scope: targetScope,
+            projectRoot: process.cwd(),
+            editors: targetEditors,
+         });
       }
-
-      // Update ai.json / ai.local.json if present
-      await persistAddedItem({
-         loaded,
-         local: flags.local,
-         output: this.output,
-         localSuccessMessage: `Added rule "${ruleName}" to ai.local.json`,
-         projectSuccessMessage: `Added rule "${ruleName}"`,
-         saveLocal: async (localPath) => {
-            await updateLocalConfig(localPath, (config) => {
-               return {
-                  ...config,
-                  rules: { ...config.rules, [ruleName]: ruleValue },
-               };
-            });
-         },
-         saveProject: async (configPath) => {
-            await updateConfig(configPath, (config) => {
-               return {
-                  ...config,
-                  rules: { ...config.rules, [ruleName]: ruleValue },
-               };
-            });
-         },
-      });
-
-      lockfilePath = await refreshLockfileAfterAdd(flags.lock, lockableConfigPath, this.output);
-
-      await installAddedItem({
-         logInstallResults: (results) => {
-            this.logInstallResults(results);
-         },
-         skipInstall: flags['no-install'],
-         loaded,
-         local: flags.local,
-         installSections: ['rules'],
-         itemSection: 'rules',
-         itemName: ruleName,
-         itemValue: ruleValue,
-         scope: targetScope,
-         projectRoot: process.cwd(),
-         editors: targetEditors,
-      });
 
       if (this.flags.json) {
          this.output.json({
             action: 'add',
             type: 'rule',
-            name: ruleName,
-            value: ruleValue,
+            ...(addedItems.length === 1 && firstItem ? {
+               name: firstItem.name,
+               value: firstItem.value,
+            } : {
+               items: addedItems,
+            }),
             ...(lockfilePath && { lockfilePath }),
          });
       }

@@ -29,6 +29,39 @@ export interface InstallAddedItemOptions {
    editors?: EditorName[];
 }
 
+export function getAddSources(args: { source: string }, argv: unknown[]): string[] {
+   const parsedSources = argv.filter((source): source is string => {
+      return typeof source === 'string';
+   });
+
+   return parsedSources.length > 0 ? parsedSources : [ args.source ];
+}
+
+export function rejectMultiSourceFlags(options: {
+   sources: string[];
+   flags: Record<string, unknown>;
+   disallowedFlags: string[];
+   error: (message: string) => never;
+}): void {
+   const { sources, flags, disallowedFlags, error } = options;
+
+   if (sources.length < 2) {
+      return;
+   }
+
+   const unsupportedFlags = disallowedFlags.filter((flag) => {
+      return flags[flag] !== undefined;
+   });
+
+   if (unsupportedFlags.length === 0) {
+      return;
+   }
+
+   error(
+      `These flags can only be used with one source: ${unsupportedFlags.map((flag) => `--${flag}`).join(', ')}`,
+   );
+}
+
 export async function persistAddedItem(options: PersistAddedItemOptions): Promise<void> {
    const {
       loaded,
