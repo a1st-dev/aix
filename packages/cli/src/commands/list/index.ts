@@ -89,25 +89,27 @@ export default class List extends BaseCommand<typeof List> {
                undefined,
             );
 
-      // If --all flag is set, we will show all editor config at the end.
       const showAll = this.flags.all,
             editorFilter = this.resolveEditorFilter();
 
-      // Load ai.json config if available
-      const loaded = await this.loadConfig();
+      // When editors are explicitly specified, use discovery mode — scan their actual config
+      // files rather than relying on aix state. This gives a complete, accurate view of what
+      // is installed and available in those editors, including non-aix-managed items and items
+      // installed without an ai.json.
+      const showDiscovery = showAll || editorFilter !== undefined;
 
-      // Load state for both scopes
-      const projectState = await readState('project', process.cwd()),
-            userState = await readState('user');
-
-      // In JSON mode, --all should return editor-discovered config rather than the local
-      // ai.json/state summary.
-      if (showAll && this.flags.json) {
+      // In JSON mode, discovery returns editor-scanned config rather than the local ai.json/state.
+      if (showDiscovery && this.flags.json) {
          await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
          return;
       }
 
       if (this.flags.json) {
+         // Load ai.json config if available
+         const loaded = await this.loadConfig();
+         // Load state for both scopes
+         const projectState = await readState('project', process.cwd()),
+               userState = await readState('user');
          const result: Record<string, unknown> = {};
 
          if (loaded) {
@@ -132,6 +134,18 @@ export default class List extends BaseCommand<typeof List> {
          return;
       }
 
+      // In discovery mode (--all or -e <editor>), scan editor config files directly.
+      if (showDiscovery) {
+         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
+         return;
+      }
+
+      // Load ai.json config if available
+      const loaded = await this.loadConfig();
+      // Load state for both scopes
+      const projectState = await readState('project', process.cwd()),
+            userState = await readState('user');
+
       // Show ai.json config
       if (loaded) {
          const configScope = resolveScope(loaded.config);
@@ -155,20 +169,10 @@ export default class List extends BaseCommand<typeof List> {
          this.printStateSections(userState, sections, 'user', editorFilter);
       }
 
-      if (
-         !loaded &&
-         !this.hasStateItems(projectState, editorFilter) &&
-         !this.hasStateItems(userState, editorFilter) &&
-         !showAll
-      ) {
+      if (!loaded && !this.hasStateItems(projectState, editorFilter) && !this.hasStateItems(userState, editorFilter)) {
          this.output.info(
             'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
          );
-      }
-
-      // Show all editor config if requested
-      if (showAll) {
-         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
       }
    }
 
