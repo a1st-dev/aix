@@ -15,6 +15,8 @@ import {
    OpenCodeAdapter,
    getAdapter,
    getAvailableEditors,
+   getAcceptedEditorNames,
+   normalizeEditorName,
    detectEditors,
    installToEditor,
 } from '../../editors/index.js';
@@ -84,6 +86,11 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('opencode');
          expect(editors).toHaveLength(8);
       });
+
+      it('keeps aliases out of canonical editor detection', () => {
+         expect(getAvailableEditors()).not.toContain('devin');
+         expect(getAcceptedEditorNames()).toContain('devin');
+      });
    });
 
    describe('getAdapter', () => {
@@ -100,6 +107,11 @@ describe('Editor Adapters', () => {
 
       it('throws for unknown editor', () => {
          expect(() => getAdapter('unknown' as never)).toThrow('Unknown editor');
+      });
+
+      it('normalizes devin to the Windsurf adapter', () => {
+         expect(normalizeEditorName('devin')).toBe('windsurf');
+         expect(getAdapter('devin')).toBeInstanceOf(WindsurfAdapter);
       });
    });
 
@@ -165,6 +177,18 @@ describe('Editor Adapters', () => {
 
          expect(ruleContent).toContain('trigger: always_on');
          expect(ruleContent).toContain('Rule content here');
+      });
+
+      it('installs devin input through the Windsurf adapter', async () => {
+         const config = createConfig({
+            rules: { 'devin-rule': { activation: 'always', content: 'Use Devin Desktop' } },
+         });
+
+         const result = await installToEditor('devin', config, testDir);
+
+         expect(result.success).toBe(true);
+         expect(result.editor).toBe('windsurf');
+         expect(existsSync(join(testDir, '.windsurf/rules/devin-rule.md'))).toBe(true);
       });
 
       it('quotes YAML-sensitive rule metadata', async () => {

@@ -13,6 +13,9 @@ import {
    readState,
    importFromEditor,
    getAvailableEditors,
+   getAcceptedEditorNames,
+   isEditorInputName,
+   normalizeEditorName,
    type StateFile,
    type StateSection,
    type EditorName,
@@ -20,7 +23,8 @@ import {
 import { resolveScope } from '@a1st/aix-schema';
 
 const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents'];
-const VALID_EDITORS = getAvailableEditors() as EditorName[];
+const CANONICAL_EDITORS = getAvailableEditors();
+const VALID_EDITORS = getAcceptedEditorNames();
 
 type EditorItemRow = {
    type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent';
@@ -259,15 +263,15 @@ export default class List extends BaseCommand<typeof List> {
          return undefined;
       }
 
-      const normalized = editors.map((editor) => editor.toLowerCase() as EditorName);
+      const normalized = editors.map((editor) => editor.toLowerCase());
 
       for (const editor of normalized) {
-         if (!VALID_EDITORS.includes(editor)) {
+         if (!isEditorInputName(editor)) {
             this.error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
          }
       }
 
-      return [...new Set(normalized)];
+      return [ ...new Set(normalized.map(normalizeEditorName)) ];
    }
 
    private formatSectionName(section: string): string {
@@ -292,7 +296,7 @@ export default class List extends BaseCommand<typeof List> {
       scopeFilter: 'user' | 'project' | undefined,
       editorFilter: EditorName[] | undefined,
    ): Promise<void> {
-      const editors = editorFilter ?? VALID_EDITORS;
+      const editors = editorFilter ?? CANONICAL_EDITORS;
       const projectRoot = process.cwd();
 
       // Load state to identify aix-managed items

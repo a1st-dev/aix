@@ -51,15 +51,63 @@ export interface TargetScopeLimitations {
    };
 }
 
-export type EditorName =
-   | 'windsurf'
-   | 'cursor'
-   | 'claude-code'
-   | 'copilot'
-   | 'zed'
-   | 'codex'
-   | 'gemini'
-   | 'opencode';
+export const editorNames = [
+   'windsurf',
+   'cursor',
+   'claude-code',
+   'copilot',
+   'zed',
+   'codex',
+   'gemini',
+   'opencode',
+] as const;
+
+export type EditorName = (typeof editorNames)[number];
+
+export const editorAliasNames = [
+   'devin',
+] as const;
+
+export type EditorAliasName = (typeof editorAliasNames)[number];
+
+export type EditorInputName = EditorName | EditorAliasName;
+
+export const editorInputNames = [
+   ...editorNames,
+   ...editorAliasNames,
+] as const;
+
+export function normalizeEditorName(editor: string): EditorName {
+   switch (editor.toLowerCase()) {
+      case 'windsurf':
+      case 'devin':
+         return 'windsurf';
+      case 'cursor':
+         return 'cursor';
+      case 'claude-code':
+         return 'claude-code';
+      case 'copilot':
+         return 'copilot';
+      case 'zed':
+         return 'zed';
+      case 'codex':
+         return 'codex';
+      case 'gemini':
+         return 'gemini';
+      case 'opencode':
+         return 'opencode';
+      default:
+         throw new Error(`Unknown editor: ${editor}`);
+   }
+}
+
+export function normalizeEditorNames(editors: readonly string[]): EditorName[] {
+   return [ ...new Set(editors.map(normalizeEditorName)) ];
+}
+
+export function isEditorInputName(editor: string): editor is EditorInputName {
+   return editorInputNames.some((name) => name === editor);
+}
 
 /**
  * Editor-specific rule format after translation from ai.json rules.

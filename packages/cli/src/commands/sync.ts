@@ -6,11 +6,12 @@ import type {
    TargetScopeLimitations,
 } from '@a1st/aix-core';
 import {
-   getAvailableEditors,
+   getAcceptedEditorNames,
    importFromEditor,
    normalizeEditorImport,
    buildConfigFromEditorImport,
    installToEditor,
+   normalizeEditorName,
 } from '@a1st/aix-core';
 import { BaseCommand } from '../base-command.js';
 import {
@@ -19,7 +20,7 @@ import {
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
 
-const VALID_EDITORS = getAvailableEditors();
+const VALID_EDITORS = getAcceptedEditorNames();
 
 export default class Sync extends BaseCommand<typeof Sync> {
    static override description = 'Sync supported configuration from one editor to another';
@@ -68,8 +69,8 @@ export default class Sync extends BaseCommand<typeof Sync> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(Sync),
-            from = args.from as EditorName,
-            to = flags.to as EditorName,
+            from = normalizeEditorName(args.from),
+            to = normalizeEditorName(flags.to),
             sharedScope = flags.scope as ConfigScope | undefined,
             fromScope = (flags['from-scope'] as ConfigScope | undefined) ?? sharedScope ?? 'user',
             toScope = (flags['to-scope'] as ConfigScope | undefined) ?? sharedScope ?? 'user',

@@ -5,7 +5,7 @@ import {
    type HooksConfig,
    type McpServerConfig,
 } from '@a1st/aix-schema';
-import type { EditorName } from './types.js';
+import { normalizeEditorName } from './types.js';
 import type {
    EditorImportScope,
    ImportedSkillsResult,
@@ -148,10 +148,11 @@ export interface NormalizedEditorImport {
  * @param options - Import options including projectRoot for local config lookup
  */
 export async function importFromEditor(
-   editor: EditorName,
+   editor: string,
    options: ImportOptions = {},
 ): Promise<ImportResult> {
-   const result: ImportResult = {
+   const editorName = normalizeEditorName(editor),
+         result: ImportResult = {
             mcp: {},
             rules: [],
             skills: {},
@@ -163,12 +164,12 @@ export async function importFromEditor(
             warnings: [],
             sources: { global: false, local: false },
          },
-         strategies = getAdapter(editor).getStrategyBundle(),
+         strategies = getAdapter(editorName).getStrategyBundle(),
          projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
          scope = options.scope ?? 'all';
 
    if (scope === 'all' || scope === 'user') {
-      assertGlobalHomeAccess(`importing global ${editor} configuration`);
+      assertGlobalHomeAccess(`importing global ${editorName} configuration`);
       mergeImportMcp(result, await importMcpConfig(strategies.mcpStrategy, strategies.configDir, 'global'));
       mergeImportRules(result, await importGlobalRules(strategies.rulesStrategy, strategies.configDir));
       mergeImportPrompts(result, await importPrompts(strategies.promptsStrategy, strategies.configDir, 'global'));
@@ -382,10 +383,10 @@ function normalizeImportedPrompt(
  * passed through another editor adapter.
  */
 export function normalizeEditorImport(
-   editor: EditorName,
+   editor: string,
    result: ImportResult,
 ): NormalizedEditorImport {
-   const strategies = getAdapter(editor).getStrategyBundle(),
+   const strategies = getAdapter(normalizeEditorName(editor)).getStrategyBundle(),
          usedRuleNames = new Set<string>(),
          usedPromptNames = new Set<string>(),
          usedAgentNames = new Set<string>(),
@@ -414,7 +415,7 @@ export function normalizeEditorImport(
  * converter for every source/destination pair.
  */
 export function buildConfigFromEditorImport(
-   editor: EditorName,
+   editor: string,
    result: ImportResult,
 ): AiJsonConfig {
    const normalized = normalizeEditorImport(editor, result),
@@ -1056,6 +1057,6 @@ function promptPathMap(names: string[], files: string[], basePath: string): Reco
 /**
  * Get the global config path for an editor.
  */
-export function getGlobalConfigPath(editor: EditorName): string | null {
-   return buildGlobalPath(getAdapter(editor).getStrategyBundle().mcpStrategy.getGlobalMcpConfigPath());
+export function getGlobalConfigPath(editor: string): string | null {
+   return buildGlobalPath(getAdapter(normalizeEditorName(editor)).getStrategyBundle().mcpStrategy.getGlobalMcpConfigPath());
 }

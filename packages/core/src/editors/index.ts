@@ -1,5 +1,7 @@
 export type {
    EditorName,
+   EditorAliasName,
+   EditorInputName,
    EditorAdapter,
    EditorConfig,
    EditorRule,
@@ -9,6 +11,15 @@ export type {
    FileChangeCategory,
    UnsupportedFeatures,
    TargetScopeLimitations,
+} from './types.js';
+
+export {
+   editorNames,
+   editorAliasNames,
+   editorInputNames,
+   normalizeEditorName,
+   normalizeEditorNames,
+   isEditorInputName,
 } from './types.js';
 
 export {
@@ -26,6 +37,7 @@ export {
 export {
    getAdapter,
    getAvailableEditors,
+   getAcceptedEditorNames,
    detectEditors,
    installToEditor,
    installToEditors,

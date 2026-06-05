@@ -149,6 +149,16 @@ describe('validateConfig', () => {
       expect(result.success).toBe(true);
    });
 
+   it('validates devin as a Windsurf alias', () => {
+      const config = {
+         editors: ['devin'],
+      };
+
+      const result = validateConfig(config);
+
+      expect(result.success).toBe(true);
+   });
+
    it('validates editors mixed array shorthand', () => {
       const config = {
          editors: ['windsurf', { cursor: { aiSettings: { model: 'gpt-4' } } }],

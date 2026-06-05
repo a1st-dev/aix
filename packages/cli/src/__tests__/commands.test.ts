@@ -492,6 +492,15 @@ describe('CLI Commands', () => {
          expect(error).toBeDefined();
       });
 
+      it('rejects devin and windsurf as the same sync editor', async () => {
+         const { error, stderr } = await runCli(['sync', 'devin', '--to', 'windsurf'], {
+            root,
+         });
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Source and destination editors must differ.');
+      });
+
       it('defaults to user scope and reports unsupported destination rule writes', async () => {
          const fakeHome = join(testDir, 'fake-home');
 
@@ -525,6 +534,31 @@ describe('CLI Commands', () => {
 
          const { error, stdout, stderr } = await runCli(
             ['sync', 'opencode', '--to', 'windsurf', '--scope', 'project', '--dry-run'],
+            {
+               root,
+            },
+         );
+
+         expect(error).toBeUndefined();
+         expect(`${stdout}\n${stderr}`).toContain('Requested target scope is project');
+      });
+
+      it('accepts devin as a Windsurf sync destination alias', async () => {
+         await writeFile(
+            join(testDir, 'opencode.json'),
+            JSON.stringify({
+               mcp: {
+                  docs: {
+                     type: 'remote',
+                     url: 'https://example.com/mcp',
+                  },
+               },
+            }),
+            'utf-8',
+         );
+
+         const { error, stdout, stderr } = await runCli(
+            ['sync', 'opencode', '--to', 'devin', '--scope', 'project', '--dry-run'],
             {
                root,
             },
@@ -1044,6 +1078,37 @@ description: Copilot skill
          expect(parsed.copilot.skills['copilot-skill'].path).toContain(
             '/.github/skills/copilot-skill',
          );
+      });
+
+      it('accepts devin as a Windsurf editor filter alias', async () => {
+         const sourceSkillDir = join(testDir, '.aix', 'skills', 'devin-skill'),
+               editorSkillDir = join(testDir, '.windsurf', 'skills');
+
+         await mkdir(sourceSkillDir, { recursive: true });
+         await mkdir(editorSkillDir, { recursive: true });
+         await writeFile(
+            join(sourceSkillDir, 'SKILL.md'),
+            `---
+name: devin-skill
+description: Devin skill
+---
+`,
+         );
+         await symlink(
+            join('..', '..', '.aix', 'skills', 'devin-skill'),
+            join(editorSkillDir, 'devin-skill'),
+         );
+
+         const { error, stdout } = await runCli(['list', '--all', '--editor', 'devin', '--json']);
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.devin).toBeUndefined();
+         expect(parsed.windsurf.skills['devin-skill']).toMatchObject({
+            source: 'external',
+            scope: 'project',
+         });
       });
    });
 

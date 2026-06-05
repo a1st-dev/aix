@@ -155,6 +155,24 @@ describe('normalizeEditors', () => {
       });
    });
 
+   it('normalizes devin array entries to windsurf', () => {
+      const result = normalizeEditors(['devin', 'windsurf']);
+
+      expect(result).toEqual({
+         windsurf: { enabled: true },
+      });
+   });
+
+   it('normalizes devin object entries to windsurf', () => {
+      const result = normalizeEditors({
+         devin: { enabled: true, cascadeSettings: { mode: 'write' } },
+      });
+
+      expect(result).toEqual({
+         windsurf: { enabled: true, cascadeSettings: { mode: 'write' } },
+      });
+   });
+
    it('passes through object form unchanged', () => {
       const editors = {
          windsurf: { enabled: true },
@@ -171,6 +189,18 @@ describe('normalizeConfig', () => {
    it('normalizes editors array shorthand', () => {
       const config = {
          editors: ['windsurf'],
+      };
+
+      const result = normalizeConfig(config);
+
+      expect(result.editors).toEqual({
+         windsurf: { enabled: true },
+      });
+   });
+
+   it('normalizes devin editor shorthand to windsurf', () => {
+      const config = {
+         editors: ['devin'],
       };
 
       const result = normalizeConfig(config);

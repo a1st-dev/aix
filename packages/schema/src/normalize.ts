@@ -5,6 +5,21 @@ import type { AiJsonConfig } from './config.js';
  */
 const LOCAL_FILE_EXTENSIONS = /\.(md|txt|json|ya?ml|prompt\.md)$/i;
 
+function normalizeEditorKey(editor: string): string {
+   return editor.toLowerCase() === 'devin' ? 'windsurf' : editor;
+}
+
+function mergeEditorConfig(
+   result: Record<string, { enabled: boolean; [key: string]: unknown }>,
+   editor: string,
+   config: Record<string, unknown> = {},
+): void {
+   const editorKey = normalizeEditorKey(editor),
+         existing = result[editorKey] ?? {};
+
+   result[editorKey] = { enabled: true, ...existing, ...config };
+}
+
 /**
  * Source types for config and asset references. This is the single source of truth for determining
  * what kind of source a string represents.
@@ -226,19 +241,17 @@ export function normalizePromptsConfig(
 export function normalizeEditors(
    editors: string[] | Array<string | Record<string, unknown>> | Record<string, unknown>,
 ): Record<string, { enabled: boolean; [key: string]: unknown }> {
-   if (!Array.isArray(editors)) {
-      return editors as Record<string, { enabled: boolean }>;
-   }
-
    const result: Record<string, { enabled: boolean; [key: string]: unknown }> = {};
 
-   for (const item of editors) {
+   const items = Array.isArray(editors) ? editors : [editors];
+
+   for (const item of items) {
       if (typeof item === 'string') {
-         result[item] = { enabled: true };
+         mergeEditorConfig(result, item);
       } else {
          // Object entry: { "cursor": { aiSettings: {...} } }
          for (const [name, config] of Object.entries(item)) {
-            result[name] = { enabled: true, ...(config as Record<string, unknown>) };
+            mergeEditorConfig(result, name, config as Record<string, unknown>);
          }
       }
    }

@@ -23,7 +23,7 @@ export const geminiConfigSchema = baseEditorConfigSchema.extend({
 });
 
 export const editorEnum = z
-   .enum(['windsurf', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'gemini', 'opencode'])
+   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'gemini', 'opencode'])
    .describe('Supported editor/agent');
 
 /**
@@ -33,6 +33,7 @@ export const editorEnum = z
 const editorsObjectSchema = z
    .object({
       windsurf: windsurfConfigSchema.optional(),
+      devin: windsurfConfigSchema.optional(),
       cursor: cursorConfigSchema.optional(),
       'claude-code': claudeCodeConfigSchema.optional(),
       gemini: geminiConfigSchema.optional(),

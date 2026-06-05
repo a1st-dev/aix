@@ -3,6 +3,13 @@ import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo } from './types.js';
 import {
+   editorInputNames,
+   editorNames,
+   normalizeEditorName,
+   normalizeEditorNames,
+   type EditorInputName,
+} from './types.js';
+import {
    WindsurfAdapter,
    CursorAdapter,
    ClaudeCodeAdapter,
@@ -39,8 +46,9 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
 /**
  * Get an adapter instance for a specific editor.
  */
-export function getAdapter(editor: EditorName): EditorAdapter {
-   const AdapterClass = adapters[editor];
+export function getAdapter(editor: string): EditorAdapter {
+   const editorName = normalizeEditorName(editor),
+         AdapterClass = adapters[editorName];
 
    if (!AdapterClass) {
       throw new Error(`Unknown editor: ${editor}`);
@@ -52,7 +60,14 @@ export function getAdapter(editor: EditorName): EditorAdapter {
  * Get all available editor names.
  */
 export function getAvailableEditors(): EditorName[] {
-   return Object.keys(adapters) as EditorName[];
+   return [ ...editorNames ];
+}
+
+/**
+ * Get all editor names accepted as user input, including aliases.
+ */
+export function getAcceptedEditorNames(): EditorInputName[] {
+   return [ ...editorInputNames ];
 }
 
 /**
@@ -122,12 +137,13 @@ export async function detectEditors(
  * Install configuration to a single editor.
  */
 export async function installToEditor(
-   editor: EditorName,
+   editor: string,
    config: AiJsonConfig,
    projectRoot: string,
    options?: ApplyOptions,
 ): Promise<ApplyResult> {
-   const adapter = getAdapter(editor),
+   const editorName = normalizeEditorName(editor),
+         adapter = getAdapter(editorName),
          targetScope = options?.targetScope ?? 'project',
          unsupportedFeatures = adapter.getUnsupportedFeatures(config),
          targetScopeLimitations = options?.strictTargetScope
@@ -139,7 +155,7 @@ export async function installToEditor(
                : config;
 
    if (targetScope === 'user') {
-      assertGlobalHomeAccess(`installing ${editor} config into user scope`);
+      assertGlobalHomeAccess(`installing ${editorName} config into user scope`);
    }
 
    const editorConfig = await adapter.generateConfig(filteredConfig, projectRoot, options),
@@ -264,12 +280,12 @@ async function processGlobalFeatures(
  * Install configuration to multiple editors.
  */
 export async function installToEditors(
-   editors: EditorName[],
+   editors: readonly string[],
    config: AiJsonConfig,
    projectRoot: string,
    options?: ApplyOptions,
 ): Promise<ApplyResult[]> {
-   return pMap(editors, (editor) => installToEditor(editor, config, projectRoot, options), {
+   return pMap(normalizeEditorNames(editors), (editor) => installToEditor(editor, config, projectRoot, options), {
       concurrency: 2,
    });
 }
@@ -280,7 +296,7 @@ export async function installToEditors(
 export async function install(
    config: AiJsonConfig,
    projectRoot: string,
-   options?: ApplyOptions & { editors?: EditorName[] },
+   options?: ApplyOptions & { editors?: readonly string[] },
 ): Promise<ApplyResult[]> {
    const editors = options?.editors ?? (await detectEditors(projectRoot));
 

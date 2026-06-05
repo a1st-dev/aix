@@ -5,6 +5,7 @@ import type { ConfigScope } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
 import { getAdapter } from './install.js';
 import type { EditorName } from './types.js';
+import { normalizeEditorName, normalizeEditorNames } from './types.js';
 import type { McpStrategy } from './strategies/types.js';
 
 export interface RemoveMcpFromEditorResult {
@@ -84,16 +85,17 @@ function removeFromTomlMcpConfig(content: string, serverName: string): string | 
 }
 
 export async function removeMcpFromEditor(
-   editor: EditorName,
+   editor: string,
    serverName: string,
    projectRoot: string,
    options: RemoveMcpFromEditorOptions = {},
 ): Promise<RemoveMcpFromEditorResult> {
-   const adapter = getAdapter(editor),
+   const editorName = normalizeEditorName(editor),
+         adapter = getAdapter(editorName),
          { mcpStrategy, configDir } = adapter.getStrategyBundle(),
          targetScope = options.targetScope ?? 'project',
          result: RemoveMcpFromEditorResult = {
-            editor,
+            editor: editorName,
             success: true,
             removed: false,
             errors: [],
@@ -135,14 +137,14 @@ export async function removeMcpFromEditor(
 }
 
 export async function removeMcpFromEditors(
-   editors: readonly EditorName[],
+   editors: readonly string[],
    serverName: string,
    projectRoot: string,
    options: RemoveMcpFromEditorOptions = {},
 ): Promise<RemoveMcpFromEditorResult[]> {
    const results: RemoveMcpFromEditorResult[] = [];
 
-   for (const editor of editors) {
+   for (const editor of normalizeEditorNames(editors)) {
       // eslint-disable-next-line no-await-in-loop -- Sequential for predictable config writes
       results.push(await removeMcpFromEditor(editor, serverName, projectRoot, options));
    }

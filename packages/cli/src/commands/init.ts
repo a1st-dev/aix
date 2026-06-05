@@ -8,7 +8,8 @@ import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import {
    importFromEditor,
    normalizeEditorImport,
-   getAvailableEditors,
+   getAcceptedEditorNames,
+   normalizeEditorName,
    writeImportedContent,
    commitImport,
    rollbackImport,
@@ -40,8 +41,8 @@ export default class Init extends BaseCommand<typeof Init> {
          default: false,
       }),
       from: Flags.string({
-         description: `Import supported config from an editor (${getAvailableEditors().join(', ')})`,
-         options: getAvailableEditors(),
+         description: `Import supported config from an editor (${getAcceptedEditorNames().join(', ')})`,
+         options: getAcceptedEditorNames(),
       }),
       extends: Flags.string({
          char: 'e',
@@ -68,7 +69,7 @@ export default class Init extends BaseCommand<typeof Init> {
       const scope = scopeFlag === 'user' ? 'user' : undefined;
 
       let config: AiJsonConfig;
-      const editor = this.flags.from as EditorName | undefined;
+      const editor = this.flags.from ? normalizeEditorName(this.flags.from) : undefined;
 
       // Validate and normalize --extends value
       let extendsValue: string | undefined;

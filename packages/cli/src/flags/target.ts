@@ -1,7 +1,12 @@
 import { Flags } from '@oclif/core';
-import { getAvailableEditors, type EditorName } from '@a1st/aix-core';
+import {
+   getAcceptedEditorNames,
+   isEditorInputName,
+   normalizeEditorNames,
+   type EditorName,
+} from '@a1st/aix-core';
 
-const VALID_EDITORS = getAvailableEditors();
+const VALID_EDITORS = getAcceptedEditorNames();
 
 export const targetFlag = {
    target: Flags.string({
@@ -17,11 +22,11 @@ export function resolveTargetEditors(targets: string[] | undefined): EditorName[
       return undefined;
    }
 
-   return targets.map((editor) => editor.toLowerCase() as EditorName);
+   return normalizeEditorNames(targets);
 }
 
 export function validateTargetEditors(
-   targets: readonly EditorName[] | undefined,
+   targets: readonly string[] | undefined,
    error: (message: string) => never,
 ): void {
    if (!targets) {
@@ -29,7 +34,7 @@ export function validateTargetEditors(
    }
 
    for (const editor of targets) {
-      if (!VALID_EDITORS.includes(editor)) {
+      if (!isEditorInputName(editor.toLowerCase())) {
          error(`Unknown editor: ${editor}. Valid options: ${VALID_EDITORS.join(', ')}`);
       }
    }
