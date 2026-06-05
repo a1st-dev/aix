@@ -5,9 +5,11 @@ import {
    detectEditors,
    loadConfig,
    trackInstall,
+   syncSectionState,
    type EditorName,
    type ApplyResult,
    type ConfigSection,
+   type StateSection,
 } from '@a1st/aix-core';
 import {
    normalizeEditors,
@@ -59,6 +61,8 @@ export function formatInstallResults(
    return output;
 }
 
+const TRACKABLE_SECTIONS = new Set<StateSection>(['mcp', 'skills', 'rules', 'prompts', 'agents']);
+
 /**
  * Install to configured editors after an add operation. Explicit editors override ai.json editor
  * settings. Returns info about what was installed.
@@ -92,6 +96,27 @@ export async function installAfterAdd(
                }),
             { concurrency: 2 },
          );
+
+   const installedEditors = results.filter((r) => r.success).map((r) => r.editor),
+         trackableSections = options.sections.filter((s): s is StateSection =>
+            TRACKABLE_SECTIONS.has(s as StateSection),
+         );
+
+   if (installedEditors.length > 0 && trackableSections.length > 0) {
+      const sectionNames: Record<StateSection, string[]> = {
+         mcp: Object.keys(loaded.config.mcp ?? {}),
+         skills: Object.keys(loaded.config.skills ?? {}),
+         rules: Object.keys(loaded.config.rules ?? {}),
+         prompts: Object.keys(loaded.config.prompts ?? {}),
+         agents: Object.keys(loaded.config.agents ?? {}),
+      };
+
+      await Promise.all(
+         trackableSections.map((section) =>
+            syncSectionState(targetScope, section, sectionNames[section], installedEditors, projectRoot),
+         ),
+      );
+   }
 
    return { installed: true, results, editors };
 }
