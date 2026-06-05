@@ -19,6 +19,8 @@ import {
    type StateFile,
    type StateSection,
    type EditorName,
+   type InstalledItems,
+   type InstalledItemMeta,
 } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
 
@@ -88,7 +90,8 @@ export default class List extends BaseCommand<typeof List> {
             );
 
       // If --all flag is set, we will show all editor config at the end.
-      const showAll = this.flags.all;
+      const showAll = this.flags.all,
+            editorFilter = this.resolveEditorFilter();
 
       // Load ai.json config if available
       const loaded = await this.loadConfig();
@@ -100,7 +103,7 @@ export default class List extends BaseCommand<typeof List> {
       // In JSON mode, --all should return editor-discovered config rather than the local
       // ai.json/state summary.
       if (showAll && this.flags.json) {
-         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
+         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
          return;
       }
 
@@ -119,10 +122,10 @@ export default class List extends BaseCommand<typeof List> {
          }
          result.state = {
             ...((!scopeFilter || scopeFilter === 'project') && {
-               project: this.getStateSections(projectState, sections),
+               project: this.getStateSections(projectState, sections, editorFilter),
             }),
             ...((!scopeFilter || scopeFilter === 'user') && {
-               user: this.getStateSections(userState, sections),
+               user: this.getStateSections(userState, sections, editorFilter),
             }),
          };
          this.output.json(result);
@@ -146,13 +149,18 @@ export default class List extends BaseCommand<typeof List> {
             showUser = !scopeFilter || scopeFilter === 'user';
 
       if (showProject) {
-         this.printStateSections(projectState, sections, 'project');
+         this.printStateSections(projectState, sections, 'project', editorFilter);
       }
       if (showUser) {
-         this.printStateSections(userState, sections, 'user');
+         this.printStateSections(userState, sections, 'user', editorFilter);
       }
 
-      if (!loaded && !this.hasStateItems(projectState) && !this.hasStateItems(userState) && !showAll) {
+      if (
+         !loaded &&
+         !this.hasStateItems(projectState, editorFilter) &&
+         !this.hasStateItems(userState, editorFilter) &&
+         !showAll
+      ) {
          this.output.info(
             'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
          );
@@ -160,7 +168,7 @@ export default class List extends BaseCommand<typeof List> {
 
       // Show all editor config if requested
       if (showAll) {
-         await this.listAllEditorConfig(sections, scopeFilter, this.resolveEditorFilter());
+         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
       }
    }
 
@@ -178,13 +186,32 @@ export default class List extends BaseCommand<typeof List> {
       return result;
    }
 
-   private getStateSections(state: StateFile, sections: Section[]): Record<string, unknown> {
+   private getStateSections(
+      state: StateFile,
+      sections: Section[],
+      editorFilter: EditorName[] | undefined,
+   ): Record<string, unknown> {
       const result: Record<string, unknown> = {};
 
       for (const section of STATE_SECTIONS) {
-         if (includesSection(sections, section)) {
-            result[section] = state.installed[section];
+         if (!includesSection(sections, section)) {
+            continue;
          }
+
+         if (!editorFilter) {
+            result[section] = state.installed[section];
+            continue;
+         }
+
+         const editorSet = new Set<string>(editorFilter);
+         const filtered: InstalledItems = {};
+
+         for (const [name, meta] of Object.entries(state.installed[section])) {
+            if (meta.editors.some((e) => editorSet.has(e))) {
+               filtered[name] = meta;
+            }
+         }
+         result[section] = filtered;
       }
       return result;
    }
@@ -219,8 +246,15 @@ export default class List extends BaseCommand<typeof List> {
       state: StateFile,
       sections: Section[],
       scope: 'project' | 'user',
+      editorFilter: EditorName[] | undefined,
    ): void {
-      const hasItems = STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
+      const editorSet = editorFilter ? new Set<string>(editorFilter) : undefined;
+      const matchesFilter = (meta: InstalledItemMeta): boolean => {
+         return !editorSet || meta.editors.some((e) => editorSet.has(e));
+      };
+      const hasItems = STATE_SECTIONS.some((s) =>
+         Object.values(state.installed[s]).some(matchesFilter),
+      );
 
       if (!hasItems) {
          return;
@@ -236,7 +270,7 @@ export default class List extends BaseCommand<typeof List> {
          }
 
          const items = state.installed[section],
-               entries = Object.entries(items);
+               entries = Object.entries(items).filter(([, meta]) => matchesFilter(meta));
 
          if (entries.length === 0) {
             continue;
@@ -252,8 +286,16 @@ export default class List extends BaseCommand<typeof List> {
       }
    }
 
-   private hasStateItems(state: StateFile): boolean {
-      return STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
+   private hasStateItems(state: StateFile, editorFilter: EditorName[] | undefined): boolean {
+      if (!editorFilter) {
+         return STATE_SECTIONS.some((s) => Object.keys(state.installed[s]).length > 0);
+      }
+
+      const editorSet = new Set<string>(editorFilter);
+
+      return STATE_SECTIONS.some((s) =>
+         Object.values(state.installed[s]).some((meta) => meta.editors.some((e) => editorSet.has(e))),
+      );
    }
 
    private resolveEditorFilter(): EditorName[] | undefined {
