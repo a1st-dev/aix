@@ -5,6 +5,7 @@ import type { SkillsStrategy, NativeSkillsConfig } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
 import { safeRm } from '../../../fs/safe-rm.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
+import { getReplacementAction, replaceSkillDirectory } from './skill-directory.js';
 
 /**
  * Native skills strategy for editors that support Agent Skills natively (Claude Code, GitHub Copilot,
@@ -49,20 +50,18 @@ export class NativeSkillsStrategy implements SkillsStrategy {
          entries,
          async ([name, skill]) => {
             const changes: FileChange[] = [],
-                  aixSkillDir = join(installRoot, '.aix', 'skills', name),
-                  aixExists = getRuntimeAdapter().fs.existsSync(aixSkillDir);
+                  aixSkillDir = join(installRoot, '.aix', 'skills', name);
+            let aixAction: 'create' | 'update';
 
             if (!options.dryRun) {
-               await getRuntimeAdapter().fs.mkdir(dirname(aixSkillDir), { recursive: true });
-               if (aixExists) {
-                  await safeRm(aixSkillDir, { force: true });
-               }
-               await getRuntimeAdapter().fs.cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
+               aixAction = await replaceSkillDirectory(skill.basePath, aixSkillDir);
+            } else {
+               aixAction = await getReplacementAction(aixSkillDir);
             }
 
             changes.push({
                path: aixSkillDir,
-               action: aixExists ? 'update' : 'create',
+               action: aixAction,
                content: `[skill directory: ${skill.basePath}]`,
                isDirectory: true,
                category: 'skill',

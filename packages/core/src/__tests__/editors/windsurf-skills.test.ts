@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, writeFile, readlink, lstat, unlink } from 'node:fs/promises';
+import { mkdir, writeFile, readlink, lstat, unlink, symlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, normalize } from 'pathe';
 import { tmpdir } from 'node:os';
@@ -118,6 +118,19 @@ description: A test skill
       expect(existsSync(join(fakeHome, '.windsurf', 'skills', 'user-skill'))).toBe(true);
       expect(existsSync(join(testDir, '.aix', 'skills', 'user-skill'))).toBe(false);
       expect(existsSync(join(testDir, '.windsurf', 'skills', 'user-skill'))).toBe(false);
+   });
+
+   it('replaces broken managed skill symlinks before copying', async () => {
+      const installedSkillPath = join(testDir, '.aix', 'skills', 'test-skill');
+
+      await mkdir(join(testDir, '.aix', 'skills'), { recursive: true });
+      await symlink(join(testDir, 'missing-skill'), installedSkillPath);
+
+      await strategy.installSkills(new Map<string, ParsedSkill>([['test-skill', buildSkill()]]), testDir, {
+         dryRun: false,
+      });
+
+      expect(existsSync(join(installedSkillPath, 'SKILL.md'))).toBe(true);
    });
 
    it('removes stale files from the managed copy when reinstalling a skill', async () => {

@@ -4,7 +4,7 @@ import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadPrompt,
@@ -16,8 +16,11 @@ import type { PromptValue } from '@a1st/aix-schema';
 import {
    getAddSources,
    installAddedItem,
+   isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
+   rejectUserScopeProjectConfigFlags,
+   resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
 
@@ -70,12 +73,17 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
 
    async run(): Promise<void> {
       const { args, flags, argv } = await this.parse(AddPrompt),
-            loaded = await this.loadConfig(),
-            targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean }),
+            userScopeAdd = isUserScopeAdd(flags),
+            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
+      rejectUserScopeProjectConfigFlags({
+         flags,
+         error: this.error.bind(this),
+      });
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -125,6 +133,9 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
                loaded,
                local: flags.local,
                output: this.output,
+               directInstallMessage: userScopeAdd
+                  ? 'User-scope add: installing directly to editors without reading project ai.json'
+                  : undefined,
                localSuccessMessage: `Added prompt "${promptName}" to ai.local.json`,
                projectSuccessMessage: `Added prompt "${promptName}"`,
                saveLocal: async (localPath) => {
@@ -162,6 +173,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
                   scope: targetScope,
                   projectRoot: process.cwd(),
                   editors: targetEditors,
+                  failInstall: this.error.bind(this),
                });
             }
             return memo;
@@ -185,6 +197,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             scope: targetScope,
             projectRoot: process.cwd(),
             editors: targetEditors,
+            failInstall: this.error.bind(this),
          });
       }
 

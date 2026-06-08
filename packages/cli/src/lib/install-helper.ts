@@ -88,12 +88,19 @@ export async function installAfterAdd(
          targetScope = options.scope ?? resolveScope(loaded.config),
          results = await pMap(
             editors,
-            (editor) =>
-               installToEditor(editor, loaded.config, projectRoot, {
-                  scopes: options.sections,
-                  configBaseDir: loaded.configBaseDir,
-                  targetScope,
-               }),
+            async (editor) => {
+               try {
+                  return await installToEditor(editor, loaded.config, projectRoot, {
+                     scopes: options.sections,
+                     configBaseDir: loaded.configBaseDir,
+                     targetScope,
+                  });
+               } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+
+                  return { editor, success: false, changes: [], errors: [message] };
+               }
+            },
             { concurrency: 2 },
          );
 
@@ -174,8 +181,18 @@ export async function installSingleItem(
 
    const results = await pMap(
       editors,
-      (editor) =>
-         installToEditor(editor, config, projectRoot, { scopes: [section], targetScope: scope }),
+      async (editor) => {
+         try {
+            return await installToEditor(editor, config, projectRoot, {
+               scopes: [section],
+               targetScope: scope,
+            });
+         } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+
+            return { editor, success: false, changes: [], errors: [message] };
+         }
+      },
       { concurrency: 2 },
    );
 

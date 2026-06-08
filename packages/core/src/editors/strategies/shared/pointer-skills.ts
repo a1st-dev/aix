@@ -1,10 +1,10 @@
 import pMap from 'p-map';
-import { join, dirname } from 'pathe';
+import { join } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
-import { safeRm } from '../../../fs/safe-rm.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
+import { getReplacementAction, replaceSkillDirectory } from './skill-directory.js';
 
 /**
  * Pointer skills strategy for editors without native Agent Skills support (currently Zed).
@@ -39,20 +39,18 @@ export class PointerSkillsStrategy implements SkillsStrategy {
       const changes = await pMap(
          entries,
          async ([name, skill]) => {
-            const aixSkillDir = join(installRoot, '.aix', 'skills', name),
-                  exists = getRuntimeAdapter().fs.existsSync(aixSkillDir);
+            const aixSkillDir = join(installRoot, '.aix', 'skills', name);
+            let action: 'create' | 'update';
 
             if (!options.dryRun) {
-               await getRuntimeAdapter().fs.mkdir(dirname(aixSkillDir), { recursive: true });
-               if (exists) {
-                  await safeRm(aixSkillDir, { force: true });
-               }
-               await getRuntimeAdapter().fs.cp(skill.basePath, aixSkillDir, { recursive: true, force: true });
+               action = await replaceSkillDirectory(skill.basePath, aixSkillDir);
+            } else {
+               action = await getReplacementAction(aixSkillDir);
             }
 
             return {
                path: aixSkillDir,
-               action: exists ? 'update' : 'create',
+               action,
                content: `[skill directory: ${skill.basePath}]`,
                isDirectory: true,
                category: 'skill',

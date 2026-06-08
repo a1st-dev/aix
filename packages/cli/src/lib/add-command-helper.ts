@@ -1,14 +1,17 @@
 import { getLocalConfigPath, type ConfigSection, type EditorName, type LoadedConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type Package } from '@a1st/mcp-registry-client';
 import type { ConfigScope, McpServerConfig } from '@a1st/aix-schema';
+import { resolveScope } from '@a1st/aix-schema';
 import { refreshLockfile } from './lockfile-helper.js';
 import { formatInstallResults, installAfterAdd, installSingleItem } from './install-helper.js';
 import type { Output } from './output.js';
+import { resolveConfigScope } from '../flags/scope.js';
 
 export interface PersistAddedItemOptions {
    loaded?: LoadedConfig;
    local: boolean;
    output: Pick<Output, 'info' | 'success'>;
+   directInstallMessage?: string;
    localSuccessMessage: string;
    projectSuccessMessage: string;
    saveLocal: (path: string) => Promise<void>;
@@ -27,6 +30,16 @@ export interface InstallAddedItemOptions {
    scope: ConfigScope;
    projectRoot: string;
    editors?: EditorName[];
+   failInstall: (message: string) => never;
+}
+
+export interface AddScopeFlags {
+   scope?: string;
+   user?: boolean;
+   project?: boolean;
+   local?: boolean;
+   lock?: boolean;
+   'no-install'?: boolean;
 }
 
 export function getAddSources(args: { source: string }, argv: unknown[]): string[] {
@@ -35,6 +48,40 @@ export function getAddSources(args: { source: string }, argv: unknown[]): string
    });
 
    return parsedSources.length > 0 ? parsedSources : [ args.source ];
+}
+
+export function isUserScopeAdd(flags: AddScopeFlags): boolean {
+   return flags.user === true || flags.scope === 'user';
+}
+
+export function rejectUserScopeProjectConfigFlags(options: {
+   flags: AddScopeFlags;
+   error: (message: string) => never;
+}): void {
+   const { flags, error } = options;
+
+   if (!isUserScopeAdd(flags)) {
+      return;
+   }
+
+   if (flags.local) {
+      error('--local cannot be used with --user because user-scope adds do not use project ai.json.');
+   }
+
+   if (flags.lock) {
+      error('--lock requires a local ai.json and cannot be used with --user.');
+   }
+
+   if (flags['no-install']) {
+      error('--no-install cannot be used with --user because user-scope adds do not write project ai.json.');
+   }
+}
+
+export function resolveAddTargetScope(flags: AddScopeFlags, loaded: LoadedConfig | undefined): ConfigScope {
+   return resolveConfigScope(
+      flags,
+      loaded && !flags.local ? resolveScope(loaded.config) : undefined,
+   ) ?? 'user';
 }
 
 export function rejectMultiSourceFlags(options: {
@@ -71,6 +118,7 @@ export async function persistAddedItem(options: PersistAddedItemOptions): Promis
       projectSuccessMessage,
       saveLocal,
       saveProject,
+      directInstallMessage,
    } = options;
 
    if (local) {
@@ -87,7 +135,7 @@ export async function persistAddedItem(options: PersistAddedItemOptions): Promis
       return;
    }
 
-   output.info('No ai.json found — installing directly to editors');
+   output.info(directInstallMessage ?? 'No ai.json found — installing directly to editors');
 }
 
 export async function refreshLockfileAfterAdd(
@@ -118,6 +166,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
       scope,
       projectRoot,
       editors,
+      failInstall,
    } = options;
 
    if (skipInstall) {
@@ -142,6 +191,16 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
 
    if (installResult.installed) {
       logInstallResults(formatInstallResults(installResult.results));
+
+      const failures = installResult.results.filter((result) => !result.success);
+
+      if (failures.length > 0) {
+         failInstall(
+            failures
+               .map((failure) => `Failed to install to ${failure.editor}: ${failure.errors.join(', ')}`)
+               .join('\n'),
+         );
+      }
    }
 }
 

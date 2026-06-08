@@ -922,6 +922,55 @@ describe('CLI Commands', () => {
          expect(existsSync(join(fakeHome, '.github', 'skills', 'project-default'))).toBe(false);
       });
 
+      it('does not read or modify project ai.json for user-scope skill adds', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         await writeValidConfig(configPath, {
+            editors: ['claude-code'],
+            skills: {
+               'project-skill': { path: './skills/project-skill' },
+            },
+         });
+         await writeSkillDir(testDir, 'project-skill');
+         await writeSkillDir(testDir, 'user-skill');
+
+         const before = await readFile(configPath, 'utf-8'),
+               { error } = await runCli(
+                  ['add', 'skill', './skills/user-skill', '--target', 'claude-code', '--user'],
+                  { root },
+               ),
+               after = await readFile(configPath, 'utf-8');
+
+         expect(error).toBeUndefined();
+         expect(after).toBe(before);
+         expect(existsSync(join(fakeHome, '.aix', 'skills', 'user-skill', 'SKILL.md'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.claude', 'skills', 'user-skill'))).toBe(true);
+         expect(existsSync(join(fakeHome, '.aix', 'skills', 'project-skill'))).toBe(false);
+         expect(existsSync(join(testDir, '.aix', 'skills', 'user-skill'))).toBe(false);
+      });
+
+      it('ignores invalid project ai.json for user-scope skill adds', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         await writeFile(configPath, '{ invalid json');
+         await writeSkillDir(testDir, 'user-skill');
+
+         const { error, stderr } = await runCli(
+            ['add', 'skill', './skills/user-skill', '--target', 'claude-code', '--user'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stderr).not.toContain('Configuration Error');
+         expect(existsSync(join(fakeHome, '.aix', 'skills', 'user-skill', 'SKILL.md'))).toBe(true);
+      });
+
       it('adds multiple local skill directories from shell-expanded arguments', async () => {
          const configPath = join(testDir, 'ai.json');
 

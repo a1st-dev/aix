@@ -4,7 +4,7 @@ import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
@@ -13,7 +13,10 @@ import {
    buildMcpServerConfig,
    findCompatibleNpmPackage,
    installAddedItem,
+   isUserScopeAdd,
    persistAddedItem,
+   rejectUserScopeProjectConfigFlags,
+   resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
 
@@ -61,8 +64,9 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(AddMcp);
-      const loaded = await this.loadConfig();
-      const targetScope = resolveConfigScope(flags as { scope?: string; user?: boolean; project?: boolean });
+      const userScopeAdd = isUserScopeAdd(flags);
+      const loaded = userScopeAdd ? undefined : await this.loadConfig();
+      const targetScope = resolveAddTargetScope(flags, loaded);
       const targetEditors = resolveTargetEditors(flags.target);
       const lockableConfigPath = getLockableConfigPath(loaded);
 
@@ -70,6 +74,10 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       let serverName = args.name;
       let lockfilePath: string | undefined;
 
+      rejectUserScopeProjectConfigFlags({
+         flags,
+         error: this.error.bind(this),
+      });
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -111,6 +119,9 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          loaded,
          local: flags.local,
          output: this.output,
+         directInstallMessage: userScopeAdd
+            ? 'User-scope add: installing directly to editors without reading project ai.json'
+            : undefined,
          localSuccessMessage: `Added MCP server "${serverName}" to ai.local.json`,
          projectSuccessMessage: `Added MCP server "${serverName}"`,
          saveLocal: async (localPath) => {
@@ -149,6 +160,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          scope: targetScope,
          projectRoot: process.cwd(),
          editors: targetEditors,
+         failInstall: this.error.bind(this),
       });
 
       if (this.flags.json) {
