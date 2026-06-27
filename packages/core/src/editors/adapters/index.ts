@@ -7,3 +7,4 @@ export { ZedAdapter } from './zed.js';
 export { CodexAdapter } from './codex.js';
 export { GeminiAdapter } from './gemini.js';
 export { OpenCodeAdapter } from './opencode.js';
+export { DevinDesktopAdapter } from './devin-desktop.js';

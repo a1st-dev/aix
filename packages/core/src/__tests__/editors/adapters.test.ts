@@ -82,7 +82,8 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('codex');
          expect(editors).toContain('gemini');
          expect(editors).toContain('opencode');
-         expect(editors).toHaveLength(8);
+         expect(editors).toContain('devin-desktop');
+         expect(editors).toHaveLength(9);
       });
    });
 

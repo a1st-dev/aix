@@ -53,6 +53,7 @@ export function computeFilesToDelete(
             codex: { project: '.agents/skills', user: '.codex/skills' },
             gemini: { project: '.gemini/skills', user: '.gemini/skills' },
             opencode: { project: '.opencode/skills', user: '.config/opencode/skills' },
+            'devin-desktop': { project: '.windsurf/skills', user: '.windsurf/skills' },
          };
 
          const skillDirConfig = editorSkillDirs[editor];

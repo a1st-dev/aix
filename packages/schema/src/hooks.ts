@@ -63,6 +63,7 @@ export const hookEventSchema = z
       'config_change',
       'cwd_changed',
       'file_changed',
+      'message_display',
       'notification',
       'elicitation',
       'elicitation_result',

@@ -11,6 +11,7 @@ import {
    CodexAdapter,
    GeminiAdapter,
    OpenCodeAdapter,
+   DevinDesktopAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
@@ -34,6 +35,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    codex: CodexAdapter,
    gemini: GeminiAdapter,
    opencode: OpenCodeAdapter,
+   'devin-desktop': DevinDesktopAdapter,
 };
 
 /**

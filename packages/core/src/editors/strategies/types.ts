@@ -215,9 +215,9 @@ export interface SkillsStrategy {
  */
 export interface NativeSkillsConfig {
    /** The editor's project-level native skills directory (e.g., '.claude/skills' or '.github/skills') */
-   editorSkillsDir: string;
+   editorSkillsDir: string | string[];
    /** Optional user-level native skills directory when it differs from the project-level path. */
-   userEditorSkillsDir?: string;
+   userEditorSkillsDir?: string | string[];
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, FileChange, ApplyOptions } from '../types.js';
+import type { EditorConfig, FileChange, ApplyOptions, EditorName } from '../types.js';
 import {
    WindsurfRulesStrategy,
    WindsurfPromptsStrategy,
@@ -25,7 +25,7 @@ import type {
  * (`~/.codeium/windsurf/mcp_config.json`) and requires user confirmation to modify.
  */
 export class WindsurfAdapter extends BaseEditorAdapter {
-   readonly name = 'windsurf' as const;
+   readonly name: EditorName = 'windsurf' as const;
    readonly configDir = '.windsurf';
 
    getGlobalDataPaths(): Record<string, string[]> {

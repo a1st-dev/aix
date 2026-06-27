@@ -43,6 +43,7 @@ describe('editor support data', () => {
          codex: new CodexHooksStrategy(),
          zed: new NoHooksStrategy(),
          opencode: new NoHooksStrategy(),
+         'devin-desktop': new WindsurfHooksStrategy(),
       };
 
       for (const editor of supportedEditorNames) {
