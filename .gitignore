@@ -43,3 +43,6 @@ plans/
 
 # Local agent-generated config and skills
 .agents/
+
+# Test results
+test-results/
