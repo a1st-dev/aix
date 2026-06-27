@@ -1002,7 +1002,7 @@ async function importSkills(
          skillDirs = source === 'user' ? strategy.getGlobalImportDirs() : strategy.getProjectImportDirs(),
          root = source === 'user' ? homedir() : projectRoot;
 
-   for (const skillDir of skillDirs) {
+   for (const skillDir of skillDirs.toReversed()) {
       const fullPath = join(root, skillDir);
 
       try {

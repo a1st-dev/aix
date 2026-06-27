@@ -16,6 +16,7 @@ export const editorIconNames: Record<SupportedEditorName, string> = {
    copilot: 'simple-icons:githubcopilot',
    'claude-code': 'simple-icons:anthropic',
    windsurf: 'simple-icons:codeium',
+   'devin-desktop': 'simple-icons:codeium',
    zed: 'simple-icons:zedindustries',
    codex: 'simple-icons:openai',
    gemini: 'simple-icons:googlegemini',

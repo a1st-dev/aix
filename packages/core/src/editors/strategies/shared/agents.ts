@@ -6,8 +6,8 @@ import { quoteYamlString } from '../../../frontmatter-utils.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 
 export interface MarkdownAgentsConfig {
-   projectAgentsDir: string;
-   userAgentsDir: string | null;
+   projectAgentsDir: string | string[];
+   userAgentsDir: string | string[] | null;
    extraFrontmatter?: (agent: EditorAgent) => Record<string, unknown>;
    toolsKey?: string | null;
    permissionsKey?: string;
@@ -59,7 +59,7 @@ function formatFrontmatter(agent: EditorAgent, config: MarkdownAgentsConfig): st
       ...Object.entries(extra).map(([key, value]) => `${key}: ${yamlValue(value)}`),
    ];
 
-   return `---\n${lines.join('\n')}\n---\n\n${agent.content.trim()}\n`;
+   return `--- \n${lines.join('\n')}\n---\n\n${agent.content.trim()}\n`;
 }
 
 async function importAgentsFromDir(dir: string, scope: 'project' | 'user', strategy: AgentsStrategy): Promise<ImportedAgentsResult> {
@@ -98,7 +98,17 @@ async function importAgentsFromDir(dir: string, scope: 'project' | 'user', strat
 }
 
 export class MarkdownAgentsStrategy implements AgentsStrategy {
-   constructor(private readonly config: MarkdownAgentsConfig) {}
+   private readonly projectAgentsDirs: string[];
+   private readonly userAgentsDirs: string[] | null;
+
+   constructor(private readonly config: MarkdownAgentsConfig) {
+      const projectDir = config.projectAgentsDir;
+
+      this.projectAgentsDirs = Array.isArray(projectDir) ? projectDir : [projectDir];
+      const userDir = config.userAgentsDir;
+
+      this.userAgentsDirs = userDir === null ? null : (Array.isArray(userDir) ? userDir : [userDir]);
+   }
 
    isSupported(): boolean {
       return true;
@@ -109,7 +119,7 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
    }
 
    getAgentsDir(): string {
-      return this.config.projectAgentsDir;
+      return this.projectAgentsDirs[0]!;
    }
 
    getFileExtension(): string {
@@ -117,7 +127,7 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
    }
 
    getGlobalAgentsPath(): string | null {
-      return this.config.userAgentsDir;
+      return this.userAgentsDirs?.[0] ?? null;
    }
 
    parseAgent(sourceName: string, content: string): EditorAgent {
@@ -139,18 +149,35 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
       };
    }
 
-   importGlobalAgents(): Promise<ImportedAgentsResult> {
-      const userAgentsDir = this.getGlobalAgentsPath();
-
-      if (!userAgentsDir) {
-         return Promise.resolve({ agents: {}, paths: {}, scopes: {}, warnings: [] });
+   async importGlobalAgents(): Promise<ImportedAgentsResult> {
+      if (!this.userAgentsDirs) {
+         return { agents: {}, paths: {}, scopes: {}, warnings: [] };
       }
 
-      return importAgentsFromDir(join(getRuntimeAdapter().os.homedir(), userAgentsDir), 'user', this);
+      let combinedResult: ImportedAgentsResult = { agents: {}, paths: {}, scopes: {}, warnings: [] };
+
+      // Reverse order so plural (first in config) overwrites singular in the final map
+      for (const dir of this.userAgentsDirs.toReversed()) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential fallback
+         const result = await importAgentsFromDir(join(getRuntimeAdapter().os.homedir(), dir), 'user', this);
+
+         combinedResult = mergeAgentImports(combinedResult, result);
+      }
+
+      return combinedResult;
    }
 
-   importProjectAgents(projectRoot: string, editorConfigDir: string): Promise<ImportedAgentsResult> {
-      return importAgentsFromDir(join(projectRoot, editorConfigDir, this.getAgentsDir()), 'project', this);
+   async importProjectAgents(projectRoot: string, editorConfigDir: string): Promise<ImportedAgentsResult> {
+      let combinedResult: ImportedAgentsResult = { agents: {}, paths: {}, scopes: {}, warnings: [] };
+
+      for (const dir of this.projectAgentsDirs.toReversed()) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential fallback
+         const result = await importAgentsFromDir(join(projectRoot, editorConfigDir, dir), 'project', this);
+
+         combinedResult = mergeAgentImports(combinedResult, result);
+      }
+
+      return combinedResult;
    }
 }
 
@@ -178,4 +205,16 @@ export class NoAgentsStrategy implements AgentsStrategy {
    parseAgent(name: string, content: string): EditorAgent {
       return { name, content };
    }
+}
+
+function mergeAgentImports(
+   base: ImportedAgentsResult,
+   overlay: ImportedAgentsResult,
+): ImportedAgentsResult {
+   return {
+      agents: { ...base.agents, ...overlay.agents },
+      paths: { ...base.paths, ...overlay.paths },
+      scopes: { ...base.scopes, ...overlay.scopes },
+      warnings: [...base.warnings, ...overlay.warnings],
+   };
 }

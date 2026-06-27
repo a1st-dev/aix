@@ -73,7 +73,7 @@ function isSupportedEditorName(value: unknown): value is SupportedEditorName {
 }
 
 function parseResearchFileContent(content: string): ParsedResearchFile {
-   const frontmatterMatch = /^---\n(?<frontmatter>[\s\S]*?)\n---\n?(?<body>[\s\S]*)$/u.exec(content);
+   const frontmatterMatch = /^---\r?\n(?<frontmatter>[\s\S]*?)\r?\n---\r?\n?(?<body>[\s\S]*)$/u.exec(content);
 
    if (!frontmatterMatch?.groups) {
       throw new Error('Missing YAML frontmatter');

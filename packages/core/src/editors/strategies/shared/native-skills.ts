@@ -12,12 +12,14 @@ import { getRuntimeAdapter } from '../../../runtime/index.js';
  * store, then linked into each editor's native skills directory.
  */
 export class NativeSkillsStrategy implements SkillsStrategy {
-   private readonly editorSkillsDir: string;
-   private readonly userEditorSkillsDir: string;
+   private readonly editorSkillsDirs: string[];
+   private readonly userEditorSkillsDirs: string[];
 
    constructor(config: NativeSkillsConfig) {
-      this.editorSkillsDir = config.editorSkillsDir;
-      this.userEditorSkillsDir = config.userEditorSkillsDir ?? config.editorSkillsDir;
+      this.editorSkillsDirs = Array.isArray(config.editorSkillsDir) ? config.editorSkillsDir : [config.editorSkillsDir];
+      const userDir = config.userEditorSkillsDir ?? config.editorSkillsDir;
+
+      this.userEditorSkillsDirs = Array.isArray(userDir) ? userDir : [userDir];
    }
 
    getSkillsDir(): string {
@@ -25,11 +27,11 @@ export class NativeSkillsStrategy implements SkillsStrategy {
    }
 
    getProjectImportDirs(): readonly string[] {
-      return [this.editorSkillsDir];
+      return this.editorSkillsDirs;
    }
 
    getGlobalImportDirs(): readonly string[] {
-      return [this.userEditorSkillsDir];
+      return this.userEditorSkillsDirs;
    }
 
    isNative(): boolean {
@@ -43,7 +45,7 @@ export class NativeSkillsStrategy implements SkillsStrategy {
    ): Promise<FileChange[]> {
       const entries = Array.from(skills.entries()),
             installRoot = options.targetScope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot,
-            editorSkillsDir = options.targetScope === 'user' ? this.userEditorSkillsDir : this.editorSkillsDir;
+            editorSkillsDir = options.targetScope === 'user' ? this.userEditorSkillsDirs[0]! : this.editorSkillsDirs[0]!;
 
       const nestedChanges = await pMap(
          entries,

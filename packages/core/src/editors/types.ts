@@ -53,6 +53,7 @@ export interface TargetScopeLimitations {
 
 export type EditorName =
    | 'windsurf'
+   | 'devin-desktop'
    | 'cursor'
    | 'claude-code'
    | 'copilot'

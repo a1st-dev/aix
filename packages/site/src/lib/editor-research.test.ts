@@ -55,7 +55,9 @@ describe('editor research notes', () => {
    });
 
    it('resolves the default research root from the monorepo', () => {
-      expect(getEditorResearchRoot()).toMatch(/docs\/editor-research$/u);
+      const normalizedRoot = getEditorResearchRoot().replace(/\\/g, '/');
+
+      expect(normalizedRoot).toMatch(/docs\/editor-research$/u);
       expect(fs.existsSync(getEditorResearchRoot())).toStrictEqual(true);
    });
 

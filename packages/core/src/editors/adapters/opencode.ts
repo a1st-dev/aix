@@ -50,14 +50,14 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
    protected readonly rulesStrategy: RulesStrategy = new OpenCodeRulesStrategy();
    protected readonly mcpStrategy: McpStrategy = new OpenCodeMcpStrategy();
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
-      editorSkillsDir: '.opencode/skills',
-      userEditorSkillsDir: '.config/opencode/skills',
+      editorSkillsDir: ['.opencode/skills', '.opencode/skill'],
+      userEditorSkillsDir: ['.config/opencode/skills', '.config/opencode/skill'],
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new OpenCodePromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
-      projectAgentsDir: 'agents',
-      userAgentsDir: '.config/opencode/agents',
+      projectAgentsDir: ['agents', 'agent'],
+      userAgentsDir: ['.config/opencode/agents', '.config/opencode/agent'],
       extraFrontmatter: (agent) => agent.editor?.opencode ?? {},
       toolsKey: null,
       permissionsKey: 'permission',

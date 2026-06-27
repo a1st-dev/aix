@@ -15,12 +15,15 @@ import { getOpenCodeConfigImportPaths, importOpenCodeConfigPrompts } from './imp
  * `~/.config/opencode/commands/`. The file body is the command template.
  */
 export class OpenCodePromptsStrategy implements PromptsStrategy {
+   private readonly projectPromptsDirs = ['commands', 'command'];
+   private readonly globalPromptsPaths = ['.config/opencode/commands', '.config/opencode/command'];
+
    isSupported(): boolean {
       return true;
    }
 
    getPromptsDir(): string {
-      return 'commands';
+      return this.projectPromptsDirs[0]!;
    }
 
    getFileExtension(): string {
@@ -28,7 +31,7 @@ export class OpenCodePromptsStrategy implements PromptsStrategy {
    }
 
    getGlobalPromptsPath(): string | null {
-      return '.config/opencode/commands';
+      return this.globalPromptsPaths[0]!;
    }
 
    formatPrompt(prompt: EditorPrompt): string {
@@ -56,21 +59,40 @@ export class OpenCodePromptsStrategy implements PromptsStrategy {
    }
 
    async importGlobalPrompts(): Promise<ImportedPromptsResult> {
-      return importPromptsWithConfigOverlay(
-         join(getRuntimeAdapter().os.homedir(), this.getGlobalPromptsPath() ?? '.config/opencode/commands'),
-         getOpenCodeConfigImportPaths(join(getRuntimeAdapter().os.homedir(), '.config', 'opencode', 'opencode.json')),
-         'user',
-         this,
-      );
+      let combinedResult: ImportedPromptsResult = { prompts: {}, paths: {}, scopes: {}, warnings: [] };
+
+      // Reverse order so plural (first) overwrites singular (second) in the final map
+      for (const promptsPath of this.globalPromptsPaths.toReversed()) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential fallback
+         const result = await importPromptsWithConfigOverlay(
+            join(getRuntimeAdapter().os.homedir(), promptsPath),
+            getOpenCodeConfigImportPaths(join(getRuntimeAdapter().os.homedir(), '.config', 'opencode', 'opencode.json')),
+            'user',
+            this,
+         );
+
+         combinedResult = mergePromptImports(combinedResult, result);
+      }
+
+      return combinedResult;
    }
 
    async importProjectPrompts(projectRoot: string, editorConfigDir: string): Promise<ImportedPromptsResult> {
-      return importPromptsWithConfigOverlay(
-         join(projectRoot, editorConfigDir, this.getPromptsDir()),
-         getOpenCodeConfigImportPaths(join(projectRoot, 'opencode.json')),
-         'project',
-         this,
-      );
+      let combinedResult: ImportedPromptsResult = { prompts: {}, paths: {}, scopes: {}, warnings: [] };
+
+      for (const promptsDir of this.projectPromptsDirs.toReversed()) {
+         // eslint-disable-next-line no-await-in-loop -- Sequential fallback
+         const result = await importPromptsWithConfigOverlay(
+            join(projectRoot, editorConfigDir, promptsDir),
+            getOpenCodeConfigImportPaths(join(projectRoot, 'opencode.json')),
+            'project',
+            this,
+         );
+
+         combinedResult = mergePromptImports(combinedResult, result);
+      }
+
+      return combinedResult;
    }
 
    detectFormat(content: string): boolean {
