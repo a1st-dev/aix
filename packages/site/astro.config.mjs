@@ -7,6 +7,11 @@ import astroLlmsTxt from "@4hse/astro-llms-txt";
 import { docsSidebar } from "./src/starlight-sidebar.js";
 
 const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
+const isVercelProduction = process.env.VERCEL_ENV === "production";
+
+if (isVercelProduction && !umamiWebsiteId) {
+  throw new Error("UMAMI_WEBSITE_ID must be set for production deployments.");
+}
 
 export default defineConfig({
   site: "https://aix.a1st.dev",

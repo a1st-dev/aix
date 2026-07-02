@@ -3,6 +3,7 @@
    "tasks": {
       "build": {
          "dependsOn": ["^build"],
+         "env": ["UMAMI_WEBSITE_ID"],
          "outputs": ["dist/**", "schema.json", "oclif.manifest.json"]
       },
       "test": {
