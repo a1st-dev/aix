@@ -21,7 +21,8 @@ import type {
 /**
  * Windsurf editor adapter. Writes rules to `.windsurf/rules/*.md`. Skills are installed
  * into `.aix/skills/{name}/` and symlinked into `.windsurf/skills/{name}/`.
- * Hooks are written to `.windsurf/hooks.json`. MCP is global-only
+ * Hooks are written to `.windsurf/hooks.json` (project) and
+ * `~/.codeium/windsurf/hooks.json` (user). MCP is global-only
  * (`~/.codeium/windsurf/mcp_config.json`) and requires user confirmation to modify.
  */
 export class WindsurfAdapter extends BaseEditorAdapter {

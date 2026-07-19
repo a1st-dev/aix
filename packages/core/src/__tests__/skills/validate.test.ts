@@ -93,6 +93,45 @@ Content.
       );
    });
 
+   it('warns when description exceeds the 1024-byte editor limit', async () => {
+      const skillDir = join(testDir, 'long-desc');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '');
+
+      const description = 'x'.repeat(1030);
+      const skill = createParsedSkill({
+         basePath: skillDir,
+         frontmatter: {
+            name: 'long-desc',
+            description,
+         },
+      });
+      const result = await validateSkill(skill);
+
+      expect(result.warnings).toContain(
+         'Description is 1030 bytes - some editors (Zed, OpenCode) limit skill descriptions to 1024 bytes',
+      );
+   });
+
+   it('does not warn on a description at exactly 1024 bytes', async () => {
+      const skillDir = join(testDir, 'max-desc');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '');
+
+      const skill = createParsedSkill({
+         basePath: skillDir,
+         frontmatter: {
+            name: 'max-desc',
+            description: 'x'.repeat(1024),
+         },
+      });
+      const result = await validateSkill(skill);
+
+      expect(result.warnings.some((warning) => warning.includes('limit skill descriptions'))).toBe(false);
+   });
+
    it('errors when SKILL.md is missing', async () => {
       const skillDir = join(testDir, 'no-skill-md');
 

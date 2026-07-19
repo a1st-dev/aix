@@ -647,6 +647,10 @@ describe('WindsurfHooksStrategy', () => {
       expect(strategy.getConfigPath()).toBe('hooks.json');
    });
 
+   it('returns the documented Devin Desktop user-level hooks path', () => {
+      expect(strategy.getGlobalConfigPath()).toBe('.codeium/windsurf/hooks.json');
+   });
+
    it('maps pre_command to pre_run_command', () => {
       const hooks: HooksConfig = {
          pre_command: [{ hooks: [{ command: 'echo pre' }] }],

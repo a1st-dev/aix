@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { homedir, tmpdir } from 'node:os';
 import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
@@ -440,6 +440,24 @@ describe('Editor Adapters', () => {
          );
 
          expect(ruleContent).toContain('GitHub Copilot rule');
+      });
+
+      it('never writes hidden agent files, which Copilot CLI rejects', async () => {
+         const config = createConfig({
+            agents: {
+               '.sneaky': {
+                  description: 'Agent whose name starts with a dot.',
+                  content: 'Do the thing.',
+               },
+            },
+         });
+
+         await installToEditor('copilot', config, testDir);
+
+         const agentFiles = await readdir(join(testDir, '.github/agents'));
+
+         expect(agentFiles.every((file) => !file.startsWith('.'))).toBe(true);
+         expect(agentFiles).toContain('sneaky.md');
       });
 
       it('writes MCP config to project-root .mcp.json', async () => {

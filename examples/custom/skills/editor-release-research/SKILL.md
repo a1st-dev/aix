@@ -69,7 +69,7 @@ it in a research document.
    - Settings docs: `https://code.claude.com/docs/en/settings`
    - Package metadata: `npm view @anthropic-ai/claude-code version`
 - Codex:
-   - Changelog: `https://developers.openai.com/codex/changelog`
+   - Changelog: `https://learn.chatgpt.com/docs/changelog`
    - Repository releases: `https://github.com/openai/codex/releases`
    - Package metadata: `npm view @openai/codex version`
 - GitHub Copilot:
@@ -92,9 +92,9 @@ it in a research document.
    - Agent docs: `https://opencode.ai/docs/agents/`
    - Repository releases: `https://github.com/anomalyco/opencode/releases`
    - Package metadata: `npm view opencode-ai version`
-- Windsurf:
-   - Changelog: `https://windsurf.com/changelog`
-   - Docs: `https://docs.windsurf.com/`
+- Windsurf (now Devin Desktop):
+   - Changelog: `https://docs.devin.ai/desktop/changelog`
+   - Docs: `https://docs.devin.ai/desktop/`
 - Zed:
    - Stable releases: `https://zed.dev/releases/stable`
    - Docs: `https://zed.dev/docs`

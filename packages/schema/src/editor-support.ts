@@ -316,7 +316,7 @@ export const editorSupportProfiles = [
       summary: 'Native project prompts, skill-backed user prompts, hooks, and repo-root MCP config.',
       migrationPitch: 'Copilot keeps most features native, but its repo instruction surfaces differ from other editors.',
       notes: [
-         'aix writes project MCP config to `.mcp.json` and still imports `.github/mcp.json` as a fallback.',
+         'aix writes project MCP config to `.mcp.json`; Copilot CLI documents both `.mcp.json` and `.github/mcp.json` as project MCP files, and aix imports either.',
          'Project Copilot prompt installs use explicit frontmatter so slash commands keep the configured prompt name.',
          'User-scope Copilot prompt installs are converted into native skills under `~/.config/github-copilot/skills/`.',
       ],
@@ -531,6 +531,7 @@ export const editorSupportProfiles = [
                notes: [
                   'Command hooks surface `async`, `asyncRewake`, `shell`, `if`, `statusMessage`, and `once`.',
                   'Non-command hook types (`http`, `mcp_tool`, `prompt`, `agent`) are translated by aix.',
+                  'Since Claude Code 2.1.214, a single-segment `dir/**` glob in `if` matches only `<cwd>/dir`; use `**/dir/**` for any-depth matching.',
                ],
             },
          ),
@@ -624,7 +625,7 @@ export const editorSupportProfiles = [
             'Hooks',
             'JSON hook configuration using snake_case Windsurf event names with cross-platform `command` / `powershell` fields.',
             nativeScope('.windsurf/hooks.json'),
-            nativeScope('~/.windsurf/hooks.json'),
+            nativeScope('~/.codeium/windsurf/hooks.json'),
             {
                supportedValues: [
                   'post_cascade_response',

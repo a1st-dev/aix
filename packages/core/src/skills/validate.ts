@@ -54,6 +54,18 @@ export async function validateSkill(skill: ParsedSkill): Promise<ValidationResul
       warnings.push('Description is short - consider adding more detail for better AI discovery');
    }
 
+   // Zed and OpenCode cap skill descriptions at 1024 bytes/characters; Zed warns or
+   // degrades on longer descriptions, so surface the limit at install time.
+   if (skill.frontmatter.description) {
+      const descriptionBytes = new TextEncoder().encode(skill.frontmatter.description).length;
+
+      if (descriptionBytes > 1024) {
+         warnings.push(
+            `Description is ${descriptionBytes} bytes - some editors (Zed, OpenCode) limit skill descriptions to 1024 bytes`,
+         );
+      }
+   }
+
    return {
       valid: errors.length === 0,
       errors,

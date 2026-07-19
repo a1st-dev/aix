@@ -73,7 +73,10 @@ function isSupportedEditorName(value: unknown): value is SupportedEditorName {
 }
 
 function parseResearchFileContent(content: string): ParsedResearchFile {
-   const frontmatterMatch = /^---\n(?<frontmatter>[\s\S]*?)\n---\n?(?<body>[\s\S]*)$/u.exec(content);
+   // Windows checkouts without .gitattributes produce CRLF files; normalize so the
+   // frontmatter delimiter and line-based change parsing behave identically everywhere.
+   const normalized = content.replace(/\r\n/gu, '\n'),
+         frontmatterMatch = /^---\n(?<frontmatter>[\s\S]*?)\n---\n?(?<body>[\s\S]*)$/u.exec(normalized);
 
    if (!frontmatterMatch?.groups) {
       throw new Error('Missing YAML frontmatter');
