@@ -122,7 +122,10 @@ export class WindsurfHooksStrategy implements HooksStrategy {
    }
 
    getGlobalConfigPath(): string {
-      return '.windsurf/hooks.json';
+      // Devin Desktop (formerly Windsurf) reads user-level hooks from
+      // ~/.codeium/windsurf/hooks.json, alongside its global MCP config.
+      // Source: https://docs.devin.ai/desktop/cascade/hooks
+      return '.codeium/windsurf/hooks.json';
    }
 
    getUnsupportedEvents(hooks: HooksConfig): string[] {
