@@ -55,7 +55,8 @@ describe('editor research notes', () => {
    });
 
    it('resolves the default research root from the monorepo', () => {
-      expect(getEditorResearchRoot()).toMatch(/docs\/editor-research$/u);
+      // Windows paths use backslashes, so match either separator.
+      expect(getEditorResearchRoot()).toMatch(/docs[\\/]editor-research$/u);
       expect(fs.existsSync(getEditorResearchRoot())).toStrictEqual(true);
    });
 
@@ -80,6 +81,29 @@ describe('editor research notes', () => {
       expect(entries.map((entry) => {
          return entry.editorVersion;
       })).toEqual([ '3.5', '3.4' ]);
+   });
+
+   it('parses research files with CRLF line endings', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      writeResearchFile({
+         rootDir,
+         editorID: 'cursor',
+         version: '3.5',
+         timestamp: '2026-05-21T10:00:00-04:00',
+      });
+
+      const filePath = path.join(rootDir, 'cursor', '3.5.md'),
+            crlfContent = fs.readFileSync(filePath, 'utf8').replace(/\n/gu, '\r\n');
+
+      fs.writeFileSync(filePath, crlfContent, 'utf8');
+
+      const entries = listEditorResearchEntries(rootDir);
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.editorVersion).toStrictEqual('3.5');
+      expect(entries[0]?.changes.length).toBeGreaterThan(0);
+      expect(entries[0]?.changes[0]?.summary).toStrictEqual('Added a config file.');
    });
 
    it('rejects notes missing required frontmatter fields', () => {
