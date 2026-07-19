@@ -1,9 +1,11 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import sitemap from "@astrojs/sitemap";
 import vercel from "@astrojs/vercel";
 import icon from "astro-icon";
 import umami from "@yeskunall/astro-umami";
 import astroLlmsTxt from "@4hse/astro-llms-txt";
+import { isIndexableMigrationSitemapURL } from "./src/lib/editor-support";
 import { docsSidebar } from "./src/starlight-sidebar.js";
 
 const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
@@ -18,6 +20,9 @@ export default defineConfig({
   adapter: vercel(),
   integrations: [
     icon(),
+    sitemap({
+      filter: isIndexableMigrationSitemapURL,
+    }),
     ...(umamiWebsiteId ? [umami({ id: umamiWebsiteId })] : []),
     astroLlmsTxt({
       title: "aix",

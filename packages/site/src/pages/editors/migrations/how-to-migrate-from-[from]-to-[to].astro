@@ -4,6 +4,7 @@ import type { SupportedEditorName } from '@a1st/aix-schema';
 import ScopeSupportDetails from '../../../components/ScopeSupportDetails.astro';
 import SupportLegend from '../../../components/SupportLegend.astro';
 import {
+   describeTransition,
    getEditorById,
    getEditorSupportRoute,
    getFeatureConceptRoute,
@@ -11,6 +12,7 @@ import {
    getMigrationHeadline,
    getMigrationRoute,
    getMigrationRows,
+   isIndexableMigrationPair,
    listMigrationPairs,
    managedEditorFeatures,
 } from '../../../lib/editor-support';
@@ -32,6 +34,8 @@ const fromProfile = getEditorById(from),
       toProfile = getEditorById(to),
       rows = getMigrationRows(from, to),
       changedRows = rows.filter((row) => row.changeType !== 'same'),
+      notableChanges = changedRows.slice(0, 4),
+      isIndexable = isIndexableMigrationPair(from, to),
       conceptFeatures = managedEditorFeatures.filter(
          (featureDefinition) =>
             Boolean(getFeatureConceptRoute(featureDefinition.id)) &&
@@ -42,7 +46,14 @@ const fromProfile = getEditorById(from),
 ---
 
 <StarlightPage
-   frontmatter={{ title, description, editUrl: false }}
+   frontmatter={{
+      title,
+      description,
+      editUrl: false,
+      head: isIndexable
+         ? []
+         : [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, follow' } }],
+   }}
    sidebar={docsSidebar}
 >
    <p>
@@ -72,6 +83,37 @@ const fromProfile = getEditorById(from),
          })}
          .
       </p>
+   )}
+
+   {isIndexable && (
+      <>
+         <h2>Run this migration</h2>
+         <ol>
+            <li>
+               Preview the user-scope migration before writing files:
+               <pre><code>aix sync {fromProfile.id} --to {toProfile.id} --dry-run</code></pre>
+            </li>
+            <li>
+               Read the preview for skipped or converted features, then run:
+               <pre><code>aix sync {fromProfile.id} --to {toProfile.id}</code></pre>
+            </li>
+            <li>
+               Open {toProfile.name}'s generated files and compare them with the destination details below.
+               Use <code>--scope project</code> when the source config is project-scoped.
+            </li>
+         </ol>
+
+         <h2>What needs attention</h2>
+         {notableChanges.length > 0 ? (
+            <ul>
+               {notableChanges.map((row) => (
+                  <li><strong>{row.feature.label}:</strong> {describeTransition(fromProfile, toProfile, row)}</li>
+               ))}
+            </ul>
+         ) : (
+            <p>The supported feature surface is the same. Review the destination paths in the table before you run the command.</p>
+         )}
+      </>
    )}
 
    <h2>How to use this guide</h2>

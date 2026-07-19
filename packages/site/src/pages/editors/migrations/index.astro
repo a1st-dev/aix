@@ -3,11 +3,16 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import {
    editorSupportProfiles,
    getMigrationRoute,
+   indexableMigrationPairs,
 } from '../../../lib/editor-support';
 import { migrationGuidesPage } from '../../../lib/editor-pages';
 import { docsSidebar } from '../../../starlight-sidebar.js';
 
 const { title, description } = migrationGuidesPage;
+const featuredMigrationPairs = indexableMigrationPairs.map(({ from, to }) => ({
+   from: editorSupportProfiles.find((profile) => profile.id === from),
+   to: editorSupportProfiles.find((profile) => profile.id === to),
+}));
 ---
 
 <StarlightPage
@@ -23,6 +28,27 @@ const { title, description } = migrationGuidesPage;
       The guides are especially useful if you found aix through a search like "How to migrate from X
       to Y" and want a quick comparison before you run <code>aix sync</code>.
    </p>
+
+   <section>
+      <h2>Featured migration guides</h2>
+      <p>These guides include a preview command, the important conversion differences, and a verification step.</p>
+      <div class="migration-index__grid">
+         {featuredMigrationPairs.map(({ from, to }) => {
+            if (!from || !to) {
+               return null;
+            }
+
+            return (
+               <article class="migration-index__card">
+                  <p class="migration-index__eyebrow">From {from.name} to {to.name}</p>
+                  <a class="migration-index__link" href={getMigrationRoute(from.id, to.id)}>
+                     How to migrate from {from.name} to {to.name}
+                  </a>
+               </article>
+            );
+         })}
+      </div>
+   </section>
 
    {editorSupportProfiles.map((fromProfile) => (
       <section id={fromProfile.id}>
