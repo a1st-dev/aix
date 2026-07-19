@@ -27,6 +27,15 @@ export const compatibilityEditorFeatures = editorFeatureDefinitions.filter(
    (feature) => feature.kind === 'compatibility',
 );
 
+export const indexableMigrationPairs = [
+   { from: 'cursor', to: 'claude-code' },
+   { from: 'cursor', to: 'codex' },
+   { from: 'claude-code', to: 'cursor' },
+   { from: 'claude-code', to: 'codex' },
+   { from: 'codex', to: 'cursor' },
+   { from: 'codex', to: 'claude-code' },
+] as const satisfies readonly { from: SupportedEditorName; to: SupportedEditorName }[];
+
 export const featureConceptRoutes: Partial<Record<EditorFeatureId, string>> = Object.freeze({
    rules: '/concepts/rules/',
    prompts: '/concepts/prompts/',
@@ -131,6 +140,20 @@ export function getMigrationRoute(from: SupportedEditorName, to: SupportedEditor
    return `/editors/migrations/how-to-migrate-from-${from}-to-${to}/`;
 }
 
+export function isIndexableMigrationPair(from: SupportedEditorName, to: SupportedEditorName): boolean {
+   return indexableMigrationPairs.some((pair) => pair.from === from && pair.to === to);
+}
+
+export function isIndexableMigrationSitemapURL(page: string): boolean {
+   const route = new URL(page).pathname;
+
+   if (!route.startsWith('/editors/migrations/how-to-migrate-from-')) {
+      return true;
+   }
+
+   return indexableMigrationPairs.some((pair) => getMigrationRoute(pair.from, pair.to) === route);
+}
+
 export function getMigrationRows(
    fromEditor: SupportedEditorName,
    toEditor: SupportedEditorName,
@@ -198,10 +221,16 @@ export function getMigrationDescription(
       .map((row) => row.feature.label.toLowerCase());
 
    if (changedFeatures.length === 0) {
-      return `Compare ${fromProfile.name} and ${toProfile.name} by terminology, editor support, aix support, and scope.`;
+      return [
+         `Migrate aix configuration from ${fromProfile.name} to ${toProfile.name}.`,
+         'Compare feature support, project paths, and user paths before you sync.',
+      ].join(' ');
    }
 
-   return `Compare ${fromProfile.name} to ${toProfile.name}, including ${changedFeatures.join(', ')} differences in terminology, support, and scope.`;
+   return [
+      `Migrate aix configuration from ${fromProfile.name} to ${toProfile.name}.`,
+      `Preview ${changedFeatures.join(', ')} differences before you sync.`,
+   ].join(' ');
 }
 
 function describeEditorScope(

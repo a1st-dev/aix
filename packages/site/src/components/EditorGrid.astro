@@ -4,9 +4,10 @@
  * Icons from simple-icons via astro-icon.
  */
 import { Icon } from 'astro-icon/components';
-import { editorIconNames, editorSupportProfiles } from '../lib/editor-support';
+import { editorIconNames, editorSupportProfiles, getEditorSupportRoute } from '../lib/editor-support';
 
 const editors = editorSupportProfiles.map((editor) => ({
+  href: getEditorSupportRoute(editor.id),
   name: editor.name,
   icon: editorIconNames[editor.id],
 }));
@@ -16,7 +17,8 @@ const editors = editorSupportProfiles.map((editor) => ({
   <div class="editor-grid__line" aria-hidden="true"></div>
   <div class="editor-grid__items">
     {editors.map((editor, i) => (
-      <div
+      <a
+        href={editor.href}
         class="editor-grid__item"
         style={`animation-delay: ${0.3 + i * 0.08}s`}
       >
@@ -25,7 +27,7 @@ const editors = editorSupportProfiles.map((editor) => ({
         </span>
         <span class="editor-grid__name">{editor.name}</span>
         <span class="editor-grid__dot" aria-hidden="true"></span>
-      </div>
+      </a>
     ))}
   </div>
 </div>
@@ -67,6 +69,8 @@ const editors = editorSupportProfiles.map((editor) => ({
     position: relative;
     opacity: 0;
     animation: editorReveal 0.5s ease forwards;
+    color: inherit;
+    text-decoration: none;
   }
   .editor-grid__icon {
     color: var(--sl-color-accent);

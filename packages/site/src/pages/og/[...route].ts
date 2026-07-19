@@ -1,17 +1,50 @@
 import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
+import {
+   editorSupportProfiles,
+   getEditorById,
+   getMigrationDescription,
+   getMigrationRoute,
+   getMigrationRows,
+   listMigrationPairs,
+} from '../../lib/editor-support';
+import { getEditorSupportPage, migrationGuidesPage, supportedEditorsPage } from '../../lib/editor-pages';
 
 const docs = await getCollection('docs');
 
-const pages: Record<string, { title: string; description?: string }> = Object.fromEntries(
-   docs.map((entry) => [entry.id, { title: entry.data.title, description: entry.data.description }]),
-);
+const pages: Record<string, { title: string; description?: string }> = Object.fromEntries([
+   ...docs.map((entry) => [entry.id, { title: entry.data.title, description: entry.data.description }]),
+   [
+      'index',
+      {
+         title: 'aix',
+         description: 'One config file. Every AI editor.',
+      },
+   ],
+   [
+      'editors/changelog',
+      {
+         title: 'Editor Changelog',
+         description: 'Research notes for editor release changes that affect aix implementation and user workflows.',
+      },
+   ],
+   ['editors/supported-editors', supportedEditorsPage],
+   ['editors/migrations', migrationGuidesPage],
+   ...editorSupportProfiles.map((profile) => {
+      const { title, description } = getEditorSupportPage(profile);
 
-// Landing page
-pages['index'] = {
-   title: 'aix',
-   description: 'One config file. Every AI editor.',
-};
+      return [`editors/${profile.id}`, { title, description }];
+   }),
+   ...listMigrationPairs().map(({ from, to }) => {
+      const fromProfile = getEditorById(from),
+            toProfile = getEditorById(to),
+            title = `How to migrate from ${fromProfile.name} to ${toProfile.name}`,
+            description = getMigrationDescription(fromProfile, toProfile, getMigrationRows(from, to)),
+            route = getMigrationRoute(from, to).replace(/^\/+|\/+$/g, '');
+
+      return [route, { title, description }];
+   }),
+]);
 
 export const { getStaticPaths, GET } = await OGImageRoute({
    param: 'route',

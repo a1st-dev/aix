@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://aix.a1st.dev/sitemap-index.xml
