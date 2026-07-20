@@ -65,13 +65,12 @@ export async function analyzeGlobalChanges(
                   configsMatch: true,
                });
             } else {
-               // Configs differ - skip and warn
+               // Configs differ - replace the managed server entry.
                changes.push({
                   editor,
                   type: 'mcp',
                   name,
-                  action: 'skip',
-                  skipReason: 'Existing config differs from ai.json - not modifying',
+                  action: 'add',
                   globalPath,
                   format,
                   mcpConfig: config,

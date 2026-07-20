@@ -282,7 +282,7 @@ export default class Install extends BaseCommand<typeof Install> {
       }
 
       // After successful installation, prompt to save editor to ai.json
-      if (shouldPromptToSave && allSucceeded && !isDryRun && editors.length === 1) {
+      if (!args.source && shouldPromptToSave && allSucceeded && !isDryRun && editors.length === 1) {
          const editor = editors[0] as EditorName,
                localConfigPath = join(projectRoot, 'ai.json'),
                localConfigExists = existsSync(localConfigPath),

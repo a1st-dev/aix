@@ -369,6 +369,33 @@ describe('CLI Commands', () => {
 
          expect(validated.error).toBeUndefined();
       });
+
+      it('does not prompt to save detected editors when installing a source config', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               sourceDir = join(testDir, 'source'),
+               sourcePath = join(sourceDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await mkdir(sourceDir, { recursive: true });
+         await writeValidConfig(configPath);
+         await writeValidConfig(sourcePath, {
+            rules: {
+               remote: { content: 'Remote rule.' },
+            },
+         });
+
+         const installed = await runCli(['install', sourcePath], {
+            root,
+         });
+         const localConfig = JSON.parse(await readFile(configPath, 'utf-8'));
+
+         expect(installed.error).toBeUndefined();
+         expect(`${installed.stdout}\n${installed.stderr}`).not.toContain('Save "claude-code" as the default editor');
+         expect(localConfig.editors).toBeUndefined();
+         expect(existsSync(join(testDir, '.claude/rules/remote.md'))).toStrictEqual(true);
+      });
    });
 
    describe('add mcp and remove mcp', () => {

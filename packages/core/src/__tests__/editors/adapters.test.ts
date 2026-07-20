@@ -1696,6 +1696,55 @@ Skill instructions.
          expect(result.globalChanges?.skipped.length).toBeGreaterThan(0);
       });
 
+      it('overwrites existing global-only MCP servers with ai.json config', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
+               config = createConfig({
+                  mcp: {
+                     tauri: createMcpServer('new-tauri-mcp', ['--stdio']),
+                  },
+               });
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.codeium/windsurf'), { recursive: true });
+         await writeFile(
+            globalMcpPath,
+            JSON.stringify({
+               mcpServers: {
+                  tauri: {
+                     command: 'old-tauri-mcp',
+                     args: ['--old'],
+                  },
+                  keep: {
+                     command: 'keep-mcp',
+                     args: [],
+                  },
+               },
+            }),
+            'utf-8',
+         );
+
+         const result = await installToEditor('windsurf', config, testDir);
+         const globalMcp = JSON.parse(await readFile(globalMcpPath, 'utf-8'));
+
+         expect(result.success).toBe(true);
+         expect(result.globalChanges?.warnings).toEqual([]);
+         expect(result.globalChanges?.skipped).toEqual([]);
+         expect(result.globalChanges?.applied).toEqual([{
+            type: 'mcp',
+            name: 'tauri',
+            globalPath: globalMcpPath,
+         }]);
+         expect(globalMcp.mcpServers.tauri).toEqual({
+            command: 'new-tauri-mcp',
+            args: ['--stdio'],
+         });
+         expect(globalMcp.mcpServers.keep).toEqual({
+            command: 'keep-mcp',
+            args: [],
+         });
+      });
+
       it('skips global-only MCP when strict project scope is requested', async () => {
          const config = createConfig({
             mcp: {
