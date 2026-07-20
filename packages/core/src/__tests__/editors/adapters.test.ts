@@ -21,6 +21,7 @@ import {
    installToEditor,
 } from '../../editors/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
+import { isCI } from '../../env/index.js';
 import { safeRm } from '../../fs/safe-rm.js';
 import { AIX_SECTION_BEGIN, AIX_SECTION_END } from '../../editors/section-managed-markdown.js';
 
@@ -1728,6 +1729,19 @@ Skill instructions.
          const globalMcp = JSON.parse(await readFile(globalMcpPath, 'utf-8'));
 
          expect(result.success).toBe(true);
+         if (await isCI()) {
+            expect(result.globalChanges?.warnings).toEqual([
+               '[windsurf] Skipped global mcp "tauri" - CI environment detected',
+            ]);
+            expect(result.globalChanges?.skipped).toHaveLength(1);
+            expect(result.globalChanges?.applied).toEqual([]);
+            expect(globalMcp.mcpServers.tauri).toEqual({
+               command: 'old-tauri-mcp',
+               args: ['--old'],
+            });
+            return;
+         }
+
          expect(result.globalChanges?.warnings).toEqual([]);
          expect(result.globalChanges?.skipped).toEqual([]);
          expect(result.globalChanges?.applied).toEqual([{
