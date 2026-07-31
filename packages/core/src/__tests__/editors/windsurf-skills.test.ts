@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import { WindsurfSkillsStrategy } from '../../editors/strategies/windsurf/skills.js';
 import { safeRm } from '../../fs/safe-rm.js';
+import { nodeRuntimeAdapter, withRuntimeAdapter } from '../../runtime/index.js';
 
 describe('WindsurfSkillsStrategy', () => {
    let testDir: string;
@@ -118,6 +119,52 @@ description: A test skill
       expect(existsSync(join(fakeHome, '.windsurf', 'skills', 'user-skill'))).toBe(true);
       expect(existsSync(join(testDir, '.aix', 'skills', 'user-skill'))).toBe(false);
       expect(existsSync(join(testDir, '.windsurf', 'skills', 'user-skill'))).toBe(false);
+   });
+
+   it('replaces files in the user-managed skill directory', async () => {
+      const fakeHome = join(testDir, 'fake-home'),
+            installedSkillPath = join(fakeHome, '.aix', 'skills', 'user-skill');
+
+      process.env.HOME = fakeHome;
+      await mkdir(join(fakeHome, '.aix', 'skills'), { recursive: true });
+      await writeFile(installedSkillPath, 'stale file');
+
+      await strategy.installSkills(
+         new Map<string, ParsedSkill>([['user-skill', buildSkill('user-skill')]]),
+         testDir,
+         { dryRun: false, targetScope: 'user' },
+      );
+
+      expect(existsSync(join(installedSkillPath, 'SKILL.md'))).toBe(true);
+   });
+
+   it('restores the managed skill when replacement fails', async () => {
+      const installedSkillPath = join(testDir, '.aix', 'skills', 'test-skill'),
+            originalSkillPath = join(installedSkillPath, 'original.md'),
+            adapter = {
+               ...nodeRuntimeAdapter,
+               fs: {
+                  ...nodeRuntimeAdapter.fs,
+                  rename: async (source: string, destination: string) => {
+                     if (source.endsWith('.staging') && destination === installedSkillPath) {
+                        throw new Error('simulated replacement failure');
+                     }
+                     await nodeRuntimeAdapter.fs.rename(source, destination);
+                  },
+               },
+            };
+
+      await mkdir(installedSkillPath, { recursive: true });
+      await writeFile(originalSkillPath, 'keep this skill');
+
+      await expect(
+         withRuntimeAdapter(adapter, async () => {
+            await strategy.installSkills(new Map<string, ParsedSkill>([['test-skill', buildSkill()]]), testDir);
+         }),
+      ).rejects.toThrow('Failed to replace skill directory');
+
+      expect(existsSync(originalSkillPath)).toBe(true);
+      expect(existsSync(join(installedSkillPath, 'SKILL.md'))).toBe(false);
    });
 
    it('replaces broken managed skill symlinks before copying', async () => {

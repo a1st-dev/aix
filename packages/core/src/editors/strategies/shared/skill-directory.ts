@@ -1,6 +1,13 @@
-import { dirname } from 'pathe';
+import { basename, dirname, join } from 'pathe';
 import { safeRm } from '../../../fs/safe-rm.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
+
+interface SkillReplacementTransaction {
+   destination: string;
+   stagingPath: string;
+   backupPath: string;
+   originalMoved: boolean;
+}
 
 export async function getReplacementAction(path: string): Promise<'create' | 'update'> {
    try {
@@ -15,22 +22,59 @@ export async function getReplacementAction(path: string): Promise<'create' | 'up
 }
 
 export async function replaceSkillDirectory(source: string, destination: string): Promise<'create' | 'update'> {
-   const action = await getReplacementAction(destination);
+   const adapter = getRuntimeAdapter(),
+         action = await getReplacementAction(destination),
+         parentDir = dirname(destination),
+         transactionID = adapter.crypto.randomUUID(),
+         stagingPath = join(parentDir, `.${basename(destination)}.${transactionID}.staging`),
+         backupPath = join(parentDir, `.${basename(destination)}.${transactionID}.backup`);
 
-   await getRuntimeAdapter().fs.mkdir(dirname(destination), { recursive: true });
-   if (action === 'update') {
-      await safeRm(destination, { force: true });
-   }
+   await adapter.fs.mkdir(parentDir, { recursive: true });
+   await safeRm(stagingPath, { force: true });
+   await safeRm(backupPath, { force: true });
 
    try {
-      await getRuntimeAdapter().fs.cp(source, destination, { recursive: true, force: true });
+      await adapter.fs.cp(source, stagingPath, { recursive: true, force: true });
    } catch (error) {
-      throw new Error(`Failed to copy skill directory from "${source}" to "${destination}": ${formatError(error)}`, {
+      await safeRm(stagingPath, { force: true });
+      throw new Error(`Failed to stage skill directory from "${source}" to "${destination}": ${formatError(error)}`, {
          cause: error,
       });
    }
 
+   let originalMoved = false;
+
+   try {
+      if (action === 'update') {
+         await adapter.fs.rename(destination, backupPath);
+         originalMoved = true;
+      }
+      await adapter.fs.rename(stagingPath, destination);
+   } catch (error) {
+      await restoreSkillDirectory(adapter, { destination, stagingPath, backupPath, originalMoved });
+      throw new Error(`Failed to replace skill directory at "${destination}": ${formatError(error)}`, {
+         cause: error,
+      });
+   }
+
+   await safeRm(backupPath, { force: true });
    return action;
+}
+
+async function restoreSkillDirectory(
+   adapter: ReturnType<typeof getRuntimeAdapter>,
+   transaction: SkillReplacementTransaction,
+): Promise<void> {
+   const { destination, stagingPath, backupPath, originalMoved } = transaction;
+
+   await safeRm(stagingPath, { force: true });
+
+   if (!originalMoved) {
+      return;
+   }
+
+   await safeRm(destination, { force: true });
+   await adapter.fs.rename(backupPath, destination);
 }
 
 function isMissingPathError(error: unknown): boolean {
