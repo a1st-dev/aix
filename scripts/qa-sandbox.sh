@@ -58,7 +58,7 @@ cat > "$SANDBOX_DIR/aix" << 'SCRIPT'
 # Uses NODE_PATH to find modules while staying in sandbox directory
 
 export NODE_PATH="$AIX_PROJECT_ROOT/node_modules:$AIX_PROJECT_ROOT/packages/cli/node_modules"
-node "$AIX_PROJECT_ROOT/packages/cli/bin/dev.js" "$@"
+node "$AIX_PROJECT_ROOT/packages/cli/bin/aixd.mjs" "$@"
 SCRIPT
 chmod +x "$SANDBOX_DIR/aix"
 

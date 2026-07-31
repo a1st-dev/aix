@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..');
 const maxBuffer = 1024 * 1024 * 10,
-      binPath = join(root, 'bin', 'run.js');
+      binPath = join(root, 'dist', 'cli.js');
 const TEST_DIR_CLEANUP_RETRIES = 12,
       TEST_DIR_CLEANUP_DELAY_MS = 250,
       RETRYABLE_CLEANUP_ERROR_CODES = new Set([ 'EBUSY', 'ENOTEMPTY', 'EPERM' ]);

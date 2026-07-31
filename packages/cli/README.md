@@ -29,6 +29,19 @@ aix list [scope]                      # List skills, mcp, rules, prompts, or edi
 Use `aix install` to apply `ai.json` to editors. Use `aix sync` when the source of truth is
 another editor and you want aix to bridge the formats for you.
 
+## Local development
+
+From a checkout, run `npm install`, `npm run build`, and `npm link --workspace=@a1st/aix` once.
+That puts two commands on your PATH:
+
+```bash
+aixd <command>  # Run the current TypeScript source without rebuilding
+aix <command>   # Run the last compiled build
+```
+
+`aixd` uses this checkout's local `tsx`, so it works from any directory without relying on a
+global TypeScript runner. Rebuild when you want `aix` to pick up your changes.
+
 ## Documentation
 
 See the [main project README](https://github.com/a1st-dev/aix/blob/main/README.md) for full documentation.
