@@ -1,4 +1,4 @@
-import { basename, dirname, join } from 'pathe';
+import { basename, dirname, join, normalize } from 'pathe';
 import { safeRm } from '../../../fs/safe-rm.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 
@@ -7,6 +7,21 @@ interface SkillReplacementTransaction {
    stagingPath: string;
    backupPath: string;
    originalMoved: boolean;
+}
+
+const replacementLocks = new Map<string, Promise<unknown>>();
+
+/**
+ * Serialize replacements that target the same destination so concurrent installs from multiple
+ * editors cannot interleave each other's staging and backup renames.
+ */
+async function withReplacementLock<T>(destination: string, task: () => Promise<T>): Promise<T> {
+   const key = normalize(destination),
+         gate = (replacementLocks.get(key) ?? Promise.resolve()).then(() => task());
+
+   replacementLocks.set(key, gate.catch(() => {}));
+
+   return gate;
 }
 
 export async function getReplacementAction(path: string): Promise<'create' | 'update'> {
@@ -22,43 +37,45 @@ export async function getReplacementAction(path: string): Promise<'create' | 'up
 }
 
 export async function replaceSkillDirectory(source: string, destination: string): Promise<'create' | 'update'> {
-   const adapter = getRuntimeAdapter(),
-         action = await getReplacementAction(destination),
-         parentDir = dirname(destination),
-         transactionID = adapter.crypto.randomUUID(),
-         stagingPath = join(parentDir, `.${basename(destination)}.${transactionID}.staging`),
-         backupPath = join(parentDir, `.${basename(destination)}.${transactionID}.backup`);
+   return withReplacementLock(destination, async () => {
+      const adapter = getRuntimeAdapter(),
+            action = await getReplacementAction(destination),
+            parentDir = dirname(destination),
+            transactionID = adapter.crypto.randomUUID(),
+            stagingPath = join(parentDir, `.${basename(destination)}.${transactionID}.staging`),
+            backupPath = join(parentDir, `.${basename(destination)}.${transactionID}.backup`);
 
-   await adapter.fs.mkdir(parentDir, { recursive: true });
-   await safeRm(stagingPath, { force: true });
-   await safeRm(backupPath, { force: true });
-
-   try {
-      await adapter.fs.cp(source, stagingPath, { recursive: true, force: true });
-   } catch (error) {
+      await adapter.fs.mkdir(parentDir, { recursive: true });
       await safeRm(stagingPath, { force: true });
-      throw new Error(`Failed to stage skill directory from "${source}" to "${destination}": ${formatError(error)}`, {
-         cause: error,
-      });
-   }
+      await safeRm(backupPath, { force: true });
 
-   let originalMoved = false;
-
-   try {
-      if (action === 'update') {
-         await adapter.fs.rename(destination, backupPath);
-         originalMoved = true;
+      try {
+         await adapter.fs.cp(source, stagingPath, { recursive: true, force: true });
+      } catch (error) {
+         await safeRm(stagingPath, { force: true });
+         throw new Error(`Failed to stage skill directory from "${source}" to "${destination}": ${formatError(error)}`, {
+            cause: error,
+         });
       }
-      await adapter.fs.rename(stagingPath, destination);
-   } catch (error) {
-      await restoreSkillDirectory(adapter, { destination, stagingPath, backupPath, originalMoved });
-      throw new Error(`Failed to replace skill directory at "${destination}": ${formatError(error)}`, {
-         cause: error,
-      });
-   }
 
-   await safeRm(backupPath, { force: true });
-   return action;
+      let originalMoved = false;
+
+      try {
+         if (action === 'update') {
+            await adapter.fs.rename(destination, backupPath);
+            originalMoved = true;
+         }
+         await adapter.fs.rename(stagingPath, destination);
+      } catch (error) {
+         await restoreSkillDirectory(adapter, { destination, stagingPath, backupPath, originalMoved });
+         throw new Error(`Failed to replace skill directory at "${destination}": ${formatError(error)}`, {
+            cause: error,
+         });
+      }
+
+      await safeRm(backupPath, { force: true });
+      return action;
+   });
 }
 
 async function restoreSkillDirectory(
