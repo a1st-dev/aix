@@ -59,7 +59,7 @@
       "@oclif/plugin-autocomplete": "^3.2.25",
       "@oclif/plugin-help": "^6.2.27",
       "@oclif/plugin-not-found": "^3.2.39",
-      "@oclif/plugin-update": "^4.7.4",
+      "@oclif/plugin-update": "4.7.57",
       "@oclif/plugin-version": "^2.2.24",
       "@oclif/table": "0.3.6",
       "@yeskunall/astro-umami": "0.0.8",
