@@ -109,8 +109,21 @@ function isInAixDir(normalizedPath: string): boolean {
  * Check if path is within an editor config directory.
  */
 function isInEditorConfigDir(normalizedPath: string): boolean {
-   const editorDirs = ['.windsurf', '.cursor', '.claude', '.vscode', '.zed', '.codex', '.agents', '.github'],
-         isWin = getRuntimeAdapter().os.platform() === 'win32',
+   const editorDirs = [
+      '.windsurf',
+      '.cursor',
+      '.claude',
+      '.vscode',
+      '.zed',
+      '.codex',
+      '.gemini',
+      '.agents',
+      '.github',
+      '.opencode',
+      'opencode',
+      'github-copilot',
+   ];
+   const isWin = getRuntimeAdapter().os.platform() === 'win32',
          p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
 
    return editorDirs.some(

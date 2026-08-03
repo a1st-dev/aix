@@ -31,6 +31,33 @@ describe('safeRm', () => {
       expect(existsSync(target)).toBe(false);
    });
 
+   it('allows removing user-scope Copilot skill paths under .config/github-copilot', async () => {
+      const target = join(fixtureRoot, '.config', 'github-copilot', 'skills', 'demo-skill');
+
+      await mkdir(target, { recursive: true });
+      await safeRm(target, { force: true });
+
+      expect(existsSync(target)).toBe(false);
+   });
+
+   it('allows removing user-scope Gemini skill paths under .gemini', async () => {
+      const target = join(fixtureRoot, '.gemini', 'skills', 'demo-skill');
+
+      await mkdir(target, { recursive: true });
+      await safeRm(target, { force: true });
+
+      expect(existsSync(target)).toBe(false);
+   });
+
+   it('allows removing user-scope OpenCode skill paths under .config/opencode', async () => {
+      const target = join(fixtureRoot, '.config', 'opencode', 'skills', 'demo-skill');
+
+      await mkdir(target, { recursive: true });
+      await safeRm(target, { force: true });
+
+      expect(existsSync(target)).toBe(false);
+   });
+
    it('still rejects unrelated project paths', async () => {
       const target = join(fixtureRoot, 'project', 'skills', 'demo-skill');
 
