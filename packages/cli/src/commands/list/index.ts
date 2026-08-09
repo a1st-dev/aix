@@ -90,90 +90,30 @@ export default class List extends BaseCommand<typeof List> {
             );
 
       const showAll = this.flags.all,
-            editorFilter = this.resolveEditorFilter();
+            editorFilter = this.resolveEditorFilter(),
+            isUserScope = scopeFilter === 'user';
 
-      // When editors are explicitly specified, use discovery mode — scan their actual config
-      // files rather than relying on aix state. This gives a complete, accurate view of what
-      // is installed and available in those editors, including non-aix-managed items and items
-      // installed without an ai.json.
-      const showDiscovery = showAll || editorFilter !== undefined;
+      // `-u` lists all items present in every editor's global config — never the project's
+      // ai.json/state. It always uses discovery: scan actual editor config directories to give
+      // a complete, accurate view of what is installed in those editors, including
+      // non-aix-managed items and items installed without an ai.json.
+      if (isUserScope) {
+         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
+         return;
+      }
 
-      // In JSON mode, discovery returns editor-scanned config rather than the local ai.json/state.
-      if (showDiscovery && this.flags.json) {
+      // Editors explicitly requested via --all or -e also trigger direct config-file discovery.
+      if (showAll || editorFilter !== undefined) {
          await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
          return;
       }
 
       if (this.flags.json) {
-         // Load ai.json config if available
-         const loaded = await this.loadConfig();
-         // Load state for both scopes
-         const projectState = await readState('project', process.cwd()),
-               userState = await readState('user');
-         const result: Record<string, unknown> = {};
-
-         if (loaded) {
-            const configScope = resolveScope(loaded.config);
-
-            if (!scopeFilter || scopeFilter === configScope) {
-               result.config = {
-                  scope: configScope,
-                  ...this.getConfigSections(loaded.config, sections),
-               };
-            }
-         }
-         result.state = {
-            ...((!scopeFilter || scopeFilter === 'project') && {
-               project: this.getStateSections(projectState, sections, editorFilter),
-            }),
-            ...((!scopeFilter || scopeFilter === 'user') && {
-               user: this.getStateSections(userState, sections, editorFilter),
-            }),
-         };
-         this.output.json(result);
+         await this.listProjectConfigJson(sections, scopeFilter);
          return;
       }
 
-      // In discovery mode (--all or -e <editor>), scan editor config files directly.
-      if (showDiscovery) {
-         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
-         return;
-      }
-
-      // Load ai.json config if available
-      const loaded = await this.loadConfig();
-      // Load state for both scopes
-      const projectState = await readState('project', process.cwd()),
-            userState = await readState('user');
-
-      // Show ai.json config
-      if (loaded) {
-         const configScope = resolveScope(loaded.config);
-
-         if (!scopeFilter || scopeFilter === configScope) {
-            this.output.log('');
-            this.output.log(chalk.bold(`📄 ai.json config (scope: ${configScope})`));
-            this.output.log('');
-            this.printConfigSections(loaded.config, sections);
-         }
-      }
-
-      // Show state-tracked items
-      const showProject = !scopeFilter || scopeFilter === 'project',
-            showUser = !scopeFilter || scopeFilter === 'user';
-
-      if (showProject) {
-         this.printStateSections(projectState, sections, 'project', editorFilter);
-      }
-      if (showUser) {
-         this.printStateSections(userState, sections, 'user', editorFilter);
-      }
-
-      if (!loaded && !this.hasStateItems(projectState, editorFilter) && !this.hasStateItems(userState, editorFilter)) {
-         this.output.info(
-            'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
-         );
-      }
+      await this.listProjectConfig(sections, scopeFilter);
    }
 
    private getConfigSections(
@@ -334,6 +274,41 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    /**
+    * Scan editors' actual config directories and collect any discovered items.
+    */
+   private async collectEditorConfig(
+      editors: EditorName[],
+      scope: 'user' | 'project' | 'all',
+   ): Promise<{
+      results: Array<{ editor: EditorName; result: Awaited<ReturnType<typeof importFromEditor>> }>;
+      projectState: StateFile;
+      userState: StateFile;
+   }> {
+      const projectRoot = process.cwd(),
+            projectState = await readState('project', projectRoot),
+            userState = await readState('user'),
+            results: Array<{
+               editor: EditorName;
+               result: Awaited<ReturnType<typeof importFromEditor>>;
+            }> = [];
+
+      for (const editor of editors) {
+         try {
+            // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
+            const result = await importFromEditor(editor, { projectRoot, scope });
+
+            if (this.hasEditorItems(result)) {
+               results.push({ editor, result });
+            }
+         } catch {
+            // Skip editors that fail to import (not installed, etc.)
+         }
+      }
+
+      return { results, projectState, userState };
+   }
+
+   /**
     * List all AI config from editors (both aix-managed and externally managed).
     * Scans actual editor config directories to discover what's installed.
     */
@@ -342,32 +317,12 @@ export default class List extends BaseCommand<typeof List> {
       scopeFilter: 'user' | 'project' | undefined,
       editorFilter: EditorName[] | undefined,
    ): Promise<void> {
-      const editors = editorFilter ?? CANONICAL_EDITORS;
-      const projectRoot = process.cwd();
+      const editors = editorFilter ?? CANONICAL_EDITORS,
+            scope: 'user' | 'project' | 'all' = scopeFilter ?? 'all',
+            { results, projectState, userState } = await this.collectEditorConfig(editors, scope),
+            context: EditorListContext = { sections, scopeFilter, projectState, userState };
 
-      // Load state to identify aix-managed items
-      const projectState = await readState('project', projectRoot);
-      const userState = await readState('user');
-
-      const allResults: Array<{
-         editor: EditorName;
-         result: Awaited<ReturnType<typeof importFromEditor>>;
-      }> = [];
-
-      for (const editor of editors) {
-         try {
-            // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
-            const result = await importFromEditor(editor, { projectRoot, scope: scopeFilter });
-
-            if (this.hasEditorItems(result)) {
-               allResults.push({ editor, result });
-            }
-         } catch {
-            // Skip editors that fail to import (not installed, etc.)
-         }
-      }
-
-      if (allResults.length === 0) {
+      if (results.length === 0) {
          this.output.info('No AI configuration found in any editor.');
          return;
       }
@@ -375,13 +330,8 @@ export default class List extends BaseCommand<typeof List> {
       if (this.flags.json) {
          const jsonResult: Record<string, unknown> = {};
 
-         for (const { editor, result } of allResults) {
-            jsonResult[editor] = this.buildEditorJson(result, {
-               sections,
-               scopeFilter,
-               projectState,
-               userState,
-            });
+         for (const { editor, result } of results) {
+            jsonResult[editor] = this.buildEditorJson(result, context);
          }
          this.output.json(jsonResult);
          return;
@@ -389,18 +339,8 @@ export default class List extends BaseCommand<typeof List> {
 
       let printed = 0;
 
-      for (const { editor, result } of allResults) {
-         const didPrint = this.printEditorConfig(
-            editor,
-            result,
-            {
-               sections,
-               scopeFilter,
-               projectState,
-               userState,
-            },
-            printed > 0,
-         );
+      for (const { editor, result } of results) {
+         const didPrint = this.printEditorConfig(editor, result, context, printed > 0);
 
          if (didPrint) {
             printed++;
@@ -410,6 +350,104 @@ export default class List extends BaseCommand<typeof List> {
       if (printed === 0 && !this.flags.json) {
          this.output.info('No external AI configuration found matching the given filters.');
       }
+   }
+
+   /**
+    * List project config: ai.json plus items found in project-local editor config folders
+    * (like .agents, .github/skills, .windsurf). The default (no scope flag) also shows
+    * user-scope items tracked by aix state.
+    */
+   private async listProjectConfig(
+      sections: Section[],
+      scopeFilter: 'project' | undefined,
+   ): Promise<void> {
+      const loaded = await this.loadConfig(),
+            { results, projectState, userState } = await this.collectEditorConfig(
+               CANONICAL_EDITORS,
+               'project',
+            ),
+            context: EditorListContext = { sections, scopeFilter: 'project', projectState, userState };
+
+      let printedAny = false;
+
+      // Show ai.json config
+      if (loaded) {
+         const configScope = resolveScope(loaded.config);
+
+         if (!scopeFilter || scopeFilter === configScope) {
+            this.output.log('');
+            this.output.log(chalk.bold(`📄 ai.json config (scope: ${configScope})`));
+            this.output.log('');
+            this.printConfigSections(loaded.config, sections);
+            printedAny = true;
+         }
+      }
+
+      // Show project-local editor config
+      let printedEditors = 0;
+
+      for (const { editor, result } of results) {
+         if (this.printEditorConfig(editor, result, context, printedAny || printedEditors > 0)) {
+            printedEditors++;
+         }
+      }
+      printedAny = printedAny || printedEditors > 0;
+
+      // The default listing also surfaces user-scope items installed by aix.
+      if (!scopeFilter) {
+         const hasUserItems = this.hasStateItems(userState, undefined);
+
+         this.printStateSections(userState, sections, 'user', undefined);
+         printedAny = printedAny || hasUserItems;
+      }
+
+      if (!printedAny) {
+         this.output.info(
+            'No configuration found. Run `aix init` to create ai.json or `aix add` to add items.',
+         );
+      }
+   }
+
+   private async listProjectConfigJson(
+      sections: Section[],
+      scopeFilter: 'project' | undefined,
+   ): Promise<void> {
+      const loaded = await this.loadConfig(),
+            { results, projectState, userState } = await this.collectEditorConfig(
+               CANONICAL_EDITORS,
+               'project',
+            ),
+            context: EditorListContext = { sections, scopeFilter: 'project', projectState, userState };
+      const result: Record<string, unknown> = {};
+
+      if (loaded) {
+         const configScope = resolveScope(loaded.config);
+
+         if (!scopeFilter || scopeFilter === configScope) {
+            result.config = {
+               scope: configScope,
+               ...this.getConfigSections(loaded.config, sections),
+            };
+         }
+      }
+
+      const editors: Record<string, unknown> = {};
+
+      for (const { editor, result: editorResult } of results) {
+         editors[editor] = this.buildEditorJson(editorResult, context);
+      }
+      if (Object.keys(editors).length > 0) {
+         result.editors = editors;
+      }
+
+      // The default listing also surfaces user-scope items installed by aix.
+      if (!scopeFilter) {
+         result.state = {
+            user: this.getStateSections(userState, sections, undefined),
+         };
+      }
+
+      this.output.json(result);
    }
 
    private hasEditorItems(result: Awaited<ReturnType<typeof importFromEditor>>): boolean {

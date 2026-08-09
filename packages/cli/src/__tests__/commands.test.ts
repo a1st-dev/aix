@@ -1188,6 +1188,73 @@ description: Devin skill
       });
    });
 
+   describe('list -u', () => {
+      it('lists user-scope items by scanning editors global config directories', async () => {
+         const fakeHome = join(testDir, 'home'),
+               userSkillDir = join(
+                  fakeHome,
+                  '.config',
+                  'github-copilot',
+                  'skills',
+                  'user-copilot-skill',
+               );
+
+         await mkdir(userSkillDir, { recursive: true });
+         await writeFile(
+            join(userSkillDir, 'SKILL.md'),
+            `---
+name: user-copilot-skill
+description: User Copilot skill
+---
+`,
+         );
+
+         process.env.HOME = fakeHome;
+
+         const { error, stdout } = await runCli(['list', '-u', '--json']);
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.copilot.skills['user-copilot-skill']).toMatchObject({
+            source: 'external',
+            scope: 'user',
+         });
+         expect(parsed.copilot.skills['user-copilot-skill'].path).toContain(
+            '.config/github-copilot/skills/user-copilot-skill',
+         );
+      });
+
+      it('prints user-scope items in text output', async () => {
+         const fakeHome = join(testDir, 'home'),
+               userSkillDir = join(
+                  fakeHome,
+                  '.config',
+                  'github-copilot',
+                  'skills',
+                  'user-copilot-skill',
+               );
+
+         await mkdir(userSkillDir, { recursive: true });
+         await writeFile(
+            join(userSkillDir, 'SKILL.md'),
+            `---
+name: user-copilot-skill
+description: User Copilot skill
+---
+`,
+         );
+
+         process.env.HOME = fakeHome;
+
+         const { error, stdout } = await runCli(['list', '-u']);
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('user-copilot-skill');
+         expect(stdout).toContain('user');
+      });
+   });
+
    describe('config set', () => {
       it('sets a config value', async () => {
          const configPath = join(testDir, 'ai.json');
