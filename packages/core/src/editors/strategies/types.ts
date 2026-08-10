@@ -218,6 +218,16 @@ export interface NativeSkillsConfig {
    editorSkillsDir: string;
    /** Optional user-level native skills directory when it differs from the project-level path. */
    userEditorSkillsDir?: string;
+   /**
+    * Project-level directories the editor discovers skills from, in addition to
+    * {@link editorSkillsDir}. Defaults to `[editorSkillsDir]` when omitted.
+    */
+   projectImportDirs?: readonly string[];
+   /**
+    * User-level directories the editor discovers skills from, in addition to
+    * {@link userEditorSkillsDir}. Defaults to `[userEditorSkillsDir]` when omitted.
+    */
+   globalImportDirs?: readonly string[];
 }
 
 /**

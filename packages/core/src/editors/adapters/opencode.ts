@@ -52,6 +52,8 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.opencode/skills',
       userEditorSkillsDir: '.config/opencode/skills',
+      projectImportDirs: ['.opencode/skills', '.claude/skills', '.agents/skills'],
+      globalImportDirs: ['.config/opencode/skills', '.claude/skills', '.agents/skills'],
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new OpenCodePromptsStrategy();

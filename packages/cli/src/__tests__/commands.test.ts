@@ -1253,6 +1253,53 @@ description: User Copilot skill
          expect(stdout).toContain('user-copilot-skill');
          expect(stdout).toContain('user');
       });
+
+      it('lists opencode user skills from claude and agents compatibility dirs', async () => {
+         const fakeHome = join(testDir, 'home-opencode'),
+               claudeSkillDir = join(fakeHome, '.claude', 'skills', 'user-claude-skill'),
+               agentsSkillDir = join(fakeHome, '.agents', 'skills', 'user-agents-skill');
+
+         await mkdir(claudeSkillDir, { recursive: true });
+         await mkdir(agentsSkillDir, { recursive: true });
+         await writeFile(
+            join(claudeSkillDir, 'SKILL.md'),
+            `---
+name: user-claude-skill
+description: User Claude skill
+---
+`,
+         );
+         await writeFile(
+            join(agentsSkillDir, 'SKILL.md'),
+            `---
+name: user-agents-skill
+description: User Agents skill
+---
+`,
+         );
+
+         process.env.HOME = fakeHome;
+
+         const { error, stdout } = await runCli(['list', '-u', '--json']);
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.opencode.skills['user-claude-skill']).toMatchObject({
+            source: 'external',
+            scope: 'user',
+         });
+         expect(parsed.opencode.skills['user-claude-skill'].path).toContain(
+            '.claude/skills/user-claude-skill',
+         );
+         expect(parsed.opencode.skills['user-agents-skill']).toMatchObject({
+            source: 'external',
+            scope: 'user',
+         });
+         expect(parsed.opencode.skills['user-agents-skill'].path).toContain(
+            '.agents/skills/user-agents-skill',
+         );
+      });
    });
 
    describe('config set', () => {

@@ -15,10 +15,14 @@ import { getReplacementAction, replaceSkillDirectory } from './skill-directory.j
 export class NativeSkillsStrategy implements SkillsStrategy {
    private readonly editorSkillsDir: string;
    private readonly userEditorSkillsDir: string;
+   private readonly projectImportDirs: readonly string[];
+   private readonly globalImportDirs: readonly string[];
 
    constructor(config: NativeSkillsConfig) {
       this.editorSkillsDir = config.editorSkillsDir;
       this.userEditorSkillsDir = config.userEditorSkillsDir ?? config.editorSkillsDir;
+      this.projectImportDirs = config.projectImportDirs ?? [this.editorSkillsDir];
+      this.globalImportDirs = config.globalImportDirs ?? [this.userEditorSkillsDir];
    }
 
    getSkillsDir(): string {
@@ -26,11 +30,11 @@ export class NativeSkillsStrategy implements SkillsStrategy {
    }
 
    getProjectImportDirs(): readonly string[] {
-      return [this.editorSkillsDir];
+      return this.projectImportDirs;
    }
 
    getGlobalImportDirs(): readonly string[] {
-      return [this.userEditorSkillsDir];
+      return this.globalImportDirs;
    }
 
    isNative(): boolean {

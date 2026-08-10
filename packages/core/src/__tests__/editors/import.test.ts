@@ -647,6 +647,65 @@ describe('Editor Config Import', () => {
             await rm(projectRoot, { recursive: true, force: true });
          }
       });
+
+      it('imports OpenCode skills from claude and agents compatibility dirs', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-opencode-compat-import-')),
+               fakeHome = join(projectRoot, 'fake-home');
+         const originalHome = process.env.HOME,
+               originalUserProfile = process.env.USERPROFILE;
+
+         process.env.HOME = fakeHome;
+         process.env.USERPROFILE = fakeHome;
+
+         try {
+            await mkdir(fakeHome, { recursive: true });
+
+            const userClaudeSkill = join(fakeHome, '.claude', 'skills', 'claude-skill'),
+                  userAgentsSkill = join(fakeHome, '.agents', 'skills', 'agents-skill'),
+                  projectClaudeSkill = join(projectRoot, '.claude', 'skills', 'proj-claude-skill'),
+                  projectAgentsSkill = join(projectRoot, '.agents', 'skills', 'proj-agents-skill');
+
+            await mkdir(userClaudeSkill, { recursive: true });
+            await mkdir(userAgentsSkill, { recursive: true });
+            await mkdir(projectClaudeSkill, { recursive: true });
+            await mkdir(projectAgentsSkill, { recursive: true });
+            await writeFile(join(userClaudeSkill, 'SKILL.md'), '# Claude skill', 'utf-8');
+            await writeFile(join(userAgentsSkill, 'SKILL.md'), '# Agents skill', 'utf-8');
+            await writeFile(join(projectClaudeSkill, 'SKILL.md'), '# Project Claude skill', 'utf-8');
+            await writeFile(join(projectAgentsSkill, 'SKILL.md'), '# Project Agents skill', 'utf-8');
+
+            const userResult = await importFromEditor('opencode', {
+                     projectRoot,
+                     scope: 'user',
+                  }),
+                  projectResult = await importFromEditor('opencode', {
+                     projectRoot,
+                     scope: 'project',
+                  });
+
+            expect(userResult.skills['claude-skill']).toBe(userClaudeSkill);
+            expect(userResult.skills['agents-skill']).toBe(userAgentsSkill);
+            expect(userResult.scopes.skills['claude-skill']).toBe('user');
+            expect(userResult.scopes.skills['agents-skill']).toBe('user');
+
+            expect(projectResult.skills['proj-claude-skill']).toBe(projectClaudeSkill);
+            expect(projectResult.skills['proj-agents-skill']).toBe(projectAgentsSkill);
+            expect(projectResult.scopes.skills['proj-claude-skill']).toBe('project');
+            expect(projectResult.scopes.skills['proj-agents-skill']).toBe('project');
+         } finally {
+            if (originalHome === undefined) {
+               delete process.env.HOME;
+            } else {
+               process.env.HOME = originalHome;
+            }
+            if (originalUserProfile === undefined) {
+               delete process.env.USERPROFILE;
+            } else {
+               process.env.USERPROFILE = originalUserProfile;
+            }
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
    });
 
    describe('buildConfigFromEditorImport', () => {

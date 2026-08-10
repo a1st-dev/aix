@@ -1022,7 +1022,10 @@ export const editorSupportProfiles = [
             nativeScope('.opencode/skills/{name}/'),
             nativeScope('~/.config/opencode/skills/{name}/'),
             {
-               notes: [ 'OpenCode also discovers `.agents/skills/` as a compatibility surface.' ],
+               notes: [
+                  'OpenCode also discovers skills from `.claude/skills/` and `.agents/skills/` at project scope, and ' +
+                  '`~/.claude/skills/` and `~/.agents/skills/` at user scope, as compatibility surfaces.',
+               ],
             },
          ),
          hooks: feature(
