@@ -2,6 +2,25 @@ import type { McpServerConfig } from '@a1st/aix-schema';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
 
 /**
+ * Read a `Record<string, string>` field (`env`, `headers`) from parsed JSON, coercing
+ * values to strings. Returns undefined for missing or empty objects so callers can omit
+ * the key entirely.
+ */
+function parseStringRecord(value: unknown): Record<string, string> | undefined {
+   if (typeof value !== 'object' || value === null) {
+      return undefined;
+   }
+
+   const entries = Object.entries(value);
+
+   if (entries.length === 0) {
+      return undefined;
+   }
+
+   return Object.fromEntries(entries.map(([ key, entry ]) => [ key, String(entry) ]));
+}
+
+/**
  * Format MCP config for Windsurf's mcp_config.json format.
  * Outputs shorthand format without default values.
  */
@@ -57,20 +76,20 @@ function parseWindsurfMcp(content: string): {
          const s = server as Record<string, unknown>,
                disabledTools = Array.isArray(s.disabledTools)
                   ? s.disabledTools.map(String)
-                  : undefined;
+                  : undefined,
+               remoteUrl = s.serverUrl ?? s.url;
 
          if (s.command) {
             const serverConfig: Record<string, unknown> = {
-               command: String(s.command),
-            };
+                     command: String(s.command),
+                  },
+                  env = parseStringRecord(s.env);
 
             if (Array.isArray(s.args) && s.args.length > 0) {
                serverConfig.args = s.args.map(String);
             }
-            if (typeof s.env === 'object' && s.env !== null && Object.keys(s.env).length > 0) {
-               serverConfig.env = Object.fromEntries(
-                  Object.entries(s.env).map(([k, v]) => [k, String(v)]),
-               );
+            if (env) {
+               serverConfig.env = env;
             }
             if (s.disabled === true) {
                serverConfig.enabled = false;
@@ -80,11 +99,15 @@ function parseWindsurfMcp(content: string): {
             }
 
             mcp[name] = serverConfig as McpServerConfig;
-         } else if (s.url) {
+         } else if (remoteUrl) {
             const serverConfig: Record<string, unknown> = {
-               url: String(s.url),
-            };
+                     url: String(remoteUrl),
+                  },
+                  headers = parseStringRecord(s.headers);
 
+            if (headers) {
+               serverConfig.headers = headers;
+            }
             if (s.disabled === true) {
                serverConfig.enabled = false;
             }

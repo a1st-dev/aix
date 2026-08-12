@@ -616,6 +616,73 @@ describe('CLI Commands', () => {
          expect(stderr).toContain('Failed to read OpenCode config');
       });
 
+      it('syncs windsurf user-scope config into Claude Code user files', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               windsurfDir = join(fakeHome, '.codeium', 'windsurf');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(windsurfDir, 'memories'), { recursive: true });
+         await mkdir(join(windsurfDir, 'global_workflows'), { recursive: true });
+         await writeFile(
+            join(windsurfDir, 'memories', 'global_rules.md'),
+            '---\ntrigger: always_on\n---\n\nPrefer readability over brevity.\n',
+            'utf-8',
+         );
+         await writeFile(
+            join(windsurfDir, 'global_workflows', 'deploy.md'),
+            '---\ndescription: Deploy the service\n---\n\nRun the deploy script.\n',
+            'utf-8',
+         );
+         await writeFile(
+            join(windsurfDir, 'mcp_config.json'),
+            JSON.stringify({
+               mcpServers: {
+                  docs: { serverUrl: 'https://example.com/mcp' },
+               },
+            }),
+            'utf-8',
+         );
+         await writeFile(
+            join(windsurfDir, 'hooks.json'),
+            JSON.stringify({
+               hooks: {
+                  pre_run_command: [{ command: 'echo before-command' }],
+               },
+            }),
+            'utf-8',
+         );
+         // Pre-existing personal content that the sync must not clobber
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(
+            join(fakeHome, '.claude', 'CLAUDE.md'),
+            '# Personal notes\n\nKeep this text.\n',
+            'utf-8',
+         );
+
+         const { error, stdout } = await runCli(['sync', 'windsurf', '--to', 'claude-code'], {
+            root,
+         });
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('Imported from windsurf (user)');
+         expect(stdout).toContain('MCP servers: 1');
+
+         const claudeMd = await readFile(join(fakeHome, '.claude', 'CLAUDE.md'), 'utf-8'),
+               rule = await readFile(join(fakeHome, '.claude', 'rules', 'global.md'), 'utf-8'),
+               command = await readFile(join(fakeHome, '.claude', 'commands', 'deploy.md'), 'utf-8'),
+               mcp = JSON.parse(await readFile(join(fakeHome, '.claude.json'), 'utf-8')),
+               settings = JSON.parse(
+                  await readFile(join(fakeHome, '.claude', 'settings.json'), 'utf-8'),
+               );
+
+         expect(claudeMd).toContain('Keep this text.');
+         expect(claudeMd).toContain('@rules/global.md');
+         expect(rule).toContain('Prefer readability over brevity.');
+         expect(command).toContain('Run the deploy script.');
+         expect(mcp.mcpServers.docs).toEqual({ type: 'http', url: 'https://example.com/mcp' });
+         expect(settings.hooks.PreToolUse[0].hooks[0].command).toBe('echo before-command');
+      });
+
       it('syncs source hooks through the bridge to the destination adapter', async () => {
          const fakeHome = join(testDir, 'fake-home');
 

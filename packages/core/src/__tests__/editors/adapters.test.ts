@@ -18,6 +18,7 @@ import {
    getAcceptedEditorNames,
    normalizeEditorName,
    detectEditors,
+   importFromEditor,
    installToEditor,
 } from '../../editors/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
@@ -241,6 +242,36 @@ describe('Editor Adapters', () => {
       });
 
       // Note: Windsurf MCP is global-only (~/.codeium/windsurf/mcp_config.json), so project-level MCP is not supported
+
+      it('imports remote MCP servers declared with serverUrl', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               windsurfDir = join(fakeHome, '.codeium', 'windsurf');
+
+         process.env.HOME = fakeHome;
+         await mkdir(windsurfDir, { recursive: true });
+         await writeFile(
+            join(windsurfDir, 'mcp_config.json'),
+            JSON.stringify({
+               mcpServers: {
+                  docs: {
+                     serverUrl: 'https://example.com/mcp',
+                     headers: { API_KEY: 'secret' },
+                  },
+                  legacy: { url: 'https://legacy.example.com/mcp' },
+               },
+            }),
+            'utf-8',
+         );
+
+         const result = await importFromEditor('windsurf');
+
+         expect(result.warnings).not.toContain('Skipping MCP server "docs": unknown format');
+         expect(result.mcp.docs).toEqual({
+            url: 'https://example.com/mcp',
+            headers: { API_KEY: 'secret' },
+         });
+         expect(result.mcp.legacy).toEqual({ url: 'https://legacy.example.com/mcp' });
+      });
 
       it('respects dry-run option', async () => {
          const config = createConfig({
