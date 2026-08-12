@@ -1,5 +1,25 @@
 # Agents
 
+## Manual testing
+
+Manual testing must never write to the real user config. `aix` resolves the home directory from
+`$HOME` first, then `%USERPROFILE%`, and only then falls back to `os.homedir()`, so pointing
+`HOME` at a throwaway directory is enough to isolate a run:
+
+```bash
+HOME="$(mktemp -d)" node packages/cli/bin/aixd.mjs install
+```
+
+* Do this for anything that can touch global config: `~/.claude.json`,
+  `~/.gemini/settings.json`, `~/.config/zed/settings.json`, `~/.config/github-copilot/`,
+  `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `~/.aix/backups/`
+  written before each global edit
+* `npm run qa:sandbox` gives you a scratch project directory but does **not** override `HOME`,
+  so set `HOME` yourself on top of it
+* Automated tests follow the same rule: set `process.env.HOME` to a temp directory, or mock
+  `os.homedir()`, before exercising a global config path
+* Write to the real user config only when explicitly asked to
+
 ## Deployment
 
 Always create a **signed tag** when tagging a release:
