@@ -21,6 +21,11 @@ export interface GlobalChangeRequest {
    format?: 'json' | 'toml';
    /** The new config to add (for MCP) */
    mcpConfig?: McpServerConfig;
+   /**
+    * The server entry to write, already in the editor's own format. Falls back to a generic
+    * entry shape when the editor's MCP strategy does not build one.
+    */
+   mcpEntry?: Record<string, unknown>;
    /** The new content to add (for prompts) */
    promptContent?: string;
    /** Existing config if it already exists */

@@ -3,6 +3,27 @@ import { parseTOML, stringifyTOML } from 'confbox';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
 
 /**
+ * Build a single Codex `[mcp_servers.name]` entry.
+ */
+function buildCodexServerEntry(serverConfig: McpServerConfig): Record<string, unknown> {
+   const server: Record<string, unknown> = {};
+
+   if ('command' in serverConfig) {
+      server.command = serverConfig.command;
+      if (serverConfig.args && serverConfig.args.length > 0) {
+         server.args = serverConfig.args;
+      }
+      if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
+         server.env = serverConfig.env;
+      }
+   } else if ('url' in serverConfig) {
+      server.url = serverConfig.url;
+   }
+
+   return server;
+}
+
+/**
  * Format MCP config for Codex's config.toml format.
  * Codex uses TOML with [mcp_servers.name] sections.
  */
@@ -14,21 +35,7 @@ function formatCodexMcp(mcp: Record<string, McpServerConfig>): string {
          continue;
       }
 
-      const server: Record<string, unknown> = {};
-
-      if ('command' in serverConfig) {
-         server.command = serverConfig.command;
-         if (serverConfig.args && serverConfig.args.length > 0) {
-            server.args = serverConfig.args;
-         }
-         if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-            server.env = serverConfig.env;
-         }
-      } else if ('url' in serverConfig) {
-         server.url = serverConfig.url;
-      }
-
-      mcpServers[name] = server;
+      mcpServers[name] = buildCodexServerEntry(serverConfig);
    }
 
    return stringifyTOML({ mcp_servers: mcpServers });
@@ -90,6 +97,7 @@ export class CodexMcpStrategy extends GlobalMcpStrategy {
          globalConfigPath: '.codex/config.toml',
          format: 'toml',
          formatFn: formatCodexMcp,
+         formatEntryFn: buildCodexServerEntry,
          parseFn: parseCodexMcp,
       });
    }

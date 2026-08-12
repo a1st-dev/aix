@@ -1,23 +1,36 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
+import { parseStringRecord } from '../shared/mcp-import-utils.js';
 
 /**
- * Read a `Record<string, string>` field (`env`, `headers`) from parsed JSON, coercing
- * values to strings. Returns undefined for missing or empty objects so callers can omit
- * the key entirely.
+ * Build a single Windsurf `mcpServers` entry. Windsurf documents `serverUrl` for remote
+ * servers, along with a `headers` map for authentication.
+ * Source: https://docs.devin.ai/desktop/cascade/mcp
  */
-function parseStringRecord(value: unknown): Record<string, string> | undefined {
-   if (typeof value !== 'object' || value === null) {
-      return undefined;
+function buildWindsurfServerEntry(serverConfig: McpServerConfig): Record<string, unknown> {
+   const server: Record<string, unknown> = {};
+
+   if ('command' in serverConfig) {
+      server.command = serverConfig.command;
+      if (serverConfig.args && serverConfig.args.length > 0) {
+         server.args = serverConfig.args;
+      }
+      if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
+         server.env = serverConfig.env;
+      }
+   } else if ('url' in serverConfig) {
+      server.serverUrl = serverConfig.url;
+      if (serverConfig.headers && Object.keys(serverConfig.headers).length > 0) {
+         server.headers = serverConfig.headers;
+      }
    }
 
-   const entries = Object.entries(value);
-
-   if (entries.length === 0) {
-      return undefined;
+   if ('disabledTools' in serverConfig && Array.isArray(serverConfig.disabledTools) &&
+       serverConfig.disabledTools.length > 0) {
+      server.disabledTools = serverConfig.disabledTools;
    }
 
-   return Object.fromEntries(entries.map(([ key, entry ]) => [ key, String(entry) ]));
+   return server;
 }
 
 /**
@@ -32,26 +45,7 @@ function formatWindsurfMcp(mcp: Record<string, McpServerConfig>): string {
          continue;
       }
 
-      const server: Record<string, unknown> = {};
-
-      if ('command' in serverConfig) {
-         server.command = serverConfig.command;
-         if (serverConfig.args && serverConfig.args.length > 0) {
-            server.args = serverConfig.args;
-         }
-         if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-            server.env = serverConfig.env;
-         }
-      } else if ('url' in serverConfig) {
-         server.url = serverConfig.url;
-      }
-
-      if ('disabledTools' in serverConfig && Array.isArray(serverConfig.disabledTools) &&
-          serverConfig.disabledTools.length > 0) {
-         server.disabledTools = serverConfig.disabledTools;
-      }
-
-      mcpServers[name] = server;
+      mcpServers[name] = buildWindsurfServerEntry(serverConfig);
    }
 
    return JSON.stringify({ mcpServers }, null, 2) + '\n';
@@ -137,6 +131,7 @@ export class WindsurfMcpStrategy extends GlobalMcpStrategy {
          globalConfigPath: '.codeium/windsurf/mcp_config.json',
          format: 'json',
          formatFn: formatWindsurfMcp,
+         formatEntryFn: buildWindsurfServerEntry,
          parseFn: parseWindsurfMcp,
       });
    }

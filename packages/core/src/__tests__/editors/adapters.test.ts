@@ -273,6 +273,74 @@ describe('Editor Adapters', () => {
          expect(result.mcp.legacy).toEqual({ url: 'https://legacy.example.com/mcp' });
       });
 
+      it('writes remote MCP servers with serverUrl and headers to the global config', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
+               remoteServer = {
+                  url: 'https://example.com/mcp',
+                  headers: { API_KEY: 'secret' },
+               } as McpServerConfig,
+               config = createConfig({ mcp: { docs: remoteServer } });
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.codeium/windsurf'), { recursive: true });
+
+         const result = await installToEditor('windsurf', config, testDir);
+
+         expect(result.success).toBe(true);
+
+         if (await isCI()) {
+            expect(result.globalChanges?.skipped).toHaveLength(1);
+            return;
+         }
+
+         const globalMcp = JSON.parse(await readFile(globalMcpPath, 'utf-8'));
+
+         expect(globalMcp.mcpServers.docs).toEqual({
+            serverUrl: 'https://example.com/mcp',
+            headers: { API_KEY: 'secret' },
+         });
+      });
+
+      it('leaves an already-synced remote server untouched on reinstall', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
+               remoteServer = {
+                  url: 'https://example.com/mcp',
+                  headers: { API_KEY: 'secret' },
+               } as McpServerConfig,
+               config = createConfig({ mcp: { docs: remoteServer } });
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.codeium/windsurf'), { recursive: true });
+         await writeFile(
+            globalMcpPath,
+            JSON.stringify({
+               mcpServers: {
+                  docs: {
+                     serverUrl: 'https://example.com/mcp',
+                     headers: { API_KEY: 'secret' },
+                  },
+               },
+            }),
+            'utf-8',
+         );
+
+         const result = await installToEditor('windsurf', config, testDir);
+
+         expect(result.success).toBe(true);
+
+         if (await isCI()) {
+            return;
+         }
+
+         expect(result.globalChanges?.skipped).toEqual([{
+            type: 'mcp',
+            name: 'docs',
+            reason: 'Already configured identically',
+         }]);
+      });
+
       it('respects dry-run option', async () => {
          const config = createConfig({
             rules: { 'test-rule': { content: 'Test rule' } },

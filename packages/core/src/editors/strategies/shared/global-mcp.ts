@@ -15,6 +15,12 @@ export interface GlobalMcpConfig {
    format: 'json' | 'toml';
    /** Function to format MCP config for this editor's format */
    formatFn: (mcp: Record<string, McpServerConfig>) => string;
+   /**
+    * Function to build a single server entry in this editor's format. Global config files
+    * are merged server by server, so this keeps the editor's own key names and fields
+    * instead of writing a generic entry shape.
+    */
+   formatEntryFn: (config: McpServerConfig) => Record<string, unknown>;
    /** Function to parse existing global config */
    parseFn: (content: string) => { mcp: Record<string, McpServerConfig>; warnings: string[] };
 }
@@ -72,6 +78,13 @@ export class GlobalMcpStrategy implements McpStrategy {
     */
    formatConfig(mcp: Record<string, McpServerConfig>): string {
       return this.config.formatFn(mcp);
+   }
+
+   /**
+    * Format a single server entry for merging into the existing global config.
+    */
+   formatServerEntry(config: McpServerConfig): Record<string, unknown> {
+      return this.config.formatEntryFn(config);
    }
 
    /**

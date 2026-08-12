@@ -142,6 +142,12 @@ export interface McpStrategy {
    formatConfig(mcp: Record<string, McpServerConfig>): string;
 
    /**
+    * Format a single server entry for this editor. Global-only editors need this because
+    * their config files are merged one server at a time rather than rewritten whole.
+    */
+   formatServerEntry?(config: McpServerConfig): Record<string, unknown>;
+
+   /**
     * Get the MCP config file path. By default this is relative to the editor config dir (e.g.,
     * `'mcp.json'` → `{configDir}/mcp.json`). When {@link isProjectRootConfig} returns `true`, the
     * path is relative to the project root instead (e.g., `'.mcp.json'` → `{projectRoot}/.mcp.json`).

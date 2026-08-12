@@ -47,7 +47,8 @@ export async function analyzeGlobalChanges(
 
       // Check each MCP server
       for (const [name, config] of Object.entries(editorConfig.mcp)) {
-         const existing = existingMcp[name];
+         const existing = existingMcp[name],
+               mcpEntry = mcpStrategy.formatServerEntry?.(config);
 
          if (existing) {
             // Server exists - check if configs match
@@ -61,6 +62,7 @@ export async function analyzeGlobalChanges(
                   globalPath,
                   format,
                   mcpConfig: config,
+                  mcpEntry,
                   existingMcpConfig: existing,
                   configsMatch: true,
                });
@@ -74,6 +76,7 @@ export async function analyzeGlobalChanges(
                   globalPath,
                   format,
                   mcpConfig: config,
+                  mcpEntry,
                   existingMcpConfig: existing,
                   configsMatch: false,
                });
@@ -88,6 +91,7 @@ export async function analyzeGlobalChanges(
                globalPath,
                format,
                mcpConfig: config,
+               mcpEntry,
             });
          }
       }
@@ -276,6 +280,30 @@ export async function applyGlobalChanges(
 }
 
 /**
+ * Build a server entry for editors whose MCP strategy does not format its own entries.
+ */
+function buildGenericServerEntry(mcpConfig: McpServerConfig): Record<string, unknown> {
+   const transport = getTransport(mcpConfig),
+         serverConfig: Record<string, unknown> = {};
+
+   if (transport.type === 'stdio') {
+      serverConfig.command = transport.command;
+      serverConfig.args = transport.args ?? [];
+      if (transport.env && Object.keys(transport.env).length > 0) {
+         serverConfig.env = transport.env;
+      }
+   } else if (transport.type === 'http') {
+      serverConfig.url = transport.url;
+   }
+
+   if ('disabledTools' in mcpConfig && Array.isArray(mcpConfig.disabledTools)) {
+      serverConfig.disabledTools = mcpConfig.disabledTools;
+   }
+
+   return serverConfig;
+}
+
+/**
  * Apply an MCP change by merging with existing config.
  */
 async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
@@ -299,25 +327,7 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
          mcpServers = (existingConfig[mcpKey] ?? {}) as Record<string, unknown>;
 
    if (change.mcpConfig) {
-      const transport = getTransport(change.mcpConfig),
-            serverConfig: Record<string, unknown> = {};
-
-      if (transport.type === 'stdio') {
-         serverConfig.command = transport.command;
-         serverConfig.args = transport.args ?? [];
-         if (transport.env && Object.keys(transport.env).length > 0) {
-            serverConfig.env = transport.env;
-         }
-      } else if (transport.type === 'http') {
-         serverConfig.url = transport.url;
-      }
-
-      // Include disabledTools if present
-      if ('disabledTools' in change.mcpConfig && Array.isArray(change.mcpConfig.disabledTools)) {
-         serverConfig.disabledTools = change.mcpConfig.disabledTools;
-      }
-
-      mcpServers[change.name] = serverConfig;
+      mcpServers[change.name] = change.mcpEntry ?? buildGenericServerEntry(change.mcpConfig);
    }
 
    existingConfig[mcpKey] = mcpServers;
