@@ -267,6 +267,35 @@ describe('Editor Config Import', () => {
          }
       });
 
+      it('keeps auth headers when importing a remote MCP server', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-claude-mcp-headers-'));
+
+         try {
+            await writeFile(
+               join(projectRoot, '.mcp.json'),
+               JSON.stringify({
+                  mcpServers: {
+                     docs: {
+                        type: 'http',
+                        url: 'https://example.com/mcp',
+                        headers: { API_KEY: 'secret' },
+                     },
+                  },
+               }),
+               'utf-8',
+            );
+
+            const result = await importFromEditor('claude-code', { projectRoot, scope: 'project' });
+
+            expect(result.mcp.docs).toEqual({
+               url: 'https://example.com/mcp',
+               headers: { API_KEY: 'secret' },
+            });
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
       it('imports user-scoped Cursor hooks into generic hook events', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-cursor-hooks-import-')),
                fakeHome = join(projectRoot, 'fake-home');

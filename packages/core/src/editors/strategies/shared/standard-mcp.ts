@@ -1,5 +1,6 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
+import { parseStringRecord } from './mcp-import-utils.js';
 
 /**
  * Standard MCP strategy used by Cursor. Uses `mcp.json` with a `mcpServers` object. Claude Code
@@ -41,7 +42,12 @@ export class StandardMcpStrategy implements McpStrategy {
             }
             mcpServers[name] = server;
          } else if ('url' in serverConfig) {
-            mcpServers[name] = { url: serverConfig.url };
+            const server: Record<string, unknown> = { url: serverConfig.url };
+
+            if (serverConfig.headers && Object.keys(serverConfig.headers).length > 0) {
+               server.headers = serverConfig.headers;
+            }
+            mcpServers[name] = server;
          }
       }
 
@@ -64,21 +70,29 @@ export class StandardMcpStrategy implements McpStrategy {
 
             if (s.command) {
                const serverConfig: Record<string, unknown> = {
-                  command: String(s.command),
-               };
+                        command: String(s.command),
+                     },
+                     env = parseStringRecord(s.env);
 
                if (Array.isArray(s.args) && s.args.length > 0) {
                   serverConfig.args = s.args.map(String);
                }
-               if (typeof s.env === 'object' && s.env !== null && Object.keys(s.env).length > 0) {
-                  serverConfig.env = Object.fromEntries(
-                     Object.entries(s.env).map(([k, v]) => [k, String(v)]),
-                  );
+               if (env) {
+                  serverConfig.env = env;
                }
 
                mcp[name] = serverConfig as McpServerConfig;
             } else if (s.url) {
-               mcp[name] = { url: String(s.url) } as McpServerConfig;
+               const serverConfig: Record<string, unknown> = {
+                        url: String(s.url),
+                     },
+                     headers = parseStringRecord(s.headers);
+
+               if (headers) {
+                  serverConfig.headers = headers;
+               }
+
+               mcp[name] = serverConfig as McpServerConfig;
             } else {
                warnings.push(`Skipping MCP server "${name}": unknown format`);
             }
