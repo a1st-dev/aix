@@ -1,4 +1,5 @@
 import { join, dirname, basename } from 'pathe';
+import { isRecord } from '../../type-guards.js';
 import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import { parseJsonc } from '@a1st/aix-schema';
 import type {
@@ -47,9 +48,6 @@ export function filterMcpConfig(mcp: AiJsonConfig['mcp']): Record<string, McpSer
    return result;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function looksLikeFlatMcpServer(value: unknown): value is Record<string, unknown> {
    return (

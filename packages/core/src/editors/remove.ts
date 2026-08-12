@@ -1,4 +1,5 @@
 import { dirname, join } from 'pathe';
+import { isRecord } from '../type-guards.js';
 import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc } from '@a1st/aix-schema';
 import type { ConfigScope } from '@a1st/aix-schema';
@@ -22,9 +23,6 @@ interface RemoveMcpFromEditorOptions {
 
 const MCP_KEYS = ['mcpServers', 'context_servers', 'mcp', 'mcp_servers'] as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function getMcpConfigPath(
    strategy: McpStrategy,

@@ -1,4 +1,5 @@
 import { basename, dirname, join, resolve } from 'pathe';
+import { isRecord } from './type-guards.js';
 import {
    createEmptyConfig,
    hooksSchema,
@@ -161,9 +162,6 @@ function getParsedJson(source: string, content: string): unknown {
    return parsed.data;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function getGitSource(value: unknown, fallbackUrl: string): GitSource {
    if (typeof value === 'string') {

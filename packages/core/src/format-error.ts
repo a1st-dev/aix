@@ -1,4 +1,5 @@
 import { ConfigValidationError } from './errors.js';
+import { isRecord } from './type-guards.js';
 
 export interface ValidationIssue {
    path: string;
@@ -232,9 +233,6 @@ function isPropertyKeyArray(value: unknown): value is PropertyKey[] {
    return Array.isArray(value) && value.every(isPropertyKey);
 }
 
-function isRecord(value: unknown): value is Record<PropertyKey, unknown> {
-   return typeof value === 'object' && value !== null;
-}
 
 function isZodIssueLike(value: unknown): value is ZodIssueLike {
    return isRecord(value)
