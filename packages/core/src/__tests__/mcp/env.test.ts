@@ -4,6 +4,7 @@ import {
    resolveEnvObject,
    hasUnresolvedEnvVars,
    extractEnvVarNames,
+   getSoleEnvVarName,
    validateEnvVars,
 } from '../../mcp/env.js';
 
@@ -97,6 +98,25 @@ describe('extractEnvVarNames', () => {
 
    it('handles duplicate var names', () => {
       expect(extractEnvVarNames('${FOO} ${FOO}')).toEqual(['FOO', 'FOO']);
+   });
+});
+
+describe('getSoleEnvVarName', () => {
+   it('returns the name when the value is one reference and nothing else', () => {
+      expect(getSoleEnvVarName('${FOO}')).toBe('FOO');
+   });
+
+   it('returns undefined when the value mixes literal text with a reference', () => {
+      expect(getSoleEnvVarName('Bearer ${FOO}')).toBeUndefined();
+      expect(getSoleEnvVarName('${FOO}-suffix')).toBeUndefined();
+   });
+
+   it('returns undefined when the value holds two references', () => {
+      expect(getSoleEnvVarName('${FOO}${BAR}')).toBeUndefined();
+   });
+
+   it('returns undefined for a plain value', () => {
+      expect(getSoleEnvVarName('literal')).toBeUndefined();
    });
 });
 

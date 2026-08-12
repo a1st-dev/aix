@@ -6,7 +6,7 @@ import type { McpStrategy, PromptsStrategy } from '../editors/strategies/types.j
 import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
-import { getTransport } from '../mcp/normalize.js';
+import { buildStandardServerEntry } from '../editors/strategies/shared/standard-mcp.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 /** Derive config file format from path extension. */
@@ -280,21 +280,11 @@ export async function applyGlobalChanges(
 }
 
 /**
- * Build a server entry for editors whose MCP strategy does not format its own entries.
+ * Build a server entry for editors whose MCP strategy does not format its own entries. Every
+ * strategy shipped today formats its own, so this is the fallback for one that does not.
  */
 function buildGenericServerEntry(mcpConfig: McpServerConfig): Record<string, unknown> {
-   const transport = getTransport(mcpConfig),
-         serverConfig: Record<string, unknown> = {};
-
-   if (transport.type === 'stdio') {
-      serverConfig.command = transport.command;
-      serverConfig.args = transport.args ?? [];
-      if (transport.env && Object.keys(transport.env).length > 0) {
-         serverConfig.env = transport.env;
-      }
-   } else if (transport.type === 'http') {
-      serverConfig.url = transport.url;
-   }
+   const serverConfig = buildStandardServerEntry(mcpConfig);
 
    if ('disabledTools' in mcpConfig && Array.isArray(mcpConfig.disabledTools)) {
       serverConfig.disabledTools = mcpConfig.disabledTools;

@@ -1,6 +1,7 @@
 import { getRuntimeAdapter } from '../runtime/index.js';
 
-const ENV_VAR_PATTERN = /\$\{([^}]+)\}/g;
+const ENV_VAR_PATTERN = /\$\{([^}]+)\}/g,
+      SOLE_ENV_VAR_PATTERN = /^\$\{([^}]+)\}$/;
 
 export interface EnvResolutionOptions {
    env?: Record<string, string | undefined>;
@@ -53,6 +54,16 @@ export function extractEnvVarNames(value: string): string[] {
    const matches = value.matchAll(new RegExp(ENV_VAR_PATTERN.source, 'g'));
 
    return [...matches].map((m) => m[1]).filter((name): name is string => name !== undefined);
+}
+
+/**
+ * Get the variable name when a value is one `${VAR}` reference and nothing else. Returns
+ * undefined when the value mixes literal text with a reference, or holds no reference at all.
+ * Editors that read a whole value from a named environment variable, rather than expanding
+ * `${VAR}` themselves, can only carry across the sole-reference form.
+ */
+export function getSoleEnvVarName(value: string): string | undefined {
+   return SOLE_ENV_VAR_PATTERN.exec(value)?.[1];
 }
 
 /**

@@ -1,8 +1,11 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
-import { getTransport } from '../../../mcp/normalize.js';
+import { isRecord } from '../../../type-guards.js';
+import { buildStandardServerEntry, parseStandardServerEntry } from '../shared/standard-mcp.js';
 import { getGlobalCopilotDir } from './paths.js';
+
+const ENTRY_OPTIONS = { transportTypes: { stdio: 'local', http: 'http' } } as const;
 
 /**
  * GitHub Copilot MCP strategy. Copilot CLI uses `.mcp.json` at the project root and
@@ -40,34 +43,7 @@ export class CopilotMcpStrategy implements McpStrategy {
             continue;
          }
 
-         const transport = getTransport(serverConfig);
-
-         if (transport.type === 'stdio') {
-            const server: Record<string, unknown> = {
-               type: 'local',
-               command: transport.command,
-            };
-
-            if (transport.args && transport.args.length > 0) {
-               server.args = transport.args;
-            }
-            if (transport.env && Object.keys(transport.env).length > 0) {
-               server.env = transport.env;
-            }
-
-            mcpServers[name] = server;
-         } else if (transport.type === 'http') {
-            const server: Record<string, unknown> = {
-               type: 'http',
-               url: transport.url,
-            };
-
-            if (transport.headers && Object.keys(transport.headers).length > 0) {
-               server.headers = transport.headers;
-            }
-
-            mcpServers[name] = server;
-         }
+         mcpServers[name] = buildStandardServerEntry(serverConfig, ENTRY_OPTIONS);
       }
 
       return JSON.stringify({ mcpServers }, null, 2) + '\n';
@@ -85,11 +61,7 @@ export class CopilotMcpStrategy implements McpStrategy {
                servers = getServerEntries(config);
 
          for (const [name, server] of Object.entries(servers)) {
-            if (!isRecord(server)) {
-               continue;
-            }
-
-            const parsed = parseServer(server);
+            const parsed = parseStandardServerEntry(server);
 
             if (!parsed) {
                warnings.push(`Skipping GitHub Copilot MCP server "${name}": unknown format`);
@@ -126,41 +98,3 @@ function getServerEntries(config: Record<string, unknown>): Record<string, unkno
    return config;
 }
 
-function parseServer(server: Record<string, unknown>): McpServerConfig | null {
-   if (typeof server.command === 'string') {
-      const parsed: McpServerConfig = {
-         command: server.command,
-      };
-
-      if (Array.isArray(server.args) && server.args.length > 0) {
-         parsed.args = server.args.map(String);
-      }
-      if (isRecord(server.env) && Object.keys(server.env).length > 0) {
-         parsed.env = stringifyRecord(server.env);
-      }
-
-      return parsed;
-   }
-
-   if (typeof server.url === 'string') {
-      const parsed: McpServerConfig = {
-         url: server.url,
-      };
-
-      if (isRecord(server.headers) && Object.keys(server.headers).length > 0) {
-         parsed.headers = stringifyRecord(server.headers);
-      }
-
-      return parsed;
-   }
-
-   return null;
-}
-
-function stringifyRecord(value: Record<string, unknown>): Record<string, string> {
-   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, String(entry)]));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}

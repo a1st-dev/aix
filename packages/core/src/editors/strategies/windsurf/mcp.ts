@@ -1,32 +1,25 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
-import { parseStringRecord } from '../shared/mcp-import-utils.js';
+import { isRecord } from '../../../type-guards.js';
+import { buildStandardServerEntry, parseStandardServerEntry } from '../shared/standard-mcp.js';
 
 /**
- * Build a single Windsurf `mcpServers` entry. Windsurf documents `serverUrl` for remote
- * servers, along with a `headers` map for authentication.
+ * Windsurf documents `serverUrl` for remote servers, but reads `url` too.
  * Source: https://docs.devin.ai/desktop/cascade/mcp
  */
+const ENTRY_OPTIONS = { urlKeys: [ 'serverUrl', 'url' ] } as const;
+
+/**
+ * Build a single Windsurf `mcpServers` entry. Windsurf can hold a server in a disabled state,
+ * so a server turned off with us is written as `disabled` rather than left out of the file.
+ */
 function buildWindsurfServerEntry(serverConfig: McpServerConfig): Record<string, unknown> {
-   const server: Record<string, unknown> = {};
+   const server = buildStandardServerEntry(serverConfig, ENTRY_OPTIONS);
 
-   if ('command' in serverConfig) {
-      server.command = serverConfig.command;
-      if (serverConfig.args && serverConfig.args.length > 0) {
-         server.args = serverConfig.args;
-      }
-      if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-         server.env = serverConfig.env;
-      }
-   } else if ('url' in serverConfig) {
-      server.serverUrl = serverConfig.url;
-      if (serverConfig.headers && Object.keys(serverConfig.headers).length > 0) {
-         server.headers = serverConfig.headers;
-      }
+   if (serverConfig.enabled === false) {
+      server.disabled = true;
    }
-
-   if ('disabledTools' in serverConfig && Array.isArray(serverConfig.disabledTools) &&
-       serverConfig.disabledTools.length > 0) {
+   if (Array.isArray(serverConfig.disabledTools) && serverConfig.disabledTools.length > 0) {
       server.disabledTools = serverConfig.disabledTools;
    }
 
@@ -41,10 +34,6 @@ function formatWindsurfMcp(mcp: Record<string, McpServerConfig>): string {
    const mcpServers: Record<string, unknown> = {};
 
    for (const [name, serverConfig] of Object.entries(mcp)) {
-      if (serverConfig.enabled === false) {
-         continue;
-      }
-
       mcpServers[name] = buildWindsurfServerEntry(serverConfig);
    }
 
@@ -67,58 +56,37 @@ function parseWindsurfMcp(content: string): {
             servers = config.mcpServers ?? {};
 
       for (const [name, server] of Object.entries(servers)) {
-         const s = server as Record<string, unknown>,
-               disabledTools = Array.isArray(s.disabledTools)
-                  ? s.disabledTools.map(String)
-                  : undefined,
-               remoteUrl = s.serverUrl ?? s.url;
+         const serverConfig = parseWindsurfServerEntry(server);
 
-         if (s.command) {
-            const serverConfig: Record<string, unknown> = {
-                     command: String(s.command),
-                  },
-                  env = parseStringRecord(s.env);
-
-            if (Array.isArray(s.args) && s.args.length > 0) {
-               serverConfig.args = s.args.map(String);
-            }
-            if (env) {
-               serverConfig.env = env;
-            }
-            if (s.disabled === true) {
-               serverConfig.enabled = false;
-            }
-            if (disabledTools && disabledTools.length > 0) {
-               serverConfig.disabledTools = disabledTools;
-            }
-
-            mcp[name] = serverConfig as McpServerConfig;
-         } else if (remoteUrl) {
-            const serverConfig: Record<string, unknown> = {
-                     url: String(remoteUrl),
-                  },
-                  headers = parseStringRecord(s.headers);
-
-            if (headers) {
-               serverConfig.headers = headers;
-            }
-            if (s.disabled === true) {
-               serverConfig.enabled = false;
-            }
-            if (disabledTools && disabledTools.length > 0) {
-               serverConfig.disabledTools = disabledTools;
-            }
-
-            mcp[name] = serverConfig as McpServerConfig;
-         } else {
+         if (!serverConfig) {
             warnings.push(`Skipping MCP server "${name}": unknown format`);
+            continue;
          }
+
+         mcp[name] = serverConfig;
       }
    } catch (err) {
       warnings.push(`Failed to parse MCP config: ${(err as Error).message}`);
    }
 
    return { mcp, warnings };
+}
+
+function parseWindsurfServerEntry(server: unknown): McpServerConfig | null {
+   const parsed = parseStandardServerEntry(server, ENTRY_OPTIONS);
+
+   if (!parsed || !isRecord(server)) {
+      return parsed;
+   }
+
+   if (server.disabled === true) {
+      parsed.enabled = false;
+   }
+   if (Array.isArray(server.disabledTools) && server.disabledTools.length > 0) {
+      parsed.disabledTools = server.disabledTools.map(String);
+   }
+
+   return parsed;
 }
 
 /**

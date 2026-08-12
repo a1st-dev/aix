@@ -1,6 +1,6 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
-import { getTransport } from '../../../mcp/normalize.js';
+import { buildStandardServerEntry, parseStandardServerEntry } from '../shared/standard-mcp.js';
 
 /**
  * Zed MCP strategy. Uses `settings.json` with a `context_servers` object. Note that Zed's MCP
@@ -27,19 +27,7 @@ export class ZedMcpStrategy implements McpStrategy {
             continue;
          }
 
-         const transport = getTransport(serverConfig);
-
-         if (transport.type === 'stdio') {
-            contextServers[name] = {
-               command: transport.command,
-               args: transport.args ?? [],
-               env: transport.env ?? {},
-            };
-         } else if (transport.type === 'http') {
-            contextServers[name] = {
-               url: transport.url,
-            };
-         }
+         contextServers[name] = buildZedServerEntry(serverConfig);
       }
 
       return JSON.stringify({ context_servers: contextServers }, null, 2) + '\n';
@@ -57,24 +45,14 @@ export class ZedMcpStrategy implements McpStrategy {
                servers = config.context_servers ?? {};
 
          for (const [name, server] of Object.entries(servers)) {
-            const s = server as Record<string, unknown>;
+            const serverConfig = parseStandardServerEntry(server);
 
-            if (s.command) {
-               mcp[name] = {
-                  command: String(s.command),
-                  args: Array.isArray(s.args) ? s.args.map(String) : [],
-                  env:
-                     typeof s.env === 'object' && s.env !== null
-                        ? Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, String(v)]))
-                        : undefined,
-                  enabled: true,
-                  autoStart: true,
-                  restartOnFailure: true,
-                  maxRestarts: 3,
-               };
-            } else {
+            if (!serverConfig) {
                warnings.push(`Skipping Zed context server "${name}": unknown format`);
+               continue;
             }
+
+            mcp[name] = serverConfig;
          }
       } catch (err) {
          warnings.push(`Failed to parse Zed settings: ${(err as Error).message}`);
@@ -82,4 +60,20 @@ export class ZedMcpStrategy implements McpStrategy {
 
       return { mcp, warnings };
    }
+}
+
+/**
+ * Zed documents local context servers with `args` and `env` always present, so write both
+ * keys even when they are empty. Remote servers use the shared `url`/`headers` shape.
+ * Source: https://zed.dev/docs/ai/mcp
+ */
+function buildZedServerEntry(serverConfig: McpServerConfig): Record<string, unknown> {
+   const server = buildStandardServerEntry(serverConfig);
+
+   if ('command' in server) {
+      server.args = server.args ?? [];
+      server.env = server.env ?? {};
+   }
+
+   return server;
 }

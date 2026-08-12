@@ -1,6 +1,7 @@
 import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
+import { parseStringRecord } from '../shared/mcp-import-utils.js';
 import { getOpenCodeConfigImportPaths } from './import-utils.js';
 
 /**
@@ -152,13 +153,14 @@ function parseLocalServerConfig(
    }
 
    const commandParts = raw.command.map(String),
-         serverConfig: Record<string, unknown> = { command: commandParts[0] };
+         serverConfig: Record<string, unknown> = { command: commandParts[0] },
+         env = parseStringRecord(raw.environment);
 
    if (commandParts.length > 1) {
       serverConfig.args = commandParts.slice(1);
    }
-   if (isStringRecord(raw.environment)) {
-      serverConfig.env = raw.environment;
+   if (env) {
+      serverConfig.env = env;
    }
    addParsedCommonOptions(serverConfig, raw);
 
@@ -175,10 +177,11 @@ function parseRemoteServerConfig(
       return null;
    }
 
-   const serverConfig: Record<string, unknown> = { url: raw.url };
+   const serverConfig: Record<string, unknown> = { url: raw.url },
+         headers = parseStringRecord(raw.headers);
 
-   if (isStringRecord(raw.headers)) {
-      serverConfig.headers = raw.headers;
+   if (headers) {
+      serverConfig.headers = headers;
    }
    addParsedCommonOptions(serverConfig, raw);
 
@@ -195,12 +198,4 @@ function addParsedCommonOptions(
    if (typeof raw.timeout === 'number') {
       target.timeout = raw.timeout;
    }
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-   if (!value || typeof value !== 'object') {
-      return false;
-   }
-
-   return Object.values(value).every((item) => typeof item === 'string');
 }

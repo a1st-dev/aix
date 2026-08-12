@@ -7,6 +7,17 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep MCP auth headers when syncing a remote server between editors
+- Import remote MCP servers from Zed, which were skipped entirely
+- Write Gemini remote servers to `httpUrl`, its streamable HTTP key, and import
+  servers declared with either `httpUrl` or `url`
+- Map Codex remote auth to `http_headers`, `env_http_headers`, and
+  `bearer_token_env_var` instead of dropping it
+- Keep a disabled server in the Codex and Windsurf configs, marked disabled,
+  rather than removing it from the file
+
 ## [0.6.0] - 2026-08-12
 
 ### Added

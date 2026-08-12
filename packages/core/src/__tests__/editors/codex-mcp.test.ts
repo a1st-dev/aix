@@ -54,16 +54,23 @@ describe('CodexMcpStrategy', () => {
          });
       });
 
-      it('skips disabled servers', () => {
+      it('keeps a disabled server in the file, marked disabled', () => {
          const output = strategy.formatConfig({
             active: createMcpServer('cmd1'),
-            disabled: { command: 'cmd2', enabled: false } as McpServerConfig,
+            off: { command: 'cmd2', enabled: false } as McpServerConfig,
          });
 
-         const parsed = parseTOML(output) as { mcp_servers: Record<string, unknown> };
+         const parsed = parseTOML(output) as { mcp_servers: Record<string, Record<string, unknown>> };
 
-         expect(parsed.mcp_servers).toHaveProperty('active');
-         expect(parsed.mcp_servers).not.toHaveProperty('disabled');
+         expect(parsed.mcp_servers.active).toEqual({ command: 'cmd1' });
+         expect(parsed.mcp_servers.off).toEqual({ command: 'cmd2', enabled: false });
+      });
+
+      it('round-trips a disabled server rather than dropping it', () => {
+         const server: McpServerConfig = { command: 'cmd2', enabled: false } as McpServerConfig,
+               { mcp } = strategy.parseGlobalMcpConfig(strategy.formatConfig({ off: server }));
+
+         expect(mcp.off).toEqual(server);
       });
 
       it('handles URL-based servers', () => {
@@ -74,6 +81,67 @@ describe('CodexMcpStrategy', () => {
          const parsed = parseTOML(output) as { mcp_servers: Record<string, unknown> };
 
          expect(parsed.mcp_servers.remote).toEqual({ url: 'https://example.com/mcp' });
+      });
+
+      it('writes literal header values to http_headers', () => {
+         const output = strategy.formatConfig({
+            docs: { url: 'https://example.com/mcp', headers: { 'X-Tenant': 'acme' } } as McpServerConfig,
+         });
+
+         const parsed = parseTOML(output) as { mcp_servers: { docs: Record<string, unknown> } };
+
+         expect(parsed.mcp_servers.docs).toEqual({
+            url: 'https://example.com/mcp',
+            http_headers: { 'X-Tenant': 'acme' },
+         });
+      });
+
+      it('writes an env var header reference to env_http_headers', () => {
+         const output = strategy.formatConfig({
+            docs: { url: 'https://example.com/mcp', headers: { 'X-Api-Key': '${DOCS_KEY}' } } as McpServerConfig,
+         });
+
+         const parsed = parseTOML(output) as { mcp_servers: { docs: Record<string, unknown> } };
+
+         expect(parsed.mcp_servers.docs).toEqual({
+            url: 'https://example.com/mcp',
+            env_http_headers: { 'X-Api-Key': 'DOCS_KEY' },
+         });
+      });
+
+      it('writes a bearer token header to bearer_token_env_var', () => {
+         const output = strategy.formatConfig({
+            docs: {
+               url: 'https://example.com/mcp',
+               headers: { Authorization: 'Bearer ${DOCS_TOKEN}' },
+            } as McpServerConfig,
+         });
+
+         const parsed = parseTOML(output) as { mcp_servers: { docs: Record<string, unknown> } };
+
+         expect(parsed.mcp_servers.docs).toEqual({
+            url: 'https://example.com/mcp',
+            bearer_token_env_var: 'DOCS_TOKEN',
+         });
+      });
+
+      it('writes a header value that mixes text and an env var reference verbatim', () => {
+         const output = strategy.formatConfig({
+            docs: { url: 'https://example.com/mcp', headers: { 'X-Api-Key': 'key-${SUFFIX}' } } as McpServerConfig,
+         });
+
+         const parsed = parseTOML(output) as { mcp_servers: { docs: Record<string, unknown> } };
+
+         expect(parsed.mcp_servers.docs.http_headers).toEqual({ 'X-Api-Key': 'key-${SUFFIX}' });
+      });
+
+      it('never writes header fields on a stdio server, which Codex rejects', () => {
+         const output = strategy.formatConfig({
+            github: createMcpServer('npx', ['-y', 'server']),
+         });
+
+         expect(output).not.toContain('http_headers');
+         expect(output).not.toContain('bearer_token_env_var');
       });
 
       it('includes env when present', () => {
@@ -94,6 +162,54 @@ describe('CodexMcpStrategy', () => {
    });
 
    describe('parseGlobalMcpConfig', () => {
+      it('reads http_headers, env_http_headers, and bearer_token_env_var into one headers map', () => {
+         const toml = `[mcp_servers.docs]
+url = "https://example.com/mcp"
+bearer_token_env_var = "DOCS_TOKEN"
+
+[mcp_servers.docs.http_headers]
+X-Tenant = "acme"
+
+[mcp_servers.docs.env_http_headers]
+X-Api-Key = "DOCS_KEY"
+`;
+
+         const { mcp, warnings } = strategy.parseGlobalMcpConfig(toml);
+
+         expect(warnings).toEqual([]);
+         expect(mcp.docs).toEqual({
+            url: 'https://example.com/mcp',
+            headers: {
+               'X-Tenant': 'acme',
+               'X-Api-Key': '${DOCS_KEY}',
+               Authorization: 'Bearer ${DOCS_TOKEN}',
+            },
+         });
+      });
+
+      it('leaves a remote server without auth fields as a bare url', () => {
+         const { mcp } = strategy.parseGlobalMcpConfig('[mcp_servers.docs]\nurl = "https://example.com/mcp"\n');
+
+         expect(mcp.docs).toEqual({ url: 'https://example.com/mcp' });
+      });
+
+      it.each([
+         [ 'a literal header', { 'X-Tenant': 'acme' } ],
+         [ 'an env var header reference', { 'X-Api-Key': '${DOCS_KEY}' } ],
+         [ 'a bearer token', { Authorization: 'Bearer ${DOCS_TOKEN}' } ],
+         [ 'every header form at once', {
+            'X-Tenant': 'acme',
+            'X-Api-Key': '${DOCS_KEY}',
+            Authorization: 'Bearer ${DOCS_TOKEN}',
+         } ],
+      ])('round-trips a remote server with %s', (_label, headers) => {
+         const server: McpServerConfig = { url: 'https://example.com/mcp', headers },
+               { mcp, warnings } = strategy.parseGlobalMcpConfig(strategy.formatConfig({ docs: server }));
+
+         expect(warnings).toEqual([]);
+         expect(mcp.docs).toEqual(server);
+      });
+
       it('round-trips through format and parse', () => {
          const servers: Record<string, McpServerConfig> = {
             github: createMcpServer('npx', ['-y', '@modelcontextprotocol/server-github']),

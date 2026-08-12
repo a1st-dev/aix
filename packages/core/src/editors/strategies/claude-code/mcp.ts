@@ -1,7 +1,9 @@
 import type { McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
-import { StandardMcpStrategy } from '../shared/standard-mcp.js';
+import { buildStandardServerEntry, StandardMcpStrategy } from '../shared/standard-mcp.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
+
+const ENTRY_OPTIONS = { transportTypes: { stdio: 'stdio', http: 'http' } } as const;
 
 /**
  * Claude Code MCP strategy. Uses `.mcp.json` (dot-prefixed) at the project root and
@@ -35,30 +37,7 @@ export class ClaudeCodeMcpStrategy extends StandardMcpStrategy implements McpStr
             continue;
          }
 
-         if ('command' in serverConfig) {
-            const server: Record<string, unknown> = {
-               type: 'stdio',
-               command: serverConfig.command,
-            };
-
-            if (serverConfig.args && serverConfig.args.length > 0) {
-               server.args = serverConfig.args;
-            }
-            if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
-               server.env = serverConfig.env;
-            }
-            mcpServers[name] = server;
-         } else if ('url' in serverConfig) {
-            const server: Record<string, unknown> = {
-               type: 'http',
-               url: serverConfig.url,
-            };
-
-            if (serverConfig.headers && Object.keys(serverConfig.headers).length > 0) {
-               server.headers = serverConfig.headers;
-            }
-            mcpServers[name] = server;
-         }
+         mcpServers[name] = buildStandardServerEntry(serverConfig, ENTRY_OPTIONS);
       }
 
       return JSON.stringify({ mcpServers }, null, 2) + '\n';

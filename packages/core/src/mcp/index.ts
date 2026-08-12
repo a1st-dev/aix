@@ -3,6 +3,7 @@ export {
    resolveEnvObject,
    hasUnresolvedEnvVars,
    extractEnvVarNames,
+   getSoleEnvVarName,
    validateEnvVars,
    type EnvResolutionOptions,
 } from './env.js';
