@@ -53,6 +53,7 @@ function createEmptyState(scope: ConfigScope): StateFile {
          rules: {},
          prompts: {},
          agents: {},
+         hooks: {},
       },
    };
 }
@@ -72,6 +73,7 @@ export async function readState(scope: ConfigScope, projectRoot?: string): Promi
       const parsed = JSON.parse(raw) as StateFile;
 
       parsed.installed.agents ??= {};
+      parsed.installed.hooks ??= {};
 
       return parsed;
    } catch {
@@ -185,6 +187,55 @@ export function detectNewItems(
    return currentConfigNames.filter((name) => !tracked.has(name));
 }
 
+export interface UpdateInstalledStateOptions {
+   scope: ConfigScope;
+   /** Item names per section. Sections not listed are left alone. */
+   sections: Partial<Record<StateSection, string[]>>;
+   editors: string[];
+   projectRoot?: string;
+   /**
+    * `replace` swaps each listed section's tracked set, so items no longer in the config
+    * stop being tracked. `merge` adds the named items and leaves the rest of the section
+    * in place, for one-off installs that do not describe a whole section.
+    */
+   mode?: 'replace' | 'merge';
+}
+
+/**
+ * Record several sections in one read-modify-write pass. Updating sections with separate
+ * calls would race: each reads the same state file and the last write wins.
+ */
+export async function updateInstalledState(options: UpdateInstalledStateOptions): Promise<void> {
+   const { scope, sections, editors, projectRoot, mode = 'replace' } = options,
+         entries = Object.entries(sections);
+
+   if (entries.length === 0) {
+      return;
+   }
+
+   const state = await readState(scope, projectRoot),
+         now = new Date().toISOString();
+
+   for (const [ section, names ] of entries) {
+      if (!isStateSection(section) || !names) {
+         continue;
+      }
+
+      const updated: InstalledItems = mode === 'merge' ? { ...state.installed[section] } : {};
+
+      for (const name of names) {
+         const existing = state.installed[section][name];
+
+         updated[name] = existing
+            ? { ...existing, updatedAt: now, editors: [ ...new Set([ ...existing.editors, ...editors ]) ] }
+            : { installedAt: now, updatedAt: now, editors };
+      }
+      state.installed[section] = updated;
+   }
+
+   await writeState(state, scope, projectRoot);
+}
+
 /**
  * Replace the entire installed set for a section. Useful after a full install pass.
  */
@@ -204,6 +255,12 @@ export async function syncSectionState(...args: SyncSectionStateArgs): Promise<v
    }
    state.installed[section] = updated;
    await writeState(state, scope, projectRoot);
+}
+
+const STATE_SECTIONS = new Set<string>(['mcp', 'skills', 'rules', 'prompts', 'agents', 'hooks']);
+
+function isStateSection(section: string): section is StateSection {
+   return STATE_SECTIONS.has(section);
 }
 
 function normalizeTrackInstallArgs(args: TrackInstallArgs): TrackInstallOptions {

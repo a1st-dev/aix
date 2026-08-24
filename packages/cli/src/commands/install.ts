@@ -8,12 +8,14 @@ import { BaseCommand } from '../base-command.js';
 import {
    displayFileChanges,
    displayGlobalChanges,
+   showTargetScopeLimitationWarnings,
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
+import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
 import {
    installToEditor,
    detectEditors,
@@ -267,8 +269,19 @@ export default class Install extends BaseCommand<typeof Install> {
          results.push(result);
       }
 
-      // After successful installation, clean stale cache entries
       const allSucceeded = results.every((r) => r.success);
+
+      if (!isDryRun) {
+         await recordInstalledSections({
+            config: loaded.config,
+            sections: sections as ConfigSection[],
+            scope: targetScope,
+            editors: results.filter((result) => result.success).map((result) => result.editor),
+            projectRoot,
+         });
+      }
+
+      // After successful installation, clean stale cache entries
 
       if (allSucceeded && !isDryRun) {
          const cleanup = await cleanStaleCache(projectRoot, {
@@ -565,6 +578,16 @@ export default class Install extends BaseCommand<typeof Install> {
          results.push(result);
       }
 
+      if (!isDryRun) {
+         await recordInstalledItems({
+            config: direct.config,
+            sections,
+            scope: targetScope,
+            editors: results.filter((result) => result.success).map((result) => result.editor),
+            projectRoot: process.cwd(),
+         });
+      }
+
       if (this.flags.json) {
          this.output.json({
             dryRun: isDryRun,
@@ -679,7 +702,7 @@ export default class Install extends BaseCommand<typeof Install> {
             targetScope,
          });
 
-         this.handleInstallResult(editor, result, isDryRun);
+         this.handleInstallResult(editor, result, isDryRun, targetScope ?? 'project');
          return result;
       } catch (error) {
          this.output.stopSpinner(false, `Failed to install to ${editor}`);
@@ -697,7 +720,19 @@ export default class Install extends BaseCommand<typeof Install> {
       editor: EditorName,
       result: ApplyResult,
       isDryRun: boolean,
+      targetScope: ConfigScope = 'project',
    ): void {
+      const showWarnings = (): void => {
+         showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
+         showTargetScopeLimitationWarnings({
+            output: this.output,
+            quiet: this.flags.quiet,
+            editor,
+            targetScope,
+            limitations: result.targetScopeLimitations,
+         });
+      };
+
       const hasLocalChanges = result.changes.length > 0,
             hasGlobalChanges = Boolean(
                result.globalChanges
@@ -728,7 +763,7 @@ export default class Install extends BaseCommand<typeof Install> {
                finalBlank: true,
             });
          }
-         showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
+         showWarnings();
          return;
       }
 
@@ -745,6 +780,7 @@ export default class Install extends BaseCommand<typeof Install> {
             true,
             `Nothing to install for ${editor} (no rules or MCP servers configured)`,
          );
+         showWarnings();
          return;
       }
 
@@ -781,7 +817,7 @@ export default class Install extends BaseCommand<typeof Install> {
          }
       }
 
-      showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
+      showWarnings();
    }
 
    /**

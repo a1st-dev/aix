@@ -1,6 +1,6 @@
 import type { AiJsonConfig, McpServerConfig, HooksConfig, AgentObject } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
-import type { EditorStrategyBundle } from './strategies/types.js';
+import type { EditorStrategyBundle, UnsupportedHookField } from './strategies/types.js';
 
 /**
  * Describes features in ai.json that won't be applied to an editor because the editor doesn't
@@ -17,6 +17,8 @@ export interface UnsupportedFeatures {
       reason: string;
       /** If editor supports hooks but not all events, lists unsupported events */
       unsupportedEvents?: string[];
+      /** Action fields the editor cannot express, per action, dropped from the written config */
+      unsupportedFields?: UnsupportedHookField[];
       /** If editor doesn't support hooks at all, true */
       allUnsupported?: boolean;
    };

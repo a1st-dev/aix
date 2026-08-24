@@ -1,6 +1,6 @@
 import { join, dirname, basename } from 'pathe';
 import { isRecord } from '../../type-guards.js';
-import type { AiJsonConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
+import type { AiJsonConfig, HooksConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import { parseJsonc } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
@@ -29,6 +29,7 @@ import { loadAgents as loadAgentsFromConfig, type LoadedAgent } from '../../agen
 import { mergeRules, type MergedRule } from '../../rules/merger.js';
 import { resolveAllSkills } from '../../skills/resolve.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import { hasHooksConfigPath, resolveHooksConfigPath } from '../strategies/shared/index.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
 
 /**
@@ -529,17 +530,25 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          return changes;
       }
 
+      const hooksPath = resolveHooksConfigPath(
+         this.hooksStrategy,
+         configDir,
+         options.targetScope ?? 'project',
+      );
+
+      // No path for the requested scope means this editor cannot hold hooks there. The skip
+      // is reported through getTargetScopeLimitations rather than written somewhere else.
+      if (!hooksPath) {
+         return changes;
+      }
+
       const formattedHooks = this.hooksStrategy.formatConfig(editorConfig.hooks),
-            globalHooksPath = this.hooksStrategy.getGlobalConfigPath(),
             parsedHooks = JSON.parse(formattedHooks) as { hooks?: Record<string, unknown> };
 
       if (!parsedHooks.hooks || Object.keys(parsedHooks.hooks).length === 0) {
          return changes;
       }
 
-      const hooksPath = options.targetScope === 'user' && globalHooksPath
-         ? join(getRuntimeAdapter().os.homedir(), globalHooksPath)
-         : join(configDir, this.hooksStrategy.getConfigPath());
       const change = await this.planJsonFileChange(hooksPath, formattedHooks, options);
 
       changes.push({ ...change, category: 'hook' });
@@ -767,20 +776,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // Check hooks support
       if (config.hooks && Object.keys(config.hooks).length > 0) {
-         if (!this.hooksStrategy.isSupported()) {
-            unsupported.hooks = {
-               reason: `${this.name} does not support hooks`,
-               allUnsupported: true,
-            };
-         } else {
-            const unsupportedEvents = this.hooksStrategy.getUnsupportedEvents(config.hooks);
+         unsupported.hooks = this.getUnsupportedHooks(config.hooks);
 
-            if (unsupportedEvents.length > 0) {
-               unsupported.hooks = {
-                  reason: `${this.name} does not support some hook events`,
-                  unsupportedEvents,
-               };
-            }
+         if (!unsupported.hooks) {
+            delete unsupported.hooks;
          }
       }
 
@@ -807,6 +806,42 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       return unsupported;
    }
 
+   /**
+    * Describe what this editor cannot express from the configured hooks: the whole feature,
+    * individual events, or individual action fields. Returns undefined when everything is
+    * representable.
+    */
+   protected getUnsupportedHooks(hooks: HooksConfig): UnsupportedFeatures['hooks'] {
+      if (!this.hooksStrategy.isSupported()) {
+         return {
+            reason: `${this.name} does not support hooks`,
+            allUnsupported: true,
+         };
+      }
+
+      const unsupportedEvents = this.hooksStrategy.getUnsupportedEvents(hooks),
+            unsupportedFields = this.hooksStrategy.getUnsupportedFields(hooks);
+
+      if (unsupportedEvents.length === 0 && unsupportedFields.length === 0) {
+         return undefined;
+      }
+
+      const reasons: string[] = [];
+
+      if (unsupportedEvents.length > 0) {
+         reasons.push('some hook events');
+      }
+      if (unsupportedFields.length > 0) {
+         reasons.push('some hook action fields');
+      }
+
+      return {
+         reason: `${this.name} does not support ${reasons.join(' or ')}`,
+         ...(unsupportedEvents.length > 0 ? { unsupportedEvents } : {}),
+         ...(unsupportedFields.length > 0 ? { unsupportedFields } : {}),
+      };
+   }
+
    getTargetScopeLimitations(
       config: AiJsonConfig,
       targetScope: 'project' | 'user',
@@ -819,6 +854,17 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
                .filter(([, value]) => value !== false)
                .map(([name]) => name),
             hookEvents = Object.keys(config.hooks ?? {});
+
+      if (
+         hookEvents.length > 0 &&
+         this.hooksStrategy.isSupported() &&
+         !hasHooksConfigPath(this.hooksStrategy, targetScope)
+      ) {
+         limitations.hooks = {
+            reason: `${this.name} has no ${targetScope}-scope hooks config file`,
+            events: hookEvents,
+         };
+      }
 
       if (targetScope !== 'user') {
          return limitations;
@@ -835,13 +881,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          limitations.skills = {
             reason: `${this.name} cannot activate pointer skills at user scope without a writable user-scope rules file`,
             skills: skillNames,
-         };
-      }
-
-      if (hookEvents.length > 0 && !this.hooksStrategy.getGlobalConfigPath()) {
-         limitations.hooks = {
-            reason: `${this.name} does not have a user-scope hooks config path`,
-            events: hookEvents,
          };
       }
 

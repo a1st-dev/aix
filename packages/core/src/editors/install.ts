@@ -146,9 +146,9 @@ export async function installToEditor(
          adapter = getAdapter(editorName),
          targetScope = options?.targetScope ?? 'project',
          unsupportedFeatures = adapter.getUnsupportedFeatures(config),
-         targetScopeLimitations = options?.strictTargetScope
-            ? adapter.getTargetScopeLimitations(config, targetScope)
-            : undefined,
+         // Always reported so every command can warn; only strict mode also strips the
+         // affected sections from what gets written.
+         targetScopeLimitations = adapter.getTargetScopeLimitations(config, targetScope),
          filteredConfig =
             options?.strictTargetScope && targetScopeLimitations
                ? stripTargetScopeLimitedFeatures(config, targetScopeLimitations)

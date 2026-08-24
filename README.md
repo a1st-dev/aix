@@ -20,6 +20,8 @@ aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-de
 aix add rule ../rules/typescript-rules.md
 # Add a prompt (also known as a workflow or slash command)
 aix add prompt ../prompts/review.md
+# Add a hook that runs on an editor lifecycle event
+aix add hook pre_command --command "npm run lint"
 # Install all of the above to any supported editor. Outputs workspace-specific config
 aix install --target claude-code --target cursor
 # Install one item directly without creating ai.json
@@ -43,13 +45,15 @@ Supported editors:
 
 Define your AI agent configuration once in `ai.json`.
 
-`aix` gives you one source of truth for your skills, prompts, rules, MCP server config.
-Then, use that config with any supported agent/editor: claude-code, cursor, copilot, opencode, etc.
+`aix` gives you one source of truth for your skills, prompts, rules, hooks, and MCP server
+config. Then, use that config with any supported agent/editor: claude-code, cursor,
+copilot, opencode, etc.
 
 Standardize your AI config. Share it with your team. Check it into version control.
 
 - **Discover new MCP servers and skills** - Use `aix search` to find and add new MCP servers and skills
-- **Stop duplicating config** — Define skills, MCP servers, rules, and prompts once instead of per-editor
+- **Stop duplicating config** — Define skills, MCP servers, rules, prompts, and hooks once instead of per-editor
+- **Write hooks once** — One set of lifecycle hooks becomes each editor's own event names and config format
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
 - **Move between editors without pairwise converters** — `aix sync` reads one editor into aix's normalized bridge format, then installs what the destination can represent
@@ -91,9 +95,12 @@ aix add mcp playwright                # Add MCP server from registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix add rule ./rules/typescript.md    # Add a rule from file or URL
 aix add prompt ./prompts/review.md    # Add a prompt/command from file or URL
+aix add hook pre_command --command "npm run lint" # Add a hook on a lifecycle event
+aix add hook ./hooks/guard.json       # Add a hook from a JSON fragment
 aix remove skill typescript           # Remove a skill and uninstall from editors
 aix remove mcp playwright             # Remove an MCP server
-aix list skills                       # List configured skills (or mcp, rules, prompts, editors)
+aix remove hook pre_command           # Remove a hook and uninstall from editors
+aix list skills                       # List configured skills (or mcp, rules, prompts, hooks, editors)
 aix list --scope user                 # List user-scoped config only
 aix list --all --editor copilot       # Show actual editor config, including externally managed items
 ```

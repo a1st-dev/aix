@@ -3,6 +3,7 @@ import type {
    EditorName,
    FileChange,
    FileChangeCategory,
+   TargetScopeLimitations,
    UnsupportedFeatures,
 } from '@a1st/aix-core';
 import type { Output } from './output.js';
@@ -43,6 +44,71 @@ export interface DisplayGlobalChangesOptions {
    showWarningsWithoutEntries?: boolean;
 }
 
+function showUnsupportedHookWarnings(
+   output: Output,
+   editor: EditorName,
+   hooks: NonNullable<UnsupportedFeatures['hooks']>,
+): void {
+   if (hooks.allUnsupported) {
+      output.warn(`${editor} does not support hooks. No hooks were installed for it.`);
+      return;
+   }
+
+   if (hooks.unsupportedEvents?.length) {
+      output.warn(
+         `${editor} has no equivalent for these hook events, so they were skipped: ` +
+            `${hooks.unsupportedEvents.join(', ')}`,
+      );
+   }
+
+   for (const field of hooks.unsupportedFields ?? []) {
+      output.warn(
+         `${editor} ignores these fields on hook ${field.event} ` +
+            `(matcher ${field.matcherIndex}, action ${field.actionIndex}): ${field.fields.join(', ')}`,
+      );
+   }
+}
+
+export interface TargetScopeLimitationOptions {
+   output: Output;
+   quiet: boolean;
+   editor: EditorName;
+   targetScope: 'project' | 'user';
+   limitations?: TargetScopeLimitations;
+}
+
+/**
+ * Warn about config that the editor supports in general but cannot accept at the scope
+ * this install targeted.
+ */
+export function showTargetScopeLimitationWarnings(options: TargetScopeLimitationOptions): void {
+   const { output, quiet, editor, targetScope, limitations } = options;
+
+   if (!limitations || quiet) {
+      return;
+   }
+
+   if (limitations.rules) {
+      output.warn(
+         `${editor} cannot write rules at ${targetScope} scope. Skipped: ${limitations.rules.rules.join(', ')}`,
+      );
+   }
+
+   if (limitations.skills) {
+      output.warn(
+         `${editor} cannot activate these skills at ${targetScope} scope. ` +
+            `Skipped: ${limitations.skills.skills.join(', ')}`,
+      );
+   }
+
+   if (limitations.hooks) {
+      output.warn(
+         `${editor} cannot write hooks at ${targetScope} scope (${limitations.hooks.reason}). ` +
+            `Skipped events: ${limitations.hooks.events.join(', ')}`,
+      );
+   }
+}
+
 export function showUnsupportedFeatureWarnings(
    output: Output,
    quiet: boolean,
@@ -60,13 +126,7 @@ export function showUnsupportedFeatureWarnings(
    }
 
    if (unsupported.hooks) {
-      if (unsupported.hooks.allUnsupported) {
-         output.warn(`${editor} does not support hooks. All hooks skipped.`);
-      } else if (unsupported.hooks.unsupportedEvents?.length) {
-         output.warn(
-            `${editor} does not support these hook events: ${unsupported.hooks.unsupportedEvents.join(', ')}`,
-         );
-      }
+      showUnsupportedHookWarnings(output, editor, unsupported.hooks);
    }
 
    if (unsupported.prompts) {

@@ -7,3 +7,4 @@ export { NoHooksStrategy } from './no-hooks.js';
 export { MarkdownAgentsStrategy, NoAgentsStrategy } from './agents.js';
 export { GlobalMcpStrategy } from './global-mcp.js';
 export { formatPlainMarkdownRule } from './rule-utils.js';
+export { hasHooksConfigPath, resolveHooksConfigPath } from './hook-paths.js';

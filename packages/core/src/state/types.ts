@@ -3,7 +3,7 @@ import type { ConfigScope } from '@a1st/aix-schema';
 /**
  * The section types that can be tracked in state.
  */
-export type StateSection = 'mcp' | 'skills' | 'rules' | 'prompts' | 'agents';
+export type StateSection = 'mcp' | 'skills' | 'rules' | 'prompts' | 'agents' | 'hooks';
 
 /**
  * Metadata for a single installed item.
@@ -18,7 +18,8 @@ export interface InstalledItemMeta {
 }
 
 /**
- * A record of installed items keyed by name.
+ * A record of installed items keyed by name. Hooks are keyed by event name, since that is
+ * what identifies a hook in `ai.json`.
  */
 export type InstalledItems = Record<string, InstalledItemMeta>;
 
@@ -37,5 +38,6 @@ export interface StateFile {
       rules: InstalledItems;
       prompts: InstalledItems;
       agents: InstalledItems;
+      hooks: InstalledItems;
    };
 }

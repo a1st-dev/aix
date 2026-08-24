@@ -204,3 +204,16 @@ export const hooksSchema = z
    .describe('Hooks configuration for lifecycle events');
 
 export type HooksConfig = z.infer<typeof hooksSchema>;
+
+/**
+ * All hook event names, in the order they are declared above.
+ */
+export const hookEvents: readonly HookEvent[] = hookEventSchema.options;
+
+/**
+ * Type guard for hook event names, used to narrow user-supplied strings (CLI arguments,
+ * imported editor config) into `HookEvent` keys.
+ */
+export function isHookEvent(event: string): event is HookEvent {
+   return hookEvents.some((name) => name === event);
+}

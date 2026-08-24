@@ -11,7 +11,21 @@ to run, a model response just landed, …). aix lets you author one set of hooks
 
 ## Usage
 
-Define hooks in `ai.json`:
+Add a hook from the command line:
+
+```bash
+aix add hook pre_command --command "npm run lint"
+aix add hook pre_file_write --matcher "Write|Edit" --command ./scripts/guard.sh
+aix add hook ./hooks/guard.json
+```
+
+`aix add hook` writes the hook to `ai.json` and installs it, joining whatever is already
+registered for that event. `aix list hooks` shows what is configured, `aix list --all`
+shows what your editors actually hold, and `aix remove hook <event>` takes one back out of
+`ai.json` and your editor config. See [`aix add`](/cli/add/) and [`aix remove`](/cli/remove/)
+for every flag.
+
+Or define hooks in `ai.json` directly:
 
 ```json
 {
@@ -33,8 +47,10 @@ Define hooks in `ai.json`:
 ```
 
 When you run `aix install`, each enabled editor adapter translates that block into the
-editor's native config format and writes it to the right file. Unsupported events are
-warned about — never silently dropped.
+editor's native config format and writes it to the right file. Nothing is dropped
+silently: aix warns when the editor has no hooks support at all, when an individual event
+has no native equivalent, when an action field cannot be expressed, and when the editor
+has no hooks file at the scope you targeted.
 
 To install one hook fragment without creating `ai.json`, use direct install:
 

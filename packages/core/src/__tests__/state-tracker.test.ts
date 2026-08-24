@@ -13,6 +13,7 @@ import {
    detectRemovedItems,
    detectNewItems,
    syncSectionState,
+   updateInstalledState,
    getStatePath,
 } from '../state/tracker.js';
 import type { StateFile } from '../state/types.js';
@@ -52,6 +53,7 @@ describe('readState', () => {
       expect(state.installed.skills).toEqual({});
       expect(state.installed.rules).toEqual({});
       expect(state.installed.prompts).toEqual({});
+      expect(state.installed.hooks).toEqual({});
    });
 });
 
@@ -72,6 +74,7 @@ describe('writeState / readState roundtrip', () => {
             rules: {},
             prompts: {},
             agents: {},
+            hooks: {},
          },
       };
 
@@ -94,7 +97,7 @@ describe('writeState / readState roundtrip', () => {
       const state: StateFile = {
          version: 1,
          scope: 'project',
-         installed: { mcp: {}, skills: {}, rules: {}, prompts: {}, agents: {} },
+         installed: { mcp: {}, skills: {}, rules: {}, prompts: {}, agents: {}, hooks: {} },
       };
 
       await writeState(state, 'project', subDir);
@@ -330,5 +333,106 @@ describe('syncSectionState', () => {
       expect(state.installed.mcp['keep']!.installedAt).toBe(originalInstall);
       expect(state.installed.mcp['keep']!.editors).toContain('cursor');
       expect(state.installed.mcp['keep']!.editors).toContain('claude-code');
+   });
+});
+
+describe('updateInstalledState', () => {
+   it('records every section in one pass', async () => {
+      await updateInstalledState({
+         scope: 'project',
+         sections: {
+            mcp: ['demo'],
+            rules: ['style'],
+            prompts: ['review'],
+            hooks: ['pre_command'],
+         },
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      const state = await readState('project', testDir);
+
+      expect(getInstalledNames(state, 'mcp')).toEqual(['demo']);
+      expect(getInstalledNames(state, 'rules')).toEqual(['style']);
+      expect(getInstalledNames(state, 'prompts')).toEqual(['review']);
+      expect(getInstalledNames(state, 'hooks')).toEqual(['pre_command']);
+   });
+
+   it('replaces a listed section and leaves unlisted sections alone', async () => {
+      await updateInstalledState({
+         scope: 'project',
+         sections: { mcp: ['old'], rules: ['style'] },
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      await updateInstalledState({
+         scope: 'project',
+         sections: { mcp: ['fresh'] },
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      const state = await readState('project', testDir);
+
+      expect(getInstalledNames(state, 'mcp')).toEqual(['fresh']);
+      expect(getInstalledNames(state, 'rules')).toEqual(['style']);
+   });
+
+   it('adds to a section without removing the rest in merge mode', async () => {
+      await updateInstalledState({
+         scope: 'project',
+         sections: { mcp: ['first'] },
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      await updateInstalledState({
+         scope: 'project',
+         sections: { mcp: ['second'] },
+         editors: ['cursor'],
+         projectRoot: testDir,
+         mode: 'merge',
+      });
+
+      const state = await readState('project', testDir);
+
+      expect(getInstalledNames(state, 'mcp').toSorted()).toEqual(['first', 'second']);
+   });
+
+   it('keeps the original install time and unions the editors of an existing item', async () => {
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'keep',
+         editors: ['cursor'],
+         projectRoot: testDir,
+      });
+
+      const before = await readState('project', testDir),
+            originalInstall = before.installed.mcp['keep']!.installedAt;
+
+      await updateInstalledState({
+         scope: 'project',
+         sections: { mcp: ['keep'] },
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      const state = await readState('project', testDir);
+
+      expect(state.installed.mcp['keep']!.installedAt).toStrictEqual(originalInstall);
+      expect(state.installed.mcp['keep']!.editors.toSorted()).toEqual(['claude-code', 'cursor']);
+   });
+
+   it('writes nothing when no sections are given', async () => {
+      await updateInstalledState({
+         scope: 'project',
+         sections: {},
+         editors: ['claude-code'],
+         projectRoot: testDir,
+      });
+
+      expect(existsSync(getStatePath('project', testDir))).toStrictEqual(false);
    });
 });

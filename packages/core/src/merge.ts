@@ -1,4 +1,11 @@
-import type { AiJsonConfig, RulesConfig, PromptsConfig, AgentsConfig } from '@a1st/aix-schema';
+import {
+   isHookEvent,
+   type AiJsonConfig,
+   type RulesConfig,
+   type PromptsConfig,
+   type AgentsConfig,
+   type HooksConfig,
+} from '@a1st/aix-schema';
 import { deepMergeJson } from './json.js';
 
 /**
@@ -127,6 +134,7 @@ function mergeWithFalseSupport<T extends Record<string, unknown>>(
  * - `prompts`: Object merge by key, replace entire value on key conflict
  * - `agents`: Object merge by key, replace entire value on key conflict
  * - `mcp`: Object merge by key, replace entire value on key conflict
+ * - `hooks`: Object merge by event name, replace the event's matchers on key conflict
  * - `editors`: Object merge by key, deep merge on key conflict
  * - `$schema`, `extends`: Remote wins
  *
@@ -178,6 +186,14 @@ export function mergeConfigs(local: AiJsonConfig, remote: Partial<AiJsonConfig>)
       ) as AiJsonConfig['mcp'];
    }
 
+   // Merge hooks (event-level replacement: a remote event's matchers replace the local ones)
+   if (remote.hooks !== undefined) {
+      result.hooks = mergeWithFalseSupport(
+         local.hooks as Record<string, unknown> | undefined,
+         remote.hooks as Record<string, unknown> | undefined,
+      ) as HooksConfig;
+   }
+
    // Merge editors (deep merge, remote wins on key conflict)
    if (remote.editors !== undefined) {
       // Handle both array and object forms - normalize to object for merging
@@ -224,4 +240,22 @@ function normalizeEditors(editors: AiJsonConfig['editors']): Record<string, unkn
    }
 
    return editors as Record<string, unknown>;
+}
+
+/**
+ * Append hook matchers to an existing hooks config, keeping the matchers already
+ * registered for the same event. Used by `aix add hook`, where a new hook joins the
+ * event's existing matchers instead of replacing them.
+ */
+export function appendHooks(base: HooksConfig | undefined, added: HooksConfig): HooksConfig {
+   const result: HooksConfig = { ...base };
+
+   for (const [ event, matchers ] of Object.entries(added)) {
+      if (!isHookEvent(event) || !matchers) {
+         continue;
+      }
+      result[event] = [ ...(result[event] ?? []), ...matchers ];
+   }
+
+   return result;
 }

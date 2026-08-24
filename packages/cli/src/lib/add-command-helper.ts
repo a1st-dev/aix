@@ -5,7 +5,7 @@ import { resolveScope } from '@a1st/aix-schema';
 import { refreshLockfile } from './lockfile-helper.js';
 import { formatInstallResults, installAfterAdd, installSingleItem } from './install-helper.js';
 import type { Output } from './output.js';
-import { resolveConfigScope } from '../flags/scope.js';
+import { isUserScopeRequested, resolveConfigScope } from '../flags/scope.js';
 
 export interface PersistAddedItemOptions {
    loaded?: LoadedConfig;
@@ -51,7 +51,7 @@ export function getAddSources(args: { source: string }, argv: unknown[]): string
 }
 
 export function isUserScopeAdd(flags: AddScopeFlags): boolean {
-   return flags.user === true || flags.scope === 'user';
+   return isUserScopeRequested(flags);
 }
 
 export function rejectUserScopeProjectConfigFlags(options: {

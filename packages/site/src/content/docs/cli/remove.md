@@ -15,6 +15,8 @@ For skills, aix removes both the managed `.aix/skills/{name}/` copy and any nati
 aix remove <type> <name> [flags]
 ```
 
+`<name>` is the item name, or the event name for `aix remove hook`.
+
 ## Commands
 
 ### `aix remove skill`
@@ -31,12 +33,25 @@ aix remove mcp github
 
 Also cleans up global MCP config if the server is no longer used by any project.
 
+### `aix remove hook`
+
+```bash
+aix remove hook pre_command
+aix remove hook session_start --user --target claude-code
+```
+
+Removes the event from `ai.json` and every entry your editors hold for it, including
+entries you wrote by hand. Hooks belonging to other events survive even when they share a
+native event name: removing `pre_command` from Claude Code drops the `PreToolUse` groups
+matching `Bash` and leaves a `pre_file_write` group matching `Write|Edit` in place. With
+`--user`, `ai.json` is neither read nor written, matching `aix add hook --user`.
+
 ## Flags
 
-| Flag                                                     | Description                                    |
-| -------------------------------------------------------- | ---------------------------------------------- |
-| `--local` / `-l`                                         | Remove from `ai.local.json`.                   |
-| `--yes` / `-y`                                           | Skip confirmation prompt.                      |
-| `--no-delete`                                            | Skip deleting files from editors (for skills). |
-| `--no-sync`                                              | Skip syncing editor config (for MCP).          |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Target user-level or project-level config.     |
+| Flag                                                     | Description                                     |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| `--local` / `-l`                                         | Remove from `ai.local.json`.                    |
+| `--yes` / `-y`                                           | Skip confirmation prompt.                       |
+| `--no-delete`                                            | Skip deleting files from editors (for skills).  |
+| `--no-sync`                                              | Skip syncing editor config (for MCP and hooks). |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Target user-level or project-level config.      |

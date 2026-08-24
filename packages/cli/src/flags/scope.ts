@@ -62,6 +62,14 @@ export const configScopeFlags = {
 };
 
 /**
+ * Whether the flags ask for user scope, before any config-derived default applies. Commands
+ * use this to skip the project ai.json entirely for user-scope operations.
+ */
+export function isUserScopeRequested(flags: { scope?: string; user?: boolean }): boolean {
+   return flags.user === true || flags.scope === 'user';
+}
+
+/**
  * Resolve the target ConfigScope from the parsed flags.
  * Priority: --scope > --user/--project > defaultScope.
  */

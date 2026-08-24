@@ -47,9 +47,12 @@ export {
 export {
    removeMcpFromEditor,
    removeMcpFromEditors,
+   removeHookFromEditor,
+   removeHookFromEditors,
 } from './remove.js';
 export type {
    RemoveMcpFromEditorResult,
+   RemoveHookFromEditorResult,
 } from './remove.js';
 
 export {

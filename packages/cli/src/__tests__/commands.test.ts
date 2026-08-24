@@ -398,6 +398,112 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install state tracking', () => {
+      it('records every installed section so listings mark the items as aix-managed', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         process.env.HOME = join(testDir, 'fake-home');
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' } },
+            rules: { style: { content: 'Be direct.' } },
+            hooks: { pre_command: [ { hooks: [ { command: './lint.sh' } ] } ] },
+         });
+
+         const { error } = await runCli(['install', '--config', configPath], { root });
+
+         expect(error).toBeUndefined();
+
+         const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(Object.keys(state.installed.mcp)).toEqual(['demo']);
+         expect(Object.keys(state.installed.rules)).toEqual(['style']);
+         expect(Object.keys(state.installed.hooks)).toEqual(['pre_command']);
+
+         const { stdout } = await runCli(
+            ['list', '--all', '--editor', 'claude-code', '--config', configPath],
+            { root },
+         );
+         const rows = stdout.split('\n').filter((line) => /\bproject\b/.test(line));
+
+         expect(rows).toHaveLength(3);
+         expect(rows.every((row) => row.includes(' aix '))).toStrictEqual(true);
+      });
+
+      it('stops tracking an item that was dropped from ai.json', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' }, extra: { command: 'npx extra' } },
+         });
+         await runCli(['install', '--config', configPath], { root });
+
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' } },
+         });
+         await runCli(['install', '--config', configPath], { root });
+
+         const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(Object.keys(state.installed.mcp)).toEqual(['demo']);
+      });
+
+      it('leaves sections outside --only untouched', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' } },
+            rules: { style: { content: 'Be direct.' } },
+         });
+         await runCli(['install', '--config', configPath], { root });
+         await runCli(['install', '--only', 'mcp', '--config', configPath], { root });
+
+         const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(Object.keys(state.installed.rules)).toEqual(['style']);
+      });
+
+      it('records nothing on a dry run', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' } },
+         });
+
+         const { error } = await runCli(['install', '--dry-run', '--config', configPath], { root });
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix', 'state.json'))).toStrictEqual(false);
+      });
+
+      it('adds a directly installed item without dropping the rest of the section', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               mcpPath = join(testDir, 'other.json');
+
+         await writeValidConfig(configPath, {
+            editors: { 'claude-code': {} },
+            mcp: { demo: { command: 'npx demo' } },
+         });
+         await runCli(['install', '--config', configPath], { root });
+         await writeFile(mcpPath, JSON.stringify({ command: 'npx other' }));
+
+         const { error } = await runCli(
+            ['install', mcpPath, '--type', 'mcp', '--name', 'other', '--target', 'claude-code'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(Object.keys(state.installed.mcp).toSorted()).toEqual(['demo', 'other']);
+      });
+   });
+
    describe('add mcp and remove mcp', () => {
       it('removes a user-scope MCP server from the same detected editors add installs to', async () => {
          const fakeHome = join(testDir, 'fake-home');
@@ -712,6 +818,31 @@ describe('CLI Commands', () => {
          expect(stdout).toContain('Hooks');
          expect(stdout).toContain('settings.json');
       });
+
+      it('records synced items so the destination lists them as aix-managed', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.cursor'), { recursive: true });
+         await writeFile(
+            join(fakeHome, '.cursor', 'hooks.json'),
+            JSON.stringify({ hooks: { beforeShellExecution: [{ command: 'echo pre' }] } }),
+            'utf-8',
+         );
+
+         const { error } = await runCli(['sync', 'cursor', '--to', 'claude-code'], { root });
+
+         expect(error).toBeUndefined();
+
+         const state = JSON.parse(await readFile(join(fakeHome, '.aix', 'state.json'), 'utf-8'));
+
+         expect(Object.keys(state.installed.hooks)).toEqual(['pre_command']);
+
+         const { stdout } = await runCli(['list', '-u', '--editor', 'claude-code'], { root });
+
+         expect(stdout).toContain('aix');
+         expect(stdout).toContain('pre_command');
+      });
    });
 
    describe('add rule', () => {
@@ -833,6 +964,357 @@ describe('CLI Commands', () => {
 
          expect(error).toBeDefined();
          expect(stderr).toContain('These flags can only be used with one source: --argument-hint');
+      });
+   });
+
+   describe('add hook and list hooks', () => {
+      it('adds an inline hook to ai.json and installs it to the target editor', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const { error } = await runCli(
+            [
+               'add',
+               'hook',
+               'pre_command',
+               '--command',
+               'npm run lint',
+               '--target',
+               'claude-code',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const config = JSON.parse(await readFile(configPath, 'utf-8')),
+               settings = JSON.parse(await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8'));
+
+         expect(config.hooks.pre_command[0].hooks[0].command).toStrictEqual('npm run lint');
+         expect(settings.hooks.PreToolUse[0].matcher).toStrictEqual('Bash');
+         expect(settings.hooks.PreToolUse[0].hooks[0].command).toStrictEqual('npm run lint');
+      });
+
+      it('appends to an event that already has a hook instead of replacing it', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+            },
+         });
+
+         const { error } = await runCli(
+            [
+               'add',
+               'hook',
+               'pre_command',
+               '--command',
+               './audit.sh',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const config = JSON.parse(await readFile(configPath, 'utf-8'));
+
+         expect(config.hooks.pre_command).toHaveLength(2);
+         expect(config.hooks.pre_command[0].hooks[0].command).toStrictEqual('./lint.sh');
+         expect(config.hooks.pre_command[1].hooks[0].command).toStrictEqual('./audit.sh');
+      });
+
+      it('adds a hook from a local JSON fragment', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               hooksDir = join(testDir, 'hooks');
+
+         await writeValidConfig(configPath);
+         await mkdir(hooksDir, { recursive: true });
+         await writeFile(
+            join(hooksDir, 'guard.json'),
+            JSON.stringify({
+               event: 'pre_file_write',
+               matcher: 'Write|Edit',
+               hooks: [ { command: './scripts/guard.sh', timeout: 10 } ],
+            }),
+         );
+
+         const { error } = await runCli(
+            ['add', 'hook', './hooks/guard.json', '--config', configPath, '--no-install'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const config = JSON.parse(await readFile(configPath, 'utf-8'));
+
+         expect(config.hooks.pre_file_write[0].matcher).toStrictEqual('Write|Edit');
+         expect(config.hooks.pre_file_write[0].hooks[0].timeout).toStrictEqual(10);
+      });
+
+      it('installs a user-scope hook without an ai.json', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const { error } = await runCli(
+            [
+               'add',
+               'hook',
+               'post_command',
+               '--command',
+               './notify.sh',
+               '--user',
+               '--target',
+               'claude-code',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const settings = JSON.parse(
+            await readFile(join(fakeHome, '.claude', 'settings.json'), 'utf-8'),
+         );
+
+         expect(settings.hooks.PostToolUse[0].hooks[0].command).toStrictEqual('./notify.sh');
+      });
+
+      it('reports the valid events when given an unknown event name', async () => {
+         const { error, stderr } = await runCli(['add', 'hook', 'pre_commnd', '--command', 'x'], {
+            root,
+         });
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Unknown hook event "pre_commnd"');
+         expect(stderr).toContain('pre_command');
+      });
+
+      it('requires an action for an inline hook', async () => {
+         const { error, stderr } = await runCli(['add', 'hook', 'session_start'], { root });
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Provide --command, --url, or --prompt');
+      });
+
+      it('lists configured hooks with their matcher and action', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_file_write: [
+                  { matcher: 'Write|Edit', hooks: [ { command: './scripts/guard.sh' } ] },
+               ],
+            },
+         });
+
+         const { error, stdout } = await runCli(['list', 'hooks', '--config', configPath], { root });
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('pre_file_write');
+         expect(stdout).toContain('Write|Edit');
+         expect(stdout).toContain('./scripts/guard.sh');
+      });
+   });
+
+   describe('remove hook', () => {
+      it('removes the event from ai.json and from the editor hooks config', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         await runCli(
+            [
+               'add',
+               'hook',
+               'pre_command',
+               '--command',
+               './lint.sh',
+               '--target',
+               'claude-code',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         const { error } = await runCli(
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const config = JSON.parse(await readFile(configPath, 'utf-8')),
+               settings = JSON.parse(await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8'));
+
+         expect(config.hooks).toBeUndefined();
+         expect(settings.hooks).toBeUndefined();
+      });
+
+      it('leaves hooks from other events that share a native event name', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+               pre_file_write: [ { hooks: [ { command: './guard.sh' } ] } ],
+            },
+         });
+
+         await runCli(
+            ['install', '--target', 'claude-code', '--config', configPath],
+            { root },
+         );
+
+         const { error } = await runCli(
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const settings = JSON.parse(await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8')),
+               matchers = settings.hooks.PreToolUse.map(
+                  (group: { matcher: string }) => group.matcher,
+               );
+
+         expect(matchers).toEqual(['Write|Edit']);
+      });
+
+      it('removes a user-scope hook without touching project ai.json', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         await writeValidConfig(configPath);
+
+         await runCli(
+            ['add', 'hook', 'session_start', '--command', './boot.sh', '--user', '--target', 'claude-code'],
+            { root },
+         );
+
+         const settingsPath = join(fakeHome, '.claude', 'settings.json');
+
+         expect(JSON.parse(await readFile(settingsPath, 'utf-8')).hooks.SessionStart).toBeDefined();
+
+         const { error } = await runCli(
+            ['remove', 'hook', 'session_start', '--yes', '--user', '--target', 'claude-code'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(JSON.parse(await readFile(settingsPath, 'utf-8')).hooks).toBeUndefined();
+      });
+
+      it('reports that an editor without hooks support had nothing to remove', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+            },
+         });
+
+         const { error, stdout, stderr } = await runCli(
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'zed', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout + stderr).toContain('zed does not support hooks');
+      });
+
+      it('rejects an unknown hook event', async () => {
+         const { error, stderr } = await runCli(['remove', 'hook', 'nope', '--yes'], { root });
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Unknown hook event "nope"');
+      });
+   });
+
+   describe('hooks in editor listings and install warnings', () => {
+      it('lists hooks found in editor config and marks aix-managed events', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         process.env.HOME = join(testDir, 'fake-home');
+         await writeValidConfig(configPath);
+
+         await runCli(
+            [
+               'add',
+               'hook',
+               'pre_command',
+               '--command',
+               './lint.sh',
+               '--target',
+               'claude-code',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         const settingsPath = join(testDir, '.claude', 'settings.json'),
+               settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+         settings.hooks.SessionStart = [
+            { matcher: '', hooks: [ { type: 'command', command: './handwritten.sh' } ] },
+         ];
+         await writeFile(settingsPath, JSON.stringify(settings, null, 2));
+
+         const { error, stdout } = await runCli(
+            ['list', '--all', '--editor', 'claude-code', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('pre_command');
+         expect(stdout).toContain('session_start');
+         expect(stdout).toContain('hook');
+      });
+
+      it('warns that an editor without hooks support installed none of them', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+            },
+         });
+
+         const { error, stdout, stderr } = await runCli(
+            ['install', '--target', 'zed', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout + stderr).toContain('zed does not support hooks');
+      });
+
+      it('warns about hook action fields the editor drops', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './lint.sh', show_output: true } ] } ],
+            },
+         });
+
+         const { error, stdout, stderr } = await runCli(
+            ['install', '--target', 'claude-code', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout + stderr).toContain('ignores these fields on hook pre_command');
+         expect(stdout + stderr).toContain('show_output');
       });
    });
 
@@ -1194,6 +1676,7 @@ description: Demo skill
          const sourceSkillDir = join(testDir, '.aix', 'skills', 'copilot-skill'),
                editorSkillDir = join(testDir, '.github', 'skills');
 
+         process.env.HOME = join(testDir, 'fake-home');
          await mkdir(sourceSkillDir, { recursive: true });
          await mkdir(editorSkillDir, { recursive: true });
          await writeFile(
@@ -1227,6 +1710,7 @@ description: Copilot skill
          const sourceSkillDir = join(testDir, '.aix', 'skills', 'devin-skill'),
                editorSkillDir = join(testDir, '.windsurf', 'skills');
 
+         process.env.HOME = join(testDir, 'fake-home');
          await mkdir(sourceSkillDir, { recursive: true });
          await mkdir(editorSkillDir, { recursive: true });
          await writeFile(

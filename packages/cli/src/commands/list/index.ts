@@ -24,12 +24,12 @@ import {
 } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
 
-const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents'];
+const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents', 'hooks'];
 const CANONICAL_EDITORS = getAvailableEditors();
 const VALID_EDITORS = getAcceptedEditorNames();
 
 type EditorItemRow = {
-   type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent';
+   type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent' | 'hook';
    name: string;
    source: 'aix' | 'external';
    scope: 'project' | 'user' | undefined;
@@ -60,6 +60,7 @@ export default class List extends BaseCommand<typeof List> {
       '<%= config.bin %> <%= command.id %>',
       '<%= config.bin %> <%= command.id %> --only skills',
       '<%= config.bin %> <%= command.id %> --only rules --only mcp',
+      '<%= config.bin %> <%= command.id %> --only hooks',
       '<%= config.bin %> <%= command.id %> --scope user',
       '<%= config.bin %> <%= command.id %> --project',
       '<%= config.bin %> <%= command.id %> --all',
@@ -122,7 +123,7 @@ export default class List extends BaseCommand<typeof List> {
    ): Record<string, unknown> {
       const result: Record<string, unknown> = {};
 
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'editors'] as const) {
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'hooks', 'editors'] as const) {
          if (includesSection(sections, section)) {
             result[section] = (config as Record<string, unknown>)[section] ?? {};
          }
@@ -161,7 +162,7 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    private printConfigSections(config: Record<string, unknown>, sections: Section[]): void {
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'editors'] as const) {
+      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'hooks', 'editors'] as const) {
          if (!includesSection(sections, section)) {
             continue;
          }
@@ -267,6 +268,7 @@ export default class List extends BaseCommand<typeof List> {
          rules: 'Rules',
          prompts: 'Prompts',
          agents: 'Agents',
+         hooks: 'Hooks',
          editors: 'Editors',
       };
 
@@ -456,7 +458,8 @@ export default class List extends BaseCommand<typeof List> {
          result.rules.length > 0 ||
          Object.keys(result.skills).length > 0 ||
          Object.keys(result.prompts).length > 0 ||
-         Object.keys(result.agents).length > 0
+         Object.keys(result.agents).length > 0 ||
+         Object.keys(result.hooks).length > 0
       );
    }
 
@@ -572,6 +575,27 @@ export default class List extends BaseCommand<typeof List> {
          }
       }
 
+      if (includesSection(sections, 'hooks') && Object.keys(result.hooks).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const event of Object.keys(result.hooks)) {
+            const managed = this.isAixManaged(event, 'hooks', projectState, userState);
+            const scope = managed?.scope ?? result.scopes.hooks[event];
+
+            if (scopeFilter && scope !== scopeFilter) {
+               continue;
+            }
+            items[event] = {
+               source: managed ? 'aix' : 'external',
+               scope,
+               path: result.paths.hooks[event],
+            };
+         }
+         if (Object.keys(items).length > 0) {
+            out.hooks = items;
+         }
+      }
+
       return out;
    }
 
@@ -682,6 +706,23 @@ export default class List extends BaseCommand<typeof List> {
                      section: 'agents',
                      path: result.paths.agents[name],
                      detectedScope: result.scopes.agents[name],
+                  },
+                  context,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'hooks')) {
+         rows.push(
+            ...Object.keys(result.hooks).flatMap((event) =>
+               this.toEditorItemRow(
+                  {
+                     type: 'hook',
+                     name: event,
+                     section: 'hooks',
+                     path: result.paths.hooks[event],
+                     detectedScope: result.scopes.hooks[event],
                   },
                   context,
                ),

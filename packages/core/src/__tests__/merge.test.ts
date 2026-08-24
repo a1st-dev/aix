@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { mergeConfigs, filterConfigByScopes, type ConfigScope } from '../merge.js';
+import { appendHooks, mergeConfigs, filterConfigByScopes, type ConfigScope } from '../merge.js';
 import { getTransport } from '../mcp/normalize.js';
-import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
+import type { AiJsonConfig, HooksConfig, McpServerConfig } from '@a1st/aix-schema';
 
 /**
  * Helper to create a minimal MCP server config for tests.
@@ -146,6 +146,45 @@ describe('mergeConfigs', () => {
          expect(resultSection['local-only']).toEqual({ content: 'local-only content' });
          expect(resultSection['remote-only']).toEqual({ content: 'remote-only content' });
          expect(resultSection['shared-key']).toEqual({ content: 'remote shared content' });
+      });
+   });
+
+   describe('hooks merge', () => {
+      it('keeps local events and lets remote win on the same event', () => {
+         const local: AiJsonConfig = {
+            ...emptyConfig,
+            hooks: {
+               session_start: [ { hooks: [ { command: './local-start.sh' } ] } ],
+               pre_command: [ { hooks: [ { command: './local-lint.sh' } ] } ],
+            },
+         };
+
+         const remote: Partial<AiJsonConfig> = {
+            hooks: {
+               pre_command: [ { hooks: [ { command: './remote-lint.sh' } ] } ],
+               agent_stop: [ { hooks: [ { command: './remote-stop.sh' } ] } ],
+            },
+         };
+
+         const result = mergeConfigs(local, remote);
+
+         expect(Object.keys(result.hooks ?? {})).toHaveLength(3);
+         expect(result.hooks?.session_start).toEqual(local.hooks?.session_start);
+         expect(result.hooks?.pre_command).toEqual(remote.hooks?.pre_command);
+         expect(result.hooks?.agent_stop).toEqual(remote.hooks?.agent_stop);
+      });
+
+      it('preserves local hooks when remote has no hooks section', () => {
+         const local: AiJsonConfig = {
+            ...emptyConfig,
+            hooks: {
+               session_start: [ { hooks: [ { command: './local-start.sh' } ] } ],
+            },
+         };
+
+         const result = mergeConfigs(local, { mcp: {} });
+
+         expect(result.hooks).toEqual(local.hooks);
       });
    });
 
@@ -417,5 +456,40 @@ describe('filterConfigByScopes', () => {
       const result = filterConfigByScopes(sparseConfig, ['editors']);
 
       expect(result).toEqual({});
+   });
+});
+
+
+describe('appendHooks', () => {
+   it('adds matchers to an event that already has some', () => {
+      const base: HooksConfig = {
+         pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+      };
+
+      const result = appendHooks(base, {
+         pre_command: [ { matcher: 'Bash', hooks: [ { command: './audit.sh' } ] } ],
+      });
+
+      expect(result.pre_command).toHaveLength(2);
+      expect(result.pre_command?.[0]?.hooks[0]?.command).toStrictEqual('./lint.sh');
+      expect(result.pre_command?.[1]?.matcher).toStrictEqual('Bash');
+   });
+
+   it('adds an event that is not configured yet', () => {
+      const result = appendHooks(undefined, {
+         agent_stop: [ { hooks: [ { command: './done.sh' } ] } ],
+      });
+
+      expect(Object.keys(result)).toEqual(['agent_stop']);
+   });
+
+   it('leaves the original config untouched', () => {
+      const base: HooksConfig = {
+         pre_command: [ { hooks: [ { command: './lint.sh' } ] } ],
+      };
+
+      appendHooks(base, { pre_command: [ { hooks: [ { command: './audit.sh' } ] } ] });
+
+      expect(base.pre_command).toHaveLength(1);
    });
 });

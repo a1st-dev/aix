@@ -5,7 +5,7 @@ import {
    detectEditors,
    loadConfig,
    trackInstall,
-   syncSectionState,
+   updateInstalledState,
    type EditorName,
    type ApplyResult,
    type ConfigSection,
@@ -14,9 +14,11 @@ import {
 import {
    normalizeEditors,
    createEmptyConfig,
+   isHookEvent,
    resolveScope,
    type ConfigScope,
    type AiJsonConfig,
+   type HookMatcher,
 } from '@a1st/aix-schema';
 
 export interface InstallAfterAddOptions {
@@ -61,7 +63,22 @@ export function formatInstallResults(
    return output;
 }
 
-const TRACKABLE_SECTIONS = new Set<StateSection>(['mcp', 'skills', 'rules', 'prompts', 'agents']);
+const TRACKABLE_SECTIONS = new Set<string>([
+   'mcp',
+   'skills',
+   'rules',
+   'prompts',
+   'agents',
+   'hooks',
+]);
+
+/**
+ * Sections whose items aix records in its state file. Hooks are recorded under their
+ * event name, which is what identifies them in ai.json.
+ */
+function isTrackableSection(section: ConfigSection): section is StateSection {
+   return TRACKABLE_SECTIONS.has(section);
+}
 
 /**
  * Install to configured editors after an add operation. Explicit editors override ai.json editor
@@ -104,28 +121,95 @@ export async function installAfterAdd(
             { concurrency: 2 },
          );
 
-   const installedEditors = results.filter((r) => r.success).map((r) => r.editor),
-         trackableSections = options.sections.filter((s): s is StateSection =>
-            TRACKABLE_SECTIONS.has(s as StateSection),
-         );
-
-   if (installedEditors.length > 0 && trackableSections.length > 0) {
-      const sectionNames: Record<StateSection, string[]> = {
-         mcp: Object.keys(loaded.config.mcp ?? {}),
-         skills: Object.keys(loaded.config.skills ?? {}),
-         rules: Object.keys(loaded.config.rules ?? {}),
-         prompts: Object.keys(loaded.config.prompts ?? {}),
-         agents: Object.keys(loaded.config.agents ?? {}),
-      };
-
-      await Promise.all(
-         trackableSections.map((section) =>
-            syncSectionState(targetScope, section, sectionNames[section], installedEditors, projectRoot),
-         ),
-      );
-   }
+   await recordInstalledSections({
+      config: loaded.config,
+      sections: options.sections,
+      scope: targetScope,
+      editors: results.filter((r) => r.success).map((r) => r.editor),
+      projectRoot,
+   });
 
    return { installed: true, results, editors };
+}
+
+export interface RecordInstalledSectionsOptions {
+   /** The config that was installed; its item names become the tracked set */
+   config: AiJsonConfig;
+   /** Sections the install covered. Sections aix does not track are ignored. */
+   sections: ConfigSection[];
+   scope: ConfigScope;
+   /** Editors the install succeeded for */
+   editors: EditorName[];
+   projectRoot?: string;
+}
+
+/** The item names a config contributes to each tracked section. */
+function getSectionNames(config: AiJsonConfig): Record<StateSection, string[]> {
+   return {
+      mcp: Object.keys(config.mcp ?? {}),
+      skills: Object.keys(config.skills ?? {}),
+      rules: Object.keys(config.rules ?? {}),
+      prompts: Object.keys(config.prompts ?? {}),
+      agents: Object.keys(config.agents ?? {}),
+      hooks: Object.keys(config.hooks ?? {}),
+   };
+}
+
+/** The installed item names, per section, that a recording call should write. */
+function getSectionsToRecord(
+   options: RecordInstalledSectionsOptions,
+): Partial<Record<StateSection, string[]>> {
+   const sectionNames = getSectionNames(options.config),
+         result: Partial<Record<StateSection, string[]>> = {};
+
+   for (const section of options.sections) {
+      if (isTrackableSection(section)) {
+         result[section] = sectionNames[section];
+      }
+   }
+
+   return result;
+}
+
+/**
+ * Record what a full install pass put in place, so `aix list` can tell aix-managed items
+ * from ones that were already in the editor's config. Each installed section's tracked
+ * set is replaced by the config's item names, so items dropped from ai.json stop being
+ * reported as aix-managed. Callers must skip this on a dry run.
+ */
+export async function recordInstalledSections(
+   options: RecordInstalledSectionsOptions,
+): Promise<void> {
+   if (options.editors.length === 0) {
+      return;
+   }
+
+   await updateInstalledState({
+      scope: options.scope,
+      sections: getSectionsToRecord(options),
+      editors: options.editors,
+      projectRoot: options.projectRoot,
+   });
+}
+
+/**
+ * Record the items of a one-off install without disturbing the rest of the section, for
+ * direct installs that bypass ai.json.
+ */
+export async function recordInstalledItems(
+   options: RecordInstalledSectionsOptions,
+): Promise<void> {
+   if (options.editors.length === 0) {
+      return;
+   }
+
+   await updateInstalledState({
+      scope: options.scope,
+      sections: getSectionsToRecord(options),
+      editors: options.editors,
+      projectRoot: options.projectRoot,
+      mode: 'merge',
+   });
 }
 
 export interface InstallItemOptions {
@@ -146,6 +230,7 @@ export interface InstallItemOptions {
 /**
  * Install a single item directly to editor configs.
  * Used by add/remove commands for immediate installation without requiring ai.json editors config.
+ * For the `hooks` section, `name` is the hook event and `value` its array of matcher groups.
  */
 export async function installSingleItem(
    options: InstallItemOptions,
@@ -175,6 +260,12 @@ export async function installSingleItem(
       case 'prompts':
          config.prompts = { [name]: value as AiJsonConfig['prompts'][string] };
          break;
+      case 'hooks':
+         if (!isHookEvent(name)) {
+            return { installed: false, results: [], editors: [] };
+         }
+         config.hooks = { [name]: value as HookMatcher[] };
+         break;
       default:
          return { installed: false, results: [], editors: [] };
    }
@@ -199,7 +290,7 @@ export async function installSingleItem(
    // Track the installation in state
    const installedEditors = results.filter((r) => r.success).map((r) => r.editor);
 
-   if (installedEditors.length > 0) {
+   if (installedEditors.length > 0 && isTrackableSection(section)) {
       await trackInstall(scope, section, name, installedEditors, projectRoot);
    }
 

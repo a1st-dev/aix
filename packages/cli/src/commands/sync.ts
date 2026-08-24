@@ -3,7 +3,7 @@ import type { ConfigScope } from '@a1st/aix-schema';
 import type {
    EditorName,
    ApplyResult,
-   TargetScopeLimitations,
+   ConfigSection,
 } from '@a1st/aix-core';
 import {
    getAcceptedEditorNames,
@@ -17,10 +17,15 @@ import { BaseCommand } from '../base-command.js';
 import {
    displayFileChanges,
    displayGlobalChanges,
+   showTargetScopeLimitationWarnings,
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
+import { recordInstalledSections } from '../lib/install-helper.js';
 
 const VALID_EDITORS = getAcceptedEditorNames();
+
+/** Sync writes everything the bridge could carry, so every section is recorded. */
+const SYNCED_SECTIONS: ConfigSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents', 'hooks'];
 
 export default class Sync extends BaseCommand<typeof Sync> {
    static override description = 'Sync supported configuration from one editor to another';
@@ -104,16 +109,12 @@ export default class Sync extends BaseCommand<typeof Sync> {
             return;
          }
 
-         const result = await installToEditor(
-            to,
-            buildConfigFromEditorImport(from, imported),
-            projectRoot,
-            {
-               dryRun: isDryRun,
-               targetScope: toScope,
-               strictTargetScope: true,
-            },
-         );
+         const syncedConfig = buildConfigFromEditorImport(from, imported),
+               result = await installToEditor(to, syncedConfig, projectRoot, {
+                  dryRun: isDryRun,
+                  targetScope: toScope,
+                  strictTargetScope: true,
+               });
 
          if (!result.success) {
             this.output.stopSpinner(false, `Failed to sync ${from} to ${to}`);
@@ -144,7 +145,23 @@ export default class Sync extends BaseCommand<typeof Sync> {
             showWarningsWithoutEntries: true,
          });
          showUnsupportedFeatureWarnings(this.output, this.flags.quiet, to, result.unsupportedFeatures);
-         this.showTargetScopeLimitations(to, toScope, result.targetScopeLimitations);
+         showTargetScopeLimitationWarnings({
+            output: this.output,
+            quiet: this.flags.quiet,
+            editor: to,
+            targetScope: toScope,
+            limitations: result.targetScopeLimitations,
+         });
+
+         if (!isDryRun) {
+            await recordInstalledSections({
+               config: syncedConfig,
+               sections: SYNCED_SECTIONS,
+               scope: toScope,
+               editors: [to],
+               projectRoot,
+            });
+         }
          this.showNoWritableChangesMessage(to, result);
 
          if (this.flags.json) {
@@ -206,34 +223,6 @@ export default class Sync extends BaseCommand<typeof Sync> {
       this.output.log(`    ${this.output.green('✓')} skills: ${normalized.skills.length}`);
       this.output.log(`    ${this.output.green('✓')} hooks: ${Object.keys(normalized.hooks).length}`);
       this.output.log('');
-   }
-
-   private showTargetScopeLimitations(
-      editor: EditorName,
-      targetScope: ConfigScope,
-      limitations?: TargetScopeLimitations,
-   ): void {
-      if (!limitations || this.flags.quiet) {
-         return;
-      }
-
-      if (limitations.rules) {
-         this.output.warn(
-            `${editor} cannot write rules at ${targetScope} scope. Skipped: ${limitations.rules.rules.join(', ')}`,
-         );
-      }
-
-      if (limitations.skills) {
-         this.output.warn(
-            `${editor} cannot activate these skills at ${targetScope} scope. Skipped: ${limitations.skills.skills.join(', ')}`,
-         );
-      }
-
-      if (limitations.hooks) {
-         this.output.warn(
-            `${editor} cannot write hooks at ${targetScope} scope. Skipped events: ${limitations.hooks.events.join(', ')}`,
-         );
-      }
    }
 
    private hasWritableChanges(result: ApplyResult): boolean {
