@@ -33,6 +33,15 @@ agent tools.
    - Security or permission changes that alter generated config safety.
 5. Write one structured markdown document per editor/version pair:
    `docs/editor-research/<editor_id>/<editor_version>.md`.
+   - Some editors ship changes without attaching a version number to them. Cursor has
+     done this since 3.11. When an editor has published changes but no new version,
+     name the file for the research date instead, `<YYYY-MM-DD>.md`, and set
+     `editor_version` to the last version the editor did publish. Do not invent a
+     version number, and do not rewrite the earlier version's document: that would
+     either fabricate a fact or destroy the record of when something was checked.
+   - When an editor has published no changes at all since the last check, say so in the
+     dated document rather than skipping the editor. A reader has to be able to tell
+     "checked, nothing shipped" from "not checked".
 6. Use this frontmatter shape:
    ```yaml
    ---
