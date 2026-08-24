@@ -5,9 +5,7 @@ import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, isUserScopeRequested, resolveConfigScope } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
-   detectEditors,
    getLocalConfigPath,
-   normalizeEditorNames,
    removeHookFromEditors,
    trackRemoval,
    updateConfig,
@@ -17,12 +15,11 @@ import {
 import {
    hookEvents,
    isHookEvent,
-   normalizeEditors,
    resolveScope,
-   type AiJsonConfig,
    type HookEvent,
    type HooksConfig,
 } from '@a1st/aix-schema';
+import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 import { confirm } from '@inquirer/prompts';
 
 export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
@@ -104,7 +101,16 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
 
       if (!flags['no-sync']) {
          const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-               editors = await this.resolveEditors(targetEditors, loaded?.config.editors, projectRoot);
+               // Resolved before trackRemoval below, which erases the state entry that
+               // records which editors actually hold this hook.
+               editors = await resolveRemovalEditors({
+                  targetEditors,
+                  section: 'hooks',
+                  itemName: event,
+                  configuredEditors: loaded?.config.editors,
+                  scope: targetScope,
+                  projectRoot,
+               });
 
          await this.removeFromEditorConfigs(editors, event, projectRoot, targetScope);
       }
@@ -138,22 +144,6 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       }
 
       return confirmed;
-   }
-
-   private async resolveEditors(
-      targetEditors: EditorName[] | undefined,
-      configuredEditors: AiJsonConfig['editors'],
-      projectRoot: string,
-   ): Promise<EditorName[]> {
-      if (targetEditors) {
-         return targetEditors;
-      }
-
-      if (configuredEditors) {
-         return normalizeEditorNames(Object.keys(normalizeEditors(configuredEditors)));
-      }
-
-      return detectEditors(projectRoot);
    }
 
    private async removeFromEditorConfigs(

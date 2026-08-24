@@ -564,6 +564,7 @@ export const editorSupportProfiles = [
          'Windsurf MCP installs are tracked as global state because the editor only supports global MCP today.',
          'Its prompt surface is called workflows, not commands.',
          'Hooks do not load or run while a workspace is open in Restricted Mode, as of Devin Desktop 3.8.20.',
+         'Devin Local imports Windsurf rules, skills, and MCP servers by default, but excludes Windsurf workflows, so aix-managed prompts do not reach it.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Workflows' },

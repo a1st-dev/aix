@@ -1222,6 +1222,48 @@ describe('CLI Commands', () => {
          expect(settings.hooks).toBeUndefined();
       });
 
+      it('cleans the editors state recorded, without needing --target on removal', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         // An isolated home means no editor is detected as globally installed, so the
+         // removal can only find its targets by what the install recorded.
+         process.env.HOME = join(testDir, 'fake-home');
+
+         await writeValidConfig(configPath);
+
+         await runCli(
+            [
+               'add',
+               'hook',
+               'pre_command',
+               '--command',
+               './lint.sh',
+               '--target',
+               'claude-code',
+               '--target',
+               'codex',
+               '--config',
+               configPath,
+            ],
+            { root },
+         );
+
+         // No --target here: the removal has to learn the editor set from state, the way
+         // a user who just runs `aix remove hook <event>` would.
+         const { error } = await runCli(
+            ['remove', 'hook', 'pre_command', '--yes', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const settings = JSON.parse(await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8')),
+               codexHooks = JSON.parse(await readFile(join(testDir, '.codex', 'hooks.json'), 'utf-8'));
+
+         expect(settings.hooks).toBeUndefined();
+         expect(codexHooks.hooks).toBeUndefined();
+      });
+
       it('leaves hooks from other events that share a native event name', async () => {
          const configPath = join(testDir, 'ai.json');
 

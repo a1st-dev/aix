@@ -5,7 +5,6 @@ import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
-   detectEditors,
    updateConfig,
    updateLocalConfig,
    getLocalConfigPath,
@@ -15,6 +14,7 @@ import {
 } from '@a1st/aix-core';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd, formatInstallResults } from '../../lib/install-helper.js';
+import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 
 export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    static override description = 'Remove an MCP server from ai.json';
@@ -130,7 +130,16 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             }
          } else {
             const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-                  editors = targetEditors ?? await detectEditors(projectRoot);
+                  // Resolved before trackRemoval below, which erases the state entry that
+                  // records which editors actually hold this server.
+                  editors = await resolveRemovalEditors({
+                     targetEditors,
+                     section: 'mcp',
+                     itemName: args.name,
+                     configuredEditors: flags.local ? undefined : loaded?.config.editors,
+                     scope: targetScope,
+                     projectRoot,
+                  });
 
             await this.removeMcpFromEditorConfigs(editors, args.name, projectRoot, targetScope);
          }
