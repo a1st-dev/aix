@@ -237,16 +237,17 @@ function claudeEntriesFromAction(action: HookAction): ClaudeHookEntry[] {
       return [entry];
    }
 
-   const hasBash = Boolean(action.bash) && action.shell !== 'powershell',
+   const posixCommand = action.bash ?? action.command,
+         hasPosix = Boolean(posixCommand) && action.shell !== 'powershell',
          hasPowershell = Boolean(action.powershell) && action.shell !== 'bash';
 
-   if (hasBash && hasPowershell) {
-      const bashAction: HookAction = { ...action, command: action.bash, powershell: undefined },
+   if (hasPosix && hasPowershell) {
+      const posixAction: HookAction = { ...action, command: posixCommand, powershell: undefined },
             powershellAction: HookAction = { ...action, command: action.powershell, bash: undefined };
-      const bash = commandEntry(bashAction, 'bash'),
+      const posix = commandEntry(posixAction, 'bash'),
             powershell = commandEntry(powershellAction, 'powershell');
 
-      return [...(bash ? [ bash ] : []), ...(powershell ? [ powershell ] : [])];
+      return [...(posix ? [ posix ] : []), ...(powershell ? [ powershell ] : [])];
    }
 
    const inferredShell = action.shell

@@ -257,6 +257,19 @@ describe('ClaudeCodeHooksStrategy', () => {
       ]);
    });
 
+   it('expands command plus powershell into two shell-selected entries', () => {
+      const hooks: HooksConfig = {
+         agent_stop: [{ hooks: [{ command: 'echo posix', powershell: 'Write-Host win' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.Stop[0].hooks).toEqual([
+         { type: 'command', command: 'echo posix', shell: 'bash' },
+         { type: 'command', command: 'Write-Host win', shell: 'powershell' },
+      ]);
+   });
+
    it('maps directory_added to the DirectoryAdded event Claude Code 2.1.219 added', () => {
       const hooks: HooksConfig = {
          directory_added: [{ hooks: [{ command: 'echo added' }] }],
