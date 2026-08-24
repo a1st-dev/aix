@@ -1722,13 +1722,35 @@ Skill instructions.
       it('Codex reports unsupported hook events', async () => {
          const config = createConfig({
             hooks: {
-               session_end: [{ hooks: [{ command: 'echo end' }] }],
+               file_changed: [{ hooks: [{ command: 'echo changed' }] }],
             },
          });
 
          const result = await installToEditor('codex', config, testDir);
 
-         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toEqual(['session_end']);
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toEqual(['file_changed']);
+      });
+
+      it('Codex installs the session and compaction events it documents', async () => {
+         const config = createConfig({
+            hooks: {
+               session_end: [{ hooks: [{ command: 'echo end' }] }],
+               pre_compact: [{ hooks: [{ command: 'echo compact' }] }],
+               subagent_stop: [{ hooks: [{ command: 'echo subagent' }] }],
+            },
+         });
+
+         const result = await installToEditor('codex', config, testDir);
+
+         expect(result.unsupportedFeatures?.hooks?.unsupportedEvents ?? []).toEqual([]);
+
+         const hooks = JSON.parse(await readFile(join(testDir, '.codex', 'hooks.json'), 'utf-8'));
+
+         expect(Object.keys(hooks.hooks).toSorted()).toEqual([
+            'PreCompact',
+            'SessionEnd',
+            'SubagentStop',
+         ]);
       });
 
       it('Codex reports unsupported agents', async () => {

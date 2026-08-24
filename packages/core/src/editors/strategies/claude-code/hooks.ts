@@ -55,6 +55,7 @@ const EVENT_MAP: Record<string, string> = {
    instructions_loaded: 'InstructionsLoaded',
    config_change: 'ConfigChange',
    cwd_changed: 'CwdChanged',
+   directory_added: 'DirectoryAdded',
    file_changed: 'FileChanged',
    elicitation: 'Elicitation',
    elicitation_result: 'ElicitationResult',

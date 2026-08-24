@@ -1086,6 +1086,70 @@ describe('CLI Commands', () => {
          expect(settings.hooks.PostToolUse[0].hooks[0].command).toStrictEqual('./notify.sh');
       });
 
+      it('installs a directory_added hook to Claude Code and warns for Codex', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const { error, stdout, stderr } = await runCli(
+            [
+               'add',
+               'hook',
+               'directory_added',
+               '--command',
+               './on-add-dir.sh',
+               '--config',
+               configPath,
+               '--target',
+               'claude-code',
+               '--target',
+               'codex',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const settings = JSON.parse(
+            await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8'),
+         );
+
+         expect(settings.hooks.DirectoryAdded[0].hooks[0].command).toStrictEqual('./on-add-dir.sh');
+         expect(stdout + stderr).toContain('directory_added');
+      });
+
+      it('installs a Codex hook with async and a Windows command', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+         await runCli(
+            ['add', 'hook', 'post_compact', '--command', './cleanup.sh', '--config', configPath, '--no-install'],
+            { root },
+         );
+
+         const config = JSON.parse(await readFile(configPath, 'utf-8'));
+
+         config.hooks.post_compact[0].hooks[0].async = true;
+         config.hooks.post_compact[0].hooks[0].powershell = 'Write-Host cleanup';
+         await writeFile(configPath, JSON.stringify(config, null, 2));
+
+         const { error } = await runCli(
+            ['install', '--config', configPath, '--target', 'codex'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+
+         const hooks = JSON.parse(await readFile(join(testDir, '.codex', 'hooks.json'), 'utf-8'));
+
+         expect(hooks.hooks.PostCompact[0].hooks[0]).toStrictEqual({
+            type: 'command',
+            command: './cleanup.sh',
+            commandWindows: 'Write-Host cleanup',
+            async: true,
+         });
+      });
+
       it('reports the valid events when given an unknown event name', async () => {
          const { error, stderr } = await runCli(['add', 'hook', 'pre_commnd', '--command', 'x'], {
             root,

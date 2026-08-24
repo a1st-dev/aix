@@ -435,6 +435,7 @@ export const editorSupportProfiles = [
       notes: [
          'Claude Code supports more lifecycle hook events than any other supported editor.',
          'Its native repo instruction file is `CLAUDE.md`, not `AGENTS.md`.',
+         'The `task_created` and `task_completed` hooks only fire when the todo and task tools are available. Since Claude Code 2.1.233 that means setting `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` on Opus 4.8, Sonnet 5, Fable 5, Mythos 5, and newer models.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Commands' },
@@ -501,6 +502,7 @@ export const editorSupportProfiles = [
                supportedValues: [
                   'ConfigChange',
                   'CwdChanged',
+                  'DirectoryAdded',
                   'Elicitation',
                   'ElicitationResult',
                   'FileChanged',
@@ -561,6 +563,7 @@ export const editorSupportProfiles = [
       notes: [
          'Windsurf MCP installs are tracked as global state because the editor only supports global MCP today.',
          'Its prompt surface is called workflows, not commands.',
+         'Hooks do not load or run while a workspace is open in Restricted Mode, as of Devin Desktop 3.8.20.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Workflows' },
@@ -823,15 +826,22 @@ export const editorSupportProfiles = [
             {
                supportedValues: [
                   'PermissionRequest',
+                  'PostCompact',
                   'PostToolUse',
+                  'PreCompact',
                   'PreToolUse',
+                  'SessionEnd',
                   'SessionStart',
                   'Stop',
+                  'SubagentStart',
+                  'SubagentStop',
                   'UserPromptSubmit',
                ],
                notes: [
                   'Codex command hooks use seconds-based `timeout` values.',
                   'Codex currently runs command hooks only; aix reports prompt, agent, HTTP, and MCP hook handlers as unsupported fields.',
+                  'Since Codex 0.148.0, `async` runs a command hook in the background; `SessionEnd` hooks always run synchronously regardless.',
+                  'A `powershell` command is written as `commandWindows`, the Windows counterpart to `command`.',
                ],
             },
          ),

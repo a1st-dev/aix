@@ -102,7 +102,7 @@ editors. Adapters map each to the editor's native equivalent.
 - `pre_compact`, `post_compact`
 - `task_created`, `task_completed`
 - `worktree_setup`, `worktree_remove`
-- `instructions_loaded`, `config_change`, `cwd_changed`, `file_changed`
+- `instructions_loaded`, `config_change`, `cwd_changed`, `directory_added`, `file_changed`
 - `notification`, `elicitation`, `elicitation_result`, `error_occurred`
 
 ## Hook action fields
@@ -110,26 +110,26 @@ editors. Adapters map each to the editor's native equivalent.
 Every action under `hooks[].hooks[]` accepts an optional set of fields. Adapters use
 whatever the target editor surfaces and report the rest via install-time warnings.
 
-| Field                                 | Purpose                                                                                                                    |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `type`                                | `command` (default), `http`, `mcp_tool`, `prompt`, or `agent`.                                                             |
-| `command`                             | Shell command to run.                                                                                                      |
-| `bash` / `powershell`                 | Cross-platform commands. Used directly by Copilot and Windsurf; Claude Code expands to two entries with `shell` selectors. |
-| `shell`                               | `bash` or `powershell` selector when only one of the command fields is set.                                                |
-| `cwd` / `working_directory`           | Working directory for the command.                                                                                         |
-| `env`                                 | Environment variables to pass through (Copilot only today).                                                                |
-| `timeout`                             | Timeout in seconds. Adapters convert (Gemini uses milliseconds, Copilot uses `timeoutSec`).                                |
-| `async` / `async_rewake`              | Background execution (Claude Code).                                                                                        |
-| `if`                                  | Permission-rule guard expression (Claude Code).                                                                            |
-| `status_message`                      | Custom spinner message (Claude Code).                                                                                      |
-| `once`                                | Run once per session (Claude Code skill / agent frontmatter).                                                              |
-| `url`, `headers`, `allowed_env_vars`  | HTTP webhook fields (Claude Code `http`).                                                                                  |
-| `mcp_server`, `mcp_tool`, `mcp_input` | MCP tool dispatch (Claude Code `mcp_tool`).                                                                                |
-| `prompt`, `model`                     | LLM-evaluated prompt or agent (Claude Code, Cursor, Copilot `sessionStart`).                                               |
-| `description`, `name`                 | Documentation / log identifier.                                                                                            |
-| `fail_closed`                         | Block the action when the hook itself fails (Cursor).                                                                      |
-| `loop_limit`                          | Max auto-triggered follow-ups (Cursor).                                                                                    |
-| `show_output`                         | Surface output in the editor UI (Windsurf).                                                                                |
+| Field                                 | Purpose                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                                | `command` (default), `http`, `mcp_tool`, `prompt`, or `agent`.                                                                                                            |
+| `command`                             | Shell command to run.                                                                                                                                                     |
+| `bash` / `powershell`                 | Cross-platform commands. Used directly by Copilot and Windsurf; Codex writes `powershell` as `commandWindows`; Claude Code expands to two entries with `shell` selectors. |
+| `shell`                               | `bash` or `powershell` selector when only one of the command fields is set.                                                                                               |
+| `cwd` / `working_directory`           | Working directory for the command.                                                                                                                                        |
+| `env`                                 | Environment variables to pass through (Copilot only today).                                                                                                               |
+| `timeout`                             | Timeout in seconds. Adapters convert (Gemini uses milliseconds, Copilot uses `timeoutSec`).                                                                               |
+| `async` / `async_rewake`              | Background execution. `async` also reaches Codex, which added it in 0.148.0; `async_rewake` is Claude Code only.                                                          |
+| `if`                                  | Permission-rule guard expression (Claude Code).                                                                                                                           |
+| `status_message`                      | Custom spinner message (Claude Code).                                                                                                                                     |
+| `once`                                | Run once per session (Claude Code skill / agent frontmatter).                                                                                                             |
+| `url`, `headers`, `allowed_env_vars`  | HTTP webhook fields (Claude Code `http`).                                                                                                                                 |
+| `mcp_server`, `mcp_tool`, `mcp_input` | MCP tool dispatch (Claude Code `mcp_tool`).                                                                                                                               |
+| `prompt`, `model`                     | LLM-evaluated prompt or agent (Claude Code, Cursor, Copilot `sessionStart`).                                                                                              |
+| `description`, `name`                 | Documentation / log identifier.                                                                                                                                           |
+| `fail_closed`                         | Block the action when the hook itself fails (Cursor).                                                                                                                     |
+| `loop_limit`                          | Max auto-triggered follow-ups (Cursor).                                                                                                                                   |
+| `show_output`                         | Surface output in the editor UI (Windsurf).                                                                                                                               |
 
 ## Per-editor coverage
 
@@ -229,6 +229,10 @@ Post-hooks cannot block.
 | Copilot     | `.github/hooks/hooks.json`                               | `~/.config/github-copilot/hooks/hooks.json` |
 | Windsurf    | `.windsurf/hooks.json`                                   | `~/.codeium/windsurf/hooks.json`            |
 | Gemini      | `.gemini/settings.json` (under `hooks`, merged with MCP) | `~/.gemini/settings.json`                   |
+| Codex       | `.codex/hooks.json`                                      | `~/.codex/hooks.json`                       |
 
-Editors not in the table (Codex, Zed, OpenCode) do not currently support hooks. aix
-warns when you target them with a hook config.
+Codex also reads hooks from inline `[hooks]` tables in `config.toml`. aix writes the
+JSON files instead, so it never has to rewrite the TOML file that holds your MCP servers.
+
+Zed and OpenCode do not currently support hooks. aix warns when you target them with a
+hook config.

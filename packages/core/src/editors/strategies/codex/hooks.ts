@@ -4,15 +4,31 @@ import { parseHookObject, parseMatcherImportedHooks } from '../shared/hook-impor
 
 /**
  * Map from generic ai.json hook events to Codex hook event names.
- * Source: https://developers.openai.com/codex/hooks
+ * Source: https://learn.chatgpt.com/docs/hooks
  */
 const EVENT_MAP: Record<string, string> = {
+   // Lifecycle.
    session_start: 'SessionStart',
+   session_end: 'SessionEnd',
+
+   // Prompt.
    pre_prompt: 'UserPromptSubmit',
+
+   // Tool use.
    pre_tool_use: 'PreToolUse',
    post_tool_use: 'PostToolUse',
    permission_request: 'PermissionRequest',
+
+   // Agent / response.
    agent_stop: 'Stop',
+   subagent_start: 'SubagentStart',
+   subagent_stop: 'SubagentStop',
+
+   // System / context.
+   pre_compact: 'PreCompact',
+   post_compact: 'PostCompact',
+
+   // Tool-scoped aliases, narrowed by TOOL_MATCHER_MAP below.
    pre_command: 'PreToolUse',
    post_command: 'PostToolUse',
    pre_file_read: 'PreToolUse',
@@ -41,15 +57,19 @@ const CODEX_COMMAND_FIELDS: ReadonlySet<keyof HookAction> = new Set([
    'command',
    'bash',
    'powershell',
+   'shell',
    'timeout',
    'status_message',
+   'async',
 ]);
 
 interface CodexCommandHookEntry {
    type: 'command';
-   command: string;
+   command?: string;
+   commandWindows?: string;
    timeout?: number;
    statusMessage?: string;
+   async?: boolean;
 }
 
 interface CodexMatcherGroup {
@@ -58,22 +78,40 @@ interface CodexMatcherGroup {
 }
 
 function buildCodexHook(action: HookAction): CodexCommandHookEntry | undefined {
-   const command = action.command ?? action.bash ?? action.powershell;
+   const usePosix = action.shell !== 'powershell',
+         useWindows = action.shell !== 'bash',
+         command = usePosix ? action.command ?? action.bash : undefined,
+         commandWindows = useWindows
+            ? action.powershell ?? (action.shell === 'powershell' ? action.command : undefined)
+            : undefined;
 
-   if (!command || action.type && action.type !== 'command') {
+   if (!command && !commandWindows || action.type && action.type !== 'command') {
       return undefined;
    }
 
-   const entry: CodexCommandHookEntry = { type: 'command', command };
+   const entry: CodexCommandHookEntry = { type: 'command' };
 
+   if (command !== undefined) {
+      entry.command = command;
+   }
+   if (commandWindows !== undefined) {
+      entry.commandWindows = commandWindows;
+   }
    if (action.timeout !== undefined) {
       entry.timeout = action.timeout;
    }
    if (action.status_message !== undefined) {
       entry.statusMessage = action.status_message;
    }
+   if (action.async !== undefined) {
+      entry.async = action.async;
+   }
 
    return entry;
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function parseCodexHook(value: unknown): HookAction | null {
@@ -81,22 +119,30 @@ function parseCodexHook(value: unknown): HookAction | null {
       return null;
    }
 
-   const entry = value as Record<string, unknown>;
+   const entry = value as Record<string, unknown>,
+         command = nonEmptyString(entry.command),
+         commandWindows = nonEmptyString(entry.commandWindows);
 
-   if (entry.type !== 'command' || typeof entry.command !== 'string' || entry.command.length === 0) {
+   if (entry.type !== 'command' || !command && !commandWindows) {
       return null;
    }
 
-   const action: HookAction = {
-      type: 'command',
-      command: entry.command,
-   };
+   const action: HookAction = { type: 'command' };
 
+   if (command !== undefined) {
+      action.command = command;
+   }
+   if (commandWindows !== undefined) {
+      action.powershell = commandWindows;
+   }
    if (typeof entry.timeout === 'number' && entry.timeout > 0) {
       action.timeout = entry.timeout;
    }
    if (typeof entry.statusMessage === 'string' && entry.statusMessage.length > 0) {
       action.status_message = entry.statusMessage;
+   }
+   if (typeof entry.async === 'boolean') {
+      action.async = entry.async;
    }
 
    return action;

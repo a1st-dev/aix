@@ -257,6 +257,29 @@ describe('ClaudeCodeHooksStrategy', () => {
       ]);
    });
 
+   it('maps directory_added to the DirectoryAdded event Claude Code 2.1.219 added', () => {
+      const hooks: HooksConfig = {
+         directory_added: [{ hooks: [{ command: 'echo added' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.DirectoryAdded).toEqual([
+         { matcher: '', hooks: [{ type: 'command', command: 'echo added' }] },
+      ]);
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('keeps directory_added distinct from cwd_changed', () => {
+      const output = JSON.parse(strategy.formatConfig({
+         directory_added: [{ hooks: [{ command: 'echo added' }] }],
+         cwd_changed: [{ hooks: [{ command: 'echo moved' }] }],
+      }));
+
+      expect(output.hooks.DirectoryAdded[0].hooks[0].command).toBe('echo added');
+      expect(output.hooks.CwdChanged[0].hooks[0].command).toBe('echo moved');
+   });
+
    it('maps pre_command to PreToolUse with Bash tool matcher', () => {
       const hooks: HooksConfig = {
          pre_command: [{ hooks: [{ command: 'echo pre' }] }],
@@ -1104,12 +1127,125 @@ describe('CodexHooksStrategy', () => {
 
    it('reports unsupported events and non-command hook fields', () => {
       const hooks: HooksConfig = {
-         session_end: [{ hooks: [{ command: 'echo end' }] }],
+         file_changed: [{ hooks: [{ command: 'echo changed' }] }],
          agent_stop: [{ hooks: [{ type: 'prompt', prompt: 'continue' }] }],
       };
 
-      expect(strategy.getUnsupportedEvents(hooks)).toEqual(['session_end']);
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual(['file_changed']);
       expect(strategy.getUnsupportedFields(hooks)[0]?.fields).toContain('prompt');
+   });
+
+   it('reports directory_added as unsupported rather than dropping it', () => {
+      const hooks: HooksConfig = {
+         directory_added: [{ hooks: [{ command: 'echo added' }] }],
+      };
+
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual(['directory_added']);
+      expect(JSON.parse(strategy.formatConfig(hooks)).hooks).toEqual({});
+   });
+
+   it('maps every event Codex documents', () => {
+      const hooks: HooksConfig = {
+         session_start: [{ hooks: [{ command: 'c1' }] }],
+         session_end: [{ hooks: [{ command: 'c2' }] }],
+         pre_prompt: [{ hooks: [{ command: 'c3' }] }],
+         pre_tool_use: [{ hooks: [{ command: 'c4' }] }],
+         post_tool_use: [{ hooks: [{ command: 'c5' }] }],
+         permission_request: [{ hooks: [{ command: 'c6' }] }],
+         agent_stop: [{ hooks: [{ command: 'c7' }] }],
+         subagent_start: [{ hooks: [{ command: 'c8' }] }],
+         subagent_stop: [{ hooks: [{ command: 'c9' }] }],
+         pre_compact: [{ hooks: [{ command: 'c10' }] }],
+         post_compact: [{ hooks: [{ command: 'c11' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(Object.keys(output.hooks).toSorted()).toEqual([
+         'PermissionRequest',
+         'PostCompact',
+         'PostToolUse',
+         'PreCompact',
+         'PreToolUse',
+         'SessionEnd',
+         'SessionStart',
+         'Stop',
+         'SubagentStart',
+         'SubagentStop',
+         'UserPromptSubmit',
+      ]);
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('writes the async flag Codex 0.148.0 added', () => {
+      const hooks: HooksConfig = {
+         post_compact: [{ hooks: [{ command: 'echo done', async: true }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.PostCompact[0].hooks[0].async).toBe(true);
+      expect(strategy.getUnsupportedFields(hooks)).toEqual([]);
+   });
+
+   it('emits the PowerShell command as commandWindows alongside the POSIX one', () => {
+      const hooks: HooksConfig = {
+         agent_stop: [{ hooks: [{ command: 'echo posix', powershell: 'Write-Host windows' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.Stop[0].hooks[0]).toEqual({
+         type: 'command',
+         command: 'echo posix',
+         commandWindows: 'Write-Host windows',
+      });
+   });
+
+   it('honors the shell selector when choosing which command to emit', () => {
+      const bashOnly = JSON.parse(strategy.formatConfig({
+         agent_stop: [{
+            hooks: [{ command: 'echo posix', powershell: 'Write-Host win', shell: 'bash' }],
+         }],
+      }));
+
+      const powershellOnly = JSON.parse(strategy.formatConfig({
+         agent_stop: [{ hooks: [{ command: 'Write-Host win', shell: 'powershell' }] }],
+      }));
+
+      expect(bashOnly.hooks.Stop[0].hooks[0]).toEqual({ type: 'command', command: 'echo posix' });
+      expect(powershellOnly.hooks.Stop[0].hooks[0]).toEqual({
+         type: 'command',
+         commandWindows: 'Write-Host win',
+      });
+   });
+
+   it('round trips async and commandWindows through an import', () => {
+      const formatted = strategy.formatConfig({
+         subagent_stop: [{
+            hooks: [{ command: 'echo posix', powershell: 'Write-Host win', async: true, timeout: 30 }],
+         }],
+      });
+
+      const result = strategy.parseImportedConfig(formatted);
+
+      expect(result.hooks.subagent_stop?.[0]?.hooks[0]).toEqual({
+         type: 'command',
+         command: 'echo posix',
+         powershell: 'Write-Host win',
+         async: true,
+         timeout: 30,
+      });
+   });
+
+   it('imports a Codex hook that only has a Windows command', () => {
+      const result = strategy.parseImportedConfig(JSON.stringify({
+         hooks: {
+            SessionEnd: [{ hooks: [{ type: 'command', commandWindows: 'Write-Host bye' }] }],
+         },
+      }));
+
+      expect(result.hooks.session_end?.[0]?.hooks[0]?.powershell).toBe('Write-Host bye');
    });
 });
 
