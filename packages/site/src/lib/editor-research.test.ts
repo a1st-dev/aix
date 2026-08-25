@@ -106,6 +106,84 @@ describe('editor research notes', () => {
       expect(entries[0]?.changes[0]?.summary).toStrictEqual('Added a config file.');
    });
 
+   it('extracts the aix status note and classifies its outcome', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      fs.mkdirSync(path.join(rootDir, 'cursor'), { recursive: true });
+      fs.writeFileSync(
+         path.join(rootDir, 'cursor', '3.5.md'),
+         [
+            '---',
+            'research_performed_at: "2026-05-21T10:00:00-04:00"',
+            'editor_id: "cursor"',
+            'editor_version: "3.5"',
+            'sources:',
+            '   - "https://example.com/changelog"',
+            '---',
+            '',
+            '## Changes affecting aix',
+            '',
+            '- Added a hook event.',
+            '   - aix status: follow-up needed before implementation.',
+            '- Renamed a settings key.',
+            '   - aix status: no change needed, because aix does not write it.',
+            '- Documented an existing path.',
+            '   - aix status: addressed 2026-05-21 in the Cursor strategy.',
+            '- Shipped something unclassifiable.',
+            '   - aix status: use 3.5 as the checked package version.',
+            '',
+         ].join('\n'),
+         'utf8',
+      );
+
+      const [ entry ] = listEditorResearchEntries(rootDir);
+
+      expect(entry?.changes.map((change) => {
+         return change.status;
+      })).toEqual([ 'follow-up', 'no-change', 'supported', 'unknown' ]);
+      expect(entry?.changes[1]?.aixStatus).toStrictEqual(
+         'no change needed, because aix does not write it.',
+      );
+   });
+
+   it('joins bullet text that wraps across lines', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      fs.mkdirSync(path.join(rootDir, 'cursor'), { recursive: true });
+      fs.writeFileSync(
+         path.join(rootDir, 'cursor', '3.6.md'),
+         [
+            '---',
+            'research_performed_at: "2026-05-21T10:00:00-04:00"',
+            'editor_id: "cursor"',
+            'editor_version: "3.6"',
+            'sources:',
+            '   - "https://example.com/changelog"',
+            '---',
+            '',
+            '## Changes affecting aix',
+            '',
+            '- Added a hook event that fires after the editor registers a new working',
+            '  directory mid-session.',
+            '   - aix status: no change needed, because the event has no generic',
+            '     equivalent in ai.json yet.',
+            '   - A nested bullet is extra detail, not part of either field.',
+            '',
+         ].join('\n'),
+         'utf8',
+      );
+
+      const [ entry ] = listEditorResearchEntries(rootDir),
+            [ change ] = entry?.changes ?? [];
+
+      expect(change?.summary).toStrictEqual(
+         'Added a hook event that fires after the editor registers a new working directory mid-session.',
+      );
+      expect(change?.aixStatus).toStrictEqual(
+         'no change needed, because the event has no generic equivalent in ai.json yet.',
+      );
+   });
+
    it('rejects notes missing required frontmatter fields', () => {
       const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
 

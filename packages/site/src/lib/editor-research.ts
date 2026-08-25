@@ -128,65 +128,101 @@ function getChangesSection(body: string): string {
    return nextSectionIndex === -1 ? sectionRest : sectionRest.slice(0, nextSectionIndex);
 }
 
+/**
+ * Phrases the research documents actually open an `aix status:` bullet with, in the order
+ * they must be tested. Ordering matters: "addressed ... no config change" is work that
+ * happened, not an absence of work, so the outcome patterns are checked before the
+ * no-change ones.
+ */
+const STATUS_PATTERNS: readonly { pattern: RegExp; status: EditorResearchStatus }[] = [
+   // "partially addressed" leaves work outstanding, so it reads as follow-up, not done.
+   { pattern: /follow-up needed|needs follow-up|follow-up worth|partially addressed/u, status: 'follow-up' },
+   { pattern: /^(addressed|fixed|verified)\b|already (supported|aligned|exposes|partly aligned)/u, status: 'supported' },
+   // Covers the whole "no <something> change" family: "no change needed", "no generated
+   // config change", "no current implementation change", and the rest.
+   { pattern: /\bno\b[^.]{0,40}\bchange\b/u, status: 'no-change' },
+];
+
 function classifyStatus(aixStatus: string): EditorResearchStatus {
-   const normalized = aixStatus.toLowerCase();
+   const normalized = aixStatus.toLowerCase(),
+         match = STATUS_PATTERNS.find((candidate) => {
+            return candidate.pattern.test(normalized);
+         });
 
-   if (normalized.includes('needs follow-up')) {
-      return 'follow-up';
-   }
-   if (
-      normalized.includes('already aligned') ||
-      normalized.includes('already exposes') ||
-      normalized.includes('already partly aligned')
-   ) {
-      return 'supported';
-   }
-   if (
-      normalized.includes('no code change') ||
-      normalized.includes('no current code change') ||
-      normalized.includes('no schema change') ||
-      normalized.includes('no format change') ||
-      normalized.includes('no config-format change') ||
-      normalized.includes('no implementation change')
-   ) {
-      return 'no-change';
-   }
-
-   return 'unknown';
+   return match ? match.status : 'unknown';
 }
 
+const AIX_STATUS_PREFIX = '- aix status:';
+
+/**
+ * Read the `## Changes affecting aix` section into one entry per top-level bullet.
+ *
+ * The documents wrap prose to the repository's line length, so a bullet's text routinely
+ * continues on the following lines. Those continuation lines are part of the sentence and
+ * are joined back on; without that, every wrapped summary and status ends mid-clause.
+ * A continuation is any non-empty line that is not itself a bullet, and it belongs to
+ * whichever field is currently open. A nested bullet other than `aix status:` is extra
+ * detail rather than part of either field, so it closes the open one.
+ */
 function parseChanges(body: string): EditorResearchChange[] {
    const lines = getChangesSection(body).split('\n'),
          changes: EditorResearchChange[] = [];
-   let current: EditorResearchChange | undefined;
+   let current: EditorResearchChange | undefined,
+       openField: 'summary' | 'aixStatus' | undefined;
+
+   function append(field: 'summary' | 'aixStatus', text: string): void {
+      if (!current) {
+         return;
+      }
+      current[field] = `${current[field]} ${text}`.trim();
+   }
 
    for (const line of lines) {
+      const trimmed = line.trim();
+
+      if (trimmed.length === 0) {
+         openField = undefined;
+         continue;
+      }
+
       if (line.startsWith('- ')) {
          if (current) {
             changes.push(current);
          }
 
          current = {
-            summary: line.slice(2).trim(),
+            summary: trimmed.slice(2).trim(),
             aixStatus: 'No aix status recorded.',
             status: 'unknown',
          };
+         openField = 'summary';
          continue;
       }
 
-      const trimmed = line.trim(),
-            aixStatusPrefix = '- aix status:';
+      if (current && trimmed.toLowerCase().startsWith(AIX_STATUS_PREFIX)) {
+         current.aixStatus = trimmed.slice(AIX_STATUS_PREFIX.length).trim();
+         openField = 'aixStatus';
+         continue;
+      }
 
-      if (current && trimmed.toLowerCase().startsWith(aixStatusPrefix)) {
-         const aixStatus = trimmed.slice(aixStatusPrefix.length).trim();
+      if (trimmed.startsWith('- ')) {
+         openField = undefined;
+         continue;
+      }
 
-         current.aixStatus = aixStatus;
-         current.status = classifyStatus(aixStatus);
+      if (openField) {
+         append(openField, trimmed);
       }
    }
 
    if (current) {
       changes.push(current);
+   }
+
+   // Classified only after the loop, because continuation lines can still be appended to
+   // `aixStatus` after its first line is read.
+   for (const change of changes) {
+      change.status = classifyStatus(change.aixStatus);
    }
 
    return changes;
