@@ -58,14 +58,16 @@ Add skills to the `skills` object in `ai.json`:
 When you run `aix install`, skills are:
 
 1. Resolved and downloaded (if remote) to `.aix/skills/{name}/`.
-2. Symlinked or copied to the appropriate location for each editor:
-   - **Cursor**: Symlinked from `.cursor/skills/`.
-   - **GitHub Copilot**: Symlinked from `.github/skills/` (native Agent Skills support).
-   - **Claude Code**: Symlinked from `.claude/skills/`.
-   - **Codex**: Project skills are symlinked from `.agents/skills/`.
-   - **OpenCode**: Symlinked from `.opencode/skills/`.
-   - **Windsurf**: Symlinked from `.windsurf/skills/`.
-   - **Zed**: Skill content added as pointer rules (no native Agent Skills).
+2. Symlinked into the location each editor reads. Every supported editor now has native
+   Agent Skills support, so all of them get a real skill directory rather than a rule that
+   points at one:
+   - **Claude Code**: `.claude/skills/`.
+   - **Cursor**: `.cursor/skills/`.
+   - **GitHub Copilot**: `.github/skills/`.
+   - **Gemini CLI**: `.gemini/skills/`.
+   - **OpenCode**: `.opencode/skills/`.
+   - **Windsurf**: `.windsurf/skills/`.
+   - **Codex** and **Zed**: `.agents/skills/`, the shared Agent Skills folder convention.
 
 `aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory before saving the reference.
 

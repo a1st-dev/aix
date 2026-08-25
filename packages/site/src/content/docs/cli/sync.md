@@ -78,7 +78,7 @@ Instead, aix calls out what was skipped and why. Two common reasons:
 Examples:
 
 - Codex converts prompts into skills instead of installing native prompts.
-- Zed exposes skills through pointer rules, not native skill files.
+- Zed reads skills from the shared `.agents/skills/` folder rather than a Zed-specific one.
 - Windsurf and Codex still have global-only paths for some MCP writes, so a project-scoped sync
   will skip those writes and say so.
 
