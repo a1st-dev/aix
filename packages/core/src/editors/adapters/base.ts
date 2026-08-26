@@ -434,14 +434,14 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
                   options,
                );
 
-               changes.push({ ...change, category: 'mcp' });
+               changes.push({ ...change, category: 'mcp', items: mcpEntries });
             } else {
                // Non-JSON MCP config (e.g., codex flags) - always overwrite
                const content = this.mcpStrategy.formatConfig(editorConfig.mcp),
                      existing = await this.readExisting(mcpPath),
                      action = this.determineAction(existing, content);
 
-               changes.push({ path: mcpPath, action, content, category: 'mcp' });
+               changes.push({ path: mcpPath, action, content, category: 'mcp', items: mcpEntries });
             }
          }
       }

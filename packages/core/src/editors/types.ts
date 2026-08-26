@@ -233,6 +233,8 @@ export interface FileChange {
    mode?: number;
    /** Category for display grouping */
    category?: FileChangeCategory;
+   /** Individual item names for display (e.g., MCP server names, rule names) */
+   items?: string[];
 }
 
 /**

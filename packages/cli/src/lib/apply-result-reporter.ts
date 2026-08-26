@@ -182,19 +182,29 @@ export function displayFileChanges(options: DisplayFileChangesOptions): void {
       const seenNames = new Set<string>();
 
       for (const change of categoryChanges) {
-         const name = key === 'skill' ? extractSkillName(change.path) : extractFileName(change.path);
+         if (key === 'mcp' && change.items && change.items.length > 0) {
+            for (const item of change.items) {
+               const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
 
-         if (key === 'skill') {
-            if (seenNames.has(name)) {
-               continue;
+               output.log(`    ${getChangePrefix(output, change.action)} ${item}${action}`);
+            }
+         } else {
+            const name = key === 'skill'
+               ? extractSkillName(change.path)
+               : extractFileName(change.path);
+
+            if (key === 'skill') {
+               if (seenNames.has(name)) {
+                  continue;
+               }
+
+               seenNames.add(name);
             }
 
-            seenNames.add(name);
+            const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
+
+            output.log(`    ${getChangePrefix(output, change.action)} ${name}${action}`);
          }
-
-         const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
-
-         output.log(`    ${getChangePrefix(output, change.action)} ${name}${action}`);
       }
 
       if (blankAfterEachCategory) {
