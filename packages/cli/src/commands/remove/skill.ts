@@ -1,13 +1,16 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
-import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval, type EditorName } from '@a1st/aix-core';
-import { normalizeEditors, resolveScope } from '@a1st/aix-schema';
+import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval } from '@a1st/aix-core';
+import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd } from '../../lib/install-helper.js';
+import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
+import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 import {
    computeFilesToDelete,
    deleteFiles,
@@ -33,6 +36,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...targetFlag,
@@ -72,10 +76,14 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
 
       // Compute files to delete
       const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-            configuredEditors = loaded?.config.editors,
-            editors = targetEditors ?? (configuredEditors
-               ? (Object.keys(normalizeEditors(configuredEditors)) as EditorName[])
-               : []);
+            editors = await resolveRemovalEditors({
+               targetEditors,
+               section: 'skills',
+               itemName: resolvedName,
+               configuredEditors: flags.local ? undefined : loaded?.config.editors,
+               scope: targetScope,
+               projectRoot,
+            });
 
       let filesToDelete: FilesToDelete[] = [],
           shouldDeleteFiles = false;
@@ -122,6 +130,8 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          shouldDeleteFiles = getExistingFiles(filesToDelete).length > 0;
       }
 
+      const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
+
       // Update ai.json / ai.local.json if present
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
@@ -146,6 +156,8 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
          });
          this.output.success(`Removed skill "${args.name}"`);
       }
+
+      const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
       // Delete files from editors
       if (shouldDeleteFiles && filesToDelete.length > 0) {
@@ -172,7 +184,12 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             action: 'remove',
             type: 'skill',
             name: resolvedName,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 }

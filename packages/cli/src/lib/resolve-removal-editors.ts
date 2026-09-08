@@ -12,7 +12,7 @@ export interface ResolveRemovalEditorsOptions {
    /** Editors named by `--target`. When present, nothing else is consulted. */
    targetEditors?: EditorName[];
    /** State section the item belongs to. */
-   section: StateSection;
+   section: StateSection | 'marketplaces' | 'plugins';
    /** Item name as it appears in state: a server name, a rule name, a hook event. */
    itemName: string;
    /** The `editors` block from ai.json, when a config was loaded. */
@@ -41,7 +41,9 @@ export async function resolveRemovalEditors(
    }
 
    const state = await readState(options.scope, options.projectRoot),
-         installed = getInstalledItem(state, options.section, options.itemName);
+         installed = options.section in state.installed
+            ? getInstalledItem(state, options.section as StateSection, options.itemName)
+            : undefined;
 
    if (installed && installed.editors.length > 0) {
       return normalizeEditorNames(installed.editors);
