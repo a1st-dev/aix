@@ -106,16 +106,16 @@
       "topicSeparator": " ",
       "topics": {
          "add": {
-            "description": "Add skills, MCP servers, agents, rules, prompts, or hooks to ai.json"
+            "description": "Add skills, MCP servers, agents, rules, prompts, hooks, plugins, or marketplaces to ai.json"
          },
          "config": {
             "description": "Manage aix configuration"
          },
          "list": {
-            "description": "List configured skills, MCP servers, agents, editors, rules, prompts, or hooks"
+            "description": "List configured skills, MCP servers, agents, editors, rules, prompts, hooks, plugins, or marketplaces"
          },
          "remove": {
-            "description": "Remove skills, MCP servers, agents, rules, prompts, or hooks from ai.json"
+            "description": "Remove skills, MCP servers, agents, rules, prompts, hooks, plugins, or marketplaces from ai.json"
          }
       },
       "update": {

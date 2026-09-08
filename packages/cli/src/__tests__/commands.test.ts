@@ -2412,5 +2412,45 @@ You debug issues.
          expect(error).toBeUndefined();
          expect(existsSync(join(testDir, '.claude', 'agents', 'debugger.md'))).toBe(true);
       });
+
+      it('runs topic index commands without unparsed command warnings in development', async () => {
+         const topics = [ 'add', 'remove', 'cache', 'config' ],
+               results = await Promise.all(
+                  topics.map((topic) => {
+                     return new Promise<{ topic: string; result: CommandResult }>((resolve) => {
+                        execFile(
+                           'node',
+                           [ binPath, topic ],
+                           {
+                              cwd: testDir,
+                              env: {
+                                 ...process.env,
+                                 AIX_DISABLE_AUTOUPDATE: '1',
+                                 NODE_ENV: 'development',
+                              },
+                           },
+                           (error, stdout, stderr) => {
+                              resolve({
+                                 topic,
+                                 result: {
+                                    error: error ?? undefined,
+                                    stdout,
+                                    stderr,
+                                 },
+                              });
+                           },
+                        );
+                     });
+                  }),
+               );
+
+         for (const { topic, result } of results) {
+            expect(result.error).toBeUndefined();
+            expect(result.stderr).not.toContain('UnparsedCommand');
+            expect(result.stderr).not.toContain("Did you forget to call 'this.parse'?");
+            expect(result.stdout).toContain(`aix ${topic}`);
+         }
+      });
    });
 });
+
