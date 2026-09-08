@@ -136,3 +136,53 @@ A fragment names its event alongside the actions:
    "hooks": [{ "command": "./scripts/guard.sh", "timeout": 10 }]
 }
 ```
+
+### `aix add plugin`
+
+```bash
+aix add plugin <source> [flags]
+```
+
+Adds a plugin to `ai.json` and configures it in target editors. If the target editor does not natively support plugins, its bundled skills, rules, and MCP servers are automatically unpacked and installed.
+
+**Flags:**
+
+- `--name <name>` / `-n`: Plugin name or identifier.
+- `--spec <spec>`: Plugin version specification or tag.
+- `--plugin-version <version>`: Explicit semantic version.
+- `--path <path>`: Subdirectory path within a plugin repository.
+- `--disabled`: Add the plugin in a disabled state (`false`).
+- `--no-install`: Skip installing to editors after adding.
+- `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
+
+**Examples:**
+
+```bash
+aix add plugin skill-creator@claude-plugins-official
+aix add plugin ./plugins/my-helper
+aix add plugin https://github.com/my-org/code-plugin --name code-plugin
+```
+
+### `aix add marketplace`
+
+```bash
+aix add marketplace <source> [flags]
+```
+
+Registers a plugin marketplace or catalog in `ai.json`.
+
+**Flags:**
+
+- `--name <name>` / `-n`: Marketplace name (inferred from URL or repo if omitted).
+- `--type <type>`: Marketplace type (`git`, `npm`, or `url`).
+- `--disabled`: Add marketplace in disabled state.
+- `--no-install`: Skip installing to editors after adding.
+- `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
+
+**Examples:**
+
+```bash
+aix add marketplace https://github.com/anthropics/claude-plugins-official --name claude-plugins-official
+```

@@ -46,6 +46,24 @@ native event name: removing `pre_command` from Claude Code drops the `PreToolUse
 matching `Bash` and leaves a `pre_file_write` group matching `Write|Edit` in place. With
 `--user`, `ai.json` is neither read nor written, matching `aix add hook --user`.
 
+### `aix remove plugin`
+
+```bash
+aix remove plugin <name>
+aix remove plugin skill-creator@claude-plugins-official --yes
+```
+
+Removes the plugin from `ai.json` and uninstalls/unregisters it from configured editors.
+
+### `aix remove marketplace`
+
+```bash
+aix remove marketplace <name>
+aix remove marketplace claude-plugins-official --yes
+```
+
+Removes the marketplace from `ai.json` and unregisters it from configured editors.
+
 ## Flags
 
 | Flag                                                     | Description                                     |

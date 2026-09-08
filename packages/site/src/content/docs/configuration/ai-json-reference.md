@@ -36,19 +36,21 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 
 ## Top-level fields
 
-| Field     | Type                 | Description                                                                      |
-| --------- | -------------------- | -------------------------------------------------------------------------------- |
-| `$schema` | `string`             | JSON Schema URL for IDE validation                                               |
-| `scope`   | `string`             | `"project"` (default) or `"user"`. Sets whether this is a project or user config |
-| `extends` | `string \| string[]` | Inherit from other configs                                                       |
-| `skills`  | `object`             | Map of skill names to skill references                                           |
-| `mcp`     | `object`             | Map of server names to MCP server configs                                        |
-| `rules`   | `object`             | Map of rule names to rule definitions                                            |
-| `prompts` | `object`             | Map of prompt names to prompt definitions                                        |
-| `agents`  | `object`             | Map of agent names to agent definitions                                          |
-| `editors` | `object \| string[]` | Editor targeting and editor-specific settings                                    |
-| `hooks`   | `object`             | Lifecycle hooks for AI agent events                                              |
-| `aix`     | `object`             | aix tool settings (cache, backups)                                               |
+| Field          | Type                 | Description                                                                      |
+| -------------- | -------------------- | -------------------------------------------------------------------------------- |
+| `$schema`      | `string`             | JSON Schema URL for IDE validation                                               |
+| `scope`        | `string`             | `"project"` (default) or `"user"`. Sets whether this is a project or user config |
+| `extends`      | `string \| string[]` | Inherit from other configs                                                       |
+| `skills`       | `object`             | Map of skill names to skill references                                           |
+| `mcp`          | `object`             | Map of server names to MCP server configs                                        |
+| `rules`        | `object`             | Map of rule names to rule definitions                                            |
+| `prompts`      | `object`             | Map of prompt names to prompt definitions                                        |
+| `agents`       | `object`             | Map of agent names to agent definitions                                          |
+| `editors`      | `object \| string[]` | Editor targeting and editor-specific settings                                    |
+| `hooks`        | `object`             | Lifecycle hooks for AI agent events                                              |
+| `plugins`      | `object`             | Map of plugin names to plugin configurations                                     |
+| `marketplaces` | `object`             | Map of marketplace names to marketplace sources                                  |
+| `aix`          | `object`             | aix tool settings (cache, backups)                                               |
 
 ---
 
@@ -425,6 +427,44 @@ Lifecycle hooks for AI agent events. See [Hooks](/concepts/hooks/).
             ]
          }
       ]
+   }
+}
+```
+
+---
+
+## `plugins`
+
+Map of plugin names to plugin configurations. See [Plugins & Marketplaces](/concepts/plugins/) for architecture and conflict resolution rules.
+
+```json
+{
+   "plugins": {
+      "skill-creator@claude-plugins-official": true,
+      "custom-tools": {
+         "source": "./plugins/custom-tools",
+         "enabled": true
+      }
+   }
+}
+```
+
+Supports boolean enablement, string sources, or structured configuration objects with `source`, `enabled`, and options.
+
+---
+
+## `marketplaces`
+
+Map of marketplace names to marketplace sources. See [Plugins & Marketplaces](/concepts/plugins/).
+
+```json
+{
+   "marketplaces": {
+      "claude-plugins-official": "https://github.com/anthropics/claude-plugins-official",
+      "internal-market": {
+         "source": "https://github.com/my-org/marketplace",
+         "type": "git"
+      }
    }
 }
 ```

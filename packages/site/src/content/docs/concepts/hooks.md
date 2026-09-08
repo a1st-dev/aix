@@ -58,6 +58,10 @@ To install one hook fragment without creating `ai.json`, use direct install:
 aix install ./hooks/pre-command.jsonc --type hook --target claude-code --user
 ```
 
+### Hooks and Plugins
+
+In editors with native plugin support (such as Claude Code), hooks defined in `ai.json` and hooks bundled within enabled [plugins](/concepts/plugins/) both trigger on matching lifecycle events. Claude Code executes matching hooks in sequence (both project/user hooks and active plugin hooks run for the given event).
+
 ## Hook events
 
 aix defines a normalized event vocabulary covering every event surfaced by the supported

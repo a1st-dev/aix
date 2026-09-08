@@ -81,6 +81,13 @@ aix install ./skills/review --type skill --target claude-code --user
 aix install github:org/aix-skills/review#v1.0.0 --type skill --target cursor
 ```
 
+### Precedence with Plugins
+
+If your project defines a skill in `ai.json` that is also bundled inside an enabled [plugin](/concepts/plugins/):
+
+- **Native Plugin Editors (e.g. Claude Code)**: The local project skill in `.claude/skills/<name>` takes precedence over the plugin's bundled version.
+- **Non-Native Editors (e.g. Codex, Windsurf, Zed)**: Unpacked plugin skills are automatically prefixed with the plugin name (`${pluginName}-${skillName}`) to prevent naming collisions. If you explicitly author a skill with the exact same name in `ai.json`, your explicit configuration overrides the unpacked plugin version.
+
 ## Creating a Skill
 
 1. Create a directory: `mkdir skills/my-skill`
