@@ -29,6 +29,7 @@ agent tools.
    - Prompts, commands, skills, agents, subagents, or workflow files.
    - MCP config paths, schemas, transports, auth, tool naming, or server discovery.
    - Hook events, hook payloads, hook action fields, or hook execution behavior.
+   - Plugins, plugin manifests, marketplaces, registries, or component bundle discovery.
    - User/project/global config paths and precedence.
    - Security or permission changes that alter generated config safety.
 5. Write one structured markdown document per editor/version pair:
@@ -74,6 +75,7 @@ it in a research document.
 
 - Claude Code:
    - Changelog: `https://code.claude.com/docs/en/changelog`
+   - Plugins docs: `https://code.claude.com/docs/en/plugins`
    - Hooks docs: `https://code.claude.com/docs/en/hooks`
    - Settings docs: `https://code.claude.com/docs/en/settings`
    - Package metadata: `npm view @anthropic-ai/claude-code version`
