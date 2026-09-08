@@ -2,7 +2,7 @@ import { getLocalConfigPath, type ConfigSection, type EditorName, type LoadedCon
 import { McpRegistryClient, type Package } from '@a1st/mcp-registry-client';
 import type { ConfigScope, McpServerConfig } from '@a1st/aix-schema';
 import { resolveScope } from '@a1st/aix-schema';
-import { refreshLockfile } from './lockfile-helper.js';
+import { refreshLockfile, shouldRefreshLockfile } from './lockfile-helper.js';
 import { formatInstallResults, installAfterAdd, installSingleItem } from './install-helper.js';
 import type { Output } from './output.js';
 import { isUserScopeRequested, resolveConfigScope } from '../flags/scope.js';
@@ -143,7 +143,7 @@ export async function refreshLockfileAfterAdd(
    lockableConfigPath: string | undefined,
    output: Pick<Output, 'success'>,
 ): Promise<string | undefined> {
-   if (!shouldRefresh || !lockableConfigPath) {
+   if (!lockableConfigPath || !shouldRefreshLockfile(shouldRefresh, lockableConfigPath)) {
       return undefined;
    }
 

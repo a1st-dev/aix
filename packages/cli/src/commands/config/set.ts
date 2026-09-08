@@ -1,6 +1,7 @@
 import { Args } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
 import { updateConfig } from '@a1st/aix-core';
+import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 
 export default class ConfigSet extends BaseCommand<typeof ConfigSet> {
    static override description = 'Set a configuration value';
@@ -34,9 +35,18 @@ export default class ConfigSet extends BaseCommand<typeof ConfigSet> {
          parsedValue = args.value;
       }
 
+      // Alias top-level cache.* to aix.cache.* so cache retention settings persist
+      const targetKey = args.key === 'cache' || args.key.startsWith('cache.')
+         ? `aix.${args.key}`
+         : args.key;
+
       await updateConfig(loaded.path, (config) => {
-         return this.setNestedValue(config, args.key, parsedValue);
+         return this.setNestedValue(config, targetKey, parsedValue);
       });
+
+      const lockableConfigPath = getLockableConfigPath(loaded);
+
+      await refreshLockfileAfterRemoval(undefined, lockableConfigPath, this.output);
 
       this.output.success(`Set ${args.key}`);
 

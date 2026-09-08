@@ -1,6 +1,7 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
+import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, isUserScopeRequested, resolveConfigScope } from '../../flags/scope.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
@@ -19,6 +20,7 @@ import {
    type HookEvent,
    type HooksConfig,
 } from '@a1st/aix-schema';
+import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 import { confirm } from '@inquirer/prompts';
 
@@ -40,6 +42,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
    };
 
    static override flags = {
+      ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...targetFlag,
@@ -85,6 +88,8 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
          return;
       }
 
+      const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
+
       if (flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -98,6 +103,8 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
          });
          this.output.success(`Removed hook "${event}"`);
       }
+
+      const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
       if (!flags['no-sync']) {
          const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
@@ -122,8 +129,13 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
             action: 'remove',
             type: 'hook',
             event,
+            ...(lockfilePath && { lockfilePath }),
          });
       }
+   }
+
+   protected override getLockfileMode(): 'auto' | 'ignore' {
+      return this.flags.lock ? 'ignore' : 'auto';
    }
 
    private async confirmRemoval(
