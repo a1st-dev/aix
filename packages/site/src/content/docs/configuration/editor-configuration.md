@@ -125,6 +125,25 @@ Target Grok CLI with `enabled` and optional Grok-only rules:
 }
 ```
 
+### Antigravity
+
+Antigravity uses `~/.gemini/antigravity` configuration, supporting subagents in `.agents/` workflows, MCP servers, rules, and skills. Target it with `enabled` and optional Antigravity-only rules:
+
+```json
+{
+   "editors": {
+      "antigravity": {
+         "enabled": true,
+         "rules": {
+            "antigravity-context": {
+               "content": "Use Antigravity workflow conventions and tools."
+            }
+         }
+      }
+   }
+}
+```
+
 ## Editor-Specific Rules
 
 Sometimes you need to give instructions to one specific AI model but not others. You can define rules nested under the editor config:

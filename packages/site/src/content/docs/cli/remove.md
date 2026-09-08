@@ -33,6 +33,15 @@ aix remove mcp github
 
 Also cleans up global MCP config if the server is no longer used by any project.
 
+### `aix remove agent`
+
+```bash
+aix remove agent <name>
+aix remove agent reviewer --yes
+```
+
+Removes the agent from `ai.json` (or `ai.local.json`) and deletes the generated agent files across all configured editors.
+
 ### `aix remove hook`
 
 ```bash

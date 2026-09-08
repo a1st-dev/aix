@@ -8,7 +8,7 @@ Provides config loading, editor adapters, skill resolution, and file management 
 This package is used internally by `@a1st/aix` (the CLI). It handles:
 
 - **Config discovery & loading** — Find and parse `ai.json` files, resolve `extends`
-- **Editor adapters** — Write rules, prompts, skills, and MCP config to each editor's format
+- **Editor adapters** — Write rules, prompts, skills, agents, hooks, and MCP config to each editor's format
 - **Skill resolution** — Load skills from local paths, git repos, or npm packages
 - **Remote loading** — Fetch configs from GitHub URLs, git shorthand, or local paths
 - **Safe file updates** — Atomic writes with backup and rollback

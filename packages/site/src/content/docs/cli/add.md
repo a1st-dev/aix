@@ -86,6 +86,34 @@ aix add prompt <source> [flags]
 - `--local` / `-l`: Add to `ai.local.json`.
 - `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
+### `aix add agent`
+
+```bash
+aix add agent <source> [flags]
+```
+
+Adds a specialized agent to `ai.json` (or `ai.local.json`) and installs it to supported editors.
+
+**Flags:**
+
+- `--name <name>` / `-n`: Agent name (inferred from filename if omitted).
+- `--mode <mode>` / `-m`: Agent mode: `subagent` (default) or `primary`.
+- `--model <model>`: Model alias or model ID.
+- `--tools <tools>`: Comma-separated list of tools available to the agent.
+- `--description <desc>` / `-d`: When this agent should be used.
+- `--ref <ref>` / `-r`: Git branch/tag/commit.
+- `--no-install`: Skip the install step after adding.
+- `--local` / `-l`: Add to `ai.local.json`.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
+
+**Examples:**
+
+```bash
+aix add agent ./agents/reviewer.md
+aix add agent ./agents/reviewer.agent.md --mode primary
+aix add agent github:org/agents/tester.md --model claude-3-7-sonnet --tools bash,edit
+```
+
 ### `aix add hook`
 
 ```bash

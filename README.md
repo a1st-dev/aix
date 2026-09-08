@@ -37,22 +37,23 @@ Supported editors:
 - `copilot`
 - `windsurf`
 - `codex`
-- `gemini`
+- `antigravity`
 - `opencode`
 - `zed`
+- `grok`
 
 ## Why aix?
 
 Define your AI agent configuration once in `ai.json`.
 
-`aix` gives you one source of truth for your skills, prompts, rules, hooks, and MCP server
-config. Then, use that config with any supported agent/editor: claude-code, cursor,
-copilot, opencode, etc.
+`aix` gives you one source of truth for your skills, agents, prompts, rules, hooks, plugins, marketplaces,
+and MCP server config. Then, use that config with any supported agent/editor: claude-code, cursor,
+copilot, antigravity, opencode, grok, etc.
 
 Standardize your AI config. Share it with your team. Check it into version control.
 
 - **Discover new MCP servers and skills** - Use `aix search` to find and add new MCP servers and skills
-- **Stop duplicating config** — Define skills, MCP servers, rules, prompts, and hooks once instead of per-editor
+- **Stop duplicating config** — Define skills, agents, MCP servers, rules, prompts, hooks, plugins, and marketplaces once instead of per-editor
 - **Write hooks once** — One set of lifecycle hooks becomes each editor's own event names and config format
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
@@ -95,12 +96,16 @@ aix add mcp playwright                # Add MCP server from registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
 aix add rule ./rules/typescript.md    # Add a rule from file or URL
 aix add prompt ./prompts/review.md    # Add a prompt/command from file or URL
+aix add agent ./agents/reviewer.md    # Add an agent from markdown file
 aix add hook pre_command --command "npm run lint" # Add a hook on a lifecycle event
 aix add hook ./hooks/guard.json       # Add a hook from a JSON fragment
+aix add plugin skill-creator@claude-plugins-official # Add a plugin
+aix add marketplace https://github.com/my-org/market --name team-market # Add marketplace
 aix remove skill typescript           # Remove a skill and uninstall from editors
 aix remove mcp playwright             # Remove an MCP server
+aix remove agent reviewer             # Remove an agent
 aix remove hook pre_command           # Remove a hook and uninstall from editors
-aix list skills                       # List configured skills (or mcp, rules, prompts, hooks, editors)
+aix list skills                       # List configured skills (or mcp, rules, prompts, agents, hooks, editors)
 aix list --scope user                 # List user-scoped config only
 aix list --all --editor copilot       # Show actual editor config, including externally managed items
 ```

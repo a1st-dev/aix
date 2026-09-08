@@ -19,6 +19,7 @@ aix list [subcommand]
 - `aix list mcp`: Show configured MCP servers and their status.
 - `aix list rules`: Show active rules and activation modes.
 - `aix list prompts`: Show configured prompts.
+- `aix list agents`: Show configured agents, their modes, models, and references.
 - `aix list hooks`: Show configured hooks, their matchers, and what each one runs.
 - `aix list editors`: Show detected/configured editors.
 

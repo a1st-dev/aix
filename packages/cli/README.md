@@ -23,7 +23,8 @@ aix install github:org/config         # Install remote config
 aix install playwright --type mcp --target claude-code --user # Direct install
 aix add skill <source>                # Add a skill
 aix add mcp <name>                    # Add MCP server from registry
-aix list [scope]                      # List skills, mcp, rules, prompts, or editors
+aix add agent <source>                # Add an agent from markdown file
+aix list [scope]                      # List skills, mcp, rules, prompts, agents, hooks, or editors
 ```
 
 Use `aix install` to apply `ai.json` to editors. Use `aix sync` when the source of truth is

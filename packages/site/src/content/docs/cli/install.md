@@ -24,29 +24,32 @@ create or modify `ai.json`.
 
 ## Flags
 
-| Flag                                                     | Description                                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `--target <editor>` / `-t`                               | Limit installation to specific editors. Repeatable.                                   |
-| `--type <type>`                                          | Directly install one `mcp`, `skill`, `rule`, `hook`, or `prompt` without `ai.json`.   |
-| `--name <name>` / `-n`                                   | Name for a direct install when aix cannot infer one.                                  |
-| `--ref <ref>` / `-r`                                     | Git ref for direct install sources.                                                   |
-| `--command <command>`                                    | Command for direct MCP stdio installs.                                                |
-| `--args <args>`                                          | Comma-separated command arguments for direct MCP installs.                            |
-| `--env <vars>`                                           | Comma-separated `KEY=value` env vars for direct MCP installs.                         |
-| `--url <url>`                                            | Remote Streamable HTTP MCP URL for direct MCP installs.                               |
-| `--header <header>`                                      | HTTP header for direct remote MCP installs. Repeatable `KEY=value`.                   |
-| `--description <text>`                                   | Rule or prompt description for direct installs.                                       |
-| `--activation <mode>`                                    | Rule activation mode for direct rule installs.                                        |
-| `--globs <patterns>`                                     | Comma-separated glob patterns for direct rule installs.                               |
-| `--argument-hint <hint>`                                 | Prompt argument hint for direct prompt installs.                                      |
-| `--dry-run` / `-d`                                       | Preview changes without writing files.                                                |
-| `--save`                                                 | When installing a remote source, save it to local `ai.json`.                          |
-| `--overwrite`                                            | With `--save`, overwrite local config instead of merging.                             |
-| `--clean`                                                | Remove the `.aix` folder before install to ensure a fresh state.                      |
-| `--copy`                                                 | With `--save`, copy remote files to `.aix/imported/` instead of referencing git URLs. |
-| `--lock`                                                 | Create or refresh `ai.lock.json` before installing.                                   |
-| `--only <field>`                                         | Limit to specific fields: `rules`, `prompts`, `mcp`, `skills`, `hooks`, `agents`.     |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Override the `scope` from `ai.json` (target user-level or project-level config).      |
+| Flag                                                     | Description                                                                                  |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `--target <editor>` / `-t`                               | Limit installation to specific editors. Repeatable.                                          |
+| `--type <type>`                                          | Directly install one `mcp`, `skill`, `rule`, `hook`, `prompt`, or `agent` without `ai.json`. |
+| `--name <name>` / `-n`                                   | Name for a direct install when aix cannot infer one.                                         |
+| `--ref <ref>` / `-r`                                     | Git ref for direct install sources.                                                          |
+| `--command <command>`                                    | Command for direct MCP stdio installs.                                                       |
+| `--args <args>`                                          | Comma-separated command arguments for direct MCP installs.                                   |
+| `--env <vars>`                                           | Comma-separated `KEY=value` env vars for direct MCP installs.                                |
+| `--url <url>`                                            | Remote Streamable HTTP MCP URL for direct MCP installs.                                      |
+| `--header <header>`                                      | HTTP header for direct remote MCP installs. Repeatable `KEY=value`.                          |
+| `--description <text>`                                   | Rule, prompt, or agent description for direct installs.                                      |
+| `--activation <mode>`                                    | Rule activation mode for direct rule installs.                                               |
+| `--globs <patterns>`                                     | Comma-separated glob patterns for direct rule installs.                                      |
+| `--argument-hint <hint>`                                 | Prompt argument hint for direct prompt installs.                                             |
+| `--mode <mode>`                                          | Agent mode for direct agent installs (`primary` or `subagent`).                              |
+| `--model <model>`                                        | Agent model for direct agent installs.                                                       |
+| `--tools <tools>`                                        | Comma-separated list of tools for direct agent installs.                                     |
+| `--dry-run` / `-d`                                       | Preview changes without writing files.                                                       |
+| `--save`                                                 | When installing a remote source, save it to local `ai.json`.                                 |
+| `--overwrite`                                            | With `--save`, overwrite local config instead of merging.                                    |
+| `--clean`                                                | Remove the `.aix` folder before install to ensure a fresh state.                             |
+| `--copy`                                                 | With `--save`, copy remote files to `.aix/imported/` instead of referencing git URLs.        |
+| `--lock`                                                 | Create or refresh `ai.lock.json` before installing.                                          |
+| `--only <field>`                                         | Limit to specific fields: `rules`, `prompts`, `mcp`, `skills`, `hooks`, `agents`.            |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Override the `scope` from `ai.json` (target user-level or project-level config).             |
 
 ## Examples
 
