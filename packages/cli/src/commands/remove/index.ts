@@ -1,7 +1,7 @@
 import { Command, Help } from '@oclif/core';
 
 export default class RemoveIndex extends Command {
-   static override description = 'Remove skills, MCP servers, or hooks from ai.json';
+   static override description = 'Remove skills, MCP servers, agents, rules, prompts, or hooks from ai.json';
 
    static override hidden = true;
 

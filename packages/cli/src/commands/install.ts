@@ -74,7 +74,7 @@ export default class Install extends BaseCommand<typeof Install> {
       ...targetFlag,
       type: Flags.string({
          description: 'Install one direct artifact without a local ai.json',
-         options: ['mcp', 'skill', 'rule', 'hook', 'prompt'],
+         options: ['mcp', 'skill', 'rule', 'hook', 'prompt', 'agent'],
       }),
       name: Flags.string({
          char: 'n',
@@ -101,7 +101,7 @@ export default class Install extends BaseCommand<typeof Install> {
          multiple: true,
       }),
       description: Flags.string({
-         description: 'Rule or prompt description for direct installs',
+         description: 'Rule, prompt, or agent description for direct installs',
       }),
       activation: Flags.string({
          description: 'Rule activation mode for direct rule installs',
@@ -109,6 +109,16 @@ export default class Install extends BaseCommand<typeof Install> {
       }),
       globs: Flags.string({
          description: 'Rule glob patterns for direct rule installs (comma-separated)',
+      }),
+      mode: Flags.string({
+         description: 'Agent mode for direct agent installs',
+         options: ['primary', 'subagent'],
+      }),
+      model: Flags.string({
+         description: 'Agent model for direct agent installs',
+      }),
+      tools: Flags.string({
+         description: 'Agent tools for direct agent installs (comma-separated)',
       }),
       'argument-hint': Flags.string({
          description: 'Prompt argument hint for direct prompt installs',
@@ -450,6 +460,8 @@ export default class Install extends BaseCommand<typeof Install> {
                return ['rules'];
             case 'mcp':
                return ['mcp'];
+            case 'agent':
+               return ['agents'];
          }
       }
 
@@ -561,6 +573,12 @@ export default class Install extends BaseCommand<typeof Install> {
                prompt: {
                   description: this.flags.description,
                   argumentHint: this.flags['argument-hint'],
+               },
+               agent: {
+                  description: this.flags.description,
+                  mode: this.flags.mode as 'primary' | 'subagent' | undefined,
+                  model: this.flags.model,
+                  tools: this.parseList(this.flags.tools),
                },
             }),
             sections = this.getDirectInstallSections(type, direct.sections),

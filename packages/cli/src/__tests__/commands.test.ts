@@ -2119,4 +2119,163 @@ description: User Agents skill
          expect(config.marketplaces['team-market']).toBeUndefined();
       });
    });
+
+   describe('agent commands', () => {
+      it('adds an agent to ai.json and infers name from file', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               agentsDir = join(testDir, 'agents');
+
+         await writeValidConfig(configPath);
+         await mkdir(agentsDir, { recursive: true });
+         await writeFile(
+            join(agentsDir, 'reviewer.md'),
+            `---
+description: Code review assistant
+mode: subagent
+---
+You are a senior code reviewer.
+`,
+         );
+
+         const { error } = await runCli(
+            [
+               'add',
+               'agent',
+               './agents/reviewer.md',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.agents.reviewer).toBe('./agents/reviewer.md');
+      });
+
+      it('adds an agent with .agent.md extension and flag overrides', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               agentsDir = join(testDir, 'agents');
+
+         await writeValidConfig(configPath);
+         await mkdir(agentsDir, { recursive: true });
+         await writeFile(
+            join(agentsDir, 'planner.agent.md'),
+            `---
+description: Task planner
+---
+You plan architecture tasks.
+`,
+         );
+
+         const { error } = await runCli(
+            [
+               'add',
+               'agent',
+               './agents/planner.agent.md',
+               '--mode',
+               'primary',
+               '--model',
+               'claude-3-7-sonnet',
+               '--tools',
+               'bash,edit',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.agents.planner).toMatchObject({
+            path: './agents/planner.agent.md',
+            mode: 'primary',
+            model: 'claude-3-7-sonnet',
+            tools: ['bash', 'edit'],
+         });
+      });
+
+      it('lists configured agents in JSON format', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               agentsDir = join(testDir, 'agents');
+
+         await mkdir(agentsDir, { recursive: true });
+         await writeFile(join(agentsDir, 'reviewer.md'), 'You are a reviewer.');
+
+         await writeValidConfig(configPath, {
+            agents: {
+               reviewer: './agents/reviewer.md',
+            },
+         });
+
+         const { error, stdout } = await runCli(['list', 'agents', '--config', configPath, '--json'], { root });
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.agents.reviewer).toBe('./agents/reviewer.md');
+      });
+
+      it('removes an agent from ai.json', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               agentsDir = join(testDir, 'agents');
+
+         await mkdir(agentsDir, { recursive: true });
+         await writeFile(join(agentsDir, 'reviewer.md'), 'You are a reviewer.');
+
+         await writeValidConfig(configPath, {
+            agents: {
+               reviewer: './agents/reviewer.md',
+            },
+         });
+
+         const { error } = await runCli(
+            ['remove', 'agent', 'reviewer', '--yes', '--config', configPath, '--no-delete'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.agents.reviewer).toBeUndefined();
+      });
+
+      it('installs an agent directly using --type agent', async () => {
+         const agentsDir = join(testDir, 'agents');
+
+         process.env.HOME = join(testDir, 'fake-home');
+         await mkdir(agentsDir, { recursive: true });
+         await writeFile(
+            join(agentsDir, 'debugger.md'),
+            `---
+description: Debugging assistant
+mode: subagent
+---
+You debug issues.
+`,
+         );
+
+         const { error } = await runCli(
+            [
+               'install',
+               './agents/debugger.md',
+               '--type',
+               'agent',
+               '--target',
+               'claude-code',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(testDir, '.claude', 'agents', 'debugger.md'))).toBe(true);
+      });
+   });
 });

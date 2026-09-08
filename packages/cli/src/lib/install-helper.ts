@@ -260,6 +260,9 @@ export async function installSingleItem(
       case 'prompts':
          config.prompts = { [name]: value as AiJsonConfig['prompts'][string] };
          break;
+      case 'agents':
+         config.agents = { [name]: value as AiJsonConfig['agents'][string] };
+         break;
       case 'hooks':
          if (!isHookEvent(name)) {
             return { installed: false, results: [], editors: [] };

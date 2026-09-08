@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { safeRm, type EditorName } from '@a1st/aix-core';
 
-export type RemovableItemType = 'skill' | 'mcp';
+export type RemovableItemType = 'skill' | 'mcp' | 'agent';
 
 export interface FilesToDelete {
    editor: EditorName;
@@ -60,6 +60,35 @@ export function computeFilesToDelete(
 
          if (skillDirConfig) {
             files.push(join(installRoot, targetScope === 'user' ? skillDirConfig.user : skillDirConfig.project, itemName));
+         }
+      } else if (itemType === 'agent') {
+         if (editor === 'copilot') {
+            const projectDir = join(installRoot, '.github', 'agents'),
+                  userDir = join(installRoot, '.config', 'github-copilot', 'agents'),
+                  altUserDir = join(installRoot, '.copilot', 'agents'),
+                  targetDir = targetScope === 'user' ? userDir : projectDir;
+
+            files.push(join(targetDir, `${itemName}.agent.md`));
+            files.push(join(targetDir, `${itemName}.md`));
+            if (targetScope === 'user') {
+               files.push(join(altUserDir, `${itemName}.agent.md`));
+               files.push(join(altUserDir, `${itemName}.md`));
+            }
+         } else {
+            const editorAgentDirs: Partial<Record<EditorName, { project: string; user: string }>> = {
+               'claude-code': { project: '.claude/agents', user: '.claude/agents' },
+               cursor: { project: '.cursor/agents', user: '.cursor/agents' },
+               antigravity: { project: '.agents/agents', user: '.gemini/config/agents' },
+               opencode: { project: '.opencode/agents', user: '.config/opencode/agents' },
+            };
+
+            const agentDirConfig = editorAgentDirs[editor];
+
+            if (agentDirConfig) {
+               const dir = targetScope === 'user' ? agentDirConfig.user : agentDirConfig.project;
+
+               files.push(join(installRoot, dir, `${itemName}.md`));
+            }
          }
       }
       // Note: MCP removal doesn't delete individual files - it re-installs to regenerate config
