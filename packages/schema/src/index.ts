@@ -18,3 +18,5 @@ export * from './jsonc.js';
 export * from './normalize.js';
 export * from './factory.js';
 export * from './lock.js';
+export * from './plugins.js';
+export * from './marketplaces.js';

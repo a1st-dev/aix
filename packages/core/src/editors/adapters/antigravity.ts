@@ -11,6 +11,8 @@ import {
 import {
    MarkdownAgentsStrategy,
    NativeSkillsStrategy,
+   NoMarketplacesStrategy,
+   PluginCompatibilityStrategy,
    formatPlainMarkdownRule,
 } from '../strategies/shared/index.js';
 import type {
@@ -20,6 +22,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
 
@@ -72,6 +76,8 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       extraFrontmatter: (agent) => agent.editor?.antigravity ?? {},
    });
    protected readonly hooksStrategy: HooksStrategy = new AntigravityHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new PluginCompatibilityStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new NoMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -80,23 +86,24 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+      const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
+            { rules, skillChanges } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
                targetScope: options.targetScope,
             }),
-            prompts = await this.loadPrompts(config, projectRoot, {
+            prompts = await this.loadPrompts(resolvedConfig, projectRoot, {
                configBaseDir: options.configBaseDir,
             }),
-            agents = await this.loadAgents(config, projectRoot, {
+            agents = await this.loadAgents(resolvedConfig, projectRoot, {
                configBaseDir: options.configBaseDir,
             }),
-            mcp = filterMcpConfig(config.mcp),
-            hooks = config.hooks;
+            mcp = filterMcpConfig(resolvedConfig.mcp),
+            hooks = resolvedConfig.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, agents, mcp, hooks };
+      return { rules, prompts, agents, mcp, hooks, plugins: config.plugins };
    }
 
    protected override async planChanges(

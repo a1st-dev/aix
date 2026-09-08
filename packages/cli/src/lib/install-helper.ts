@@ -266,6 +266,12 @@ export async function installSingleItem(
          }
          config.hooks = { [name]: value as HookMatcher[] };
          break;
+      case 'plugins':
+         config.plugins = { [name]: value as AiJsonConfig['plugins'][string] };
+         break;
+      case 'marketplaces':
+         config.marketplaces = { [name]: value as AiJsonConfig['marketplaces'][string] };
+         break;
       default:
          return { installed: false, results: [], editors: [] };
    }

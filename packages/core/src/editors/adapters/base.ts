@@ -21,6 +21,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
    EditorStrategyBundle,
 } from '../strategies/types.js';
 import { deepMergeJson, mcpConfigMergeResolver } from '../../json.js';
@@ -29,7 +31,15 @@ import { loadAgents as loadAgentsFromConfig, type LoadedAgent } from '../../agen
 import { mergeRules, type MergedRule } from '../../rules/merger.js';
 import { resolveAllSkills } from '../../skills/resolve.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
-import { hasHooksConfigPath, resolveHooksConfigPath } from '../strategies/shared/index.js';
+import {
+   hasHooksConfigPath,
+   resolveHooksConfigPath,
+   resolvePluginsConfigPath,
+   resolveMarketplacesConfigPath,
+   hasPluginsConfigPath,
+   hasMarketplacesConfigPath,
+   unpackAllPlugins,
+} from '../strategies/shared/index.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
 
 /**
@@ -123,6 +133,12 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    /** Strategy for formatting and writing hooks */
    protected abstract readonly hooksStrategy: HooksStrategy;
 
+   /** Strategy for configuring plugins */
+   protected abstract readonly pluginsStrategy: PluginsStrategy;
+
+   /** Strategy for configuring plugin marketplace catalogs */
+   protected abstract readonly marketplacesStrategy: MarketplacesStrategy;
+
    getStrategyBundle(): EditorStrategyBundle {
       return {
          configDir: this.configDir,
@@ -132,6 +148,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          promptsStrategy: this.promptsStrategy,
          agentsStrategy: this.agentsStrategy,
          hooksStrategy: this.hooksStrategy,
+         pluginsStrategy: this.pluginsStrategy,
+         marketplacesStrategy: this.marketplacesStrategy,
       };
    }
 
@@ -164,7 +182,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          errors: [],
       };
 
-      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'editors'];
+      const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'plugins', 'marketplaces', 'editors'];
 
       try {
          // Clean the .aix folder if requested (ensures exact match with ai.json)
@@ -505,6 +523,23 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          changes.push(...agentChanges);
       }
 
+      changes.push(...await this.planPluginChanges({
+         editorConfig,
+         configDir,
+         projectRoot,
+         scopes,
+         options,
+         existingChanges: changes,
+      }));
+      changes.push(...await this.planMarketplaceChanges({
+         editorConfig,
+         configDir,
+         projectRoot,
+         scopes,
+         options,
+         existingChanges: changes,
+      }));
+
       return changes;
    }
 
@@ -556,6 +591,130 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       return changes;
    }
 
+   protected async planPluginChanges(params: {
+      editorConfig: EditorConfig;
+      configDir: string;
+      projectRoot: string;
+      scopes: string[];
+      options?: ApplyOptions;
+      existingChanges?: FileChange[];
+   }): Promise<FileChange[]> {
+      const {
+         editorConfig,
+         configDir,
+         projectRoot,
+         scopes,
+         options = {},
+         existingChanges = [],
+      } = params;
+      const changes: FileChange[] = [];
+
+      if (
+         !(scopes.includes('editors') || scopes.includes('plugins')) ||
+         !this.pluginsStrategy.isSupported() ||
+         !editorConfig.plugins
+      ) {
+         return changes;
+      }
+
+      const pluginNames = Object.keys(editorConfig.plugins);
+
+      if (pluginNames.length === 0) {
+         return changes;
+      }
+
+      const pluginsPath = resolvePluginsConfigPath(
+         this.pluginsStrategy,
+         configDir,
+         options.targetScope ?? 'project',
+         projectRoot,
+      );
+
+      if (!pluginsPath) {
+         return changes;
+      }
+
+      const formatted = this.pluginsStrategy.formatConfig(editorConfig.plugins, options.targetScope),
+            existingInChanges = existingChanges.find((c) => c.path === pluginsPath),
+            baseContent = existingInChanges ? existingInChanges.content : undefined;
+
+      const change = await this.planJsonFileChange(pluginsPath, formatted, options, baseContent);
+
+      if (existingInChanges) {
+         existingInChanges.content = change.content;
+         existingInChanges.action = change.action;
+         if (existingInChanges.items) {
+            existingInChanges.items.push(...pluginNames);
+         }
+      } else {
+         changes.push({ ...change, category: 'plugin', items: pluginNames });
+      }
+
+      return changes;
+   }
+
+   protected async planMarketplaceChanges(params: {
+      editorConfig: EditorConfig;
+      configDir: string;
+      projectRoot: string;
+      scopes: string[];
+      options?: ApplyOptions;
+      existingChanges?: FileChange[];
+   }): Promise<FileChange[]> {
+      const {
+         editorConfig,
+         configDir,
+         projectRoot,
+         scopes,
+         options = {},
+         existingChanges = [],
+      } = params;
+      const changes: FileChange[] = [];
+
+      if (
+         !(scopes.includes('editors') || scopes.includes('marketplaces')) ||
+         !this.marketplacesStrategy.isSupported() ||
+         !editorConfig.marketplaces
+      ) {
+         return changes;
+      }
+
+      const marketplaceNames = Object.keys(editorConfig.marketplaces);
+
+      if (marketplaceNames.length === 0) {
+         return changes;
+      }
+
+      const marketplacesPath = resolveMarketplacesConfigPath(
+         this.marketplacesStrategy,
+         configDir,
+         options.targetScope ?? 'project',
+         projectRoot,
+      );
+
+      if (!marketplacesPath) {
+         return changes;
+      }
+
+      const formatted = this.marketplacesStrategy.formatConfig(editorConfig.marketplaces, options.targetScope),
+            existingInChanges = existingChanges.find((c) => c.path === marketplacesPath),
+            baseContent = existingInChanges ? existingInChanges.content : undefined;
+
+      const change = await this.planJsonFileChange(marketplacesPath, formatted, options, baseContent);
+
+      if (existingInChanges) {
+         existingInChanges.content = change.content;
+         existingInChanges.action = change.action;
+         if (existingInChanges.items) {
+            existingInChanges.items.push(...marketplaceNames);
+         }
+      } else {
+         changes.push({ ...change, category: 'marketplace', items: marketplaceNames });
+      }
+
+      return changes;
+   }
+
    /**
     * Check if a file path is a JSON file based on extension.
     */
@@ -570,8 +729,9 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       filePath: string,
       newContent: string,
       options: ApplyOptions = {},
+      baseContent?: string | null,
    ): Promise<FileChange> {
-      const existing = await this.readExisting(filePath);
+      const existing = baseContent !== undefined ? baseContent : await this.readExisting(filePath);
 
       // If overwrite mode or file doesn't exist, use new content directly
       if (options.overwrite || existing === null) {
@@ -803,6 +963,26 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          };
       }
 
+      // Check plugins support
+      const pluginNames = Object.keys(config.plugins ?? {});
+
+      if (pluginNames.length > 0 && !this.pluginsStrategy.isSupported()) {
+         unsupported.plugins = {
+            reason: `${this.name} does not support plugins`,
+            plugins: pluginNames,
+         };
+      }
+
+      // Check marketplaces support
+      const marketplaceNames = Object.keys(config.marketplaces ?? {});
+
+      if (marketplaceNames.length > 0 && !this.marketplacesStrategy.isSupported()) {
+         unsupported.marketplaces = {
+            reason: `${this.name} does not support marketplaces`,
+            marketplaces: marketplaceNames,
+         };
+      }
+
       return unsupported;
    }
 
@@ -842,6 +1022,44 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       };
    }
 
+   /**
+    * If this adapter uses a compatibility unpacker strategy for plugins, unpack local plugin
+    * skills, MCP servers, and rules and merge them into the config for project-scope installs.
+    */
+   protected async unpackCompatibilityPlugins(
+      config: AiJsonConfig,
+      projectRoot: string,
+      options: ApplyOptions = {},
+   ): Promise<AiJsonConfig> {
+      const targetScope = options.targetScope ?? 'project';
+
+      if (
+         targetScope !== 'project' ||
+         !this.pluginsStrategy.isSupported() ||
+         !this.pluginsStrategy.isCompatibility?.() ||
+         !config.plugins ||
+         Object.keys(config.plugins).length === 0
+      ) {
+         return config;
+      }
+
+      const unpacked = await unpackAllPlugins(config.plugins, projectRoot),
+            hasUnpackedSkills = Object.keys(unpacked.skills).length > 0,
+            hasUnpackedMcp = Object.keys(unpacked.mcp).length > 0,
+            hasUnpackedRules = Object.keys(unpacked.rules).length > 0;
+
+      if (!hasUnpackedSkills && !hasUnpackedMcp && !hasUnpackedRules) {
+         return config;
+      }
+
+      return {
+         ...config,
+         skills: hasUnpackedSkills ? { ...unpacked.skills, ...config.skills } : config.skills,
+         mcp: hasUnpackedMcp ? { ...unpacked.mcp, ...config.mcp } : config.mcp,
+         rules: hasUnpackedRules ? { ...unpacked.rules, ...config.rules } : config.rules,
+      };
+   }
+
    getTargetScopeLimitations(
       config: AiJsonConfig,
       targetScope: 'project' | 'user',
@@ -853,7 +1071,13 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             skillNames = Object.entries(config.skills ?? {})
                .filter(([, value]) => value !== false)
                .map(([name]) => name),
-            hookEvents = Object.keys(config.hooks ?? {});
+            hookEvents = Object.keys(config.hooks ?? {}),
+            pluginNames = Object.entries(config.plugins ?? {})
+               .filter(([, value]) => value !== false)
+               .map(([name]) => name),
+            marketplaceNames = Object.entries(config.marketplaces ?? {})
+               .filter(([, value]) => value !== false)
+               .map(([name]) => name);
 
       if (
          hookEvents.length > 0 &&
@@ -863,6 +1087,28 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          limitations.hooks = {
             reason: `${this.name} has no ${targetScope}-scope hooks config file`,
             events: hookEvents,
+         };
+      }
+
+      if (
+         pluginNames.length > 0 &&
+         this.pluginsStrategy.isSupported() &&
+         !hasPluginsConfigPath(this.pluginsStrategy, targetScope)
+      ) {
+         limitations.plugins = {
+            reason: `${this.name} has no ${targetScope}-scope plugins config file`,
+            plugins: pluginNames,
+         };
+      }
+
+      if (
+         marketplaceNames.length > 0 &&
+         this.marketplacesStrategy.isSupported() &&
+         !hasMarketplacesConfigPath(this.marketplacesStrategy, targetScope)
+      ) {
+         limitations.marketplaces = {
+            reason: `${this.name} has no ${targetScope}-scope marketplaces config file`,
+            marketplaces: marketplaceNames,
          };
       }
 

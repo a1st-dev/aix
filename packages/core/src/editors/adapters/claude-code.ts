@@ -7,8 +7,13 @@ import {
    ClaudeCodeMcpStrategy,
    ClaudeCodePromptsStrategy,
    ClaudeCodeHooksStrategy,
+   ClaudeCodePluginsStrategy,
+   ClaudeCodeMarketplacesStrategy,
 } from '../strategies/claude-code/index.js';
-import { MarkdownAgentsStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
+import {
+   MarkdownAgentsStrategy,
+   NativeSkillsStrategy,
+} from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -16,6 +21,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
@@ -49,6 +56,8 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
       userAgentsDir: '.claude/agents',
    });
    protected readonly hooksStrategy: HooksStrategy = new ClaudeCodeHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new ClaudeCodePluginsStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new ClaudeCodeMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -69,7 +78,7 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
             hooks = this.extractHooks(config);
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, agents, mcp, hooks };
+      return { rules, prompts, agents, mcp, hooks, plugins: config.plugins, marketplaces: config.marketplaces };
    }
 
    /**

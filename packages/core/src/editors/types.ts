@@ -1,4 +1,11 @@
-import type { AiJsonConfig, McpServerConfig, HooksConfig, AgentObject } from '@a1st/aix-schema';
+import type {
+   AiJsonConfig,
+   McpServerConfig,
+   HooksConfig,
+   AgentObject,
+   PluginsConfig,
+   MarketplacesConfig,
+} from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
 import type { EditorStrategyBundle, UnsupportedHookField } from './strategies/types.js';
 
@@ -32,6 +39,16 @@ export interface UnsupportedFeatures {
       reason: string;
       agents: string[];
    };
+   /** Plugins that won't be configured (editor doesn't support plugins) */
+   plugins?: {
+      reason: string;
+      plugins: string[];
+   };
+   /** Marketplaces that won't be configured (editor doesn't support marketplaces) */
+   marketplaces?: {
+      reason: string;
+      marketplaces: string[];
+   };
 }
 
 /**
@@ -50,6 +67,14 @@ export interface TargetScopeLimitations {
    hooks?: {
       reason: string;
       events: string[];
+   };
+   plugins?: {
+      reason: string;
+      plugins: string[];
+   };
+   marketplaces?: {
+      reason: string;
+      marketplaces: string[];
    };
 }
 
@@ -171,6 +196,8 @@ export interface EditorConfig {
    agents?: EditorAgent[];
    mcp: Record<string, McpServerConfig>;
    hooks?: HooksConfig;
+   plugins?: PluginsConfig;
+   marketplaces?: MarketplacesConfig;
 }
 
 /**
@@ -225,7 +252,7 @@ export interface ApplyOptions {
 /**
  * Category of a file change for display grouping.
  */
-export type FileChangeCategory = 'skill' | 'rule' | 'workflow' | 'mcp' | 'hook' | 'other';
+export type FileChangeCategory = 'skill' | 'rule' | 'workflow' | 'mcp' | 'hook' | 'plugin' | 'marketplace' | 'other';
 
 /**
  * A single file operation to be performed.

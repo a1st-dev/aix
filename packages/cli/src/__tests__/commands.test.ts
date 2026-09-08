@@ -1975,4 +1975,148 @@ description: User Agents skill
          expect(config.skills.typescript).toBe('^1.0.0');
       });
    });
+
+   describe('plugins commands', () => {
+      it('adds a plugin to ai.json with shorthand', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const { error } = await runCli(
+            ['add', 'plugin', 'code-review@claude-plugins-official', '--config', configPath, '--no-install'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.plugins['code-review@claude-plugins-official']).toEqual(true);
+      });
+
+      it('lists plugins in JSON format', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            plugins: {
+               'code-review': true,
+               '@scope/helper': { enabled: true, source: './plugins/helper' },
+            },
+         });
+
+         const { error, stdout } = await runCli(['list', 'plugins', '--config', configPath, '--json'], { root });
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.plugins['code-review']).toEqual(true);
+         expect(parsed.plugins['@scope/helper']).toMatchObject({ enabled: true });
+      });
+
+      it('removes a plugin from ai.json', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            plugins: {
+               'code-review': true,
+            },
+         });
+
+         const { error } = await runCli(
+            ['remove', 'plugin', 'code-review', '--yes', '--config', configPath, '--no-install'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.plugins['code-review']).toBeUndefined();
+      });
+
+      it('warns when installing plugins to Cursor at user scope', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            plugins: {
+               'code-review': true,
+            },
+         });
+
+         const { stderr, stdout } = await runCli(
+            ['install', '--scope', 'user', '--target', 'cursor', '--config', configPath],
+            { root },
+         );
+
+         const output = `${stdout} ${stderr}`;
+
+         expect(output).toContain('cursor cannot write plugins at user scope');
+      });
+   });
+
+   describe('marketplaces commands', () => {
+      it('adds a marketplace catalog to ai.json', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const { error } = await runCli(
+            [
+               'add',
+               'marketplace',
+               'https://github.com/my-org/marketplace',
+               '--name',
+               'team-market',
+               '--config',
+               configPath,
+               '--no-install',
+            ],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.marketplaces['team-market']).toBe('https://github.com/my-org/marketplace');
+      });
+
+      it('lists marketplaces in JSON format', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            marketplaces: {
+               'team-market': 'https://github.com/my-org/marketplace',
+            },
+         });
+
+         const { error, stdout } = await runCli(['list', 'marketplaces', '--config', configPath, '--json'], { root });
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.marketplaces['team-market']).toBe('https://github.com/my-org/marketplace');
+      });
+
+      it('removes a marketplace from ai.json', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            marketplaces: {
+               'team-market': 'https://github.com/my-org/marketplace',
+            },
+         });
+
+         const { error } = await runCli(
+            ['remove', 'marketplace', 'team-market', '--yes', '--config', configPath, '--no-install'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.marketplaces['team-market']).toBeUndefined();
+      });
+   });
 });

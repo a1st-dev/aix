@@ -1,4 +1,11 @@
-import type { McpServerConfig, ParsedSkill, HooksConfig, ActivationMode } from '@a1st/aix-schema';
+import type {
+   McpServerConfig,
+   ParsedSkill,
+   HooksConfig,
+   ActivationMode,
+   PluginsConfig,
+   MarketplacesConfig,
+} from '@a1st/aix-schema';
 import type { EditorAgent, EditorPrompt, EditorRule, FileChange } from '../types.js';
 import type { NamedRule } from '../../import-writer.js';
 
@@ -374,6 +381,55 @@ export interface UnsupportedHookField {
 }
 
 /**
+ * Strategy for configuring plugins for an editor.
+ */
+export interface PluginsStrategy {
+   /** Whether the editor supports plugins natively or via compatibility unpacking */
+   isSupported(): boolean;
+
+   /** Whether this strategy unpacks plugins into other components instead of writing a config file */
+   isCompatibility?(): boolean;
+
+   /** Format plugins configuration into the editor-specific config string/JSON */
+   formatConfig(plugins: PluginsConfig, targetScope?: 'project' | 'user'): string;
+
+   /** Relative config path for plugins within editor config directory (e.g. 'settings.json' or 'opencode.json') */
+   getConfigPath?(targetScope?: 'project' | 'user'): string;
+
+   /** Global config path relative to user home directory */
+   getGlobalConfigPath?(): string | null;
+
+   /** Whether the config file lives in projectRoot instead of configDir */
+   isProjectRootConfig?(): boolean;
+
+   /** Get plugin names that cannot be expressed by this editor */
+   getUnsupportedPlugins?(plugins: PluginsConfig): string[];
+}
+
+/**
+ * Strategy for configuring plugin marketplace catalogs for an editor.
+ */
+export interface MarketplacesStrategy {
+   /** Whether the editor supports marketplace catalog registration */
+   isSupported(): boolean;
+
+   /** Format marketplaces configuration into the editor-specific config string/JSON */
+   formatConfig(marketplaces: MarketplacesConfig, targetScope?: 'project' | 'user'): string;
+
+   /** Relative config path for marketplaces within editor config directory */
+   getConfigPath?(targetScope?: 'project' | 'user'): string;
+
+   /** Global config path relative to user home directory */
+   getGlobalConfigPath?(): string | null;
+
+   /** Whether the config file lives in projectRoot instead of configDir */
+   isProjectRootConfig?(): boolean;
+
+   /** Get marketplace names that cannot be expressed by this editor */
+   getUnsupportedMarketplaces?(marketplaces: MarketplacesConfig): string[];
+}
+
+/**
  * Public strategy bundle exposed by adapters so import/export flows share the same editor wiring.
  */
 export interface EditorStrategyBundle {
@@ -384,4 +440,6 @@ export interface EditorStrategyBundle {
    promptsStrategy: PromptsStrategy;
    agentsStrategy: AgentsStrategy;
    hooksStrategy: HooksStrategy;
+   pluginsStrategy: PluginsStrategy;
+   marketplacesStrategy: MarketplacesStrategy;
 }

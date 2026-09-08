@@ -123,7 +123,17 @@ export default class List extends BaseCommand<typeof List> {
    ): Record<string, unknown> {
       const result: Record<string, unknown> = {};
 
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'hooks', 'editors'] as const) {
+      for (const section of [
+         'skills',
+         'mcp',
+         'rules',
+         'prompts',
+         'agents',
+         'hooks',
+         'plugins',
+         'marketplaces',
+         'editors',
+      ] as const) {
          if (includesSection(sections, section)) {
             result[section] = (config as Record<string, unknown>)[section] ?? {};
          }
@@ -162,7 +172,17 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    private printConfigSections(config: Record<string, unknown>, sections: Section[]): void {
-      for (const section of ['skills', 'mcp', 'rules', 'prompts', 'agents', 'hooks', 'editors'] as const) {
+      for (const section of [
+         'skills',
+         'mcp',
+         'rules',
+         'prompts',
+         'agents',
+         'hooks',
+         'plugins',
+         'marketplaces',
+         'editors',
+      ] as const) {
          if (!includesSection(sections, section)) {
             continue;
          }
@@ -269,6 +289,8 @@ export default class List extends BaseCommand<typeof List> {
          prompts: 'Prompts',
          agents: 'Agents',
          hooks: 'Hooks',
+         plugins: 'Plugins',
+         marketplaces: 'Marketplaces',
          editors: 'Editors',
       };
 

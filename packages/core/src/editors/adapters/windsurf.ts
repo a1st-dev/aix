@@ -8,7 +8,11 @@ import {
    WindsurfMcpStrategy,
    WindsurfSkillsStrategy,
 } from '../strategies/windsurf/index.js';
-import { NoAgentsStrategy } from '../strategies/shared/index.js';
+import {
+   NoAgentsStrategy,
+   NoMarketplacesStrategy,
+   PluginCompatibilityStrategy,
+} from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -16,6 +20,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 
 /**
@@ -43,6 +49,8 @@ export class WindsurfAdapter extends BaseEditorAdapter {
    protected readonly promptsStrategy: PromptsStrategy = new WindsurfPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new WindsurfHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new PluginCompatibilityStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new NoMarketplacesStrategy();
 
    // Store skill changes from generateConfig for use in planChanges
    private pendingSkillChanges: FileChange[] = [];
@@ -52,18 +60,19 @@ export class WindsurfAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges } = await this.loadRules(config, projectRoot, {
+      const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
+            { rules, skillChanges } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
                targetScope: options.targetScope,
             }),
-            prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
-            mcp = filterMcpConfig(config.mcp),
-            hooks = config.hooks;
+            prompts = await this.loadPrompts(resolvedConfig, projectRoot, { configBaseDir: options.configBaseDir }),
+            mcp = filterMcpConfig(resolvedConfig.mcp),
+            hooks = resolvedConfig.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, mcp, hooks };
+      return { rules, prompts, mcp, hooks, plugins: config.plugins };
    }
 
    protected override async planChanges(

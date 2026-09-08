@@ -15,7 +15,12 @@ import {
    CodexMcpStrategy,
    CodexHooksStrategy,
 } from '../strategies/codex/index.js';
-import { NativeSkillsStrategy, NoAgentsStrategy } from '../strategies/shared/index.js';
+import {
+   NativeSkillsStrategy,
+   NoAgentsStrategy,
+   NoMarketplacesStrategy,
+   PluginCompatibilityStrategy,
+} from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
@@ -24,6 +29,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 
@@ -65,6 +72,8 @@ export class CodexAdapter extends BaseEditorAdapter {
    protected readonly promptsStrategy: PromptsStrategy = new CodexPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new CodexHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new PluginCompatibilityStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new NoMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -73,17 +82,18 @@ export class CodexAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges, skills } = await this.loadRules(config, projectRoot, {
+      const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
+            { rules, skillChanges, skills } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
                targetScope: options.targetScope,
             }),
-            prompts = await this.loadPrompts(config, projectRoot, {
+            prompts = await this.loadPrompts(resolvedConfig, projectRoot, {
                configBaseDir: options.configBaseDir,
             }),
-            mcp = filterMcpConfig(config.mcp),
-            hooks = config.hooks;
+            mcp = filterMcpConfig(resolvedConfig.mcp),
+            hooks = resolvedConfig.hooks;
 
       const promptSkillChanges = await this.installPromptSkills(
          prompts,
@@ -93,7 +103,7 @@ export class CodexAdapter extends BaseEditorAdapter {
       );
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: [], mcp, hooks };
+      return { rules, prompts: [], mcp, hooks, plugins: config.plugins };
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {

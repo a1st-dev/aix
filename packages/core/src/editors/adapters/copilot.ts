@@ -7,8 +7,13 @@ import {
    CopilotMcpStrategy,
    CopilotPromptsStrategy,
    CopilotHooksStrategy,
+   CopilotPluginsStrategy,
+   CopilotMarketplacesStrategy,
 } from '../strategies/copilot/index.js';
-import { MarkdownAgentsStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
+import {
+   MarkdownAgentsStrategy,
+   NativeSkillsStrategy,
+} from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -16,6 +21,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
@@ -86,6 +93,8 @@ export class CopilotAdapter extends BaseEditorAdapter {
       }),
    });
    protected readonly hooksStrategy: HooksStrategy = new CopilotHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new CopilotPluginsStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new CopilotMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -116,7 +125,15 @@ export class CopilotAdapter extends BaseEditorAdapter {
                : [];
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: shouldConvertPromptInstalls ? [] : prompts, agents, mcp, hooks };
+      return {
+         rules,
+         prompts: shouldConvertPromptInstalls ? [] : prompts,
+         agents,
+         mcp,
+         hooks,
+         plugins: config.plugins,
+         marketplaces: config.marketplaces,
+      };
    }
 
    protected override async planChanges(

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { appendHooks, mergeConfigs, filterConfigByScopes, type ConfigScope } from '../merge.js';
 import { getTransport } from '../mcp/normalize.js';
-import type { AiJsonConfig, HooksConfig, McpServerConfig } from '@a1st/aix-schema';
+import { createEmptyConfig, type AiJsonConfig, type HooksConfig, type McpServerConfig } from '@a1st/aix-schema';
 
 /**
  * Helper to create a minimal MCP server config for tests.
@@ -16,13 +16,7 @@ function mcpServer(command: string, args?: string[]): McpServerConfig {
 }
 
 describe('mergeConfigs', () => {
-   const emptyConfig: AiJsonConfig = {
-      skills: {},
-      mcp: {},
-      rules: {},
-      prompts: {},
-      agents: {},
-   };
+   const emptyConfig: AiJsonConfig = createEmptyConfig();
 
    describe('with empty local', () => {
       it('returns remote config when local is empty', () => {
@@ -45,15 +39,13 @@ describe('mergeConfigs', () => {
    describe('with empty remote', () => {
       it('preserves local config when remote is empty', () => {
          const local: AiJsonConfig = {
+            ...emptyConfig,
             skills: {
                pdf: { git: 'https://github.com/test/skills', path: 'skills/pdf' },
             },
             mcp: {
                playwright: mcpServer('npx', ['-y', '@playwright/mcp']),
             },
-            rules: {},
-            prompts: {},
-            agents: {},
          };
 
          const result = mergeConfigs(local, {});
@@ -188,6 +180,60 @@ describe('mergeConfigs', () => {
       });
    });
 
+   describe('plugins merge', () => {
+      it('remote wins on key conflict and false removes plugin', () => {
+         const local: AiJsonConfig = {
+            ...emptyConfig,
+            plugins: {
+               'test-plugin': true,
+               'removed-plugin': true,
+               'kept-plugin': { enabled: true },
+            },
+         };
+
+         const remote: Partial<AiJsonConfig> = {
+            plugins: {
+               'test-plugin': { enabled: false },
+               'removed-plugin': false,
+               'new-plugin': true,
+            },
+         };
+
+         const result = mergeConfigs(local, remote);
+
+         expect(result.plugins?.['test-plugin']).toEqual({ enabled: false });
+         expect(result.plugins?.['removed-plugin']).toBeUndefined();
+         expect(result.plugins?.['kept-plugin']).toEqual({ enabled: true });
+         expect(result.plugins?.['new-plugin']).toStrictEqual(true);
+      });
+   });
+
+   describe('marketplaces merge', () => {
+      it('remote wins on key conflict and false removes marketplace', () => {
+         const local: AiJsonConfig = {
+            ...emptyConfig,
+            marketplaces: {
+               official: 'https://github.com/local/plugins',
+               removed: 'https://github.com/local/removed',
+            },
+         };
+
+         const remote: Partial<AiJsonConfig> = {
+            marketplaces: {
+               official: 'https://github.com/remote/plugins',
+               removed: false,
+               custom: { source: 'local/path', enabled: true },
+            },
+         };
+
+         const result = mergeConfigs(local, remote);
+
+         expect(result.marketplaces?.official).toStrictEqual('https://github.com/remote/plugins');
+         expect(result.marketplaces?.removed).toBeUndefined();
+         expect(result.marketplaces?.custom).toEqual({ source: 'local/path', enabled: true });
+      });
+   });
+
    describe('editors merge', () => {
       it('remote wins on key conflict', () => {
          const local: AiJsonConfig = {
@@ -270,13 +316,7 @@ describe('mergeConfigs', () => {
 });
 
 describe('mergeConfigs with false values', () => {
-   const emptyConfig: AiJsonConfig = {
-      skills: {},
-      mcp: {},
-      rules: {},
-      prompts: {},
-      agents: {},
-   };
+   const emptyConfig: AiJsonConfig = createEmptyConfig();
 
    describe('false removes entry from merged result', () => {
       it.each([
@@ -397,19 +437,21 @@ describe('filterConfigByScopes', () => {
       rules: { 'test-rule': { content: 'test rule' } },
       prompts: {},
       agents: {},
+      plugins: { 'test-plugin': true },
+      marketplaces: { official: 'https://github.com/org/plugins' },
       editors: {
          windsurf: { enabled: true },
       },
    };
 
-   it.each(['mcp', 'rules', 'skills', 'editors'] as const)(
+   it.each(['mcp', 'rules', 'skills', 'editors', 'plugins', 'marketplaces'] as const)(
       'returns only %s section when scope is %s',
       (scope) => {
          const result = filterConfigByScopes(fullConfig, [scope]);
 
          expect(result).toEqual({ [scope]: fullConfig[scope] });
 
-         for (const other of (['mcp', 'rules', 'skills', 'editors'] as const).filter(s => s !== scope)) {
+         for (const other of (['mcp', 'rules', 'skills', 'editors', 'plugins', 'marketplaces'] as const).filter(s => s !== scope)) {
             expect(result[other]).toBeUndefined();
          }
       },
@@ -445,13 +487,7 @@ describe('filterConfigByScopes', () => {
    });
 
    it('handles missing sections gracefully', () => {
-      const sparseConfig: AiJsonConfig = {
-         skills: {},
-         mcp: {},
-         rules: {},
-         prompts: {},
-         agents: {},
-      };
+      const sparseConfig: AiJsonConfig = createEmptyConfig();
 
       const result = filterConfigByScopes(sparseConfig, ['editors']);
 

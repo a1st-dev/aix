@@ -5,8 +5,14 @@ import {
    CursorRulesStrategy,
    CursorPromptsStrategy,
    CursorHooksStrategy,
+   CursorPluginsStrategy,
+   CursorMarketplacesStrategy,
 } from '../strategies/cursor/index.js';
-import { MarkdownAgentsStrategy, StandardMcpStrategy, NativeSkillsStrategy } from '../strategies/shared/index.js';
+import {
+   MarkdownAgentsStrategy,
+   StandardMcpStrategy,
+   NativeSkillsStrategy,
+} from '../strategies/shared/index.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -14,6 +20,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 
 /**
@@ -45,6 +53,8 @@ export class CursorAdapter extends BaseEditorAdapter {
       userAgentsDir: '.cursor/agents',
    });
    protected readonly hooksStrategy: HooksStrategy = new CursorHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new CursorPluginsStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new CursorMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -65,7 +75,7 @@ export class CursorAdapter extends BaseEditorAdapter {
             hooks = config.hooks;
 
       this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, agents, mcp, hooks };
+      return { rules, prompts, agents, mcp, hooks, plugins: config.plugins, marketplaces: config.marketplaces };
    }
 
    protected override async planChanges(

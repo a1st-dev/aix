@@ -2495,6 +2495,216 @@
                },
                "description": "Lifecycle hooks for AI agent events"
             },
+            "plugins": {
+               "type": "object",
+               "additionalProperties": {
+                  "anyOf": [
+                     {
+                        "anyOf": [
+                           {
+                              "type": "boolean",
+                              "description": "Boolean flag to enable or disable plugin"
+                           },
+                           {
+                              "type": "string",
+                              "description": "Source shorthand (path, git repo, or package name)"
+                           },
+                           {
+                              "type": "object",
+                              "properties": {
+                                 "marketplace": {
+                                    "type": "string",
+                                    "description": "Marketplace name where plugin is published"
+                                 },
+                                 "source": {
+                                    "anyOf": [
+                                       {
+                                          "type": "string",
+                                          "description": "Shorthand: version range or local path"
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "git": {
+                                                "type": "string",
+                                                "description": "Git URL (e.g., \"github:user/repo\", \"https://...\")"
+                                             },
+                                             "ref": {
+                                                "type": "string",
+                                                "description": "Git ref (branch, tag, commit)"
+                                             },
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Subdirectory within repo"
+                                             }
+                                          },
+                                          "required": ["git"],
+                                          "additionalProperties": false
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Local file or directory path"
+                                             }
+                                          },
+                                          "required": ["path"],
+                                          "additionalProperties": false
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "version": {
+                                                "type": "string",
+                                                "description": "Version range from registry"
+                                             },
+                                             "registry": {
+                                                "type": "string",
+                                                "format": "uri",
+                                                "description": "Custom registry URL"
+                                             }
+                                          },
+                                          "required": ["version"],
+                                          "additionalProperties": false
+                                       }
+                                    ],
+                                    "description": "Direct source reference (path, git URL, npm package, or registry)"
+                                 },
+                                 "enabled": {
+                                    "type": "boolean",
+                                    "description": "Whether the plugin is active (default: true)"
+                                 },
+                                 "options": {
+                                    "type": "object",
+                                    "additionalProperties": {},
+                                    "description": "Plugin-specific configuration options"
+                                 },
+                                 "editor": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                       "type": "object",
+                                       "additionalProperties": {}
+                                    },
+                                    "propertyNames": {
+                                       "enum": [
+                                          "windsurf",
+                                          "devin",
+                                          "cursor",
+                                          "claude-code",
+                                          "copilot",
+                                          "zed",
+                                          "neovim",
+                                          "antigravity",
+                                          "agy",
+                                          "opencode",
+                                          "grok",
+                                          "grok-cli"
+                                       ]
+                                    },
+                                    "description": "Editor-specific plugin configuration fields"
+                                 }
+                              },
+                              "additionalProperties": false,
+                              "description": "Plugin configuration object"
+                           }
+                        ]
+                     },
+                     {
+                        "type": "boolean",
+                        "const": false
+                     }
+                  ]
+               },
+               "propertyNames": {
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^(@[a-z0-9_.-]+\\/)?[a-z0-9_.-]+(@[a-z0-9_.-]+)?$"
+               },
+               "description": "AI agent plugins",
+               "default": {}
+            },
+            "marketplaces": {
+               "type": "object",
+               "additionalProperties": {
+                  "anyOf": [
+                     {
+                        "anyOf": [
+                           {
+                              "type": "string",
+                              "description": "Marketplace source URL, git shorthand, or local directory path"
+                           },
+                           {
+                              "type": "object",
+                              "properties": {
+                                 "source": {
+                                    "anyOf": [
+                                       {
+                                          "type": "string",
+                                          "description": "Git shorthand, HTTPS URL, or local path"
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "git": {
+                                                "type": "string",
+                                                "description": "Git URL (e.g., \"github:user/repo\", \"https://...\")"
+                                             },
+                                             "ref": {
+                                                "type": "string",
+                                                "description": "Git ref (branch, tag, commit)"
+                                             },
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Subdirectory within repo"
+                                             }
+                                          },
+                                          "required": ["git"],
+                                          "additionalProperties": false
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Local file or directory path"
+                                             }
+                                          },
+                                          "required": ["path"],
+                                          "additionalProperties": false
+                                       }
+                                    ],
+                                    "description": "Source location of the marketplace catalog"
+                                 },
+                                 "enabled": {
+                                    "type": "boolean",
+                                    "description": "Whether the marketplace is active (default: true)"
+                                 },
+                                 "description": {
+                                    "type": "string",
+                                    "description": "Optional description of the marketplace"
+                                 }
+                              },
+                              "required": ["source"],
+                              "additionalProperties": false,
+                              "description": "Marketplace configuration object"
+                           }
+                        ]
+                     },
+                     {
+                        "type": "boolean",
+                        "const": false
+                     }
+                  ]
+               },
+               "propertyNames": {
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+               },
+               "description": "Marketplace catalogs for plugins",
+               "default": {}
+            },
             "aix": {
                "type": "object",
                "properties": {

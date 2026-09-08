@@ -173,7 +173,9 @@ export async function installToEditor(
       (
          targetScopeLimitations.rules ||
          targetScopeLimitations.skills ||
-         targetScopeLimitations.hooks
+         targetScopeLimitations.hooks ||
+         targetScopeLimitations.plugins ||
+         targetScopeLimitations.marketplaces
       )
    ) {
       result.targetScopeLimitations = targetScopeLimitations;
@@ -217,6 +219,14 @@ function stripTargetScopeLimitedFeatures(
 
    if (limitations.hooks) {
       delete nextConfig.hooks;
+   }
+
+   if (limitations.plugins) {
+      nextConfig.plugins = {};
+   }
+
+   if (limitations.marketplaces) {
+      nextConfig.marketplaces = {};
    }
 
    return nextConfig;

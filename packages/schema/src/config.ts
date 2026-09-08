@@ -7,6 +7,8 @@ import { promptsSchema } from './prompts.js';
 import { agentsSchema } from './agents.js';
 import { editorsSchema } from './editors.js';
 import { hooksSchema } from './hooks.js';
+import { pluginsSchema } from './plugins.js';
+import { marketplacesSchema } from './marketplaces.js';
 import { aixSettingsSchema } from './aix.js';
 
 export const aiJsonConfigSchema = configMetaSchema.extend({
@@ -17,6 +19,8 @@ export const aiJsonConfigSchema = configMetaSchema.extend({
    agents: agentsSchema.optional().default({}),
    editors: editorsSchema.optional(),
    hooks: hooksSchema.optional().describe('Lifecycle hooks for AI agent events'),
+   plugins: pluginsSchema.optional().default({}).describe('AI agent plugins'),
+   marketplaces: marketplacesSchema.optional().default({}).describe('Marketplace catalogs for plugins'),
    aix: aixSettingsSchema.optional().describe('aix CLI tool settings'),
 });
 
@@ -36,9 +40,13 @@ export const localConfigSchema = z
       agents: agentsSchema.optional(),
       editors: editorsSchema.optional(),
       hooks: hooksSchema.optional().describe('Lifecycle hooks for AI agent events'),
+      plugins: pluginsSchema.optional().describe('AI agent plugins'),
+      marketplaces: marketplacesSchema.optional().describe('Marketplace catalogs for plugins'),
       aix: aixSettingsSchema.optional().describe('aix CLI tool settings'),
    })
    .strict()
-   .refine((data) => !('extends' in data), { message: 'extends is not allowed in ai.local.json' });
+   .refine((data) => {
+      return !('extends' in data);
+   }, { message: 'extends is not allowed in ai.local.json' });
 
 export type LocalConfig = z.infer<typeof localConfigSchema>;

@@ -243,9 +243,13 @@ export default class Sync extends BaseCommand<typeof Sync> {
          result.unsupportedFeatures?.hooks ||
          result.unsupportedFeatures?.prompts ||
          result.unsupportedFeatures?.agents ||
+         result.unsupportedFeatures?.plugins ||
+         result.unsupportedFeatures?.marketplaces ||
          result.targetScopeLimitations?.rules ||
          result.targetScopeLimitations?.skills ||
-         result.targetScopeLimitations?.hooks,
+         result.targetScopeLimitations?.hooks ||
+         result.targetScopeLimitations?.plugins ||
+         result.targetScopeLimitations?.marketplaces,
       );
 
       if (hasSkippedFeatures) {

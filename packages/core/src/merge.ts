@@ -5,13 +5,15 @@ import {
    type PromptsConfig,
    type AgentsConfig,
    type HooksConfig,
+   type PluginsConfig,
+   type MarketplacesConfig,
 } from '@a1st/aix-schema';
 import { deepMergeJson } from './json.js';
 
 /**
  * Valid section names for filtering config sections.
  */
-export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts' | 'agents' | 'hooks';
+export type ConfigSection = 'rules' | 'mcp' | 'skills' | 'editors' | 'prompts' | 'agents' | 'hooks' | 'plugins' | 'marketplaces';
 
 /** @deprecated Use `ConfigSection` instead. */
 export type ConfigScope = ConfigSection;
@@ -67,6 +69,16 @@ export function filterConfigBySections(
          case 'hooks':
             if (config.hooks) {
                result.hooks = config.hooks;
+            }
+            break;
+         case 'plugins':
+            if (config.plugins) {
+               result.plugins = config.plugins;
+            }
+            break;
+         case 'marketplaces':
+            if (config.marketplaces) {
+               result.marketplaces = config.marketplaces;
             }
             break;
       }
@@ -135,6 +147,8 @@ function mergeWithFalseSupport<T extends Record<string, unknown>>(
  * - `agents`: Object merge by key, replace entire value on key conflict
  * - `mcp`: Object merge by key, replace entire value on key conflict
  * - `hooks`: Object merge by event name, replace the event's matchers on key conflict
+ * - `plugins`: Object merge by key, replace entire value on key conflict
+ * - `marketplaces`: Object merge by key, replace entire value on key conflict
  * - `editors`: Object merge by key, deep merge on key conflict
  * - `$schema`, `extends`: Remote wins
  *
@@ -192,6 +206,22 @@ export function mergeConfigs(local: AiJsonConfig, remote: Partial<AiJsonConfig>)
          local.hooks as Record<string, unknown> | undefined,
          remote.hooks as Record<string, unknown> | undefined,
       ) as HooksConfig;
+   }
+
+   // Merge plugins (key-level replacement with false support)
+   if (remote.plugins !== undefined) {
+      result.plugins = mergeWithFalseSupport(
+         local.plugins as Record<string, unknown> | undefined,
+         remote.plugins as Record<string, unknown> | undefined,
+      ) as PluginsConfig;
+   }
+
+   // Merge marketplaces (key-level replacement with false support)
+   if (remote.marketplaces !== undefined) {
+      result.marketplaces = mergeWithFalseSupport(
+         local.marketplaces as Record<string, unknown> | undefined,
+         remote.marketplaces as Record<string, unknown> | undefined,
+      ) as MarketplacesConfig;
    }
 
    // Merge editors (deep merge, remote wins on key conflict)

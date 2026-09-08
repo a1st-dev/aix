@@ -14,6 +14,8 @@ const CHANGE_CATEGORY_ORDER: Array<{ key: FileChangeCategory; label: string }> =
    { key: 'workflow', label: 'Workflows' },
    { key: 'mcp', label: 'MCP' },
    { key: 'hook', label: 'Hooks' },
+   { key: 'plugin', label: 'Plugins' },
+   { key: 'marketplace', label: 'Marketplaces' },
    { key: 'other', label: 'Other' },
 ];
 
@@ -107,6 +109,20 @@ export function showTargetScopeLimitationWarnings(options: TargetScopeLimitation
             `Skipped events: ${limitations.hooks.events.join(', ')}`,
       );
    }
+
+   if (limitations.plugins) {
+      output.warn(
+         `${editor} cannot write plugins at ${targetScope} scope (${limitations.plugins.reason}). ` +
+            `Skipped: ${limitations.plugins.plugins.join(', ')}`,
+      );
+   }
+
+   if (limitations.marketplaces) {
+      output.warn(
+         `${editor} cannot write marketplaces at ${targetScope} scope (${limitations.marketplaces.reason}). ` +
+            `Skipped: ${limitations.marketplaces.marketplaces.join(', ')}`,
+      );
+   }
 }
 
 export function showUnsupportedFeatureWarnings(
@@ -138,6 +154,18 @@ export function showUnsupportedFeatureWarnings(
    if (unsupported.agents) {
       output.warn(
          `${editor} does not support custom agents. Skipped: ${unsupported.agents.agents.join(', ')}`,
+      );
+   }
+
+   if (unsupported.plugins) {
+      output.warn(
+         `${editor} does not support plugins. Skipped: ${unsupported.plugins.plugins.join(', ')}`,
+      );
+   }
+
+   if (unsupported.marketplaces) {
+      output.warn(
+         `${editor} does not support marketplaces. Skipped: ${unsupported.marketplaces.marketplaces.join(', ')}`,
       );
    }
 }

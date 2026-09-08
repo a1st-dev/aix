@@ -3,7 +3,13 @@ import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type { EditorConfig, FileChange, ApplyOptions, UnsupportedFeatures } from '../types.js';
 import { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from '../strategies/zed/index.js';
-import { NativeSkillsStrategy, NoAgentsStrategy, NoHooksStrategy } from '../strategies/shared/index.js';
+import {
+   NativeSkillsStrategy,
+   NoAgentsStrategy,
+   NoHooksStrategy,
+   NoMarketplacesStrategy,
+   PluginCompatibilityStrategy,
+} from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
@@ -12,6 +18,8 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
+   PluginsStrategy,
+   MarketplacesStrategy,
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
@@ -40,6 +48,8 @@ export class ZedAdapter extends BaseEditorAdapter {
    protected readonly promptsStrategy: PromptsStrategy = new ZedPromptsStrategy();
    protected readonly agentsStrategy: AgentsStrategy = new NoAgentsStrategy();
    protected readonly hooksStrategy: HooksStrategy = new NoHooksStrategy();
+   protected readonly pluginsStrategy: PluginsStrategy = new PluginCompatibilityStrategy();
+   protected readonly marketplacesStrategy: MarketplacesStrategy = new NoMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
 
@@ -48,14 +58,15 @@ export class ZedAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const { rules, skillChanges, skills } = await this.loadRules(config, projectRoot, {
+      const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
+            { rules, skillChanges, skills } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
                targetScope: options.targetScope,
             }),
-            prompts = await this.loadPrompts(config, projectRoot, { configBaseDir: options.configBaseDir }),
-            mcp = filterMcpConfig(config.mcp);
+            prompts = await this.loadPrompts(resolvedConfig, projectRoot, { configBaseDir: options.configBaseDir }),
+            mcp = filterMcpConfig(resolvedConfig.mcp);
 
       const promptSkillChanges = await installPromptsAsSkills({
          prompts,
@@ -66,7 +77,7 @@ export class ZedAdapter extends BaseEditorAdapter {
       });
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: [], mcp };
+      return { rules, prompts: [], mcp, plugins: config.plugins };
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
