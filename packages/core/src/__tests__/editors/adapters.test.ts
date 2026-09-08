@@ -13,6 +13,7 @@ import {
    CodexAdapter,
    AntigravityAdapter,
    OpenCodeAdapter,
+   GrokAdapter,
    getAdapter,
    getAvailableEditors,
    getAcceptedEditorNames,
@@ -86,14 +87,17 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('codex');
          expect(editors).toContain('antigravity');
          expect(editors).toContain('opencode');
-         expect(editors).toHaveLength(8);
+         expect(editors).toContain('grok');
+         expect(editors).toHaveLength(9);
       });
 
       it('keeps aliases out of canonical editor detection', () => {
          expect(getAvailableEditors()).not.toContain('devin');
          expect(getAvailableEditors()).not.toContain('agy');
+         expect(getAvailableEditors()).not.toContain('grok-cli');
          expect(getAcceptedEditorNames()).toContain('devin');
          expect(getAcceptedEditorNames()).toContain('agy');
+         expect(getAcceptedEditorNames()).toContain('grok-cli');
       });
    });
 
@@ -107,6 +111,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
          expect(getAdapter('antigravity')).toBeInstanceOf(AntigravityAdapter);
          expect(getAdapter('opencode')).toBeInstanceOf(OpenCodeAdapter);
+         expect(getAdapter('grok')).toBeInstanceOf(GrokAdapter);
       });
 
       it('throws for unknown editor', () => {
@@ -121,6 +126,11 @@ describe('Editor Adapters', () => {
       it('normalizes agy to the Antigravity adapter', () => {
          expect(normalizeEditorName('agy')).toBe('antigravity');
          expect(getAdapter('agy')).toBeInstanceOf(AntigravityAdapter);
+      });
+
+      it('normalizes grok-cli to the Grok adapter', () => {
+         expect(normalizeEditorName('grok-cli')).toBe('grok');
+         expect(getAdapter('grok-cli')).toBeInstanceOf(GrokAdapter);
       });
    });
 
@@ -2295,6 +2305,145 @@ Release instructions.
 
          expect(result.unsupportedFeatures?.hooks).toBeDefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+      });
+   });
+
+   describe('GrokAdapter', () => {
+      const adapter = new GrokAdapter();
+
+      it('has correct name and configDir', () => {
+         expect(adapter.name).toBe('grok');
+         expect(adapter.configDir).toBe('.grok');
+      });
+
+      it('detects when .grok directory exists', async () => {
+         await mkdir(join(testDir, '.grok'), { recursive: true });
+
+         expect(await adapter.detect(testDir)).toBe(true);
+      });
+
+      it('does not detect when Grok config is missing', async () => {
+         expect(await adapter.detect(testDir)).toBe(false);
+      });
+
+      it('writes rules to .grok/rules/*.md', async () => {
+         const config = createConfig({
+            rules: {
+               'test-rule': { activation: 'always', content: 'Grok rule content' },
+            },
+         });
+
+         await installToEditor('grok', config, testDir);
+
+         const ruleFile = join(testDir, '.grok', 'rules', 'test-rule.md');
+
+         expect(existsSync(ruleFile)).toBe(true);
+         const content = await readFile(ruleFile, 'utf-8');
+
+         expect(content).toContain('# test-rule');
+         expect(content).toContain('Grok rule content');
+      });
+
+      it('writes user-scope rules to ~/.grok/rules/*.md', async () => {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+
+         const config = createConfig({
+            rules: {
+               'global-rule': { activation: 'always', content: 'Global rule content' },
+            },
+         });
+
+         await installToEditor('grok', config, testDir, { targetScope: 'user' });
+
+         const ruleFile = join(fakeHome, '.grok', 'rules', 'global-rule.md');
+
+         expect(existsSync(ruleFile)).toBe(true);
+         const content = await readFile(ruleFile, 'utf-8');
+
+         expect(content).toContain('Global rule content');
+      });
+
+      it('writes MCP config to .grok/config.toml', async () => {
+         const config = createConfig({
+            mcp: {
+               github: {
+                  command: 'npx',
+                  args: ['-y', '@modelcontextprotocol/server-github'],
+               },
+            },
+         });
+
+         await installToEditor('grok', config, testDir);
+
+         const tomlFile = join(testDir, '.grok', 'config.toml');
+
+         expect(existsSync(tomlFile)).toBe(true);
+         const content = await readFile(tomlFile, 'utf-8');
+
+         expect(content).toContain('[mcp_servers.github]');
+         expect(content).toContain('command = "npx"');
+      });
+
+      it('merges MCP config into existing .grok/config.toml preserving other settings', async () => {
+         await mkdir(join(testDir, '.grok'), { recursive: true });
+         const existingToml = '[model]\ndefault = "grok-beta"\n\n[mcp_servers.existing]\ncommand = "existing-cmd"\n';
+
+         await writeFile(join(testDir, '.grok', 'config.toml'), existingToml);
+
+         const config = createConfig({
+            mcp: {
+               github: { command: 'npx' },
+            },
+         });
+
+         await installToEditor('grok', config, testDir);
+
+         const content = await readFile(join(testDir, '.grok', 'config.toml'), 'utf-8');
+
+         expect(content).toContain('[model]');
+         expect(content).toContain('default = "grok-beta"');
+         expect(content).toContain('[mcp_servers.existing]');
+         expect(content).toContain('[mcp_servers.github]');
+      });
+
+      it('converts prompts to skills during install', async () => {
+         const config = createConfig({
+            prompts: {
+               review: {
+                  content: 'Review the pull request',
+                  description: 'PR reviewer',
+               },
+            },
+         });
+
+         await installToEditor('grok', config, testDir);
+
+         const skillFile = join(testDir, '.grok', 'skills', 'review', 'SKILL.md');
+
+         expect(existsSync(skillFile)).toBe(true);
+         const content = await readFile(skillFile, 'utf-8');
+
+         expect(content).toContain('Review the pull request');
+      });
+
+      it('writes hooks to .grok/hooks.json', async () => {
+         const config = createConfig({
+            hooks: {
+               session_start: [{ hooks: [{ command: 'echo start' }] }],
+            },
+         });
+
+         await installToEditor('grok', config, testDir);
+
+         const hooksFile = join(testDir, '.grok', 'hooks.json');
+
+         expect(existsSync(hooksFile)).toBe(true);
+         const content = await readFile(hooksFile, 'utf-8');
+
+         expect(content).toContain('"SessionStart"');
+         expect(content).toContain('"echo start"');
       });
    });
 });

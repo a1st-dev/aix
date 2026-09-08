@@ -23,7 +23,7 @@ export const antigravityConfigSchema = baseEditorConfigSchema.extend({
 });
 
 export const editorEnum = z
-   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'antigravity', 'agy', 'opencode'])
+   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'antigravity', 'agy', 'opencode', 'grok', 'grok-cli'])
    .describe('Supported editor/agent');
 
 /**
@@ -39,6 +39,8 @@ const editorsObjectSchema = z
       antigravity: antigravityConfigSchema.optional(),
       agy: antigravityConfigSchema.optional(),
       opencode: baseEditorConfigSchema.optional(),
+      grok: baseEditorConfigSchema.optional(),
+      'grok-cli': baseEditorConfigSchema.optional(),
    })
    .catchall(baseEditorConfigSchema);
 

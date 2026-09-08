@@ -12,6 +12,7 @@ import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js'
 import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.js';
 import { AntigravityHooksStrategy } from '../../editors/strategies/antigravity/hooks.js';
 import { CodexHooksStrategy } from '../../editors/strategies/codex/hooks.js';
+import { GrokHooksStrategy } from '../../editors/strategies/grok/hooks.js';
 import { NoHooksStrategy } from '../../editors/strategies/shared/no-hooks.js';
 import type { HooksStrategy } from '../../editors/strategies/types.js';
 
@@ -41,6 +42,7 @@ describe('editor support data', () => {
          windsurf: new WindsurfHooksStrategy(),
          antigravity: new AntigravityHooksStrategy(),
          codex: new CodexHooksStrategy(),
+         grok: new GrokHooksStrategy(),
          zed: new NoHooksStrategy(),
          opencode: new NoHooksStrategy(),
       };

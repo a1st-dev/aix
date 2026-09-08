@@ -53,6 +53,7 @@ export function computeFilesToDelete(
             codex: { project: '.agents/skills', user: '.codex/skills' },
             antigravity: { project: '.agents/skills', user: '.gemini/config/skills' },
             opencode: { project: '.opencode/skills', user: '.config/opencode/skills' },
+            grok: { project: '.grok/skills', user: '.grok/skills' },
          };
 
          const skillDirConfig = editorSkillDirs[editor];

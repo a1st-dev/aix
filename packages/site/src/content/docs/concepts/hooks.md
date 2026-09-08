@@ -225,6 +225,7 @@ Post-hooks cannot block.
 | Windsurf    | `.windsurf/hooks.json`                   | `~/.codeium/windsurf/hooks.json`            |
 | Antigravity | `.agents/hooks.json`                     | `~/.gemini/config/hooks.json`               |
 | Codex       | `.codex/hooks.json`                      | `~/.codex/hooks.json`                       |
+| Grok        | `.grok/hooks.json`                       | `~/.grok/hooks.json`                        |
 
 Codex also reads hooks from inline `[hooks]` tables in `config.toml`. aix writes the
 JSON files instead, so it never has to rewrite the TOML file that holds your MCP servers.

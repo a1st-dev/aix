@@ -123,6 +123,7 @@ function isInEditorConfigDir(normalizedPath: string): boolean {
       '.opencode',
       'opencode',
       'github-copilot',
+      '.grok',
    ];
    const isWin = getRuntimeAdapter().os.platform() === 'win32',
          p = isWin ? normalizedPath.toLowerCase() : normalizedPath;

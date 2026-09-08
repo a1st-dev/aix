@@ -106,6 +106,25 @@ OpenCode currently uses the shared editor config shape. Target it with `enabled`
 }
 ```
 
+### Grok CLI
+
+Target Grok CLI with `enabled` and optional Grok-only rules:
+
+```json
+{
+   "editors": {
+      "grok": {
+         "enabled": true,
+         "rules": {
+            "grok-context": {
+               "content": "Prefer concise CLI explanations."
+            }
+         }
+      }
+   }
+}
+```
+
 ## Editor-Specific Rules
 
 Sometimes you need to give instructions to one specific AI model but not others. You can define rules nested under the editor config:

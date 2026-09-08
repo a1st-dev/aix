@@ -67,6 +67,7 @@ When you run `aix install`, skills are:
    - **Google Antigravity**: `.agents/skills/`.
    - **OpenCode**: `.opencode/skills/`.
    - **Windsurf**: `.windsurf/skills/`.
+   - **Grok CLI**: `.grok/skills/`.
    - **Codex** and **Zed**: `.agents/skills/`, the shared Agent Skills folder convention.
 
 `aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory before saving the reference.

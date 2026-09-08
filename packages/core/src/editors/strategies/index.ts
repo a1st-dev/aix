@@ -52,3 +52,9 @@ export {
    AntigravityPromptsStrategy,
    AntigravityHooksStrategy,
 } from './antigravity/index.js';
+export {
+   GrokRulesStrategy,
+   GrokMcpStrategy,
+   GrokPromptsStrategy,
+   GrokHooksStrategy,
+} from './grok/index.js';

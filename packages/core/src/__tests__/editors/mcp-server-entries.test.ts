@@ -6,6 +6,7 @@ import { CodexMcpStrategy } from '../../editors/strategies/codex/mcp.js';
 import { CopilotMcpStrategy } from '../../editors/strategies/copilot/mcp.js';
 import { AntigravityMcpStrategy } from '../../editors/strategies/antigravity/mcp.js';
 import { OpenCodeMcpStrategy } from '../../editors/strategies/opencode/mcp.js';
+import { GrokMcpStrategy } from '../../editors/strategies/grok/mcp.js';
 import { StandardMcpStrategy } from '../../editors/strategies/shared/standard-mcp.js';
 import { WindsurfMcpStrategy } from '../../editors/strategies/windsurf/mcp.js';
 import { ZedMcpStrategy } from '../../editors/strategies/zed/mcp.js';
@@ -31,6 +32,7 @@ const STRATEGIES: ReadonlyArray<{ name: string; strategy: McpStrategy }> = [
    { name: 'copilot', strategy: new CopilotMcpStrategy() },
    { name: 'antigravity', strategy: new AntigravityMcpStrategy() },
    { name: 'opencode', strategy: new OpenCodeMcpStrategy() },
+   { name: 'grok', strategy: new GrokMcpStrategy() },
    { name: 'windsurf', strategy: new WindsurfMcpStrategy() },
    { name: 'zed', strategy: new ZedMcpStrategy() },
 ];

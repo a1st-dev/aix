@@ -90,11 +90,15 @@ it in a research document.
 - Cursor:
    - Changelog: `https://cursor.com/changelog`
    - Docs: `https://docs.cursor.com/`
-- Gemini CLI:
+- Grok CLI:
+   - Docs: `https://x.ai/cli`
+   - Config & rules docs: `https://x.ai/cli/docs`
+   - Changelog: `https://x.ai/cli/changelog`
+- Antigravity:
+   - Docs: `https://github.com/google-gemini/gemini-cli/tree/main/docs`
    - Changelog index:
      `https://github.com/google-gemini/gemini-cli/blob/main/docs/changelogs/index.md`
    - Repository releases: `https://github.com/google-gemini/gemini-cli/releases`
-   - Docs: `https://github.com/google-gemini/gemini-cli/tree/main/docs`
    - Package metadata: `npm view @google/gemini-cli version`
 - OpenCode:
    - Config docs: `https://opencode.ai/docs/config/`

@@ -51,6 +51,7 @@ The `--from` flag lets you bootstrap `ai.json` from:
 - `codex`
 - `antigravity`
 - `opencode`
+- `grok`
 
 When importing, aix will:
 

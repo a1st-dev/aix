@@ -44,6 +44,8 @@ If an editor doesn't support a specific activation mode (like `glob`), aix falls
 
 OpenCode uses `AGENTS.md` for rules. aix writes OpenCode rules into a managed section of that file and leaves the rest of the file alone.
 
+Grok CLI project rules are written to `.grok/rules/*.md`. User-scope installs write rules to `~/.grok/rules/*.md`.
+
 Claude Code project rules are written to `.claude/rules/*.md`. User-scope installs write
 rules to `~/.claude/rules/*.md` and keep `~/.claude/CLAUDE.md` as an aix-managed list of
 `@rules/...` imports, so personal notes in `CLAUDE.md` stay intact.

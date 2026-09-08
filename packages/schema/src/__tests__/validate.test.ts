@@ -141,7 +141,7 @@ describe('validateConfig', () => {
 
    it('validates editors array shorthand', () => {
       const config = {
-         editors: ['windsurf', 'cursor', 'opencode'],
+         editors: ['windsurf', 'cursor', 'opencode', 'grok'],
       };
 
       const result = validateConfig(config);
@@ -152,6 +152,16 @@ describe('validateConfig', () => {
    it('validates devin as a Windsurf alias', () => {
       const config = {
          editors: ['devin'],
+      };
+
+      const result = validateConfig(config);
+
+      expect(result.success).toBe(true);
+   });
+
+   it('validates grok-cli as a Grok alias', () => {
+      const config = {
+         editors: ['grok-cli'],
       };
 
       const result = validateConfig(config);
@@ -175,6 +185,7 @@ describe('validateConfig', () => {
             windsurf: { enabled: true },
             cursor: { enabled: false },
             opencode: { enabled: true },
+            grok: { enabled: true },
          },
       };
 

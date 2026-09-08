@@ -5,6 +5,7 @@ import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.j
 import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js';
 import { AntigravityHooksStrategy } from '../../editors/strategies/antigravity/hooks.js';
 import { CodexHooksStrategy } from '../../editors/strategies/codex/hooks.js';
+import { GrokHooksStrategy } from '../../editors/strategies/grok/hooks.js';
 import type { HooksConfig } from '@a1st/aix-schema';
 
 describe('CursorHooksStrategy', () => {
@@ -1438,5 +1439,112 @@ describe('AntigravityHooksStrategy', () => {
          'SessionStart',
          'Stop',
       ]);
+   });
+});
+
+describe('GrokHooksStrategy', () => {
+   const strategy = new GrokHooksStrategy();
+
+   it('writes hooks.json config paths', () => {
+      expect(strategy.isSupported()).toBe(true);
+      expect(strategy.getConfigPath()).toBe('hooks.json');
+      expect(strategy.getGlobalConfigPath()).toBe('.grok/hooks.json');
+   });
+
+   it('maps command and http hooks to Grok event names and tool matchers', () => {
+      const hooks: HooksConfig = {
+         session_start: [{ hooks: [{ command: 'echo start' }] }],
+         pre_command: [{ hooks: [{ command: 'echo pre', timeout: 15 }] }],
+         pre_tool_use: [{ hooks: [{ type: 'http', url: 'https://example.com/check', timeout: 5 }] }],
+         agent_stop: [{ hooks: [{ command: 'echo stop' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.SessionStart[0].hooks[0]).toEqual({
+         type: 'command',
+         command: 'echo start',
+      });
+      expect(output.hooks.PreToolUse).toHaveLength(2);
+      expect(output.hooks.PreToolUse[0]).toEqual({
+         matcher: 'Bash',
+         hooks: [{ type: 'command', command: 'echo pre', timeout: 15 }],
+      });
+      expect(output.hooks.PreToolUse[1]).toEqual({
+         hooks: [{ type: 'http', url: 'https://example.com/check', timeout: 5 }],
+      });
+      expect(output.hooks.Stop[0].hooks[0]).toEqual({
+         type: 'command',
+         command: 'echo stop',
+      });
+   });
+
+   it('reports unsupported events for non-Grok events', () => {
+      const hooks: HooksConfig = {
+         pre_tool_use: [{ hooks: [{ command: 'c' }] }],
+         worktree_setup: [{ hooks: [{ command: 'c' }] }],
+      };
+
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual(['worktree_setup']);
+   });
+
+   it('reports unsupported fields like name and fail_closed', () => {
+      const hooks: HooksConfig = {
+         pre_tool_use: [{
+            hooks: [{ command: 'cmd', name: 'my-hook', fail_closed: true }],
+         }],
+      };
+
+      const fields = strategy.getUnsupportedFields(hooks);
+
+      expect(fields).toEqual([
+         {
+            event: 'pre_tool_use',
+            matcherIndex: 0,
+            actionIndex: 0,
+            fields: ['name', 'fail_closed'],
+         },
+      ]);
+   });
+
+   it('exposes the Grok native event names for the matrix', () => {
+      const native = strategy.getNativeEventNames();
+
+      expect(native).toEqual([
+         'Notification',
+         'PermissionDenied',
+         'PostCompact',
+         'PostToolUse',
+         'PostToolUseFailure',
+         'PreCompact',
+         'PreToolUse',
+         'SessionEnd',
+         'SessionStart',
+         'Stop',
+         'UserPromptSubmit',
+      ]);
+   });
+
+   it('parses imported hooks config', () => {
+      const json = JSON.stringify({
+         hooks: {
+            PreToolUse: [
+               {
+                  matcher: 'Bash',
+                  hooks: [{ type: 'command', command: 'echo bash', timeout: 10 }],
+               },
+            ],
+         },
+      });
+
+      const result = strategy.parseImportedConfig(json);
+
+      expect(result.warnings).toEqual([]);
+      expect(result.hooks.pre_command).toBeDefined();
+      expect(result.hooks.pre_command?.[0]?.hooks?.[0]).toEqual({
+         type: 'command',
+         command: 'echo bash',
+         timeout: 10,
+      });
    });
 });

@@ -58,6 +58,15 @@ describe('safeRm', () => {
       expect(existsSync(target)).toBe(false);
    });
 
+   it('allows removing Grok project skill paths under .grok', async () => {
+      const target = join(fixtureRoot, 'project', '.grok', 'skills', 'demo-skill');
+
+      await mkdir(target, { recursive: true });
+      await safeRm(target, { force: true });
+
+      expect(existsSync(target)).toBe(false);
+   });
+
    it('still rejects unrelated project paths', async () => {
       const target = join(fixtureRoot, 'project', 'skills', 'demo-skill');
 

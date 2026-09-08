@@ -23,7 +23,7 @@ const GLOBAL_CHANGE_GROUPS = [
 ];
 
 const SKILL_PATH_PATTERN =
-   /(?:\.aix|\.agents|\.windsurf|\.cursor|\.claude|\.github|\.codex|\.gemini|\.opencode)\/skills\/([^/]+)/;
+   /(?:\.aix|\.agents|\.windsurf|\.cursor|\.claude|\.github|\.codex|\.gemini|\.opencode|\.grok)\/skills\/([^/]+)/;
 
 export interface DisplayFileChangesOptions {
    output: Output;

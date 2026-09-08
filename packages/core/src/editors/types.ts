@@ -62,6 +62,7 @@ export const editorNames = [
    'codex',
    'antigravity',
    'opencode',
+   'grok',
 ] as const;
 
 export type EditorName = (typeof editorNames)[number];
@@ -69,6 +70,7 @@ export type EditorName = (typeof editorNames)[number];
 export const editorAliasNames = [
    'devin',
    'agy',
+   'grok-cli',
 ] as const;
 
 export type EditorAliasName = (typeof editorAliasNames)[number];
@@ -100,6 +102,9 @@ export function normalizeEditorName(editor: string): EditorName {
          return 'antigravity';
       case 'opencode':
          return 'opencode';
+      case 'grok':
+      case 'grok-cli':
+         return 'grok';
       default:
          throw new Error(`Unknown editor: ${editor}`);
    }

@@ -30,6 +30,7 @@ Supported editors:
 | Codex          | `codex`       |
 | Antigravity    | `antigravity` |
 | OpenCode       | `opencode`    |
+| Grok           | `grok`        |
 
 ## What gets imported
 

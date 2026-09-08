@@ -7,3 +7,4 @@ export { ZedAdapter } from './zed.js';
 export { CodexAdapter } from './codex.js';
 export { AntigravityAdapter } from './antigravity.js';
 export { OpenCodeAdapter } from './opencode.js';
+export { GrokAdapter } from './grok.js';

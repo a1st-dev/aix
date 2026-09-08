@@ -40,6 +40,7 @@ aix maps these prompts to the native feature in each editor when one exists:
 - **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
 - **Antigravity**: Maps to markdown workflow files in `.agents/workflows/` with `description` frontmatter.
 - **OpenCode**: Maps to markdown command files in `.opencode/commands/` or `~/.config/opencode/commands/`.
+- **Grok CLI**: Prompts are converted to instruction-only Agent Skills in `.grok/skills/`.
 - **Zed**: Not supported.
 
 ## Prompt Files

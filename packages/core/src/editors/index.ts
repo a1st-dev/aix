@@ -32,6 +32,7 @@ export {
    CodexAdapter,
    AntigravityAdapter,
    OpenCodeAdapter,
+   GrokAdapter,
 } from './adapters/index.js';
 
 export {

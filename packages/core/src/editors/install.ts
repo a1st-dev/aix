@@ -18,6 +18,7 @@ import {
    CodexAdapter,
    AntigravityAdapter,
    OpenCodeAdapter,
+   GrokAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
@@ -41,6 +42,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    codex: CodexAdapter,
    antigravity: AntigravityAdapter,
    opencode: OpenCodeAdapter,
+   grok: GrokAdapter,
 };
 
 /**

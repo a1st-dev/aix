@@ -20,6 +20,7 @@ export const editorIconNames: Record<SupportedEditorName, string> = {
    codex: 'simple-icons:openai',
    antigravity: 'simple-icons:googlegemini',
    opencode: 'lucide:square-terminal',
+   grok: 'simple-icons:x',
 };
 
 export const managedEditorFeatures = editorFeatureDefinitions.filter((feature) => feature.kind === 'managed');
