@@ -74,3 +74,27 @@ export type AgentPermissionValue = z.infer<typeof agentPermissionValueSchema>;
 export type AgentObject = z.infer<typeof agentObjectSchema>;
 export type AgentValue = z.infer<typeof agentValueSchema>;
 export type AgentsConfig = z.infer<typeof agentsSchema>;
+
+export const agentFrontmatterSchema = z
+   .object({
+      name: agentNameSchema.optional(),
+      description: z.string().min(1).max(1024).optional(),
+      mode: agentModeSchema.optional(),
+      model: z.string().optional(),
+      tools: z.union([z.array(z.string()), z.string()]).optional(),
+      permissions: z.record(agentPermissionValueSchema).optional(),
+      mcp: agentMcpServersSchema.optional(),
+      'mcp-servers': agentMcpServersSchema.optional(),
+      editor: agentEditorExtensionSchema.optional(),
+   })
+   .passthrough()
+   .describe('Agent frontmatter schema for Markdown agent files');
+
+export type AgentFrontmatter = z.infer<typeof agentFrontmatterSchema>;
+
+export interface ParsedAgent {
+   frontmatter: AgentFrontmatter;
+   content: string;
+   sourcePath?: string;
+}
+
