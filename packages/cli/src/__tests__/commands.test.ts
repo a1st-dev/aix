@@ -1777,6 +1777,98 @@ description: Demo skill
       });
    });
 
+   describe('remove rule', () => {
+      it('removes a rule from config and deletes the installed rule file from editors', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               rulesDir = join(testDir, 'rules'),
+               editorRuleDir = join(testDir, '.claude', 'rules'),
+               ruleFile = join(rulesDir, 'coding.md'),
+               installedRuleFile = join(editorRuleDir, 'coding.md');
+
+         await mkdir(rulesDir, { recursive: true });
+         await mkdir(editorRuleDir, { recursive: true });
+         await writeFile(ruleFile, 'Keep functions small.');
+         await writeFile(installedRuleFile, 'Keep functions small.');
+         await writeValidConfig(configPath, {
+            rules: {
+               coding: './rules/coding.md',
+            },
+            editors: ['claude-code'],
+         });
+
+         const { error } = await runCli(
+            ['remove', 'rule', 'coding', '--yes', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.rules.coding).toBeUndefined();
+         expect(existsSync(installedRuleFile)).toBe(false);
+      });
+
+      it('refreshes existing lockfile when rule is removed', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               rulesDir = join(testDir, 'rules'),
+               ruleFile = join(rulesDir, 'style.md');
+
+         await mkdir(rulesDir, { recursive: true });
+         await writeFile(ruleFile, 'Follow camelCase.');
+         await writeValidConfig(configPath, {
+            rules: {
+               style: './rules/style.md',
+            },
+         });
+
+         // Create initial lockfile
+         await runCli(['validate', '--config', configPath, '--lock'], { root });
+         expect(existsSync(join(testDir, 'ai.lock.json'))).toBe(true);
+
+         const initialLock = JSON.parse(await readFile(join(testDir, 'ai.lock.json'), 'utf-8'));
+
+         // Remove rule, lockfile should auto-refresh
+         const { error } = await runCli(
+            ['remove', 'rule', 'style', '--yes', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const updatedLock = JSON.parse(await readFile(join(testDir, 'ai.lock.json'), 'utf-8'));
+
+         expect(updatedLock.config.digest).not.toBe(initialLock.config.digest);
+      });
+   });
+
+   describe('remove prompt', () => {
+      it('removes a prompt from config and keeps file with --no-delete', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               promptsDir = join(testDir, 'prompts'),
+               promptFile = join(promptsDir, 'review.md');
+
+         await mkdir(promptsDir, { recursive: true });
+         await writeFile(promptFile, 'Review this PR.');
+         await writeValidConfig(configPath, {
+            prompts: {
+               review: './prompts/review.md',
+            },
+         });
+
+         const { error } = await runCli(
+            ['remove', 'prompt', 'review', '--yes', '--config', configPath, '--no-delete'],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         const content = await readFile(configPath, 'utf-8'),
+               config = JSON.parse(content);
+
+         expect(config.prompts.review).toBeUndefined();
+         expect(existsSync(promptFile)).toBe(true);
+      });
+   });
+
    describe('list --all', () => {
       it('includes symlinked native editor skills', async () => {
          const sourceSkillDir = join(testDir, '.aix', 'skills', 'copilot-skill'),
@@ -1973,6 +2065,49 @@ description: User Agents skill
          const config = JSON.parse(content);
 
          expect(config.skills.typescript).toBe('^1.0.0');
+      });
+
+      it('aliases cache.* keys to aix.cache.* in config set and get', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath);
+
+         const setResult = await runCli(
+            ['config', 'set', 'cache.maxCacheAgeDays', '14', '--config', configPath],
+            { root },
+         );
+
+         expect(setResult.error).toBeUndefined();
+
+         const getResult = await runCli(
+            ['config', 'get', 'cache.maxCacheAgeDays', '--config', configPath],
+            { root },
+         );
+
+         expect(getResult.error).toBeUndefined();
+         expect(getResult.stdout.trim()).toBe('14');
+      });
+   });
+
+   describe('list editors', () => {
+      it('normalizes editor array shorthand without numeric index keys', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, {
+            editors: ['cursor', 'claude-code'],
+         });
+
+         const { error, stdout } = await runCli(
+            ['list', 'editors', '--config', configPath],
+            { root },
+         );
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('cursor');
+         expect(stdout).toContain('claude-code');
+         // Array indices like '0' and '1' should not be rendered as editor names
+         expect(stdout).not.toMatch(/^│\s+0\s+│/m);
+         expect(stdout).not.toMatch(/^│\s+1\s+│/m);
       });
    });
 
