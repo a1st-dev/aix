@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { safeRm, type EditorName } from '@a1st/aix-core';
 
-export type RemovableItemType = 'skill' | 'mcp' | 'agent';
+export type RemovableItemType = 'skill' | 'mcp' | 'agent' | 'rule' | 'prompt';
 
 export interface FilesToDelete {
    editor: EditorName;
@@ -90,8 +90,47 @@ export function computeFilesToDelete(
                files.push(join(installRoot, dir, `${itemName}.md`));
             }
          }
+      } else if (itemType === 'rule') {
+         const editorRuleDirs: Partial<Record<EditorName, { project: string; user: string; ext: string }>> = {
+            'claude-code': { project: '.claude/rules', user: '.claude/rules', ext: '.md' },
+            cursor: { project: '.cursor/rules', user: '.cursor/rules', ext: '.mdc' },
+            windsurf: { project: '.windsurf/rules', user: '.windsurf/rules', ext: '.md' },
+            copilot: { project: '.github/instructions', user: '.config/github-copilot/instructions', ext: '.md' },
+            zed: { project: '.zed/rules', user: '.zed/rules', ext: '.md' },
+            codex: { project: '.codex/rules', user: '.codex/rules', ext: '.md' },
+            antigravity: { project: '.gemini/rules', user: '.gemini/rules', ext: '.md' },
+            opencode: { project: '.opencode/rules', user: '.config/opencode/rules', ext: '.md' },
+            grok: { project: '.grok/rules', user: '.grok/rules', ext: '.md' },
+         };
+
+         const ruleDirConfig = editorRuleDirs[editor];
+
+         if (ruleDirConfig) {
+            const dir = targetScope === 'user' ? ruleDirConfig.user : ruleDirConfig.project;
+
+            files.push(join(installRoot, dir, `${itemName}${ruleDirConfig.ext}`));
+         }
+      } else if (itemType === 'prompt') {
+         const editorPromptDirs: Partial<Record<EditorName, { project: string; user: string; ext: string }>> = {
+            'claude-code': { project: '.claude/commands', user: '.claude/commands', ext: '.md' },
+            cursor: { project: '.cursor/commands', user: '.cursor/commands', ext: '.md' },
+            windsurf: { project: '.windsurf/workflows', user: '.windsurf/workflows', ext: '.md' },
+            copilot: { project: '.github/prompts', user: '.config/github-copilot/prompts', ext: '.prompt.md' },
+            zed: { project: '.zed/prompts', user: '.zed/prompts', ext: '.md' },
+            codex: { project: '.codex/prompts', user: '.codex/prompts', ext: '.md' },
+            antigravity: { project: '.gemini/commands', user: '.gemini/commands', ext: '.md' },
+            opencode: { project: '.opencode/commands', user: '.config/opencode/commands', ext: '.md' },
+            grok: { project: '.grok/commands', user: '.grok/commands', ext: '.md' },
+         };
+
+         const promptDirConfig = editorPromptDirs[editor];
+
+         if (promptDirConfig) {
+            const dir = targetScope === 'user' ? promptDirConfig.user : promptDirConfig.project;
+
+            files.push(join(installRoot, dir, `${itemName}${promptDirConfig.ext}`));
+         }
       }
-      // Note: MCP removal doesn't delete individual files - it re-installs to regenerate config
 
       if (files.length > 0) {
          results.push({ editor, files });
