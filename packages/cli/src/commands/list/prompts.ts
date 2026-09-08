@@ -1,3 +1,4 @@
+import { loadPrompt } from '@a1st/aix-core';
 import { BaseCommand } from '../../base-command.js';
 
 type PromptRow = Record<string, unknown> & {
@@ -31,30 +32,50 @@ export default class ListPrompts extends BaseCommand<typeof ListPrompts> {
          return;
       }
 
-      const rows: PromptRow[] = entries.map(([name, config]) => {
-         const promptConfig = config as Exclude<typeof config, false>;
-         let source: string,
-             description = '';
+      const rows: PromptRow[] = await Promise.all(
+         entries.map(async ([name, config]) => {
+            const promptConfig = config as Exclude<typeof config, false>;
+            let source: string,
+                description = '';
 
-         if (typeof promptConfig === 'string') {
-            source = promptConfig;
-         } else {
-            if (promptConfig.path) {
-               source = promptConfig.path;
-            } else if (promptConfig.git) {
-               source = `git:${promptConfig.git.url}`;
-            } else if (promptConfig.npm) {
-               source = `npm:${promptConfig.npm.npm}`;
-            } else if (promptConfig.content) {
-               source = '(inline)';
+            if (typeof promptConfig === 'string') {
+               source = promptConfig;
+               try {
+                  const loadedItem = await loadPrompt(name, promptConfig, loaded.path);
+
+                  description = loadedItem.description ?? '';
+               } catch {
+                  // Fall back to empty description if load fails
+               }
             } else {
-               source = '(unknown)';
-            }
-            description = promptConfig.description ?? '';
-         }
+               if (promptConfig.path) {
+                  source = promptConfig.path;
+               } else if (promptConfig.git) {
+                  source = `git:${promptConfig.git.url}`;
+               } else if (promptConfig.npm) {
+                  source = `npm:${promptConfig.npm.npm}`;
+               } else if (promptConfig.content) {
+                  source = '(inline)';
+               } else {
+                  source = '(unknown)';
+               }
 
-         return { name, source, description };
-      });
+               if (promptConfig.description) {
+                  description = promptConfig.description;
+               } else if (promptConfig.path) {
+                  try {
+                     const loadedItem = await loadPrompt(name, promptConfig, loaded.path);
+
+                     description = loadedItem.description ?? '';
+                  } catch {
+                     // Fall back to empty description
+                  }
+               }
+            }
+
+            return { name, source, description };
+         }),
+      );
 
       this.output.header('Prompts');
       this.output.table(rows, {

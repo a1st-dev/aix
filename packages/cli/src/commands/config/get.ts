@@ -21,7 +21,11 @@ export default class ConfigGet extends BaseCommand<typeof ConfigGet> {
       const { args } = await this.parse(ConfigGet);
       const loaded = await this.requireConfig();
 
-      const value = this.getNestedValue(loaded.config, args.key);
+      let value = this.getNestedValue(loaded.config, args.key);
+
+      if (value === undefined && (args.key === 'cache' || args.key.startsWith('cache.'))) {
+         value = this.getNestedValue(loaded.config, `aix.${args.key}`);
+      }
 
       if (value === undefined) {
          this.error(`Key "${args.key}" not found`);

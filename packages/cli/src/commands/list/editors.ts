@@ -1,4 +1,5 @@
 import { BaseCommand } from '../../base-command.js';
+import { normalizeEditors } from '@a1st/aix-schema';
 
 type EditorRow = Record<string, unknown> & {
    name: string;
@@ -16,25 +17,30 @@ export default class ListEditors extends BaseCommand<typeof ListEditors> {
 
    async run(): Promise<void> {
       const loaded = await this.requireConfig();
-      const editors = loaded.config.editors ?? {};
+      const rawEditors = loaded.config.editors;
+      const normalized = rawEditors ? normalizeEditors(rawEditors) : {};
 
       if (this.flags.json) {
-         this.output.json({ editors });
+         this.output.json({ editors: normalized });
          return;
       }
 
-      const entries = Object.entries(editors);
+      const entries = Object.entries(normalized);
 
       if (entries.length === 0) {
          this.output.info('No editor-specific configuration');
          return;
       }
 
-      const rows: EditorRow[] = entries.map(([name, config]) => ({
-         name,
-         status: config.enabled === false ? 'disabled' : 'enabled',
-         rules: config.rules?.length ? `${config.rules.length} rule(s)` : '-',
-      }));
+      const rows: EditorRow[] = entries.map(([name, config]) => {
+         const rulesCount = config.rules ? Object.keys(config.rules).length : 0;
+
+         return {
+            name,
+            status: config.enabled === false ? 'disabled' : 'enabled',
+            rules: rulesCount > 0 ? `${rulesCount} rule(s)` : '-',
+         };
+      });
 
       this.output.header('Editors');
       this.output.table(rows, {

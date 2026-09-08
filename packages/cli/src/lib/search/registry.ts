@@ -66,8 +66,10 @@ export class SearchRegistry {
          try {
             return await source.search(type, options);
          } catch (error) {
-            // Log but don't fail the entire search if one source fails
-            console.error(`Search source ${source.id} failed:`, error);
+            // Log clean message but don't fail the entire search if one source fails
+            const message = error instanceof Error ? error.message : String(error);
+
+            console.error(`Search source ${source.id} failed: ${message}`);
             return [];
          }
       });

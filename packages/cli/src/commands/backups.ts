@@ -2,6 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
+import { getBackupsDir } from '@a1st/aix-core';
 import { BaseCommand } from '../base-command.js';
 
 interface BackupInfo {
@@ -14,19 +15,27 @@ interface BackupInfo {
 
 /**
  * Parse a backup filename to extract the original path and timestamp.
- * Format: {safe_relative_path}.{timestamp}.bak
- * Example: .codeium_windsurf_mcp_config.json.2026-01-05T18-25-43-275Z.bak
+ * Supports:
+ * - Format with .bak: {safe_relative_path}.{timestamp}.bak
+ * - Format with .backup: {fileName}.{timestamp}.backup
  */
-function parseBackupFilename(filename: string): { originalPath: string; timestamp: Date } | null {
-   // Remove .bak extension
-   if (!filename.endsWith('.bak')) {
+function parseBackupFilename(
+   filename: string,
+   location: 'global' | 'local',
+): { originalPath: string; timestamp: Date } | null {
+   let withoutExt = '';
+
+   if (filename.endsWith('.backup')) {
+      withoutExt = filename.slice(0, -7);
+   } else if (filename.endsWith('.bak')) {
+      withoutExt = filename.slice(0, -4);
+   } else {
       return null;
    }
 
-   const withoutExt = filename.slice(0, -4),
-         // Find the timestamp (ISO format with dashes instead of colons)
-         // Pattern: .YYYY-MM-DDTHH-MM-SS-mmmZ
-         timestampMatch = withoutExt.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)$/);
+   // Find the timestamp (ISO format with dashes instead of colons)
+   // Pattern: .YYYY-MM-DDTHH-MM-SS-mmmZ or .YYYY-MM-DDTHH-MM-SSZ
+   const timestampMatch = withoutExt.match(/\.(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}(?:-\d{3})?Z)$/);
 
    if (!timestampMatch || !timestampMatch[1]) {
       return null;
@@ -34,7 +43,11 @@ function parseBackupFilename(filename: string): { originalPath: string; timestam
 
    const timestampStr = timestampMatch[1],
          // Convert back to ISO format (replace dashes with colons in time part)
-         isoTimestamp = timestampStr.replace(/-(\d{2})-(\d{2})-(\d{3})Z$/, ':$1:$2.$3Z'),
+         isoTimestamp = timestampStr.includes('-')
+            ? timestampStr.replace(/-(\d{2})-(\d{2})(?:-(\d{3}))?Z$/, (_, h, m, ms) => {
+               return `:${h}:${m}${ms ? `.${ms}` : ''}Z`;
+            })
+            : timestampStr,
          timestamp = new Date(isoTimestamp);
 
    if (isNaN(timestamp.getTime())) {
@@ -42,12 +55,18 @@ function parseBackupFilename(filename: string): { originalPath: string; timestam
    }
 
    // Extract original path (everything before the timestamp)
-   // The safe path has underscores instead of slashes, and starts with a dot
-   const safePath = withoutExt.slice(0, -(timestampStr.length + 1)),
-         // Convert underscores back to slashes, but keep leading dot
-         originalPath = safePath.startsWith('.')
-            ? '~/' + safePath.slice(1).replace(/_/g, '/')
-            : '~/' + safePath.replace(/_/g, '/');
+   const rawName = withoutExt.slice(0, -(timestampStr.length + 1));
+   let originalPath = rawName;
+
+   if (location === 'global') {
+      const safePath = rawName;
+
+      originalPath = safePath.startsWith('.')
+         ? '~/' + safePath.slice(1).replace(/_/g, '/')
+         : '~/' + safePath.replace(/_/g, '/');
+   } else {
+      originalPath = rawName.startsWith('.') ? rawName : `./${rawName}`;
+   }
 
    return { originalPath, timestamp };
 }
@@ -65,13 +84,14 @@ When aix modifies editor configuration files (e.g., during install), it automati
    async run(): Promise<void> {
       const backups: BackupInfo[] = [],
             globalBackupDir = join(homedir(), '.aix', 'backups'),
-            localBackupDir = join(process.cwd(), '.aix', 'backups');
+            localBackupDir = getBackupsDir(process.cwd()),
+            legacyLocalBackupDir = join(process.cwd(), '.aix', 'backups');
 
       if (existsSync(globalBackupDir)) {
          const files = await readdir(globalBackupDir);
 
          for (const file of files) {
-            const parsed = parseBackupFilename(file);
+            const parsed = parseBackupFilename(file, 'global');
 
             if (!parsed) {
                continue;
@@ -96,32 +116,41 @@ When aix modifies editor configuration files (e.g., during install), it automati
          }
       }
 
-      // Check local backups
-      if (existsSync(localBackupDir)) {
-         const files = await readdir(localBackupDir);
+      // Check local backups in .aix/.tmp/backups and legacy .aix/backups
+      const localDirs = [localBackupDir];
 
-         for (const file of files) {
-            const parsed = parseBackupFilename(file);
+      if (legacyLocalBackupDir !== localBackupDir && existsSync(legacyLocalBackupDir)) {
+         localDirs.push(legacyLocalBackupDir);
+      }
 
-            if (!parsed) {
-               continue;
-            }
+      for (const dir of localDirs) {
+         if (existsSync(dir)) {
+            // eslint-disable-next-line no-await-in-loop -- Sequential for simplicity
+            const files = await readdir(dir);
 
-            const filePath = join(localBackupDir, file);
+            for (const file of files) {
+               const parsed = parseBackupFilename(file, 'local');
 
-            try {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for simplicity
-               const stats = await stat(filePath);
+               if (!parsed) {
+                  continue;
+               }
 
-               backups.push({
-                  file,
-                  originalPath: parsed.originalPath,
-                  backupDate: parsed.timestamp,
-                  size: stats.size,
-                  location: 'local',
-               });
-            } catch {
-               // Skip files we can't stat
+               const filePath = join(dir, file);
+
+               try {
+                  // eslint-disable-next-line no-await-in-loop -- Sequential for simplicity
+                  const stats = await stat(filePath);
+
+                  backups.push({
+                     file,
+                     originalPath: parsed.originalPath,
+                     backupDate: parsed.timestamp,
+                     size: stats.size,
+                     location: 'local',
+                  });
+               } catch {
+                  // Skip files we can't stat
+               }
             }
          }
       }
