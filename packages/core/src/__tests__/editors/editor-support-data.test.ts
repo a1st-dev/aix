@@ -10,7 +10,7 @@ import { ClaudeCodeHooksStrategy } from '../../editors/strategies/claude-code/ho
 import { CursorHooksStrategy } from '../../editors/strategies/cursor/hooks.js';
 import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js';
 import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.js';
-import { GeminiHooksStrategy } from '../../editors/strategies/gemini/hooks.js';
+import { AntigravityHooksStrategy } from '../../editors/strategies/antigravity/hooks.js';
 import { CodexHooksStrategy } from '../../editors/strategies/codex/hooks.js';
 import { NoHooksStrategy } from '../../editors/strategies/shared/no-hooks.js';
 import type { HooksStrategy } from '../../editors/strategies/types.js';
@@ -39,7 +39,7 @@ describe('editor support data', () => {
          cursor: new CursorHooksStrategy(),
          copilot: new CopilotHooksStrategy(),
          windsurf: new WindsurfHooksStrategy(),
-         gemini: new GeminiHooksStrategy(),
+         antigravity: new AntigravityHooksStrategy(),
          codex: new CodexHooksStrategy(),
          zed: new NoHooksStrategy(),
          opencode: new NoHooksStrategy(),

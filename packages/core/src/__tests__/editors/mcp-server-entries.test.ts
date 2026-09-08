@@ -4,7 +4,7 @@ import type { McpStrategy } from '../../editors/strategies/types.js';
 import { ClaudeCodeMcpStrategy } from '../../editors/strategies/claude-code/mcp.js';
 import { CodexMcpStrategy } from '../../editors/strategies/codex/mcp.js';
 import { CopilotMcpStrategy } from '../../editors/strategies/copilot/mcp.js';
-import { GeminiMcpStrategy } from '../../editors/strategies/gemini/mcp.js';
+import { AntigravityMcpStrategy } from '../../editors/strategies/antigravity/mcp.js';
 import { OpenCodeMcpStrategy } from '../../editors/strategies/opencode/mcp.js';
 import { StandardMcpStrategy } from '../../editors/strategies/shared/standard-mcp.js';
 import { WindsurfMcpStrategy } from '../../editors/strategies/windsurf/mcp.js';
@@ -29,7 +29,7 @@ const STRATEGIES: ReadonlyArray<{ name: string; strategy: McpStrategy }> = [
    { name: 'claude-code', strategy: new ClaudeCodeMcpStrategy() },
    { name: 'codex', strategy: new CodexMcpStrategy() },
    { name: 'copilot', strategy: new CopilotMcpStrategy() },
-   { name: 'gemini', strategy: new GeminiMcpStrategy() },
+   { name: 'antigravity', strategy: new AntigravityMcpStrategy() },
    { name: 'opencode', strategy: new OpenCodeMcpStrategy() },
    { name: 'windsurf', strategy: new WindsurfMcpStrategy() },
    { name: 'zed', strategy: new ZedMcpStrategy() },
@@ -151,48 +151,14 @@ scopes = ["read"]
          expect(result.mcp.docs).toEqual(REMOTE_SERVER);
       });
 
-      it('writes a Gemini remote server to httpUrl, its streamable HTTP key', () => {
-         const written = JSON.parse(new GeminiMcpStrategy().formatConfig({ docs: REMOTE_SERVER }));
+      it('writes an Antigravity stdio server to standard command, args, and env fields', () => {
+         const written = JSON.parse(new AntigravityMcpStrategy().formatConfig({ github: STDIO_SERVER }));
 
-         expect(written.mcpServers.docs).toEqual({
-            httpUrl: 'https://example.com/mcp',
-            headers: { Authorization: 'Bearer secret' },
+         expect(written.mcpServers.github).toEqual({
+            command: 'npx',
+            args: [ '-y', '@modelcontextprotocol/server-github' ],
+            env: { GITHUB_TOKEN: 'secret' },
          });
-      });
-
-      it('imports a Gemini httpUrl server that an editor wrote by hand', () => {
-         const content = JSON.stringify({
-                  mcpServers: {
-                     docs: { httpUrl: 'https://example.com/mcp', headers: { Authorization: 'Bearer secret' } },
-                  },
-               }),
-               result = new GeminiMcpStrategy().parseGlobalMcpConfig(content);
-
-         expect(result.warnings).toEqual([]);
-         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
-      });
-
-      it('imports a Gemini SSE server and says the transport changed', () => {
-         const content = JSON.stringify({
-                  mcpServers: { docs: { url: 'https://example.com/sse' } },
-               }),
-               result = new GeminiMcpStrategy().parseGlobalMcpConfig(content);
-
-         expect(result.mcp.docs).toEqual({ url: 'https://example.com/sse' });
-         expect(result.warnings).toHaveLength(1);
-         expect(result.warnings[0]).toContain('SSE');
-      });
-
-      it('prefers httpUrl over url when a Gemini entry carries both', () => {
-         const content = JSON.stringify({
-                  mcpServers: {
-                     docs: { httpUrl: 'https://example.com/mcp', url: 'https://example.com/sse' },
-                  },
-               }),
-               result = new GeminiMcpStrategy().parseGlobalMcpConfig(content);
-
-         expect(result.warnings).toEqual([]);
-         expect(result.mcp.docs).toEqual({ url: 'https://example.com/mcp' });
       });
    });
 });

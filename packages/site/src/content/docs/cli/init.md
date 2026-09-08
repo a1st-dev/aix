@@ -49,7 +49,7 @@ The `--from` flag lets you bootstrap `ai.json` from:
 - `claude-code`
 - `zed`
 - `codex`
-- `gemini`
+- `antigravity`
 - `opencode`
 
 When importing, aix will:

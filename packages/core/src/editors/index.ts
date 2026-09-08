@@ -30,7 +30,7 @@ export {
    CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
-   GeminiAdapter,
+   AntigravityAdapter,
    OpenCodeAdapter,
 } from './adapters/index.js';
 

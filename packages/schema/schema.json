@@ -983,7 +983,8 @@
                                           "copilot",
                                           "zed",
                                           "neovim",
-                                          "gemini",
+                                          "antigravity",
+                                          "agy",
                                           "opencode"
                                        ]
                                     },
@@ -1025,7 +1026,8 @@
                                  "copilot",
                                  "zed",
                                  "neovim",
-                                 "gemini",
+                                 "antigravity",
+                                 "agy",
                                  "opencode"
                               ],
                               "description": "Supported editor/agent"
@@ -1605,7 +1607,7 @@
                            },
                            "additionalProperties": false
                         },
-                        "gemini": {
+                        "antigravity": {
                            "type": "object",
                            "properties": {
                               "enabled": {
@@ -1710,10 +1712,123 @@
                                  },
                                  "description": "Editor-specific rules (in addition to global rules)"
                               },
-                              "geminiSettings": {
+                              "antigravitySettings": {
                                  "type": "object",
                                  "additionalProperties": {},
-                                 "description": "Gemini CLI settings"
+                                 "description": "Antigravity settings"
+                              }
+                           },
+                           "additionalProperties": false
+                        },
+                        "agy": {
+                           "type": "object",
+                           "properties": {
+                              "enabled": {
+                                 "type": "boolean",
+                                 "default": true,
+                                 "description": "Whether to configure this editor"
+                              },
+                              "rules": {
+                                 "type": "object",
+                                 "additionalProperties": {
+                                    "anyOf": [
+                                       {
+                                          "anyOf": [
+                                             {
+                                                "type": "string",
+                                                "description": "Source reference: local path (./, ../, /, file:), git URL (https://), or git shorthand (github:)"
+                                             },
+                                             {
+                                                "type": "object",
+                                                "properties": {
+                                                   "description": {
+                                                      "type": "string",
+                                                      "description": "When the rule should apply (required for auto mode)"
+                                                   },
+                                                   "activation": {
+                                                      "type": "string",
+                                                      "enum": ["always", "auto", "glob", "manual"],
+                                                      "default": "always",
+                                                      "description": "When the rule should be activated"
+                                                   },
+                                                   "globs": {
+                                                      "type": "array",
+                                                      "items": {
+                                                         "type": "string"
+                                                      },
+                                                      "description": "File patterns (required for glob mode)"
+                                                   },
+                                                   "content": {
+                                                      "type": "string",
+                                                      "description": "Inline rule content"
+                                                   },
+                                                   "path": {
+                                                      "type": "string",
+                                                      "description": "Local file path to rule content"
+                                                   },
+                                                   "git": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "url": {
+                                                            "type": "string",
+                                                            "description": "Git repository URL or shorthand (e.g., github:user/repo)"
+                                                         },
+                                                         "path": {
+                                                            "type": "string",
+                                                            "description": "Path to rule file within repo (default: root)"
+                                                         },
+                                                         "ref": {
+                                                            "type": "string",
+                                                            "description": "Branch, tag, or commit (default: main/master)"
+                                                         }
+                                                      },
+                                                      "required": ["url"],
+                                                      "additionalProperties": false,
+                                                      "description": "Git repository source"
+                                                   },
+                                                   "npm": {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "npm": {
+                                                            "type": "string",
+                                                            "description": "NPM package name (e.g., \"@company/rules\")"
+                                                         },
+                                                         "path": {
+                                                            "type": "string",
+                                                            "description": "Path to file within package (e.g., \"rules/style.md\")"
+                                                         },
+                                                         "version": {
+                                                            "type": "string",
+                                                            "description": "Version to auto-install (omit to use project node_modules)"
+                                                         }
+                                                      },
+                                                      "required": ["npm", "path"],
+                                                      "additionalProperties": false,
+                                                      "description": "NPM package source"
+                                                   }
+                                                },
+                                                "additionalProperties": false,
+                                                "description": "Rule with metadata and content source"
+                                             }
+                                          ]
+                                       },
+                                       {
+                                          "type": "boolean",
+                                          "const": false
+                                       }
+                                    ]
+                                 },
+                                 "propertyNames": {
+                                    "minLength": 1,
+                                    "maxLength": 64,
+                                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                                 },
+                                 "description": "Editor-specific rules (in addition to global rules)"
+                              },
+                              "antigravitySettings": {
+                                 "type": "object",
+                                 "additionalProperties": {},
+                                 "description": "Antigravity settings"
                               }
                            },
                            "additionalProperties": false
@@ -1952,7 +2067,7 @@
                         },
                         "sequential": {
                            "type": "boolean",
-                           "description": "Run hooks in this group sequentially instead of in parallel (Gemini)."
+                           "description": "Run hooks in this group sequentially instead of in parallel."
                         },
                         "description": {
                            "type": "string",
@@ -1996,7 +2111,7 @@
                                  },
                                  "working_directory": {
                                     "type": "string",
-                                    "description": "Working directory for the command. Interchangeable with `cwd`; the strategy decides which native key to emit (Windsurf uses `working_directory`; Copilot, Gemini, and Claude Code use `cwd`)."
+                                    "description": "Working directory for the command. Interchangeable with `cwd` (Windsurf uses `working_directory`; Copilot and Claude Code use `cwd`)."
                                  },
                                  "cwd": {
                                     "type": "string",

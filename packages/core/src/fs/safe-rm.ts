@@ -118,6 +118,7 @@ function isInEditorConfigDir(normalizedPath: string): boolean {
       '.codex',
       '.gemini',
       '.agents',
+      '.antigravity',
       '.github',
       '.opencode',
       'opencode',

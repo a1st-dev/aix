@@ -64,7 +64,7 @@ When you run `aix install`, skills are:
    - **Claude Code**: `.claude/skills/`.
    - **Cursor**: `.cursor/skills/`.
    - **GitHub Copilot**: `.github/skills/`.
-   - **Gemini CLI**: `.gemini/skills/`.
+   - **Google Antigravity**: `.agents/skills/`.
    - **OpenCode**: `.opencode/skills/`.
    - **Windsurf**: `.windsurf/skills/`.
    - **Codex** and **Zed**: `.agents/skills/`, the shared Agent Skills folder convention.

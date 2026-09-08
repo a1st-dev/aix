@@ -5,5 +5,5 @@ export { ClaudeCodeAdapter } from './claude-code.js';
 export { CopilotAdapter } from './copilot.js';
 export { ZedAdapter } from './zed.js';
 export { CodexAdapter } from './codex.js';
-export { GeminiAdapter } from './gemini.js';
+export { AntigravityAdapter } from './antigravity.js';
 export { OpenCodeAdapter } from './opencode.js';

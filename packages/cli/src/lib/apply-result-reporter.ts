@@ -193,11 +193,11 @@ export function displayFileChanges(options: DisplayFileChangesOptions): void {
                ? extractSkillName(change.path)
                : extractFileName(change.path);
 
-            if (key === 'skill') {
-               if (seenNames.has(name)) {
-                  continue;
-               }
+            if (key === 'skill' && seenNames.has(name)) {
+               continue;
+            }
 
+            if (key === 'skill') {
                seenNames.add(name);
             }
 

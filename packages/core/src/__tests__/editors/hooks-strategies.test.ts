@@ -3,7 +3,7 @@ import { CursorHooksStrategy } from '../../editors/strategies/cursor/hooks.js';
 import { ClaudeCodeHooksStrategy } from '../../editors/strategies/claude-code/hooks.js';
 import { WindsurfHooksStrategy } from '../../editors/strategies/windsurf/hooks.js';
 import { CopilotHooksStrategy } from '../../editors/strategies/copilot/hooks.js';
-import { GeminiHooksStrategy } from '../../editors/strategies/gemini/hooks.js';
+import { AntigravityHooksStrategy } from '../../editors/strategies/antigravity/hooks.js';
 import { CodexHooksStrategy } from '../../editors/strategies/codex/hooks.js';
 import type { HooksConfig } from '@a1st/aix-schema';
 
@@ -1320,55 +1320,51 @@ describe('CodexHooksStrategy', () => {
    });
 });
 
-describe('GeminiHooksStrategy', () => {
-   const strategy = new GeminiHooksStrategy();
+describe('AntigravityHooksStrategy', () => {
+   const strategy = new AntigravityHooksStrategy();
 
    it('reports itself as supported', () => {
       expect(strategy.isSupported()).toBe(true);
    });
 
-   it('returns settings.json as config path', () => {
-      expect(strategy.getConfigPath()).toBe('settings.json');
+   it('returns hooks.json as config path', () => {
+      expect(strategy.getConfigPath()).toBe('hooks.json');
    });
 
-   it('maps each documented Gemini event', () => {
+   it('returns .gemini/config/hooks.json as global config path', () => {
+      expect(strategy.getGlobalConfigPath()).toBe('.gemini/config/hooks.json');
+   });
+
+   it('maps each documented Antigravity event', () => {
       const hooks: HooksConfig = {
          session_start: [{ hooks: [{ command: 'c1' }] }],
          session_end: [{ hooks: [{ command: 'c2' }] }],
          pre_agent: [{ hooks: [{ command: 'c3' }] }],
          post_agent: [{ hooks: [{ command: 'c4' }] }],
-         pre_model_request: [{ hooks: [{ command: 'c5' }] }],
-         post_model_response: [{ hooks: [{ command: 'c6' }] }],
-         pre_tool_selection: [{ hooks: [{ command: 'c7' }] }],
-         pre_tool_use: [{ hooks: [{ command: 'c8' }] }],
-         post_tool_use: [{ hooks: [{ command: 'c9' }] }],
-         pre_compact: [{ hooks: [{ command: 'c10' }] }],
-         notification: [{ hooks: [{ command: 'c11' }] }],
+         pre_tool_use: [{ hooks: [{ command: 'c5' }] }],
+         post_tool_use: [{ hooks: [{ command: 'c6' }] }],
+         agent_stop: [{ hooks: [{ command: 'c7' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
       expect(output.hooks.SessionStart).toBeDefined();
       expect(output.hooks.SessionEnd).toBeDefined();
-      expect(output.hooks.BeforeAgent).toBeDefined();
-      expect(output.hooks.AfterAgent).toBeDefined();
-      expect(output.hooks.BeforeModel).toBeDefined();
-      expect(output.hooks.AfterModel).toBeDefined();
-      expect(output.hooks.BeforeToolSelection).toBeDefined();
-      expect(output.hooks.BeforeTool).toBeDefined();
-      expect(output.hooks.AfterTool).toBeDefined();
-      expect(output.hooks.PreCompress).toBeDefined();
-      expect(output.hooks.Notification).toBeDefined();
+      expect(output.hooks.PreInvocation).toBeDefined();
+      expect(output.hooks.PostInvocation).toBeDefined();
+      expect(output.hooks.PreToolUse).toBeDefined();
+      expect(output.hooks.PostToolUse).toBeDefined();
+      expect(output.hooks.Stop).toBeDefined();
    });
 
-   it('converts aix seconds to Gemini milliseconds', () => {
+   it('preserves timeout in seconds without converting to milliseconds', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{ hooks: [{ command: 'check.sh', timeout: 60 }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.BeforeTool[0].hooks[0].timeout).toBe(60_000);
+      expect(output.hooks.PreToolUse[0].hooks[0].timeout).toBe(60);
    });
 
    it('promotes bash to command when no command field is present', () => {
@@ -1378,23 +1374,21 @@ describe('GeminiHooksStrategy', () => {
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.BeforeTool[0].hooks[0].command).toBe('echo hi');
+      expect(output.hooks.PreToolUse[0].hooks[0].command).toBe('echo hi');
    });
 
-   it('preserves matcher and sequential on the group', () => {
+   it('preserves matcher on the group', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{
             matcher: 'read_.*',
-            sequential: true,
             hooks: [{ command: 'check.sh', name: 'safety', description: 'pre-tool guard' }],
          }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
-      expect(output.hooks.BeforeTool[0]).toEqual({
+      expect(output.hooks.PreToolUse[0]).toEqual({
          matcher: 'read_.*',
-         sequential: true,
          hooks: [{
             type: 'command',
             command: 'check.sh',
@@ -1423,7 +1417,7 @@ describe('GeminiHooksStrategy', () => {
       ]);
    });
 
-   it('reports unsupported events for non-Gemini events', () => {
+   it('reports unsupported events for non-Antigravity events', () => {
       const hooks: HooksConfig = {
          pre_tool_use: [{ hooks: [{ command: 'c' }] }],
          worktree_setup: [{ hooks: [{ command: 'c' }] }],
@@ -1432,21 +1426,17 @@ describe('GeminiHooksStrategy', () => {
       expect(strategy.getUnsupportedEvents(hooks)).toEqual([ 'worktree_setup' ]);
    });
 
-   it('exposes the Gemini native event names for the matrix', () => {
+   it('exposes the Antigravity native event names for the matrix', () => {
       const native = strategy.getNativeEventNames();
 
       expect(native).toEqual([
-         'AfterAgent',
-         'AfterModel',
-         'AfterTool',
-         'BeforeAgent',
-         'BeforeModel',
-         'BeforeTool',
-         'BeforeToolSelection',
-         'Notification',
-         'PreCompress',
+         'PostInvocation',
+         'PostToolUse',
+         'PreInvocation',
+         'PreToolUse',
          'SessionEnd',
          'SessionStart',
+         'Stop',
       ]);
    });
 });

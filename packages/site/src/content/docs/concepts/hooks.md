@@ -118,7 +118,7 @@ whatever the target editor surfaces and report the rest via install-time warning
 | `shell`                               | `bash` or `powershell` selector when only one of the command fields is set.                                                                                               |
 | `cwd` / `working_directory`           | Working directory for the command.                                                                                                                                        |
 | `env`                                 | Environment variables to pass through (Copilot only today).                                                                                                               |
-| `timeout`                             | Timeout in seconds. Adapters convert (Gemini uses milliseconds, Copilot uses `timeoutSec`).                                                                               |
+| `timeout`                             | Timeout in seconds. Adapters convert (Copilot uses `timeoutSec`).                                                                                                         |
 | `async` / `async_rewake`              | Background execution. `async` also reaches Codex, which added it in 0.148.0; `async_rewake` is Claude Code only.                                                          |
 | `if`                                  | Permission-rule guard expression (Claude Code).                                                                                                                           |
 | `status_message`                      | Custom spinner message (Claude Code).                                                                                                                                     |
@@ -133,7 +133,7 @@ whatever the target editor surfaces and report the rest via install-time warning
 
 ## Per-editor coverage
 
-| Event family                                                       | Claude Code |                       Cursor                        |       Copilot        |                Windsurf                 |        Gemini        |
+| Event family                                                       | Claude Code |                       Cursor                        |       Copilot        |                Windsurf                 |     Antigravity      |
 | ------------------------------------------------------------------ | :---------: | :-------------------------------------------------: | :------------------: | :-------------------------------------: | :------------------: |
 | `session_start` / `session_end`                                    |     yes     |                         yes                         |         yes          |                    —                    |         yes          |
 | `setup`                                                            |     yes     |                          —                          |          —           |                    —                    |          —           |
@@ -206,30 +206,25 @@ Cursor also accepts `failClosed: true` on the hook config to block on hook error
 Pre-hooks block the action with **exit code 2** and use stderr as the rejection reason.
 Post-hooks cannot block.
 
-### Gemini CLI
+### Google Antigravity
 
 ```json
 {
    "decision": "deny|allow",
-   "reason": "Sent back to the agent on deny",
-   "hookSpecificOutput": {
-      "additionalContext": "Injected before the response",
-      "tool_input": { "field": "value" },
-      "tailToolCallRequest": { "name": "another_tool", "args": {} }
-   }
+   "reason": "Sent back to the agent on deny"
 }
 ```
 
 ## Editor-native config locations
 
-| Editor      | Project                                                  | User                                        |
-| ----------- | -------------------------------------------------------- | ------------------------------------------- |
-| Claude Code | `.claude/settings.json`                                  | `~/.claude/settings.json`                   |
-| Cursor      | `.cursor/hooks.json` (with `version: 1`)                 | `~/.cursor/hooks.json`                      |
-| Copilot     | `.github/hooks/hooks.json`                               | `~/.config/github-copilot/hooks/hooks.json` |
-| Windsurf    | `.windsurf/hooks.json`                                   | `~/.codeium/windsurf/hooks.json`            |
-| Gemini      | `.gemini/settings.json` (under `hooks`, merged with MCP) | `~/.gemini/settings.json`                   |
-| Codex       | `.codex/hooks.json`                                      | `~/.codex/hooks.json`                       |
+| Editor      | Project                                  | User                                        |
+| ----------- | ---------------------------------------- | ------------------------------------------- |
+| Claude Code | `.claude/settings.json`                  | `~/.claude/settings.json`                   |
+| Cursor      | `.cursor/hooks.json` (with `version: 1`) | `~/.cursor/hooks.json`                      |
+| Copilot     | `.github/hooks/hooks.json`               | `~/.config/github-copilot/hooks/hooks.json` |
+| Windsurf    | `.windsurf/hooks.json`                   | `~/.codeium/windsurf/hooks.json`            |
+| Antigravity | `.agents/hooks.json`                     | `~/.gemini/config/hooks.json`               |
+| Codex       | `.codex/hooks.json`                      | `~/.codex/hooks.json`                       |
 
 Codex also reads hooks from inline `[hooks]` tables in `config.toml`. aix writes the
 JSON files instead, so it never has to rewrite the TOML file that holds your MCP servers.

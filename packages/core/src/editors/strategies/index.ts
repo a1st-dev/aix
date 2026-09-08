@@ -47,8 +47,8 @@ export {
 export { ZedRulesStrategy, ZedMcpStrategy, ZedPromptsStrategy } from './zed/index.js';
 export { CodexRulesStrategy, CodexPromptsStrategy, CodexMcpStrategy, CodexHooksStrategy } from './codex/index.js';
 export {
-   GeminiRulesStrategy,
-   GeminiMcpStrategy,
-   GeminiPromptsStrategy,
-   GeminiHooksStrategy,
-} from './gemini/index.js';
+   AntigravityRulesStrategy,
+   AntigravityMcpStrategy,
+   AntigravityPromptsStrategy,
+   AntigravityHooksStrategy,
+} from './antigravity/index.js';

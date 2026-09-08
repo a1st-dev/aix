@@ -37,7 +37,7 @@ Editor-specific fields live under `editor`:
       "tester": {
          "content": "Test the changed behavior.",
          "editor": {
-            "gemini": {
+            "antigravity": {
                "temperature": 0.2,
                "maxTurns": 8
             }
@@ -52,7 +52,7 @@ Supported native destinations:
 - Claude Code: `.claude/agents/*.md` and `~/.claude/agents/*.md`
 - Cursor: `.cursor/agents/*.md` and `~/.cursor/agents/*.md`
 - GitHub Copilot: `.github/agents/*.md` and `~/.config/github-copilot/agents/*.md`
-- Gemini: `.gemini/agents/*.md` and `~/.gemini/agents/*.md`
+- Antigravity: `.agents/agents/*.md` and `~/.gemini/config/agents/*.md`
 - OpenCode: `.opencode/agents/*.md` and `~/.config/opencode/agents/*.md`
 
 Codex, Windsurf, and Zed do not currently have aix-managed custom agent files. aix

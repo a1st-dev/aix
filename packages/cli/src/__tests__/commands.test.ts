@@ -511,7 +511,7 @@ describe('CLI Commands', () => {
          process.env.HOME = fakeHome;
          await mkdir(join(fakeHome, '.claude'), { recursive: true });
          await mkdir(join(fakeHome, '.config', 'github-copilot'), { recursive: true });
-         await mkdir(join(fakeHome, '.gemini'), { recursive: true });
+         await mkdir(join(fakeHome, '.gemini', 'config'), { recursive: true });
          await mkdir(join(fakeHome, '.config', 'opencode'), { recursive: true });
          await mkdir(join(fakeHome, 'AppData', 'Roaming', 'opencode'), { recursive: true });
 
@@ -531,12 +531,12 @@ describe('CLI Commands', () => {
 
          const claudePath = join(fakeHome, '.claude.json'),
                copilotPath = join(fakeHome, '.config', 'github-copilot', 'mcp-config.json'),
-               geminiPath = join(fakeHome, '.gemini', 'settings.json'),
+               antigravityPath = join(fakeHome, '.gemini', 'config', 'mcp_config.json'),
                opencodePath = join(fakeHome, '.config', 'opencode', 'opencode.json');
 
          expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.pieces).toBeDefined();
          expect(JSON.parse(await readFile(copilotPath, 'utf-8')).mcpServers.pieces).toBeDefined();
-         expect(JSON.parse(await readFile(geminiPath, 'utf-8')).mcpServers.pieces).toBeDefined();
+         expect(JSON.parse(await readFile(antigravityPath, 'utf-8')).mcpServers.pieces).toBeDefined();
          expect(JSON.parse(await readFile(opencodePath, 'utf-8')).mcp.pieces).toBeDefined();
 
          const removed = await runCli(['remove', 'mcp', 'pieces', '--user', '--yes'], { root });
@@ -544,7 +544,7 @@ describe('CLI Commands', () => {
          expect(removed.error).toBeUndefined();
          expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.pieces).toBeUndefined();
          expect(JSON.parse(await readFile(copilotPath, 'utf-8')).mcpServers.pieces).toBeUndefined();
-         expect(JSON.parse(await readFile(geminiPath, 'utf-8')).mcpServers.pieces).toBeUndefined();
+         expect(JSON.parse(await readFile(antigravityPath, 'utf-8')).mcpServers.pieces).toBeUndefined();
          expect(JSON.parse(await readFile(opencodePath, 'utf-8')).mcp.pieces).toBeUndefined();
       });
 

@@ -40,8 +40,8 @@ describe('safeRm', () => {
       expect(existsSync(target)).toBe(false);
    });
 
-   it('allows removing user-scope Gemini skill paths under .gemini', async () => {
-      const target = join(fixtureRoot, '.gemini', 'skills', 'demo-skill');
+   it('allows removing Antigravity skill paths under .agents', async () => {
+      const target = join(fixtureRoot, '.agents', 'skills', 'demo-skill');
 
       await mkdir(target, { recursive: true });
       await safeRm(target, { force: true });

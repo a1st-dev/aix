@@ -109,7 +109,7 @@ describe('validateConfig', () => {
                },
                content: 'Review the current diff.',
                editor: {
-                  gemini: {
+                  antigravity: {
                      temperature: 0.2,
                   },
                },

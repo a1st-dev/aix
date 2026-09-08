@@ -7,7 +7,7 @@ description: Extend your AI with Model Context Protocol servers.
 
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open standard that enables AI models to interact with external tools and data sources.
 
-aix provides first-class support for configuring MCP servers and syncing that configuration to any editor that supports MCP (Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, Gemini, OpenCode).
+aix provides first-class support for configuring MCP servers and syncing that configuration to any editor that supports MCP (Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, Antigravity, OpenCode).
 
 ## Configuring Servers
 
@@ -67,7 +67,7 @@ You can restrict which tools and resources an MCP server exposes to the AI.
 
 ## Global vs. Project Config
 
-Some editors (Windsurf and Codex in aix's current adapter) use global MCP configuration, while others (Cursor, GitHub Copilot, Claude Code, Zed, Gemini, OpenCode) support project-specific config.
+Some editors (Windsurf and Codex in aix's current adapter) use global MCP configuration, while others (Cursor, GitHub Copilot, Claude Code, Zed, Antigravity, OpenCode) support project-specific config.
 
 aix handles this complexity for you:
 

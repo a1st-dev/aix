@@ -28,7 +28,7 @@ Supported editors:
 | Windsurf       | `windsurf`    |
 | Zed            | `zed`         |
 | Codex          | `codex`       |
-| Gemini         | `gemini`      |
+| Antigravity    | `antigravity` |
 | OpenCode       | `opencode`    |
 
 ## What gets imported

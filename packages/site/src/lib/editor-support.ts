@@ -18,7 +18,7 @@ export const editorIconNames: Record<SupportedEditorName, string> = {
    windsurf: 'simple-icons:codeium',
    zed: 'simple-icons:zedindustries',
    codex: 'simple-icons:openai',
-   gemini: 'simple-icons:googlegemini',
+   antigravity: 'simple-icons:googlegemini',
    opencode: 'lucide:square-terminal',
 };
 

@@ -38,7 +38,7 @@ aix maps these prompts to the native feature in each editor when one exists:
   are converted into Copilot skills under `~/.config/github-copilot/skills/`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
-- **Gemini**: Maps to project/global TOML files in `.gemini/commands/`.
+- **Antigravity**: Maps to markdown workflow files in `.agents/workflows/` with `description` frontmatter.
 - **OpenCode**: Maps to markdown command files in `.opencode/commands/` or `~/.config/opencode/commands/`.
 - **Zed**: Not supported.
 

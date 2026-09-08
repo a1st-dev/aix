@@ -112,7 +112,7 @@ export const hookActionSchema = z
          'Whether to surface command output in the editor UI (Windsurf-specific).',
       ),
       working_directory: z.string().optional().describe(
-         'Working directory for the command. Interchangeable with `cwd`; the strategy decides which native key to emit (Windsurf uses `working_directory`; Copilot, Gemini, and Claude Code use `cwd`).',
+         'Working directory for the command. Interchangeable with `cwd` (Windsurf uses `working_directory`; Copilot and Claude Code use `cwd`).',
       ),
       cwd: z.string().optional().describe(
          'Working directory for the command. Interchangeable with `working_directory`.',
@@ -191,7 +191,7 @@ export const hookMatcherSchema = z
          'Pattern to match (regex or pipe-separated literal, editor-specific).',
       ),
       sequential: z.boolean().optional().describe(
-         'Run hooks in this group sequentially instead of in parallel (Gemini).',
+         'Run hooks in this group sequentially instead of in parallel.',
       ),
       description: z.string().optional().describe('Free-form description for the group.'),
       hooks: z.array(hookActionSchema).describe('Hooks to execute when matched'),

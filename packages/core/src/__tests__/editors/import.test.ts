@@ -410,26 +410,25 @@ describe('Editor Config Import', () => {
          }
       });
 
-      it('imports user-scoped Gemini hooks into generic hook events', async () => {
-         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-gemini-hooks-import-')),
+      it('imports user-scoped Antigravity hooks into generic hook events', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-antigravity-hooks-import-')),
                fakeHome = join(projectRoot, 'fake-home');
          const originalHome = process.env.HOME;
 
          process.env.HOME = fakeHome;
 
          try {
-            await mkdir(join(fakeHome, '.gemini'), { recursive: true });
+            await mkdir(join(fakeHome, '.gemini', 'config'), { recursive: true });
             await writeFile(
-               join(fakeHome, '.gemini', 'settings.json'),
+               join(fakeHome, '.gemini', 'config', 'hooks.json'),
                JSON.stringify({
                   hooks: {
-                     BeforeTool: [{
+                     PreToolUse: [{
                         matcher: 'Shell',
-                        sequential: true,
                         hooks: [{
                            type: 'command',
                            command: 'echo pre',
-                           timeout: 1000,
+                           timeout: 10,
                            name: 'audit',
                         }],
                      }],
@@ -438,22 +437,21 @@ describe('Editor Config Import', () => {
                'utf-8',
             );
 
-            const result = await importFromEditor('gemini', {
+            const result = await importFromEditor('antigravity', {
                projectRoot,
                scope: 'user',
             });
 
             expect(result.hooks.pre_tool_use).toEqual([{
                matcher: 'Shell',
-               sequential: true,
                hooks: [{
                   command: 'echo pre',
-                  timeout: 1,
+                  timeout: 10,
                   name: 'audit',
                }],
             }]);
             expect(result.scopes.hooks.pre_tool_use).toBe('user');
-            expect(result.paths.hooks.pre_tool_use).toBe(join(fakeHome, '.gemini', 'settings.json'));
+            expect(result.paths.hooks.pre_tool_use).toBe(join(fakeHome, '.gemini', 'config', 'hooks.json'));
          } finally {
             if (originalHome === undefined) {
                delete process.env.HOME;

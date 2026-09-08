@@ -1,6 +1,6 @@
 /**
  * Section-managed markdown utility. Provides functions to manage a delimited section within
- * markdown files (like AGENTS.md and GEMINI.md) without overwriting user-maintained content.
+ * markdown files (like AGENTS.md) without overwriting user-maintained content.
  *
  * The managed section is wrapped in HTML comment markers:
  * ```

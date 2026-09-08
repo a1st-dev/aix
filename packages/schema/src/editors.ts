@@ -18,12 +18,12 @@ export const claudeCodeConfigSchema = baseEditorConfigSchema.extend({
    permissions: z.record(z.unknown()).optional().describe('Claude Code permissions'),
 });
 
-export const geminiConfigSchema = baseEditorConfigSchema.extend({
-   geminiSettings: z.record(z.unknown()).optional().describe('Gemini CLI settings'),
+export const antigravityConfigSchema = baseEditorConfigSchema.extend({
+   antigravitySettings: z.record(z.unknown()).optional().describe('Antigravity settings'),
 });
 
 export const editorEnum = z
-   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'gemini', 'opencode'])
+   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'antigravity', 'agy', 'opencode'])
    .describe('Supported editor/agent');
 
 /**
@@ -36,7 +36,8 @@ const editorsObjectSchema = z
       devin: windsurfConfigSchema.optional(),
       cursor: cursorConfigSchema.optional(),
       'claude-code': claudeCodeConfigSchema.optional(),
-      gemini: geminiConfigSchema.optional(),
+      antigravity: antigravityConfigSchema.optional(),
+      agy: antigravityConfigSchema.optional(),
       opencode: baseEditorConfigSchema.optional(),
    })
    .catchall(baseEditorConfigSchema);

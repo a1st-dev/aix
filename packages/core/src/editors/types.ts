@@ -60,7 +60,7 @@ export const editorNames = [
    'copilot',
    'zed',
    'codex',
-   'gemini',
+   'antigravity',
    'opencode',
 ] as const;
 
@@ -68,6 +68,7 @@ export type EditorName = (typeof editorNames)[number];
 
 export const editorAliasNames = [
    'devin',
+   'agy',
 ] as const;
 
 export type EditorAliasName = (typeof editorAliasNames)[number];
@@ -94,8 +95,9 @@ export function normalizeEditorName(editor: string): EditorName {
          return 'zed';
       case 'codex':
          return 'codex';
-      case 'gemini':
-         return 'gemini';
+      case 'antigravity':
+      case 'agy':
+         return 'antigravity';
       case 'opencode':
          return 'opencode';
       default:

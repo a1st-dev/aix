@@ -51,7 +51,7 @@ export function computeFilesToDelete(
             copilot: { project: '.github/skills', user: '.github/skills' },
             zed: { project: '.zed/skills', user: '.zed/skills' },
             codex: { project: '.agents/skills', user: '.codex/skills' },
-            gemini: { project: '.gemini/skills', user: '.gemini/skills' },
+            antigravity: { project: '.agents/skills', user: '.gemini/config/skills' },
             opencode: { project: '.opencode/skills', user: '.config/opencode/skills' },
          };
 

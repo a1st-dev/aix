@@ -16,7 +16,7 @@ import {
    CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
-   GeminiAdapter,
+   AntigravityAdapter,
    OpenCodeAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
@@ -39,7 +39,7 @@ const adapters: Record<EditorName, new () => EditorAdapter> = {
    copilot: CopilotAdapter,
    zed: ZedAdapter,
    codex: CodexAdapter,
-   gemini: GeminiAdapter,
+   antigravity: AntigravityAdapter,
    opencode: OpenCodeAdapter,
 };
 

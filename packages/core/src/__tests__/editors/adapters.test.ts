@@ -11,7 +11,7 @@ import {
    CopilotAdapter,
    ZedAdapter,
    CodexAdapter,
-   GeminiAdapter,
+   AntigravityAdapter,
    OpenCodeAdapter,
    getAdapter,
    getAvailableEditors,
@@ -84,14 +84,16 @@ describe('Editor Adapters', () => {
          expect(editors).toContain('copilot');
          expect(editors).toContain('zed');
          expect(editors).toContain('codex');
-         expect(editors).toContain('gemini');
+         expect(editors).toContain('antigravity');
          expect(editors).toContain('opencode');
          expect(editors).toHaveLength(8);
       });
 
       it('keeps aliases out of canonical editor detection', () => {
          expect(getAvailableEditors()).not.toContain('devin');
+         expect(getAvailableEditors()).not.toContain('agy');
          expect(getAcceptedEditorNames()).toContain('devin');
+         expect(getAcceptedEditorNames()).toContain('agy');
       });
    });
 
@@ -103,7 +105,7 @@ describe('Editor Adapters', () => {
          expect(getAdapter('copilot')).toBeInstanceOf(CopilotAdapter);
          expect(getAdapter('zed')).toBeInstanceOf(ZedAdapter);
          expect(getAdapter('codex')).toBeInstanceOf(CodexAdapter);
-         expect(getAdapter('gemini')).toBeInstanceOf(GeminiAdapter);
+         expect(getAdapter('antigravity')).toBeInstanceOf(AntigravityAdapter);
          expect(getAdapter('opencode')).toBeInstanceOf(OpenCodeAdapter);
       });
 
@@ -114,6 +116,11 @@ describe('Editor Adapters', () => {
       it('normalizes devin to the Windsurf adapter', () => {
          expect(normalizeEditorName('devin')).toBe('windsurf');
          expect(getAdapter('devin')).toBeInstanceOf(WindsurfAdapter);
+      });
+
+      it('normalizes agy to the Antigravity adapter', () => {
+         expect(normalizeEditorName('agy')).toBe('antigravity');
+         expect(getAdapter('agy')).toBeInstanceOf(AntigravityAdapter);
       });
    });
 
@@ -1914,62 +1921,40 @@ Skill instructions.
       });
    });
 
-   describe('GeminiAdapter', () => {
-      const adapter = new GeminiAdapter();
+   describe('AntigravityAdapter', () => {
+      const adapter = new AntigravityAdapter();
 
       it('has correct name and configDir', () => {
-         expect(adapter.name).toBe('gemini');
-         expect(adapter.configDir).toBe('.gemini');
+         expect(adapter.name).toBe('antigravity');
+         expect(adapter.configDir).toBe('.agents');
       });
 
-      it('detects when .gemini directory exists', async () => {
-         await mkdir(join(testDir, '.gemini'), { recursive: true });
+      it('detects when .agents directory exists', async () => {
+         await mkdir(join(testDir, '.agents'), { recursive: true });
          expect(await adapter.detect(testDir)).toBe(true);
       });
 
-      it('does not detect when .gemini directory is missing', async () => {
+      it('does not detect when .agents directory is missing', async () => {
          expect(await adapter.detect(testDir)).toBe(false);
       });
 
-      it('writes rules to GEMINI.md with section markers', async () => {
+      it('writes rules to .agents/rules/ with frontmatter triggers', async () => {
          const config = createConfig({
             rules: {
-               'gemini-rule': { activation: 'always', content: 'Gemini rule content' },
+               'antigravity-rule': { activation: 'always', content: 'Antigravity rule content' },
             },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
+         const ruleContent = await readFile(join(testDir, '.agents/rules/antigravity-rule.md'), 'utf-8');
 
-         expect(geminiContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
-         expect(geminiContent).toContain('## gemini-rule');
-         expect(geminiContent).toContain('Gemini rule content');
-         expect(geminiContent).toContain('<!-- END AIX MANAGED SECTION -->');
+         expect(ruleContent).toContain('trigger: always');
+         expect(ruleContent).toContain('Antigravity rule content');
       });
 
-      it('strips source rule frontmatter before inlining rules into GEMINI.md', async () => {
-         const config = createConfig({
-            rules: {
-               'gemini-rule': {
-                  content: createFrontmatterRuleContent('Gemini body content'),
-               },
-            },
-         });
-
-         await installToEditor('gemini', config, testDir);
-
-         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
-
-         expect(geminiContent).toContain('## gemini-rule');
-         expect(geminiContent).toContain('Gemini body content');
-         expect(geminiContent).not.toContain('source rule metadata');
-         expect(geminiContent).not.toContain('paths:');
-      });
-
-      it('preserves existing GEMINI.md user content on install', async () => {
-         // Create a pre-existing GEMINI.md with user content
-         await writeFile(join(testDir, 'GEMINI.md'), '# GEMINI.md\n\nProject conventions here.\n');
+      it('preserves existing AGENTS.md user content on install when rules are installed', async () => {
+         await writeFile(join(testDir, 'AGENTS.md'), '# AGENTS.md\n\nProject conventions here.\n');
 
          const config = createConfig({
             rules: {
@@ -1977,36 +1962,34 @@ Skill instructions.
             },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const geminiContent = await readFile(join(testDir, 'GEMINI.md'), 'utf-8');
+         const agentsMdContent = await readFile(join(testDir, 'AGENTS.md'), 'utf-8');
 
-         // User content is preserved
-         expect(geminiContent).toContain('# GEMINI.md');
-         expect(geminiContent).toContain('Project conventions here.');
-         // Managed content is present
-         expect(geminiContent).toContain('## managed-rule');
-         expect(geminiContent).toContain('Managed content');
+         expect(agentsMdContent).toContain('# AGENTS.md');
+         expect(agentsMdContent).toContain('Project conventions here.');
+         expect(agentsMdContent).toContain('## managed-rule');
+         expect(agentsMdContent).toContain('Managed content');
       });
 
-      it('writes MCP config to .gemini/settings.json', async () => {
+      it('writes MCP config to .agents/mcp_config.json', async () => {
          const config = createConfig({
             mcp: {
                server: createMcpServer('cmd', ['--arg']),
             },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const mcpContent = await readFile(join(testDir, '.gemini/settings.json'), 'utf-8');
-         const mcpConfig = JSON.parse(mcpContent);
+         const mcpContent = await readFile(join(testDir, '.agents/mcp_config.json'), 'utf-8'),
+               mcpConfig = JSON.parse(mcpContent);
 
          expect(mcpConfig.mcpServers.server).toBeDefined();
          expect(mcpConfig.mcpServers.server.command).toBe('cmd');
          expect(mcpConfig.mcpServers.server.args).toEqual(['--arg']);
       });
 
-      it('writes prompts as TOML to .gemini/commands/', async () => {
+      it('writes workflows to .agents/workflows/', async () => {
          const config = createConfig({
             prompts: {
                review: {
@@ -2016,30 +1999,30 @@ Skill instructions.
             },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const promptContent = await readFile(
-            join(testDir, '.gemini/commands/review.toml'),
+         const workflowContent = await readFile(
+            join(testDir, '.agents/workflows/review.md'),
             'utf-8',
          );
 
-         expect(promptContent).toContain('description = "Review code"');
-         expect(promptContent).toContain('prompt = "Please review this code."');
+         expect(workflowContent).toContain('description: "Review code"');
+         expect(workflowContent).toContain('Please review this code.');
       });
 
-      it('writes hooks into .gemini/settings.json under a hooks key', async () => {
+      it('writes hooks into .agents/hooks.json', async () => {
          const config = createConfig({
             hooks: {
                pre_tool_use: [{ matcher: 'read_file', hooks: [{ command: 'check.sh' }] }],
             },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const settingsContent = await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
-               settings = JSON.parse(settingsContent);
+         const hooksContent = await readFile(join(testDir, '.agents/hooks.json'), 'utf-8'),
+               hooks = JSON.parse(hooksContent);
 
-         expect(settings.hooks.BeforeTool).toEqual([
+         expect(hooks.hooks.PreToolUse).toEqual([
             {
                matcher: 'read_file',
                hooks: [{ type: 'command', command: 'check.sh' }],
@@ -2050,64 +2033,38 @@ Skill instructions.
       it('reports unsupported hook events but supports hooks overall', async () => {
          const config = createConfig({
             hooks: {
-               // Real Gemini event.
                pre_tool_use: [{ hooks: [{ command: 'one' }] }],
-               // aix event Gemini does not translate.
                worktree_setup: [{ hooks: [{ command: 'two' }] }],
             },
          });
 
-         const result = await installToEditor('gemini', config, testDir);
+         const result = await installToEditor('antigravity', config, testDir);
 
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBeFalsy();
          expect(result.unsupportedFeatures?.hooks?.unsupportedEvents).toContain('worktree_setup');
       });
 
-      it('merges MCP and hooks into the same .gemini/settings.json without clobber', async () => {
-         const config = createConfig({
-            mcp: {
-               'demo-server': { command: 'demo' },
-            },
-            hooks: {
-               pre_tool_use: [{ hooks: [{ command: 'check.sh' }] }],
-            },
-         });
-
-         await installToEditor('gemini', config, testDir);
-
-         const settings = JSON.parse(
-            await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
-         );
-
-         expect(settings.mcpServers['demo-server']).toEqual({ command: 'demo' });
-         expect(settings.hooks.BeforeTool[0].hooks[0].command).toBe('check.sh');
-      });
-
-      it('preserves user-authored keys in .gemini/settings.json across installs', async () => {
-         await mkdir(join(testDir, '.gemini'), { recursive: true });
+      it('preserves user-authored keys in .agents/mcp_config.json across installs', async () => {
+         await mkdir(join(testDir, '.agents'), { recursive: true });
          await writeFile(
-            join(testDir, '.gemini/settings.json'),
-            JSON.stringify({ theme: 'dark', mcpServers: { existing: { command: 'old' } } }, null, 2),
+            join(testDir, '.agents/mcp_config.json'),
+            JSON.stringify({ customField: true, mcpServers: { existing: { command: 'old' } } }, null, 2),
             'utf-8',
          );
 
          const config = createConfig({
             mcp: { 'demo-server': { command: 'demo' } },
-            hooks: {
-               pre_tool_use: [{ hooks: [{ command: 'check.sh' }] }],
-            },
          });
 
-         await installToEditor('gemini', config, testDir);
+         await installToEditor('antigravity', config, testDir);
 
-         const settings = JSON.parse(
-            await readFile(join(testDir, '.gemini/settings.json'), 'utf-8'),
+         const mcp = JSON.parse(
+            await readFile(join(testDir, '.agents/mcp_config.json'), 'utf-8'),
          );
 
-         expect(settings.theme).toBe('dark');
-         expect(settings.mcpServers.existing).toEqual({ command: 'old' });
-         expect(settings.mcpServers['demo-server']).toEqual({ command: 'demo' });
-         expect(settings.hooks.BeforeTool[0].hooks[0].command).toBe('check.sh');
+         expect(mcp.customField).toBe(true);
+         expect(mcp.mcpServers.existing).toEqual({ command: 'old' });
+         expect(mcp.mcpServers['demo-server']).toEqual({ command: 'demo' });
       });
    });
 
