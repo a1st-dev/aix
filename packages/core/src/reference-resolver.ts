@@ -28,7 +28,7 @@ import {
  * - 'skill': similar to rule, directories with SKILL.md
  * - 'config': references to ai.json files, normalizes to shorthand
  */
-export type AssetType = 'rule' | 'prompt' | 'skill' | 'config';
+export type AssetType = 'rule' | 'prompt' | 'skill' | 'config' | 'agent';
 
 /** Default file extensions to strip when inferring names, by asset type */
 const EXTENSIONS_BY_TYPE: Record<AssetType, string[]> = {
@@ -36,6 +36,7 @@ const EXTENSIONS_BY_TYPE: Record<AssetType, string[]> = {
    prompt: ['.md', '.prompt.md', '.txt'],
    skill: ['.md'],
    config: ['.json'],
+   agent: ['.agent.md', '.md', '.txt'],
 };
 
 /** Git reference object used in rule/prompt/skill values */

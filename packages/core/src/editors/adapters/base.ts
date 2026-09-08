@@ -855,7 +855,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const fileName = this.extractFileNameFromPath(agent.sourcePath);
 
          if (fileName) {
-            return fileName.replace(/\.(md|txt)$/i, '');
+            return fileName.replace(/\.(agent\.md|md|txt)$/i, '');
          }
       }
 

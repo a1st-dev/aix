@@ -1,4 +1,5 @@
 import type { AgentObject } from '@a1st/aix-schema';
+import { agentFrontmatterSchema } from '@a1st/aix-schema';
 import { extractFrontmatter, parseAllFrontmatter } from '../frontmatter-utils.js';
 
 export interface ParsedAgentFrontmatter {
@@ -69,13 +70,17 @@ export function parseAgentFrontmatter(rawContent: string): ParsedAgentFrontmatte
       return { content: rawContent };
    }
 
-   const parsed = parseAllFrontmatter(frontmatter),
+   const rawParsed = parseAllFrontmatter(frontmatter),
+         schemaResult = agentFrontmatterSchema.safeParse(rawParsed),
+         parsed = schemaResult.success ? schemaResult.data : rawParsed,
          description = typeof parsed.description === 'string' ? parsed.description : undefined,
          mode = isAgentMode(parsed.mode) ? parsed.mode : undefined,
          model = typeof parsed.model === 'string' ? parsed.model : undefined,
          tools = listFromValue(parsed.tools),
-         permissions = permissionsFromValue(parsed.permissions ?? parsed.permission),
-         mcp = recordFromValue<AgentObject['mcp']>(parsed.mcp ?? parsed['mcp-servers']),
+         rawPermissions = (parsed as Record<string, unknown>).permissions ?? (parsed as Record<string, unknown>).permission,
+         permissions = permissionsFromValue(rawPermissions),
+         rawMcp = (parsed as Record<string, unknown>).mcp ?? (parsed as Record<string, unknown>)['mcp-servers'],
+         mcp = recordFromValue<AgentObject['mcp']>(rawMcp),
          editor = recordFromValue<AgentObject['editor']>(parsed.editor);
 
    return {
@@ -87,6 +92,7 @@ export function parseAgentFrontmatter(rawContent: string): ParsedAgentFrontmatte
       permissions,
       mcp,
       editor,
-      rawFrontmatter: parsed,
+      rawFrontmatter: rawParsed,
    };
 }
+

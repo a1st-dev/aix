@@ -12,7 +12,9 @@ import {
    type McpServerConfig,
    type PromptValue,
    type RuleValue,
+   type AgentValue,
 } from '@a1st/aix-schema';
+import { loadAgent } from './agents/loader.js';
 import { loadPrompt } from './prompts/loader.js';
 import { loadRule } from './rules/loader.js';
 import { isGitReference, parseSourceReference } from './reference-resolver.js';
@@ -29,7 +31,7 @@ import {
 } from './url-parsing.js';
 import { getRuntimeAdapter } from './runtime/index.js';
 
-export type DirectInstallType = 'mcp' | 'skill' | 'rule' | 'hook' | 'prompt';
+export type DirectInstallType = 'mcp' | 'skill' | 'rule' | 'hook' | 'prompt' | 'agent';
 
 export interface DirectMcpOptions {
    readonly serverConfig?: McpServerConfig;
@@ -51,6 +53,13 @@ export interface DirectPromptOptions {
    readonly argumentHint?: string;
 }
 
+export interface DirectAgentOptions {
+   readonly description?: string;
+   readonly mode?: 'primary' | 'subagent';
+   readonly model?: string;
+   readonly tools?: readonly string[];
+}
+
 export interface ResolveDirectInstallOptions {
    readonly type: DirectInstallType;
    readonly source?: string;
@@ -60,6 +69,7 @@ export interface ResolveDirectInstallOptions {
    readonly mcp?: DirectMcpOptions;
    readonly rule?: DirectRuleOptions;
    readonly prompt?: DirectPromptOptions;
+   readonly agent?: DirectAgentOptions;
 }
 
 export interface DirectInstallConfig {
@@ -98,7 +108,8 @@ function normalizeName(value: string | undefined): string | undefined {
    }
    const normalized = value
       .replace(/^@[^/]+\//, '')
-      .replace(/^aix-(skill|rule|prompt|hook)-/, '')
+      .replace(/^aix-(skill|rule|prompt|hook|agent)-/, '')
+      .replace(/\.agent\.md$/i, '')
       .replace(/\.[^.]+$/, '')
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '-')
@@ -126,12 +137,12 @@ function getPackageBasename(packageName: string): string | undefined {
 
 function createPackageValue(
    source: string,
-   type: 'rule' | 'prompt',
+   type: 'rule' | 'prompt' | 'agent',
    name: string,
    version: string | undefined,
-): RuleValue | PromptValue {
+): RuleValue | PromptValue | AgentValue {
    const packageName = getPackageNameFromNpmSource(source),
-         folder = type === 'rule' ? 'rules' : 'prompts';
+         folder = type === 'rule' ? 'rules' : type === 'prompt' ? 'prompts' : 'agents';
 
    return {
       npm: {
@@ -213,7 +224,8 @@ function createConfigForSection(
          config.hooks = value as HooksConfig;
          break;
       case 'agents':
-         throw new Error('Direct agent install is not supported');
+         config.agents = { [name]: value as AgentValue };
+         break;
    }
 
    return {
@@ -565,6 +577,53 @@ async function resolveDirectMcp(options: ResolveDirectInstallOptions): Promise<D
    return createConfigForSection('mcp', name, { command: `npx ${packageName}` });
 }
 
+async function resolveDirectAgent(options: ResolveDirectInstallOptions): Promise<DirectInstallConfig> {
+   const source = options.source;
+
+   if (!source) {
+      throw new Error('Direct agent install requires a source.');
+   }
+
+   let value: AgentValue;
+   let inferredName: string | undefined;
+
+   if (source.startsWith('npm:')) {
+      inferredName = getPackageBasename(getPackageNameFromNpmSource(source));
+      const name = assertName(options.name ?? inferredName, 'agent');
+
+      value = createPackageValue(source, 'agent', name, options.ref) as AgentValue;
+   } else if (isHttpsSource(source) && !isGitWebSource(source)) {
+      inferredName = normalizeName(inferNameFromPath(source, ['.md', '.agent.md', '.txt']));
+      value = { content: await fetchWithTimeout(source) };
+   } else {
+      const parsed = parseSourceReference(source, {
+         type: 'agent',
+         refOverride: options.ref,
+         extensions: ['.agent.md', '.md', '.txt'],
+      });
+
+      inferredName = normalizeName(parsed.inferredName);
+      value = parsed.value as AgentValue;
+   }
+
+   const name = assertName(options.name ?? inferredName, 'agent');
+
+   if (typeof value === 'string') {
+      value = { path: value };
+   }
+   value = {
+      ...value,
+      mode: options.agent?.mode ?? value.mode ?? 'subagent',
+      ...(options.agent?.description ? { description: options.agent.description } : {}),
+      ...(options.agent?.model ? { model: options.agent.model } : {}),
+      ...(options.agent?.tools ? { tools: [...options.agent.tools] } : {}),
+   };
+
+   await loadAgent(name, value, getBasePath(options.cwd));
+
+   return createConfigForSection('agents', name, value);
+}
+
 export async function resolveDirectInstallConfig(
    options: ResolveDirectInstallOptions,
 ): Promise<DirectInstallConfig> {
@@ -579,6 +638,8 @@ export async function resolveDirectInstallConfig(
          return resolveDirectHook(options);
       case 'mcp':
          return resolveDirectMcp(options);
+      case 'agent':
+         return resolveDirectAgent(options);
    }
 }
 

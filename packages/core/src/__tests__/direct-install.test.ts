@@ -88,6 +88,33 @@ describe('direct install config resolution', () => {
       });
    });
 
+   it('resolves a local agent source', async () => {
+      await writeFile(
+         join(testDir, 'reviewer.md'),
+         '---\nname: reviewer\ndescription: Review pull requests\nmode: subagent\n---\nReview this code carefully.',
+         'utf-8',
+      );
+
+      const result = await resolveDirectInstallConfig({
+         type: 'agent',
+         source: './reviewer.md',
+         name: 'reviewer',
+         cwd: testDir,
+         agent: {
+            model: 'sonnet',
+            tools: ['Read', 'Grep'],
+         },
+      });
+
+      expect(result.sections).toEqual(['agents']);
+      expect(result.config.agents.reviewer).toEqual({
+         path: './reviewer.md',
+         mode: 'subagent',
+         model: 'sonnet',
+         tools: ['Read', 'Grep'],
+      });
+   });
+
    it('normalizes a direct hook fragment', async () => {
       await writeFile(
          join(testDir, 'pre-command.jsonc'),

@@ -8,6 +8,7 @@ import { getRuntimeAdapter } from '../../../runtime/index.js';
 export interface MarkdownAgentsConfig {
    projectAgentsDir: string;
    userAgentsDir: string | null;
+   fileExtension?: string;
    extraFrontmatter?: (agent: EditorAgent) => Record<string, unknown>;
    toolsKey?: string | null;
    permissionsKey?: string;
@@ -70,7 +71,7 @@ async function importAgentsFromDir(dir: string, scope: 'project' | 'user', strat
                markdownFiles.map(async (file) => {
                   const path = join(dir, file),
                         content = await getRuntimeAdapter().fs.readFile(path, 'utf-8'),
-                        name = basename(file, '.md'),
+                        name = file.endsWith('.agent.md') ? basename(file, '.agent.md') : basename(file, '.md'),
                         agent = strategy.parseAgent(name, content);
 
                   return { name: agent.name || name, path, agent };
@@ -113,7 +114,7 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
    }
 
    getFileExtension(): string {
-      return '.md';
+      return this.config.fileExtension ?? '.md';
    }
 
    getGlobalAgentsPath(): string | null {
