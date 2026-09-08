@@ -8,7 +8,11 @@ import { getAdapter } from './install.js';
 import type { EditorName } from './types.js';
 import { normalizeEditorName, normalizeEditorNames } from './types.js';
 import type { HooksStrategy, McpStrategy } from './strategies/types.js';
-import { resolveHooksConfigPath } from './strategies/shared/index.js';
+import {
+   resolveHooksConfigPath,
+   resolveMarketplacesConfigPath,
+   resolvePluginsConfigPath,
+} from './strategies/shared/index.js';
 
 export interface RemoveMcpFromEditorResult {
    editor: EditorName;
@@ -28,6 +32,22 @@ export interface RemoveHookFromEditorResult {
    unsupportedScope?: boolean;
    /** True when the editor has no hooks support at all */
    unsupported?: boolean;
+   path?: string;
+   errors: string[];
+}
+
+export interface RemoveMarketplaceFromEditorResult {
+   editor: EditorName;
+   success: boolean;
+   removed: boolean;
+   path?: string;
+   errors: string[];
+}
+
+export interface RemovePluginFromEditorResult {
+   editor: EditorName;
+   success: boolean;
+   removed: boolean;
    path?: string;
    errors: string[];
 }
@@ -311,6 +331,213 @@ export async function removeHookFromEditors(
    for (const editor of normalizeEditorNames(editors)) {
       // eslint-disable-next-line no-await-in-loop -- Sequential for predictable config writes
       results.push(await removeHookFromEditor(editor, event, projectRoot, options));
+   }
+
+   return results;
+}
+
+const MARKETPLACE_KEYS = ['marketplaces', 'extraKnownMarketplaces'] as const;
+
+function removeFromJsonMarketplacesConfig(content: string, marketplaceName: string): string | undefined {
+   const parsed = parseJsonc<Record<string, unknown>>(content);
+
+   if (parsed.errors.length > 0 || !parsed.data) {
+      return undefined;
+   }
+
+   const config = parsed.data;
+   let changed = false;
+
+   for (const key of MARKETPLACE_KEYS) {
+      const marketplaces = config[key];
+
+      if (isRecord(marketplaces) && marketplaceName in marketplaces) {
+         delete marketplaces[marketplaceName];
+         config[key] = marketplaces;
+         changed = true;
+      }
+   }
+
+   if (!changed) {
+      return undefined;
+   }
+
+   return JSON.stringify(config, null, 2) + '\n';
+}
+
+export async function removeMarketplaceFromEditor(
+   editor: string,
+   marketplaceName: string,
+   projectRoot: string,
+   options: { targetScope?: ConfigScope } = {},
+): Promise<RemoveMarketplaceFromEditorResult> {
+   const editorName = normalizeEditorName(editor),
+         adapter = getAdapter(editorName),
+         { marketplacesStrategy, configDir } = adapter.getStrategyBundle(),
+         targetScope = (options.targetScope ?? 'project') as 'project' | 'user',
+         result: RemoveMarketplaceFromEditorResult = {
+            editor: editorName,
+            success: true,
+            removed: false,
+            errors: [],
+         };
+
+   if (!marketplacesStrategy.isSupported()) {
+      return result;
+   }
+
+   const configPath = resolveMarketplacesConfigPath(
+      marketplacesStrategy,
+      join(projectRoot, configDir),
+      targetScope,
+      projectRoot,
+   );
+
+   if (!configPath || !getRuntimeAdapter().fs.existsSync(configPath)) {
+      return result;
+   }
+
+   result.path = configPath;
+
+   try {
+      const content = await getRuntimeAdapter().fs.readFile(configPath, 'utf-8'),
+            nextContent = removeFromJsonMarketplacesConfig(content, marketplaceName);
+
+      if (nextContent === undefined) {
+         return result;
+      }
+
+      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+
+      return { ...result, removed: true };
+   } catch (error) {
+      return {
+         ...result,
+         success: false,
+         errors: [error instanceof Error ? error.message : String(error)],
+      };
+   }
+}
+
+export async function removeMarketplaceFromEditors(
+   editors: readonly string[],
+   marketplaceName: string,
+   projectRoot: string,
+   options: { targetScope?: ConfigScope } = {},
+): Promise<RemoveMarketplaceFromEditorResult[]> {
+   const results: RemoveMarketplaceFromEditorResult[] = [];
+
+   for (const editor of normalizeEditorNames(editors)) {
+      // eslint-disable-next-line no-await-in-loop -- Sequential for predictable config writes
+      results.push(await removeMarketplaceFromEditor(editor, marketplaceName, projectRoot, options));
+   }
+
+   return results;
+}
+
+const PLUGIN_KEYS = ['plugins', 'enabledPlugins'] as const;
+
+function removeFromJsonPluginsConfig(content: string, pluginName: string): string | undefined {
+   const parsed = parseJsonc<Record<string, unknown>>(content);
+
+   if (parsed.errors.length > 0 || !parsed.data) {
+      return undefined;
+   }
+
+   const config = parsed.data;
+   let changed = false;
+
+   for (const key of PLUGIN_KEYS) {
+      const plugins = config[key];
+
+      if (!isRecord(plugins)) {
+         continue;
+      }
+
+      for (const pKey of Object.keys(plugins)) {
+         if (pKey === pluginName || pKey.startsWith(`${pluginName}@`)) {
+            delete plugins[pKey];
+            changed = true;
+         }
+      }
+
+      if (changed) {
+         config[key] = plugins;
+      }
+   }
+
+   if (!changed) {
+      return undefined;
+   }
+
+   return JSON.stringify(config, null, 2) + '\n';
+}
+
+export async function removePluginFromEditor(
+   editor: string,
+   pluginName: string,
+   projectRoot: string,
+   options: { targetScope?: ConfigScope } = {},
+): Promise<RemovePluginFromEditorResult> {
+   const editorName = normalizeEditorName(editor),
+         adapter = getAdapter(editorName),
+         { pluginsStrategy, configDir } = adapter.getStrategyBundle(),
+         targetScope = (options.targetScope ?? 'project') as 'project' | 'user',
+         result: RemovePluginFromEditorResult = {
+            editor: editorName,
+            success: true,
+            removed: false,
+            errors: [],
+         };
+
+   if (!pluginsStrategy.isSupported()) {
+      return result;
+   }
+
+   const configPath = resolvePluginsConfigPath(
+      pluginsStrategy,
+      join(projectRoot, configDir),
+      targetScope,
+      projectRoot,
+   );
+
+   if (!configPath || !getRuntimeAdapter().fs.existsSync(configPath)) {
+      return result;
+   }
+
+   result.path = configPath;
+
+   try {
+      const content = await getRuntimeAdapter().fs.readFile(configPath, 'utf-8'),
+            nextContent = removeFromJsonPluginsConfig(content, pluginName);
+
+      if (nextContent === undefined) {
+         return result;
+      }
+
+      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+
+      return { ...result, removed: true };
+   } catch (error) {
+      return {
+         ...result,
+         success: false,
+         errors: [error instanceof Error ? error.message : String(error)],
+      };
+   }
+}
+
+export async function removePluginFromEditors(
+   editors: readonly string[],
+   pluginName: string,
+   projectRoot: string,
+   options: { targetScope?: ConfigScope } = {},
+): Promise<RemovePluginFromEditorResult[]> {
+   const results: RemovePluginFromEditorResult[] = [];
+
+   for (const editor of normalizeEditorNames(editors)) {
+      // eslint-disable-next-line no-await-in-loop -- Sequential for predictable config writes
+      results.push(await removePluginFromEditor(editor, pluginName, projectRoot, options));
    }
 
    return results;

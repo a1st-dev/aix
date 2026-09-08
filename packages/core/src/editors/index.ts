@@ -50,10 +50,16 @@ export {
    removeMcpFromEditors,
    removeHookFromEditor,
    removeHookFromEditors,
+   removeMarketplaceFromEditor,
+   removeMarketplaceFromEditors,
+   removePluginFromEditor,
+   removePluginFromEditors,
 } from './remove.js';
 export type {
    RemoveMcpFromEditorResult,
    RemoveHookFromEditorResult,
+   RemoveMarketplaceFromEditorResult,
+   RemovePluginFromEditorResult,
 } from './remove.js';
 
 export {
