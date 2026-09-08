@@ -12,7 +12,11 @@ export class CopilotMarketplacesStrategy implements MarketplacesStrategy {
    }
 
    getConfigPath(): string {
-      return 'copilot-marketplaces.json';
+      return '.github/copilot-marketplaces.json';
+   }
+
+   isProjectRootConfig(): boolean {
+      return true;
    }
 
    getGlobalConfigPath(): string {

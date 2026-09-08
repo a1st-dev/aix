@@ -12,7 +12,11 @@ export class CopilotPluginsStrategy implements PluginsStrategy {
    }
 
    getConfigPath(): string {
-      return 'copilot-plugins.json';
+      return '.github/copilot-plugins.json';
+   }
+
+   isProjectRootConfig(): boolean {
+      return true;
    }
 
    getGlobalConfigPath(): string {

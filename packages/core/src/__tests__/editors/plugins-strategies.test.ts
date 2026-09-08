@@ -360,7 +360,7 @@ describe('CopilotPluginsStrategy', () => {
    });
 
    it('returns config paths for project and user scopes', () => {
-      expect(strategy.getConfigPath()).toStrictEqual('copilot-plugins.json');
+      expect(strategy.getConfigPath()).toStrictEqual('.github/copilot-plugins.json');
       expect(strategy.getGlobalConfigPath()).toStrictEqual('.config/github-copilot/plugins.json');
    });
 
@@ -385,7 +385,7 @@ describe('CopilotMarketplacesStrategy', () => {
    });
 
    it('returns config paths for project and user scopes', () => {
-      expect(strategy.getConfigPath()).toStrictEqual('copilot-marketplaces.json');
+      expect(strategy.getConfigPath()).toStrictEqual('.github/copilot-marketplaces.json');
       expect(strategy.getGlobalConfigPath()).toStrictEqual('.config/github-copilot/marketplaces.json');
    });
 
