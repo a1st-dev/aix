@@ -50,11 +50,15 @@ describe('hookEventSchema', () => {
       'instructions_loaded',
       'config_change',
       'cwd_changed',
+      'directory_added',
       'file_changed',
       'notification',
       'elicitation',
       'elicitation_result',
       'error_occurred',
+      'interrupt',
+      'pre_model_switch',
+      'post_model_switch',
    ] as const;
 
    it.each(newEvents)('accepts %s', (event) => {

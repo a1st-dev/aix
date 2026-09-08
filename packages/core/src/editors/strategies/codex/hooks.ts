@@ -10,6 +10,7 @@ const EVENT_MAP: Record<string, string> = {
    // Lifecycle.
    session_start: 'SessionStart',
    session_end: 'SessionEnd',
+   interrupt: 'Interrupt',
 
    // Prompt.
    pre_prompt: 'UserPromptSubmit',

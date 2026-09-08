@@ -13,6 +13,7 @@ export const hookEventSchema = z
       'session_start',
       'session_end',
       'setup',
+      'interrupt',
 
       // Prompt.
       'pre_prompt',
@@ -41,6 +42,8 @@ export const hookEventSchema = z
       'pre_model_request',
       'post_model_response',
       'pre_response_chunk',
+      'pre_model_switch',
+      'post_model_switch',
 
       // Agent / response.
       'pre_agent',

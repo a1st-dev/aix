@@ -34,6 +34,10 @@ const EVENT_MAP: Record<string, string> = {
    pre_mcp_tool: 'PreToolUse',
    post_mcp_tool: 'PostToolUse',
 
+   // Model.
+   pre_model_switch: 'PreModelSwitch',
+   post_model_switch: 'PostModelSwitch',
+
    // Agent / response.
    agent_stop: 'Stop',
    subagent_start: 'SubagentStart',

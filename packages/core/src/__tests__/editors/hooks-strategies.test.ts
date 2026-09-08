@@ -293,6 +293,35 @@ describe('ClaudeCodeHooksStrategy', () => {
       expect(output.hooks.CwdChanged[0].hooks[0].command).toBe('echo moved');
    });
 
+   it('maps pre_model_switch and post_model_switch to Claude Code events', () => {
+      const hooks: HooksConfig = {
+         pre_model_switch: [{ hooks: [{ command: 'echo pre-switch' }] }],
+         post_model_switch: [{ hooks: [{ command: 'echo post-switch' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.PreModelSwitch).toEqual([
+         { matcher: '', hooks: [{ type: 'command', command: 'echo pre-switch' }] },
+      ]);
+      expect(output.hooks.PostModelSwitch).toEqual([
+         { matcher: '', hooks: [{ type: 'command', command: 'echo post-switch' }] },
+      ]);
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('imports PreModelSwitch and PostModelSwitch hooks', () => {
+      const result = strategy.parseImportedConfig(JSON.stringify({
+         hooks: {
+            PreModelSwitch: [{ hooks: [{ type: 'command', command: 'echo pre' }] }],
+            PostModelSwitch: [{ hooks: [{ type: 'command', command: 'echo post' }] }],
+         },
+      }));
+
+      expect(result.hooks.pre_model_switch?.[0]?.hooks[0]?.command).toBe('echo pre');
+      expect(result.hooks.post_model_switch?.[0]?.hooks[0]?.command).toBe('echo post');
+   });
+
    it('maps pre_command to PreToolUse with Bash tool matcher', () => {
       const hooks: HooksConfig = {
          pre_command: [{ hooks: [{ command: 'echo pre' }] }],
@@ -663,11 +692,15 @@ describe('ClaudeCodeHooksStrategy', () => {
 
       expect(aixEvents).toContain('setup');
       expect(aixEvents).toContain('elicitation_result');
+      expect(aixEvents).toContain('pre_model_switch');
+      expect(aixEvents).toContain('post_model_switch');
 
       const native = strategy.getNativeEventNames();
 
       expect(native).toContain('Setup');
       expect(native).toContain('TeammateIdle');
+      expect(native).toContain('PreModelSwitch');
+      expect(native).toContain('PostModelSwitch');
       expect(native).not.toContain('StopFailure');
    });
 });
@@ -1170,11 +1203,13 @@ describe('CodexHooksStrategy', () => {
          subagent_stop: [{ hooks: [{ command: 'c9' }] }],
          pre_compact: [{ hooks: [{ command: 'c10' }] }],
          post_compact: [{ hooks: [{ command: 'c11' }] }],
+         interrupt: [{ hooks: [{ command: 'c12' }] }],
       };
 
       const output = JSON.parse(strategy.formatConfig(hooks));
 
       expect(Object.keys(output.hooks).toSorted()).toEqual([
+         'Interrupt',
          'PermissionRequest',
          'PostCompact',
          'PostToolUse',
@@ -1188,6 +1223,29 @@ describe('CodexHooksStrategy', () => {
          'UserPromptSubmit',
       ]);
       expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('maps interrupt to the Interrupt event Codex 0.150.0 added', () => {
+      const hooks: HooksConfig = {
+         interrupt: [{ hooks: [{ command: 'echo interrupted' }] }],
+      };
+
+      const output = JSON.parse(strategy.formatConfig(hooks));
+
+      expect(output.hooks.Interrupt).toEqual([
+         { hooks: [{ type: 'command', command: 'echo interrupted' }] },
+      ]);
+      expect(strategy.getUnsupportedEvents(hooks)).toEqual([]);
+   });
+
+   it('imports an Interrupt hook from Codex config', () => {
+      const result = strategy.parseImportedConfig(JSON.stringify({
+         hooks: {
+            Interrupt: [{ hooks: [{ type: 'command', command: 'echo stop' }] }],
+         },
+      }));
+
+      expect(result.hooks.interrupt?.[0]?.hooks[0]?.command).toBe('echo stop');
    });
 
    it('writes the async flag Codex 0.148.0 added', () => {
