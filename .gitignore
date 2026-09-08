@@ -29,7 +29,8 @@ ai.local.json
 .github/instructions
 .github/prompts
 .github/skills
-
+.opencode
+opencode.json
 
 # Markdown plans (output from "examples/custom/prompts/plan.md" prompt)
 plans/
