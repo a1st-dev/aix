@@ -1,4 +1,4 @@
-import type { MarketplacesConfig, MarketplaceValue } from '@a1st/aix-schema';
+import { parseJsonc, type MarketplacesConfig, type MarketplaceValue } from '@a1st/aix-schema';
 import type { MarketplacesStrategy } from '../types.js';
 
 interface ClaudeMarketplaceSource {
@@ -8,6 +8,22 @@ interface ClaudeMarketplaceSource {
 
 interface ClaudeMarketplaceEntry {
    source: ClaudeMarketplaceSource;
+}
+
+function formatImportedMarketplaceSource(source: ClaudeMarketplaceSource): string {
+   if (source.source === 'github' && typeof source.repo === 'string') {
+      return `github:${source.repo}`;
+   }
+
+   if (source.source === 'directory' && typeof source.path === 'string') {
+      return source.path;
+   }
+
+   if (source.source === 'git' && typeof source.url === 'string') {
+      return source.url;
+   }
+
+   return JSON.stringify(source);
 }
 
 function parseClaudeMarketplaceSource(value: MarketplaceValue | false | undefined): ClaudeMarketplaceSource | null {
@@ -99,5 +115,16 @@ export class ClaudeCodeMarketplacesStrategy implements MarketplacesStrategy {
 
    getUnsupportedMarketplaces(_marketplaces: MarketplacesConfig): string[] {
       return [];
+   }
+
+   parseImportedConfig(content: string): { marketplaces: MarketplacesConfig; warnings: string[] } {
+      const parsed = parseJsonc<{ extraKnownMarketplaces?: Record<string, ClaudeMarketplaceEntry> }>(content),
+            marketplaces: MarketplacesConfig = {};
+
+      for (const [name, entry] of Object.entries(parsed.data?.extraKnownMarketplaces ?? {})) {
+         marketplaces[name] = formatImportedMarketplaceSource(entry.source);
+      }
+
+      return { marketplaces, warnings: parsed.errors.map((error) => error.message) };
    }
 }

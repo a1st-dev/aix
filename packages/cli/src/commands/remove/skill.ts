@@ -4,9 +4,9 @@ import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
@@ -15,12 +15,13 @@ import {
    computeFilesToDelete,
    deleteFiles,
    getExistingFiles,
+   printRemovalPreview,
    type FilesToDelete,
 } from '../../lib/delete-helper.js';
 import { isValidSkillName, normalizeSkillName } from '../../lib/skill-source.js';
 
 export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
-   static override description = 'Remove a skill from ai.json';
+   static override description = 'Remove a skill';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> typescript',
@@ -39,6 +40,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -53,7 +55,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveSkill);
-      const loaded = await this.loadConfig();
+      const loaded = flags.save ? await this.loadConfig() : undefined;
       const normalizedName = isValidSkillName(args.name) ? args.name : normalizeSkillName(args.name);
       const targetEditors = resolveTargetEditors(flags.target);
       const resolvedName =
@@ -62,15 +64,12 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             : loaded?.config.skills?.[normalizedName] !== undefined
                ? normalizedName
                : args.name;
-      const targetScope = resolveConfigScope(
-         flags as { scope?: string; user?: boolean; project?: boolean },
-         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-      );
+      const targetScope = resolveConfigScope(flags);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if skill exists in merged config (if we have one)
-      if (loaded && !loaded.config.skills?.[resolvedName]) {
+      if (flags.save && (!loaded || !loaded.config.skills?.[resolvedName])) {
          this.error(`Skill "${args.name}" not found in configuration`);
       }
 
@@ -93,16 +92,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             projectRoot,
             targetScope,
          });
-         const existingFiles = getExistingFiles(filesToDelete);
-
-         if (existingFiles.length > 0) {
-            this.output.log('');
-            this.output.log('Files to delete:');
-            for (const file of existingFiles) {
-               this.output.log(`  - ${file}`);
-            }
-            this.output.log('');
-         }
+         printRemovalPreview(this.output, filesToDelete);
       }
 
       // Confirm removal (covers both config and file deletion)
@@ -133,7 +123,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
       // Update ai.json / ai.local.json if present
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
@@ -145,7 +135,7 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
             };
          });
          this.output.success(`Removed skill "${args.name}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [resolvedName]: _, ...remainingSkills } = config.skills ?? {};
 

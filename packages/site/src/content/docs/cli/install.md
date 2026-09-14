@@ -5,7 +5,9 @@ title: aix install
 description: Apply ai.json configuration to editors.
 ---
 
-Reads `ai.json` (and `ai.local.json`), resolves all inheritance, and writes configuration files for supported editors.
+Reads `ai.json` (and `ai.local.json`), resolves inheritance, and writes configuration files for
+supported editors. Installation targets user editor config by default; pass `--project` for
+project-local editor config.
 
 This command starts from `ai.json`. If you want to copy supported config directly from one
 editor to another, use [`aix sync`](/cli/sync/) instead.
@@ -49,7 +51,7 @@ create or modify `ai.json`.
 | `--copy`                                                 | With `--save`, copy remote files to `.aix/imported/` instead of referencing git URLs.        |
 | `--lock`                                                 | Create or refresh `ai.lock.json` before installing.                                          |
 | `--only <field>`                                         | Limit to specific fields: `rules`, `prompts`, `mcp`, `skills`, `hooks`, `agents`.            |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Override the `scope` from `ai.json` (target user-level or project-level config).             |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Target user or project editor config. The default is user.                                   |
 
 ## Examples
 

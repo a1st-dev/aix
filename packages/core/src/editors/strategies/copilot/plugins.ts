@@ -1,4 +1,4 @@
-import type { PluginsConfig } from '@a1st/aix-schema';
+import { parseJsonc, type PluginsConfig } from '@a1st/aix-schema';
 import type { PluginsStrategy } from '../types.js';
 import { getGlobalCopilotDir } from './paths.js';
 
@@ -44,5 +44,11 @@ export class CopilotPluginsStrategy implements PluginsStrategy {
 
    getUnsupportedPlugins(_plugins: PluginsConfig): string[] {
       return [];
+   }
+
+   parseImportedConfig(content: string): { plugins: PluginsConfig; warnings: string[] } {
+      const parsed = parseJsonc<{ plugins?: PluginsConfig }>(content);
+
+      return { plugins: parsed.data?.plugins ?? {}, warnings: parsed.errors.map((error) => error.message) };
    }
 }

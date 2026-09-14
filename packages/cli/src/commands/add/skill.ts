@@ -5,6 +5,7 @@ import { parseSkillSource } from '../../lib/skill-source.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import type { AiJsonConfig } from '@a1st/aix-schema';
@@ -20,7 +21,7 @@ import {
 } from '../../lib/add-command-helper.js';
 
 export default class AddSkill extends BaseCommand<typeof AddSkill> {
-   static override description = 'Add a skill to ai.json';
+   static override description = 'Install a skill';
    static override strict = false;
 
    static override examples = [
@@ -43,6 +44,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       name: Flags.string({
          char: 'n',
@@ -61,7 +63,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
    async run(): Promise<void> {
       const { args, flags, argv } = await this.parse(AddSkill),
             userScopeAdd = isUserScopeAdd(flags),
-            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             sources = getAddSources(args, argv),
@@ -102,6 +104,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
 
             await persistAddedItem({
                loaded,
+               save: flags.save,
                local: flags.local,
                output: this.output,
                directInstallMessage: userScopeAdd

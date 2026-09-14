@@ -75,6 +75,8 @@ describe('writeState / readState roundtrip', () => {
             prompts: {},
             agents: {},
             hooks: {},
+            plugins: {},
+            marketplaces: {},
          },
       };
 
@@ -97,7 +99,16 @@ describe('writeState / readState roundtrip', () => {
       const state: StateFile = {
          version: 1,
          scope: 'project',
-         installed: { mcp: {}, skills: {}, rules: {}, prompts: {}, agents: {}, hooks: {} },
+         installed: {
+            mcp: {},
+            skills: {},
+            rules: {},
+            prompts: {},
+            agents: {},
+            hooks: {},
+            plugins: {},
+            marketplaces: {},
+         },
       };
 
       await writeState(state, 'project', subDir);

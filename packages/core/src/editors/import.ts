@@ -3,7 +3,9 @@ import {
    createEmptyConfig,
    type AiJsonConfig,
    type HooksConfig,
+   type MarketplacesConfig,
    type McpServerConfig,
+   type PluginsConfig,
 } from '@a1st/aix-schema';
 import { normalizeEditorName } from './types.js';
 import type {
@@ -15,6 +17,8 @@ import type {
    RulesStrategy,
    SkillsStrategy,
    HooksStrategy,
+   MarketplacesStrategy,
+   PluginsStrategy,
 } from './strategies/types.js';
 import type { NamedRule } from '../import-writer.js';
 import { getAdapter } from './install.js';
@@ -75,6 +79,8 @@ export interface ImportResult {
    prompts: Record<string, string>;
    agents: Record<string, import('./types.js').EditorAgent>;
    hooks: HooksConfig;
+   plugins: PluginsConfig;
+   marketplaces: MarketplacesConfig;
    paths: {
       mcp: Record<string, string>;
       rules: Record<string, string>;
@@ -82,6 +88,8 @@ export interface ImportResult {
       prompts: Record<string, string>;
       agents: Record<string, string>;
       hooks: Record<string, string>;
+      plugins: Record<string, string>;
+      marketplaces: Record<string, string>;
    };
    scopes: {
       mcp: Record<string, ImportScope>;
@@ -90,6 +98,8 @@ export interface ImportResult {
       prompts: Record<string, ImportScope>;
       agents: Record<string, ImportScope>;
       hooks: Record<string, ImportScope>;
+      plugins: Record<string, ImportScope>;
+      marketplaces: Record<string, ImportScope>;
    };
    warnings: string[];
    /** Sources that were found and imported from */
@@ -159,8 +169,10 @@ export async function importFromEditor(
             prompts: {},
             agents: {},
             hooks: {},
-            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
-            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {} },
+            plugins: {},
+            marketplaces: {},
+            paths: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {}, plugins: {}, marketplaces: {} },
+            scopes: { mcp: {}, rules: {}, skills: {}, prompts: {}, agents: {}, hooks: {}, plugins: {}, marketplaces: {} },
             warnings: [],
             sources: { global: false, local: false },
          },
@@ -176,6 +188,11 @@ export async function importFromEditor(
       mergeImportAgents(result, await importAgents(strategies.agentsStrategy, strategies.configDir, 'global'));
       mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'user', projectRoot));
       mergeImportHooks(result, await importHooks(strategies.hooksStrategy, strategies.configDir, 'global'));
+      mergeImportPlugins(result, await importPlugins(strategies.pluginsStrategy, strategies.configDir, 'global'));
+      mergeImportMarketplaces(
+         result,
+         await importMarketplaces(strategies.marketplacesStrategy, strategies.configDir, 'global'),
+      );
    }
 
    if (scope === 'all' || scope === 'project') {
@@ -199,6 +216,14 @@ export async function importFromEditor(
          mergeImportHooks(
             result,
             await importHooks(strategies.hooksStrategy, strategies.configDir, 'project', projectRoot),
+         );
+         mergeImportPlugins(
+            result,
+            await importPlugins(strategies.pluginsStrategy, strategies.configDir, 'project', projectRoot),
+         );
+         mergeImportMarketplaces(
+            result,
+            await importMarketplaces(strategies.marketplacesStrategy, strategies.configDir, 'project', projectRoot),
          );
       }
    }
@@ -299,6 +324,26 @@ function mergeImportHooks(
    Object.assign(result.hooks, imported.hooks);
    Object.assign(result.paths.hooks, imported.paths);
    Object.assign(result.scopes.hooks, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportPlugins(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importPlugins>>,
+): void {
+   Object.assign(result.plugins, imported.items);
+   Object.assign(result.paths.plugins, imported.paths);
+   Object.assign(result.scopes.plugins, imported.scopes);
+   result.warnings.push(...imported.warnings);
+}
+
+function mergeImportMarketplaces(
+   result: ImportResult,
+   imported: Awaited<ReturnType<typeof importMarketplaces>>,
+): void {
+   Object.assign(result.marketplaces, imported.items);
+   Object.assign(result.paths.marketplaces, imported.paths);
+   Object.assign(result.scopes.marketplaces, imported.scopes);
    result.warnings.push(...imported.warnings);
 }
 
@@ -606,6 +651,114 @@ async function importHooks(
          warnings: [`Failed to read hooks config at ${configPath}: ${(err as Error).message}`],
       };
    }
+}
+
+interface ImportedStructuredItems<T> {
+   items: Record<string, T>;
+   paths: Record<string, string>;
+   scopes: Record<string, ImportScope>;
+   warnings: string[];
+}
+
+async function importStructuredItems<T>(options: {
+   configDir: string;
+   getConfigPath: () => string | undefined;
+   getGlobalConfigPath: () => string | null | undefined;
+   isProjectRootConfig: () => boolean;
+   parse: (content: string) => { items: Record<string, T>; warnings: string[] };
+   projectRoot?: string;
+   section: string;
+   source: 'global' | 'project';
+}): Promise<ImportedStructuredItems<T>> {
+   const relativePath = options.source === 'global'
+      ? options.getGlobalConfigPath()
+      : options.getConfigPath();
+   const configPath = options.source === 'global'
+      ? buildGlobalPath(relativePath ?? null)
+      : relativePath
+         ? buildProjectPath(relativePath, options.projectRoot, options.configDir, options.isProjectRootConfig())
+         : null;
+
+   if (!configPath) {
+      return { items: {}, paths: {}, scopes: {}, warnings: [] };
+   }
+
+   try {
+      const content = await readFile(configPath, 'utf-8'),
+            parsed = options.parse(content),
+            names = Object.keys(parsed.items),
+            scope = options.source === 'global' ? 'user' : 'project';
+
+      return {
+         items: parsed.items,
+         paths: pathMapForNames(names, configPath),
+         scopes: scopeMapForNames(names, scope),
+         warnings: parsed.warnings,
+      };
+   } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+         return { items: {}, paths: {}, scopes: {}, warnings: [] };
+      }
+
+      return {
+         items: {},
+         paths: {},
+         scopes: {},
+         warnings: [`Failed to read ${options.section} config at ${configPath}: ${(err as Error).message}`],
+      };
+   }
+}
+
+function importPlugins(
+   strategy: PluginsStrategy,
+   configDir: string,
+   source: 'global' | 'project',
+   projectRoot?: string,
+): Promise<ImportedStructuredItems<PluginsConfig[string]>> {
+   if (!strategy.isSupported() || strategy.isCompatibility?.()) {
+      return Promise.resolve({ items: {}, paths: {}, scopes: {}, warnings: [] });
+   }
+
+   return importStructuredItems({
+      configDir,
+      getConfigPath: () => strategy.getConfigPath?.(),
+      getGlobalConfigPath: () => strategy.getGlobalConfigPath?.(),
+      isProjectRootConfig: () => strategy.isProjectRootConfig?.() ?? false,
+      parse: (content) => {
+         const parsed = strategy.parseImportedConfig(content);
+
+         return { items: parsed.plugins, warnings: parsed.warnings };
+      },
+      projectRoot,
+      section: 'plugins',
+      source,
+   });
+}
+
+function importMarketplaces(
+   strategy: MarketplacesStrategy,
+   configDir: string,
+   source: 'global' | 'project',
+   projectRoot?: string,
+): Promise<ImportedStructuredItems<MarketplacesConfig[string]>> {
+   if (!strategy.isSupported()) {
+      return Promise.resolve({ items: {}, paths: {}, scopes: {}, warnings: [] });
+   }
+
+   return importStructuredItems({
+      configDir,
+      getConfigPath: () => strategy.getConfigPath?.(),
+      getGlobalConfigPath: () => strategy.getGlobalConfigPath?.(),
+      isProjectRootConfig: () => strategy.isProjectRootConfig?.() ?? false,
+      parse: (content) => {
+         const parsed = strategy.parseImportedConfig(content);
+
+         return { items: parsed.marketplaces, warnings: parsed.warnings };
+      },
+      projectRoot,
+      section: 'marketplaces',
+      source,
+   });
 }
 
 /**

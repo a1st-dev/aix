@@ -2,7 +2,7 @@ import { Command, Help } from '@oclif/core';
 
 export default class AddIndex extends Command {
    static override description =
-      'Add skills, MCP servers, agents, rules, prompts, hooks, plugins, or marketplaces to ai.json';
+      'Install skills, MCP servers, agents, rules, prompts, hooks, plugins, or marketplaces';
 
    static override hidden = true;
    static override strict = false;

@@ -4,22 +4,24 @@ import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
    updateLocalConfig,
    getLocalConfigPath,
    removeMarketplaceFromEditors,
+   trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
+import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketplace> {
-   static override description = 'Remove a marketplace catalog from ai.json';
+   static override description = 'Remove a marketplace catalog';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> my-market',
@@ -38,6 +40,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -52,20 +55,29 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveMarketplace);
-      const loaded = await this.loadConfig();
+      const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetEditors = resolveTargetEditors(flags.target);
       const marketplaceName = args.name;
-      const targetScope = resolveConfigScope(
-         flags as { scope?: string; user?: boolean; project?: boolean },
-         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-      );
+      const targetScope = resolveConfigScope(flags);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if marketplace exists in merged config (if we have one)
-      if (loaded && !loaded.config.marketplaces?.[marketplaceName]) {
+      if (flags.save && (!loaded || !loaded.config.marketplaces?.[marketplaceName])) {
          this.error(`Marketplace "${marketplaceName}" not found in configuration`);
       }
+
+      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+            editors = await resolveRemovalEditors({
+               targetEditors,
+               section: 'marketplaces',
+               itemName: marketplaceName,
+               configuredEditors: flags.local ? undefined : loaded?.config.editors,
+               scope: targetScope,
+               projectRoot,
+            });
+
+      printEditorRemovalPreview({ output: this.output, editors, itemType: 'marketplace', itemName: marketplaceName, scope: targetScope });
 
       // Confirm removal
       if (!flags.yes) {
@@ -86,7 +98,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
       // Update ai.json / ai.local.json if present
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
@@ -98,7 +110,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
             };
          });
          this.output.success(`Removed marketplace "${marketplaceName}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [marketplaceName]: _, ...remainingMarketplaces } = config.marketplaces ?? {};
 
@@ -114,16 +126,6 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
 
       // Clean up marketplace config in editors unless skipped
       if (!flags['no-install']) {
-         const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-               editors = await resolveRemovalEditors({
-                  targetEditors,
-                  section: 'marketplaces',
-                  itemName: marketplaceName,
-                  configuredEditors: flags.local ? undefined : loaded?.config.editors,
-                  scope: targetScope,
-                  projectRoot,
-               });
-
          await this.removeMarketplaceFromEditorConfigs(editors, marketplaceName, projectRoot, targetScope);
 
          if (loaded) {
@@ -136,6 +138,8 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
             });
          }
       }
+
+      await trackRemoval(targetScope, 'marketplaces', marketplaceName, process.cwd());
 
       if (this.flags.json) {
          this.output.json({

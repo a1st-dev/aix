@@ -4,6 +4,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    appendHooks,
@@ -41,7 +42,7 @@ interface HookInstallContext {
 }
 
 export default class AddHook extends BaseCommand<typeof AddHook> {
-   static override description = 'Add a lifecycle hook to ai.json';
+   static override description = 'Install a lifecycle hook';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> pre_command --command "npm run lint"',
@@ -64,6 +65,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       command: Flags.string({
          description: 'Shell command to run when the event fires',
@@ -106,7 +108,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(AddHook),
             userScopeAdd = isUserScopeAdd(flags),
-            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             targetEditors = resolveTargetEditors(flags.target);
@@ -131,6 +133,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
 
       await persistAddedItem({
          loaded,
+         save: flags.save,
          local: flags.local,
          output: this.output,
          directInstallMessage: userScopeAdd

@@ -53,7 +53,6 @@ export function includesSection(sections: Section[], section: Section): boolean 
  */
 export const configScopeFlags = {
    scope: Flags.string({
-      char: 's',
       description: 'Target scope for installation',
       options: ['user', 'project'],
    }),
@@ -77,6 +76,21 @@ export const configScopeFlags = {
  */
 export function isUserScopeRequested(flags: { scope?: string; user?: boolean }): boolean {
    return flags.user === true || flags.scope === 'user';
+}
+
+export type ListScope = ConfigScope | 'all';
+
+export function resolveListScope(flags: {
+   all?: boolean;
+   scope?: string;
+   user?: boolean;
+   project?: boolean;
+}): ListScope {
+   if (flags.all) {
+      return 'all';
+   }
+
+   return resolveConfigScope(flags);
 }
 
 /**

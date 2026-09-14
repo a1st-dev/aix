@@ -4,6 +4,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import {
@@ -23,7 +24,7 @@ import {
 } from '../../lib/add-command-helper.js';
 
 export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
-   static override description = 'Add a marketplace catalog to ai.json';
+   static override description = 'Install a marketplace catalog';
    static override strict = false;
 
    static override examples = [
@@ -44,6 +45,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       name: Flags.string({
          char: 'n',
@@ -62,7 +64,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
    async run(): Promise<void> {
       const { args, flags, argv } = await this.parse(AddMarketplace),
             userScopeAdd = isUserScopeAdd(flags),
-            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             sources = getAddSources(args, argv),
@@ -90,6 +92,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
 
             await persistAddedItem({
                loaded,
+               save: flags.save,
                local: flags.local,
                output: this.output,
                directInstallMessage: userScopeAdd

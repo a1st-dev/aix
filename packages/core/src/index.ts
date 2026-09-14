@@ -1,6 +1,7 @@
 export * from './errors.js';
 export * from './format-error.js';
 export * from './discovery.js';
+export * from './type-guards.js';
 export * from './inheritance.js';
 export * from './json.js';
 export * from './loader.js';

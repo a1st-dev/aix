@@ -1,7 +1,10 @@
 import { getLocalConfigPath, type ConfigSection, type EditorName, type LoadedConfig } from '@a1st/aix-core';
+import { resolve } from 'pathe';
+import { existsSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { createEmptyConfig } from '@a1st/aix-schema';
 import { McpRegistryClient, type Package } from '@a1st/mcp-registry-client';
 import type { ConfigScope, McpServerConfig } from '@a1st/aix-schema';
-import { resolveScope } from '@a1st/aix-schema';
 import { refreshLockfile, shouldRefreshLockfile } from './lockfile-helper.js';
 import { formatInstallResults, installAfterAdd, installSingleItem } from './install-helper.js';
 import type { Output } from './output.js';
@@ -9,6 +12,7 @@ import { isUserScopeRequested, resolveConfigScope } from '../flags/scope.js';
 
 export interface PersistAddedItemOptions {
    loaded?: LoadedConfig;
+   save: boolean;
    local: boolean;
    output: Pick<Output, 'info' | 'success'>;
    directInstallMessage?: string;
@@ -40,6 +44,7 @@ export interface AddScopeFlags {
    local?: boolean;
    lock?: boolean;
    'no-install'?: boolean;
+   save?: boolean;
 }
 
 export function getAddSources(args: { source: string }, argv: unknown[]): string[] {
@@ -51,7 +56,7 @@ export function getAddSources(args: { source: string }, argv: unknown[]): string
 }
 
 export function isUserScopeAdd(flags: AddScopeFlags): boolean {
-   return isUserScopeRequested(flags);
+   return isUserScopeRequested(flags) || (!flags.project && flags.scope !== 'project');
 }
 
 export function rejectUserScopeProjectConfigFlags(options: {
@@ -60,28 +65,21 @@ export function rejectUserScopeProjectConfigFlags(options: {
 }): void {
    const { flags, error } = options;
 
-   if (!isUserScopeAdd(flags)) {
-      return;
+   if (flags.local && !flags.save) {
+      error('--local requires --save because add does not change config files by default.');
    }
 
-   if (flags.local) {
-      error('--local cannot be used with --user because user-scope adds do not use project ai.json.');
+   if (flags.lock && !flags.save) {
+      error('--lock requires --save because no ai.json is changed otherwise.');
    }
 
-   if (flags.lock) {
-      error('--lock requires a local ai.json and cannot be used with --user.');
-   }
-
-   if (flags['no-install']) {
-      error('--no-install cannot be used with --user because user-scope adds do not write project ai.json.');
+   if (flags['no-install'] && !flags.save) {
+      error('--no-install requires --save; otherwise the command would make no change.');
    }
 }
 
-export function resolveAddTargetScope(flags: AddScopeFlags, loaded: LoadedConfig | undefined): ConfigScope {
-   return resolveConfigScope(
-      flags,
-      loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-   ) ?? 'user';
+export function resolveAddTargetScope(flags: AddScopeFlags, _loaded: LoadedConfig | undefined): ConfigScope {
+   return resolveConfigScope(flags);
 }
 
 export function rejectMultiSourceFlags(options: {
@@ -112,6 +110,7 @@ export function rejectMultiSourceFlags(options: {
 export async function persistAddedItem(options: PersistAddedItemOptions): Promise<void> {
    const {
       loaded,
+      save,
       local,
       output,
       localSuccessMessage,
@@ -121,6 +120,11 @@ export async function persistAddedItem(options: PersistAddedItemOptions): Promis
       directInstallMessage,
    } = options;
 
+   if (!save) {
+      output.info(directInstallMessage ?? 'Installing directly to editors without changing ai.json');
+      return;
+   }
+
    if (local) {
       const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
@@ -129,13 +133,14 @@ export async function persistAddedItem(options: PersistAddedItemOptions): Promis
       return;
    }
 
-   if (loaded) {
-      await saveProject(loaded.path);
-      output.success(projectSuccessMessage);
-      return;
+   const configPath = loaded?.path ?? resolve(process.cwd(), 'ai.json');
+
+   if (!existsSync(configPath)) {
+      await writeFile(configPath, JSON.stringify(createEmptyConfig(), null, 2) + '\n', 'utf-8');
    }
 
-   output.info(directInstallMessage ?? 'No ai.json found — installing directly to editors');
+   await saveProject(configPath);
+   output.success(projectSuccessMessage);
 }
 
 export async function refreshLockfileAfterAdd(

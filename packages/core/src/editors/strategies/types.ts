@@ -404,6 +404,9 @@ export interface PluginsStrategy {
 
    /** Get plugin names that cannot be expressed by this editor */
    getUnsupportedPlugins?(plugins: PluginsConfig): string[];
+
+   /** Parse the plugin portion of an editor-native config file. */
+   parseImportedConfig(content: string): { plugins: PluginsConfig; warnings: string[] };
 }
 
 /**
@@ -427,6 +430,9 @@ export interface MarketplacesStrategy {
 
    /** Get marketplace names that cannot be expressed by this editor */
    getUnsupportedMarketplaces?(marketplaces: MarketplacesConfig): string[];
+
+   /** Parse the marketplace portion of an editor-native config file. */
+   parseImportedConfig(content: string): { marketplaces: MarketplacesConfig; warnings: string[] };
 }
 
 /**

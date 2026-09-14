@@ -54,6 +54,8 @@ function createEmptyState(scope: ConfigScope): StateFile {
          prompts: {},
          agents: {},
          hooks: {},
+         plugins: {},
+         marketplaces: {},
       },
    };
 }
@@ -74,6 +76,8 @@ export async function readState(scope: ConfigScope, projectRoot?: string): Promi
 
       parsed.installed.agents ??= {};
       parsed.installed.hooks ??= {};
+      parsed.installed.plugins ??= {};
+      parsed.installed.marketplaces ??= {};
 
       return parsed;
    } catch {
@@ -257,7 +261,16 @@ export async function syncSectionState(...args: SyncSectionStateArgs): Promise<v
    await writeState(state, scope, projectRoot);
 }
 
-const STATE_SECTIONS = new Set<string>(['mcp', 'skills', 'rules', 'prompts', 'agents', 'hooks']);
+const STATE_SECTIONS = new Set<string>([
+   'mcp',
+   'skills',
+   'rules',
+   'prompts',
+   'agents',
+   'hooks',
+   'plugins',
+   'marketplaces',
+]);
 
 function isStateSection(section: string): section is StateSection {
    return STATE_SECTIONS.has(section);

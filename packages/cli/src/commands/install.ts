@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
-import { parseConfig, normalizeEditors, parseJsonc, resolveScope, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
+import { parseConfig, normalizeEditors, parseJsonc, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import {
    displayFileChanges,
@@ -190,7 +190,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
       // Resolve target scope: CLI flags override ai.json scope
       const flagScope = resolveConfigScope(this.flags as { scope?: string; user?: boolean; project?: boolean }, undefined),
-            targetScope: ConfigScope = flagScope ?? resolveScope(loaded.config);
+            targetScope: ConfigScope = flagScope ?? 'user';
 
       if (flagScope) {
          this.output.info(`Scope override: installing to ${targetScope} scope`);

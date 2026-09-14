@@ -3,7 +3,8 @@ import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, isUserScopeRequested, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    getLocalConfigPath,
@@ -16,16 +17,16 @@ import {
 import {
    hookEvents,
    isHookEvent,
-   resolveScope,
    type HookEvent,
    type HooksConfig,
 } from '@a1st/aix-schema';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 import { confirm } from '@inquirer/prompts';
+import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
-   static override description = 'Remove a lifecycle hook from ai.json';
+   static override description = 'Remove a lifecycle hook';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> pre_command',
@@ -45,6 +46,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -59,20 +61,11 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveHook),
-            // User scope never reads or writes the project ai.json, mirroring `aix add hook --user`.
-            userScope = isUserScopeRequested(flags),
-            loaded = userScope ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetEditors = resolveTargetEditors(flags.target),
-            targetScope = resolveConfigScope(
-               flags as { scope?: string; user?: boolean; project?: boolean },
-               loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-            );
+            targetScope = resolveConfigScope(flags);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
-
-      if (userScope && flags.local) {
-         this.error('--local cannot be used with --user because user-scope removals do not use project ai.json.');
-      }
 
       if (!isHookEvent(args.event)) {
          this.error(`Unknown hook event "${args.event}".\n\nValid events: ${hookEvents.join(', ')}`);
@@ -80,9 +73,21 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
 
       const event: HookEvent = args.event;
 
-      if (loaded && !loaded.config.hooks?.[event]) {
+      if (flags.save && (!loaded || !loaded.config.hooks?.[event])) {
          this.error(`Hook event "${event}" not found in configuration`);
       }
+
+      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+            editors = await resolveRemovalEditors({
+               targetEditors,
+               section: 'hooks',
+               itemName: event,
+               configuredEditors: loaded?.config.editors,
+               scope: targetScope,
+               projectRoot,
+            });
+
+      printEditorRemovalPreview({ output: this.output, editors, itemType: 'hook', itemName: event, scope: targetScope });
 
       if (!flags.yes && !await this.confirmRemoval(event, Boolean(loaded), flags.local)) {
          return;
@@ -90,14 +95,14 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
 
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
             return { ...config, hooks: removeEvent(config.hooks, event) };
          });
          this.output.success(`Removed hook "${event}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             return { ...config, hooks: removeEvent(config.hooks, event) };
          });
@@ -107,18 +112,6 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
       if (!flags['no-sync']) {
-         const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-               // Resolved before trackRemoval below, which erases the state entry that
-               // records which editors actually hold this hook.
-               editors = await resolveRemovalEditors({
-                  targetEditors,
-                  section: 'hooks',
-                  itemName: event,
-                  configuredEditors: loaded?.config.editors,
-                  scope: targetScope,
-                  projectRoot,
-               });
-
          await this.removeFromEditorConfigs(editors, event, projectRoot, targetScope);
       }
 

@@ -5,7 +5,10 @@ title: aix remove
 description: Remove items from your configuration.
 ---
 
-Removes items from `ai.json` (or `ai.local.json`) and uninstalls them from editors in one step. If no `ai.json` exists in the current directory, the item is uninstalled directly from editors.
+Removes every matching item from detected user editor config by default. `ai.json` is optional.
+Before confirmation, aix prints each editor and item it will change. Pass `--project` to remove
+project editor config, and pass `--save` to also remove the entry from `ai.json` or
+`ai.local.json`.
 
 For skills, aix removes both the managed `.aix/skills/{name}/` copy and any native editor link for the selected scope before regenerating pointer-style rule output where needed.
 
@@ -79,6 +82,8 @@ Removes the marketplace from `ai.json` and unregisters it from configured editor
 | -------------------------------------------------------- | ----------------------------------------------- |
 | `--local` / `-l`                                         | Remove from `ai.local.json`.                    |
 | `--yes` / `-y`                                           | Skip confirmation prompt.                       |
+| `--save` / `-s`                                          | Also remove the item from `ai.json`.            |
+| `--target <editor>` / `-t`                               | Limit removal to named editors. Repeatable.     |
 | `--no-delete`                                            | Skip deleting files from editors (for skills).  |
 | `--no-sync`                                              | Skip syncing editor config (for MCP and hooks). |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Target user-level or project-level config.      |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Target user or project editor config.           |

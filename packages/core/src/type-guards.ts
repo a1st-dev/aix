@@ -5,3 +5,7 @@
 export function isRecord(value: unknown): value is Record<string, unknown> {
    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+export function isDisabledConfigValue(value: unknown): boolean {
+   return value === false || (isRecord(value) && value.enabled === false);
+}

@@ -386,7 +386,7 @@ describe('CLI Commands', () => {
             },
          });
 
-         const installed = await runCli(['install', sourcePath], {
+         const installed = await runCli(['install', sourcePath, '--project'], {
             root,
          });
          const localConfig = JSON.parse(await readFile(configPath, 'utf-8'));
@@ -410,7 +410,7 @@ describe('CLI Commands', () => {
             hooks: { pre_command: [ { hooks: [ { command: './lint.sh' } ] } ] },
          });
 
-         const { error } = await runCli(['install', '--config', configPath], { root });
+         const { error } = await runCli(['install', '--config', configPath, '--project'], { root });
 
          expect(error).toBeUndefined();
 
@@ -437,13 +437,13 @@ describe('CLI Commands', () => {
             editors: { 'claude-code': {} },
             mcp: { demo: { command: 'npx demo' }, extra: { command: 'npx extra' } },
          });
-         await runCli(['install', '--config', configPath], { root });
+         await runCli(['install', '--config', configPath, '--project'], { root });
 
          await writeValidConfig(configPath, {
             editors: { 'claude-code': {} },
             mcp: { demo: { command: 'npx demo' } },
          });
-         await runCli(['install', '--config', configPath], { root });
+         await runCli(['install', '--config', configPath, '--project'], { root });
 
          const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
 
@@ -458,8 +458,8 @@ describe('CLI Commands', () => {
             mcp: { demo: { command: 'npx demo' } },
             rules: { style: { content: 'Be direct.' } },
          });
-         await runCli(['install', '--config', configPath], { root });
-         await runCli(['install', '--only', 'mcp', '--config', configPath], { root });
+         await runCli(['install', '--config', configPath, '--project'], { root });
+         await runCli(['install', '--only', 'mcp', '--config', configPath, '--project'], { root });
 
          const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
 
@@ -488,11 +488,11 @@ describe('CLI Commands', () => {
             editors: { 'claude-code': {} },
             mcp: { demo: { command: 'npx demo' } },
          });
-         await runCli(['install', '--config', configPath], { root });
+         await runCli(['install', '--config', configPath, '--project'], { root });
          await writeFile(mcpPath, JSON.stringify({ command: 'npx other' }));
 
          const { error } = await runCli(
-            ['install', mcpPath, '--type', 'mcp', '--name', 'other', '--target', 'claude-code'],
+            ['install', mcpPath, '--type', 'mcp', '--name', 'other', '--target', 'claude-code', '--project'],
             { root },
          );
 
@@ -604,6 +604,7 @@ describe('CLI Commands', () => {
                'claude-code',
                '--config',
                configPath,
+               '--save',
             ],
             { root },
          );
@@ -863,6 +864,7 @@ describe('CLI Commands', () => {
                './rules/commit-standards.md',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -896,6 +898,7 @@ describe('CLI Commands', () => {
                'Only one rule',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -924,6 +927,7 @@ describe('CLI Commands', () => {
                './prompts/plan.md',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -957,6 +961,7 @@ describe('CLI Commands', () => {
                '[file]',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -984,6 +989,8 @@ describe('CLI Commands', () => {
                'claude-code',
                '--config',
                configPath,
+               '--save',
+               '--project',
             ],
             { root },
          );
@@ -1016,6 +1023,7 @@ describe('CLI Commands', () => {
                './audit.sh',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -1046,7 +1054,7 @@ describe('CLI Commands', () => {
          );
 
          const { error } = await runCli(
-            ['add', 'hook', './hooks/guard.json', '--config', configPath, '--no-install'],
+            ['add', 'hook', './hooks/guard.json', '--config', configPath, '--save', '--no-install'],
             { root },
          );
 
@@ -1100,6 +1108,8 @@ describe('CLI Commands', () => {
                './on-add-dir.sh',
                '--config',
                configPath,
+               '--save',
+               '--project',
                '--target',
                'claude-code',
                '--target',
@@ -1123,7 +1133,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
          await runCli(
-            ['add', 'hook', 'post_compact', '--command', './cleanup.sh', '--config', configPath, '--no-install'],
+            ['add', 'hook', 'post_compact', '--command', './cleanup.sh', '--config', configPath, '--save', '--no-install'],
             { root },
          );
 
@@ -1134,7 +1144,7 @@ describe('CLI Commands', () => {
          await writeFile(configPath, JSON.stringify(config, null, 2));
 
          const { error } = await runCli(
-            ['install', '--config', configPath, '--target', 'codex'],
+            ['install', '--config', configPath, '--target', 'codex', '--project'],
             { root },
          );
 
@@ -1168,22 +1178,19 @@ describe('CLI Commands', () => {
       });
 
       it('lists configured hooks with their matcher and action', async () => {
-         const configPath = join(testDir, 'ai.json');
+         const fakeHome = join(testDir, 'fake-home');
 
-         await writeValidConfig(configPath, {
-            hooks: {
-               pre_file_write: [
-                  { matcher: 'Write|Edit', hooks: [ { command: './scripts/guard.sh' } ] },
-               ],
-            },
-         });
+         process.env.HOME = fakeHome;
+         await runCli(
+            ['add', 'hook', 'pre_file_write', '--matcher', 'Write|Edit', '--command', './scripts/guard.sh', '--target', 'claude-code'],
+            { root },
+         );
 
-         const { error, stdout } = await runCli(['list', 'hooks', '--config', configPath], { root });
+         const { error, stdout } = await runCli(['list', 'hooks', '--target', 'claude-code'], { root });
 
          expect(error).toBeUndefined();
          expect(stdout).toContain('pre_file_write');
-         expect(stdout).toContain('Write|Edit');
-         expect(stdout).toContain('./scripts/guard.sh');
+         expect(stdout).toContain('claude-code');
       });
    });
 
@@ -1204,12 +1211,14 @@ describe('CLI Commands', () => {
                'claude-code',
                '--config',
                configPath,
+               '--save',
+               '--project',
             ],
             { root },
          );
 
          const { error } = await runCli(
-            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--config', configPath],
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--config', configPath, '--save', '--project'],
             { root },
          );
 
@@ -1244,6 +1253,8 @@ describe('CLI Commands', () => {
                'codex',
                '--config',
                configPath,
+               '--save',
+               '--project',
             ],
             { root },
          );
@@ -1251,7 +1262,7 @@ describe('CLI Commands', () => {
          // No --target here: the removal has to learn the editor set from state, the way
          // a user who just runs `aix remove hook <event>` would.
          const { error } = await runCli(
-            ['remove', 'hook', 'pre_command', '--yes', '--config', configPath],
+            ['remove', 'hook', 'pre_command', '--yes', '--config', configPath, '--save', '--project'],
             { root },
          );
 
@@ -1275,12 +1286,12 @@ describe('CLI Commands', () => {
          });
 
          await runCli(
-            ['install', '--target', 'claude-code', '--config', configPath],
+            ['install', '--target', 'claude-code', '--config', configPath, '--project'],
             { root },
          );
 
          const { error } = await runCli(
-            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--config', configPath],
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'claude-code', '--project'],
             { root },
          );
 
@@ -1329,7 +1340,7 @@ describe('CLI Commands', () => {
          });
 
          const { error, stdout, stderr } = await runCli(
-            ['remove', 'hook', 'pre_command', '--yes', '--target', 'zed', '--config', configPath],
+            ['remove', 'hook', 'pre_command', '--yes', '--target', 'zed', '--project'],
             { root },
          );
 
@@ -1363,6 +1374,8 @@ describe('CLI Commands', () => {
                'claude-code',
                '--config',
                configPath,
+               '--save',
+               '--project',
             ],
             { root },
          );
@@ -1444,7 +1457,7 @@ describe('CLI Commands', () => {
          await writeSkillDir(testDir, 'locked-skill');
 
          const added = await runCli(
-            ['add', 'skill', './skills/locked-skill', '--config', configPath, '--lock'],
+            ['add', 'skill', './skills/locked-skill', '--config', configPath, '--save', '--lock'],
             { root },
          );
 
@@ -1462,7 +1475,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
 
-         await runCli(['add', 'skill', 'typescript', '--config', configPath], {
+         await runCli(['add', 'skill', 'typescript', '--config', configPath, '--save'], {
             root,
          });
 
@@ -1478,7 +1491,7 @@ describe('CLI Commands', () => {
          await writeValidConfig(configPath);
          await writeSkillDir(testDir, 'custom');
 
-         await runCli(['add', 'skill', './skills/custom', '--config', configPath], {
+         await runCli(['add', 'skill', './skills/custom', '--config', configPath, '--save'], {
             root,
          });
 
@@ -1495,7 +1508,7 @@ describe('CLI Commands', () => {
          await writeSkillDir(testDir, 'directory-skill');
 
          await runCli(
-            ['add', 'skill', './skills/directory-skill/SKILL.md', '--config', configPath],
+            ['add', 'skill', './skills/directory-skill/SKILL.md', '--config', configPath, '--save'],
             {
                root,
             },
@@ -1519,6 +1532,7 @@ describe('CLI Commands', () => {
                'https://github.com/anthropics/skills/tree/main/skills/pdf',
                '--config',
                configPath,
+               '--save',
             ],
             { root },
          );
@@ -1545,6 +1559,7 @@ describe('CLI Commands', () => {
                'github/awesome-copilot/typescript-mcp-server-generator',
                '--config',
                configPath,
+               '--save',
             ],
             { root },
          );
@@ -1570,6 +1585,7 @@ describe('CLI Commands', () => {
                'google-labs-code/stitch-skills/react:components',
                '--config',
                configPath,
+               '--save',
             ],
             { root },
          );
@@ -1583,7 +1599,7 @@ describe('CLI Commands', () => {
          });
       });
 
-      it('defaults project config installs to project scope', async () => {
+      it('installs to project scope only when requested', async () => {
          const configPath = join(testDir, 'ai.json'),
                fakeHome = join(testDir, 'fake-home');
 
@@ -1594,7 +1610,7 @@ describe('CLI Commands', () => {
          });
          await writeSkillDir(testDir, 'project-default');
 
-         await runCli(['add', 'skill', './skills/project-default', '--config', configPath], {
+         await runCli(['add', 'skill', './skills/project-default', '--config', configPath, '--save', '--project'], {
             root,
          });
 
@@ -1668,6 +1684,7 @@ describe('CLI Commands', () => {
                './skills/beta-skill',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -1699,6 +1716,7 @@ describe('CLI Commands', () => {
                'shared-name',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -1715,7 +1733,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath, { skills: { typescript: '*' } });
 
-         await runCli(['remove', 'skill', 'typescript', '--yes', '--config', configPath], {
+         await runCli(['remove', 'skill', 'typescript', '--yes', '--config', configPath, '--save'], {
             root,
          });
 
@@ -1746,7 +1764,7 @@ description: Demo skill
          );
          await symlink(join('..', '..', '.aix', 'skills', 'demo-skill'), join(editorSkillDir, 'demo-skill'));
 
-         await runCli(['remove', 'skill', 'demo-skill', '--yes', '--config', configPath], {
+         await runCli(['remove', 'skill', 'demo-skill', '--yes', '--config', configPath, '--save', '--project'], {
             root,
          });
 
@@ -1766,7 +1784,7 @@ description: Demo skill
             },
          });
 
-         await runCli(['remove', 'skill', 'react:components', '--yes', '--config', configPath], {
+         await runCli(['remove', 'skill', 'react:components', '--yes', '--config', configPath, '--save'], {
             root,
          });
 
@@ -1796,8 +1814,8 @@ description: Demo skill
             editors: ['claude-code'],
          });
 
-         const { error } = await runCli(
-            ['remove', 'rule', 'coding', '--yes', '--config', configPath],
+         const { error, stdout } = await runCli(
+            ['remove', 'rule', 'coding', '--yes', '--config', configPath, '--save', '--project'],
             { root },
          );
 
@@ -1807,6 +1825,9 @@ description: Demo skill
 
          expect(config.rules.coding).toBeUndefined();
          expect(existsSync(installedRuleFile)).toBe(false);
+         expect(stdout).toContain('Items to remove:');
+         expect(stdout).toContain('claude-code');
+         expect(stdout).toContain(installedRuleFile);
       });
 
       it('refreshes existing lockfile when rule is removed', async () => {
@@ -1830,7 +1851,7 @@ description: Demo skill
 
          // Remove rule, lockfile should auto-refresh
          const { error } = await runCli(
-            ['remove', 'rule', 'style', '--yes', '--config', configPath],
+            ['remove', 'rule', 'style', '--yes', '--config', configPath, '--save'],
             { root },
          );
 
@@ -1856,7 +1877,7 @@ description: Demo skill
          });
 
          const { error } = await runCli(
-            ['remove', 'prompt', 'review', '--yes', '--config', configPath, '--no-delete'],
+            ['remove', 'prompt', 'review', '--yes', '--config', configPath, '--save', '--no-delete'],
             { root },
          );
 
@@ -1895,11 +1916,13 @@ description: Copilot skill
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.copilot.skills['copilot-skill']).toMatchObject({
+         expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'copilot-skill')).toMatchObject({
+            editor: 'copilot',
+            type: 'skill',
             source: 'external',
             scope: 'project',
          });
-         expect(parsed.copilot.skills['copilot-skill'].path).toContain(
+         expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'copilot-skill').path).toContain(
             '/.github/skills/copilot-skill',
          );
       });
@@ -1929,8 +1952,10 @@ description: Devin skill
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.devin).toBeUndefined();
-         expect(parsed.windsurf.skills['devin-skill']).toMatchObject({
+         expect(parsed.targets).toEqual(['windsurf']);
+         expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'devin-skill')).toMatchObject({
+            editor: 'windsurf',
+            type: 'skill',
             source: 'external',
             scope: 'project',
          });
@@ -1965,11 +1990,13 @@ description: User Copilot skill
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.copilot.skills['user-copilot-skill']).toMatchObject({
+         expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'user-copilot-skill')).toMatchObject({
+            editor: 'copilot',
+            type: 'skill',
             source: 'external',
             scope: 'user',
          });
-         expect(parsed.copilot.skills['user-copilot-skill'].path).toContain(
+         expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'user-copilot-skill').path).toContain(
             '.config/github-copilot/skills/user-copilot-skill',
          );
       });
@@ -2034,18 +2061,30 @@ description: User Agents skill
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.opencode.skills['user-claude-skill']).toMatchObject({
+         expect(parsed.items.find((item: Record<string, unknown>) => {
+            return item.editor === 'opencode' && item.name === 'user-claude-skill';
+         })).toMatchObject({
+            editor: 'opencode',
+            type: 'skill',
             source: 'external',
             scope: 'user',
          });
-         expect(parsed.opencode.skills['user-claude-skill'].path).toContain(
+         expect(parsed.items.find((item: Record<string, unknown>) => {
+            return item.editor === 'opencode' && item.name === 'user-claude-skill';
+         }).path).toContain(
             '.claude/skills/user-claude-skill',
          );
-         expect(parsed.opencode.skills['user-agents-skill']).toMatchObject({
+         expect(parsed.items.find((item: Record<string, unknown>) => {
+            return item.editor === 'opencode' && item.name === 'user-agents-skill';
+         })).toMatchObject({
+            editor: 'opencode',
+            type: 'skill',
             source: 'external',
             scope: 'user',
          });
-         expect(parsed.opencode.skills['user-agents-skill'].path).toContain(
+         expect(parsed.items.find((item: Record<string, unknown>) => {
+            return item.editor === 'opencode' && item.name === 'user-agents-skill';
+         }).path).toContain(
             '.agents/skills/user-agents-skill',
          );
       });
@@ -2090,24 +2129,36 @@ description: User Agents skill
    });
 
    describe('list editors', () => {
-      it('normalizes editor array shorthand without numeric index keys', async () => {
-         const configPath = join(testDir, 'ai.json');
+      it('lists editors with native user configuration without requiring ai.json', async () => {
+         const fakeHome = join(testDir, 'home'),
+               skillDir = join(fakeHome, '.claude', 'skills', 'review');
 
-         await writeValidConfig(configPath, {
-            editors: ['cursor', 'claude-code'],
-         });
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(join(skillDir, 'SKILL.md'), '---\nname: review\ndescription: Review code\n---\n');
 
-         const { error, stdout } = await runCli(
-            ['list', 'editors', '--config', configPath],
-            { root },
-         );
+         const { error, stdout } = await runCli(['list', 'editors', '--target', 'claude-code'], { root });
 
          expect(error).toBeUndefined();
-         expect(stdout).toContain('cursor');
-         expect(stdout).toContain('claude-code');
-         // Array indices like '0' and '1' should not be rendered as editor names
-         expect(stdout).not.toMatch(/^│\s+0\s+│/m);
-         expect(stdout).not.toMatch(/^│\s+1\s+│/m);
+         expect(stdout.trim()).toBe('claude-code');
+         expect(stdout).not.toContain('type');
+         expect(stdout).not.toContain('editor');
+      });
+
+      it('does not include editor rows in the full inventory', async () => {
+         const fakeHome = join(testDir, 'home'),
+               skillDir = join(fakeHome, '.claude', 'skills', 'review');
+
+         process.env.HOME = fakeHome;
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(join(skillDir, 'SKILL.md'), '---\nname: review\ndescription: Review code\n---\n');
+
+         const { error, stdout } = await runCli(['list', '--target', 'claude-code', '--json'], { root });
+
+         expect(error).toBeUndefined();
+         const parsed = JSON.parse(stdout);
+
+         expect(parsed.items.some((item: Record<string, unknown>) => item.type === 'editor')).toStrictEqual(false);
       });
    });
 
@@ -2118,7 +2169,7 @@ description: User Agents skill
          await writeValidConfig(configPath);
 
          const { error } = await runCli(
-            ['add', 'plugin', 'code-review@claude-plugins-official', '--config', configPath, '--no-install'],
+            ['add', 'plugin', 'code-review@claude-plugins-official', '--config', configPath, '--save', '--no-install'],
             { root },
          );
 
@@ -2130,22 +2181,26 @@ description: User Agents skill
       });
 
       it('lists plugins in JSON format', async () => {
-         const configPath = join(testDir, 'ai.json');
+         const fakeHome = join(testDir, 'home');
 
-         await writeValidConfig(configPath, {
-            plugins: {
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(join(fakeHome, '.claude', 'settings.json'), JSON.stringify({
+            enabledPlugins: {
                'code-review': true,
                '@scope/helper': { enabled: true, source: './plugins/helper' },
             },
-         });
+         }));
 
-         const { error, stdout } = await runCli(['list', 'plugins', '--config', configPath, '--json'], { root });
+         const { error, stdout } = await runCli(['list', 'plugins', '--target', 'claude-code', '--json'], { root });
 
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.plugins['code-review']).toEqual(true);
-         expect(parsed.plugins['@scope/helper']).toMatchObject({ enabled: true });
+         expect(parsed.items.map((item: Record<string, unknown>) => item.name)).toEqual([
+            '@scope/helper',
+            'code-review',
+         ]);
       });
 
       it('removes a plugin from ai.json', async () => {
@@ -2158,7 +2213,7 @@ description: User Agents skill
          });
 
          const { error } = await runCli(
-            ['remove', 'plugin', 'code-review', '--yes', '--config', configPath, '--no-install'],
+            ['remove', 'plugin', 'code-review', '--yes', '--config', configPath, '--save', '--no-install'],
             { root },
          );
 
@@ -2204,6 +2259,7 @@ description: User Agents skill
                'team-market',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -2217,20 +2273,26 @@ description: User Agents skill
       });
 
       it('lists marketplaces in JSON format', async () => {
-         const configPath = join(testDir, 'ai.json');
+         const fakeHome = join(testDir, 'home');
 
-         await writeValidConfig(configPath, {
-            marketplaces: {
-               'team-market': 'https://github.com/my-org/marketplace',
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(join(fakeHome, '.claude', 'settings.json'), JSON.stringify({
+            extraKnownMarketplaces: {
+               'team-market': { source: { source: 'github', repo: 'my-org/marketplace' } },
             },
-         });
+         }));
 
-         const { error, stdout } = await runCli(['list', 'marketplaces', '--config', configPath, '--json'], { root });
+         const { error, stdout } = await runCli(['list', 'marketplaces', '--target', 'claude-code', '--json'], { root });
 
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.marketplaces['team-market']).toBe('https://github.com/my-org/marketplace');
+         expect(parsed.items).toContainEqual(expect.objectContaining({
+            editor: 'claude-code',
+            type: 'marketplace',
+            name: 'team-market',
+         }));
       });
 
       it('removes a marketplace from ai.json', async () => {
@@ -2243,7 +2305,7 @@ description: User Agents skill
          });
 
          const { error } = await runCli(
-            ['remove', 'marketplace', 'team-market', '--yes', '--config', configPath, '--no-install'],
+            ['remove', 'marketplace', 'team-market', '--yes', '--config', configPath, '--save', '--no-install'],
             { root },
          );
 
@@ -2279,6 +2341,7 @@ You are a senior code reviewer.
                './agents/reviewer.md',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -2319,6 +2382,7 @@ You plan architecture tasks.
                'bash,edit',
                '--config',
                configPath,
+               '--save',
                '--no-install',
             ],
             { root },
@@ -2337,24 +2401,23 @@ You plan architecture tasks.
       });
 
       it('lists configured agents in JSON format', async () => {
-         const configPath = join(testDir, 'ai.json'),
-               agentsDir = join(testDir, 'agents');
+         const fakeHome = join(testDir, 'home'),
+               agentsDir = join(fakeHome, '.claude', 'agents');
 
+         process.env.HOME = fakeHome;
          await mkdir(agentsDir, { recursive: true });
          await writeFile(join(agentsDir, 'reviewer.md'), 'You are a reviewer.');
 
-         await writeValidConfig(configPath, {
-            agents: {
-               reviewer: './agents/reviewer.md',
-            },
-         });
-
-         const { error, stdout } = await runCli(['list', 'agents', '--config', configPath, '--json'], { root });
+         const { error, stdout } = await runCli(['list', 'agents', '--target', 'claude-code', '--json'], { root });
 
          expect(error).toBeUndefined();
          const parsed = JSON.parse(stdout);
 
-         expect(parsed.agents.reviewer).toBe('./agents/reviewer.md');
+         expect(parsed.items).toContainEqual(expect.objectContaining({
+            editor: 'claude-code',
+            type: 'agent',
+            name: 'reviewer',
+         }));
       });
 
       it('removes an agent from ai.json', async () => {
@@ -2371,7 +2434,7 @@ You plan architecture tasks.
          });
 
          const { error } = await runCli(
-            ['remove', 'agent', 'reviewer', '--yes', '--config', configPath, '--no-delete'],
+            ['remove', 'agent', 'reviewer', '--yes', '--config', configPath, '--save', '--no-delete'],
             { root },
          );
 
@@ -2453,4 +2516,3 @@ You debug issues.
       });
    });
 });
-

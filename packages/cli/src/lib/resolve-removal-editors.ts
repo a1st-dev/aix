@@ -22,13 +22,10 @@ export interface ResolveRemovalEditorsOptions {
 }
 
 /**
- * Decide which editors a removal should clean up, preferring the record of where aix
- * actually installed the item.
- *
- * Detection alone is not enough. It answers "which editors exist on this machine", not
- * "which editors hold this item", so a removal that relies on it can leave the item
- * behind in an editor's config while dropping it from `ai.json`. State answers the second
- * question directly, because an install records the editors it wrote to.
+ * Decide which editors a removal should inspect. Without `--target`, include every
+ * detected editor as well as editors recorded by aix or named in ai.json. Removal
+ * strategies leave unrelated config alone, so using the union removes every matching
+ * item without guessing which source created it.
  *
  * Callers must resolve editors before recording the removal, since `trackRemoval` erases
  * the state entry this reads.
@@ -40,20 +37,22 @@ export async function resolveRemovalEditors(
       return options.targetEditors;
    }
 
-   const state = await readState(options.scope, options.projectRoot),
+   const [state, detectedEditors] = await Promise.all([
+            readState(options.scope, options.projectRoot),
+            detectEditorsForRemoval(options.projectRoot),
+         ]),
          installed = options.section in state.installed
             ? getInstalledItem(state, options.section as StateSection, options.itemName)
-            : undefined;
+            : undefined,
+         configuredEditors = options.configuredEditors
+            ? Object.keys(normalizeEditors(options.configuredEditors))
+            : [];
 
-   if (installed && installed.editors.length > 0) {
-      return normalizeEditorNames(installed.editors);
-   }
-
-   if (options.configuredEditors) {
-      return normalizeEditorNames(Object.keys(normalizeEditors(options.configuredEditors)));
-   }
-
-   return detectEditorsForRemoval(options.projectRoot);
+   return normalizeEditorNames([
+      ...(installed?.editors ?? []),
+      ...configuredEditors,
+      ...detectedEditors,
+   ]);
 }
 
 /**

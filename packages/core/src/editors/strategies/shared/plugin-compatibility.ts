@@ -192,4 +192,8 @@ export class PluginCompatibilityStrategy implements PluginsStrategy {
    getUnsupportedPlugins(_plugins: PluginsConfig): string[] {
       return [];
    }
+
+   parseImportedConfig(_content: string): { plugins: PluginsConfig; warnings: string[] } {
+      return { plugins: {}, warnings: [] };
+   }
 }

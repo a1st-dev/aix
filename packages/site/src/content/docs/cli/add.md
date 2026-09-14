@@ -5,7 +5,12 @@ title: aix add
 description: Add items to your configuration.
 ---
 
-Adds skills, MCP servers, rules, prompts, or hooks to `ai.json` (or `ai.local.json`) and installs them to editors in one step. If no `ai.json` exists in the current directory, the item is installed directly to editors without modifying any config file.
+Installs skills, MCP servers, rules, prompts, agents, hooks, plugins, or marketplaces to user
+editor config by default. `ai.json` is optional. Pass `--project` to target project editor config,
+and pass `--save` to also write the item to `ai.json` (or `ai.local.json`).
+
+`--target <editor>` / `-t` limits the operation to named editors and can be repeated.
+`--no-install` is only useful with `--save`; it writes the config entry without installing it.
 
 ## Commands
 
@@ -21,7 +26,8 @@ aix add skill <source> [flags]
 - `--ref <ref>` / `-r`: Git branch/tag/commit.
 - `--no-install`: Skip the install step after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
-- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
+- `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user or project editor config.
+- `--save` / `-s`: Also save the item to `ai.json`.
 
 **Sources:**
 

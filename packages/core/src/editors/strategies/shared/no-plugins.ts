@@ -21,4 +21,8 @@ export class NoPluginsStrategy implements PluginsStrategy {
    getUnsupportedPlugins(plugins: PluginsConfig): string[] {
       return Object.keys(plugins);
    }
+
+   parseImportedConfig(_content: string): { plugins: PluginsConfig; warnings: string[] } {
+      return { plugins: {}, warnings: [] };
+   }
 }

@@ -1,4 +1,4 @@
-import type { MarketplacesConfig } from '@a1st/aix-schema';
+import { parseJsonc, type MarketplacesConfig } from '@a1st/aix-schema';
 import type { MarketplacesStrategy } from '../types.js';
 
 /**
@@ -44,5 +44,11 @@ export class CursorMarketplacesStrategy implements MarketplacesStrategy {
 
    getUnsupportedMarketplaces(_marketplaces: MarketplacesConfig): string[] {
       return [];
+   }
+
+   parseImportedConfig(content: string): { marketplaces: MarketplacesConfig; warnings: string[] } {
+      const parsed = parseJsonc<{ marketplaces?: MarketplacesConfig }>(content);
+
+      return { marketplaces: parsed.data?.marketplaces ?? {}, warnings: parsed.errors.map((error) => error.message) };
    }
 }

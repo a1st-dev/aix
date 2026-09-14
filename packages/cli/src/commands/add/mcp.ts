@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
@@ -21,7 +22,7 @@ import {
 } from '../../lib/add-command-helper.js';
 
 export default class AddMcp extends BaseCommand<typeof AddMcp> {
-   static override description = 'Add an MCP server to ai.json';
+   static override description = 'Install an MCP server';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> playwright',
@@ -43,6 +44,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       command: Flags.string({
          description: 'Command to run (stdio transport)',
@@ -65,7 +67,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(AddMcp);
       const userScopeAdd = isUserScopeAdd(flags);
-      const loaded = userScopeAdd ? undefined : await this.loadConfig();
+      const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetScope = resolveAddTargetScope(flags, loaded);
       const targetEditors = resolveTargetEditors(flags.target);
       const lockableConfigPath = getLockableConfigPath(loaded);
@@ -117,6 +119,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       // Update ai.json if it exists (or ai.local.json with --local)
       await persistAddedItem({
          loaded,
+         save: flags.save,
          local: flags.local,
          output: this.output,
          directInstallMessage: userScopeAdd

@@ -70,6 +70,8 @@ const TRACKABLE_SECTIONS = new Set<string>([
    'prompts',
    'agents',
    'hooks',
+   'plugins',
+   'marketplaces',
 ]);
 
 /**
@@ -152,6 +154,8 @@ function getSectionNames(config: AiJsonConfig): Record<StateSection, string[]> {
       prompts: Object.keys(config.prompts ?? {}),
       agents: Object.keys(config.agents ?? {}),
       hooks: Object.keys(config.hooks ?? {}),
+      plugins: Object.keys(config.plugins ?? {}),
+      marketplaces: Object.keys(config.marketplaces ?? {}),
    };
 }
 

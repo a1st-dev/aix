@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadPrompt,
@@ -25,7 +26,7 @@ import {
 } from '../../lib/add-command-helper.js';
 
 export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
-   static override description = 'Add a prompt/command to ai.json';
+   static override description = 'Install a prompt/command';
    static override strict = false;
 
    static override examples = [
@@ -48,6 +49,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       name: Flags.string({
          char: 'n',
@@ -74,7 +76,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
    async run(): Promise<void> {
       const { args, flags, argv } = await this.parse(AddPrompt),
             userScopeAdd = isUserScopeAdd(flags),
-            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             sources = getAddSources(args, argv),
@@ -131,6 +133,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
 
             await persistAddedItem({
                loaded,
+               save: flags.save,
                local: flags.local,
                output: this.output,
                directInstallMessage: userScopeAdd

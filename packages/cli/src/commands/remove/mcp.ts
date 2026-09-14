@@ -4,6 +4,7 @@ import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
@@ -13,13 +14,13 @@ import {
    trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
+import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
-   static override description = 'Remove an MCP server from ai.json';
+   static override description = 'Remove an MCP server';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> github',
@@ -38,6 +39,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -52,19 +54,28 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveMcp);
-      const loaded = await this.loadConfig();
-      const targetScope = resolveConfigScope(
-         flags as { scope?: string; user?: boolean; project?: boolean },
-         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-      );
+      const loaded = flags.save ? await this.loadConfig() : undefined;
+      const targetScope = resolveConfigScope(flags);
       const targetEditors = resolveTargetEditors(flags.target);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if MCP server exists in merged config (if we have one)
-      if (loaded && !loaded.config.mcp?.[args.name]) {
+      if (flags.save && (!loaded || !loaded.config.mcp?.[args.name])) {
          this.error(`MCP server "${args.name}" not found in configuration`);
       }
+
+      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+            editors = await resolveRemovalEditors({
+               targetEditors,
+               section: 'mcp',
+               itemName: args.name,
+               configuredEditors: flags.local ? undefined : loaded?.config.editors,
+               scope: targetScope,
+               projectRoot,
+            });
+
+      printEditorRemovalPreview({ output: this.output, editors, itemType: 'MCP server', itemName: args.name, scope: targetScope });
 
       // Confirm removal
       if (!flags.yes) {
@@ -85,7 +96,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
       // Update ai.json / ai.local.json if it exists
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
@@ -97,7 +108,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
             };
          });
          this.output.success(`Removed MCP server "${args.name}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [args.name]: _, ...remainingMcp } = config.mcp ?? {};
 
@@ -113,18 +124,6 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
 
       // Sync editor MCP configs so removals affect the same editor set as add/install.
       if (!flags['no-sync']) {
-         const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-               // Resolved before trackRemoval below, which erases the state entry that
-               // records which editors actually hold this server.
-               editors = await resolveRemovalEditors({
-                  targetEditors,
-                  section: 'mcp',
-                  itemName: args.name,
-                  configuredEditors: flags.local ? undefined : loaded?.config.editors,
-                  scope: targetScope,
-                  projectRoot,
-               });
-
          await this.removeMcpFromEditorConfigs(editors, args.name, projectRoot, targetScope);
       }
 

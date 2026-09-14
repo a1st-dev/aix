@@ -21,4 +21,8 @@ export class NoMarketplacesStrategy implements MarketplacesStrategy {
    getUnsupportedMarketplaces(marketplaces: MarketplacesConfig): string[] {
       return Object.keys(marketplaces);
    }
+
+   parseImportedConfig(_content: string): { marketplaces: MarketplacesConfig; warnings: string[] } {
+      return { marketplaces: {}, warnings: [] };
+   }
 }

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'pathe';
 import { safeRm, type EditorName } from '@a1st/aix-core';
+import type { Output } from './output.js';
 
 export type RemovableItemType = 'skill' | 'mcp' | 'agent' | 'rule' | 'prompt';
 
@@ -195,4 +196,49 @@ export function getExistingFiles(filesToDelete: FilesToDelete[]): string[] {
       }
    }
    return existing;
+}
+
+export function printRemovalPreview(
+   output: Pick<Output, 'log'>,
+   filesToDelete: FilesToDelete[],
+): void {
+   const targets = filesToDelete.map(({ editor, files }) => ({
+      editor,
+      files: files.filter(existsSync),
+   })).filter(({ files }) => files.length > 0);
+
+   if (targets.length === 0) {
+      return;
+   }
+
+   output.log('');
+   output.log('Items to remove:');
+   for (const { editor, files } of targets) {
+      output.log(`  ${editor}`);
+      for (const file of files) {
+         output.log(`    - ${file}`);
+      }
+   }
+   output.log('');
+}
+
+export function printEditorRemovalPreview(options: {
+   output: Pick<Output, 'log'>;
+   editors: readonly EditorName[];
+   itemType: string;
+   itemName: string;
+   scope: 'project' | 'user';
+}): void {
+   const { output, editors, itemType, itemName, scope } = options;
+
+   if (editors.length === 0) {
+      return;
+   }
+
+   output.log('');
+   output.log('Items to remove:');
+   for (const editor of editors) {
+      output.log(`  ${editor}: ${itemType} "${itemName}" (${scope})`);
+   }
+   output.log('');
 }

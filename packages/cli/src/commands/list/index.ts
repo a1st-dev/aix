@@ -6,7 +6,7 @@ import {
    parseSections,
    includesSection,
    configScopeFlags,
-   resolveConfigScope,
+   resolveListScope,
    type Section,
 } from '../../flags/scope.js';
 import {
@@ -21,17 +21,28 @@ import {
    type EditorName,
    type InstalledItems,
    type InstalledItemMeta,
+   isDisabledConfigValue,
 } from '@a1st/aix-core';
 import { resolveScope } from '@a1st/aix-schema';
 
-const STATE_SECTIONS: StateSection[] = ['mcp', 'skills', 'rules', 'prompts', 'agents', 'hooks'];
+const STATE_SECTIONS: StateSection[] = [
+   'mcp',
+   'skills',
+   'rules',
+   'prompts',
+   'agents',
+   'hooks',
+   'plugins',
+   'marketplaces',
+];
 const CANONICAL_EDITORS = getAvailableEditors();
 const VALID_EDITORS = getAcceptedEditorNames();
 
 type EditorItemRow = {
-   type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent' | 'hook';
+   type: 'mcp' | 'rule' | 'skill' | 'prompt' | 'agent' | 'hook' | 'plugin' | 'marketplace';
    name: string;
    source: 'aix' | 'external';
+   status: 'enabled' | 'disabled';
    scope: 'project' | 'user' | undefined;
    path: string | undefined;
 };
@@ -44,17 +55,19 @@ type EditorListContext = {
 };
 
 type EditorItemInput = {
+   editor: EditorName;
    type: EditorItemRow['type'];
    name: string;
    section: StateSection;
    path: string | undefined;
    detectedScope: 'project' | 'user' | undefined;
+   status?: 'enabled' | 'disabled';
 };
 
 export default class List extends BaseCommand<typeof List> {
    static override aliases = ['ls'];
 
-   static override description = 'List configured items';
+   static override description = 'List native editor configuration';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %>',
@@ -64,57 +77,35 @@ export default class List extends BaseCommand<typeof List> {
       '<%= config.bin %> <%= command.id %> --scope user',
       '<%= config.bin %> <%= command.id %> --project',
       '<%= config.bin %> <%= command.id %> --all',
-      '<%= config.bin %> <%= command.id %> --all --editor codex',
-      '<%= config.bin %> <%= command.id %> --all --editor codex --editor zed',
-      '<%= config.bin %> <%= command.id %> --all --scope user --only mcp',
+      '<%= config.bin %> <%= command.id %> --all --target codex',
+      '<%= config.bin %> <%= command.id %> --all --target codex --target zed',
    ];
 
    static override flags = {
       ...onlyFlag,
       ...configScopeFlags,
       all: Flags.boolean({
-         description: 'List all AI config from editors (including non-aix managed)',
+         description: 'List user and project config from detected editors',
          default: false,
+         exclusive: ['project', 'scope', 'user'],
       }),
-      editor: Flags.string({
-         char: 'e',
+      target: Flags.string({
+         char: 't',
+         aliases: ['editor'],
+         charAliases: ['e'],
          description: 'Only show config from a specific editor (repeatable, case-insensitive)',
          multiple: true,
       }),
    };
 
+   protected sectionsOverride?: readonly Section[];
+
    async run(): Promise<void> {
-      const sections = parseSections(this.flags as { only?: string[] }),
-            scopeFilter = resolveConfigScope(
-               this.flags as { scope?: string; user?: boolean; project?: boolean },
-               undefined,
-            );
+      const sections = this.sectionsOverride ? [...this.sectionsOverride] : parseSections(this.flags as { only?: string[] }),
+            scope = resolveListScope(this.flags),
+            editorFilter = this.resolveEditorFilter();
 
-      const showAll = this.flags.all,
-            editorFilter = this.resolveEditorFilter(),
-            isUserScope = scopeFilter === 'user';
-
-      // `-u` lists all items present in every editor's global config — never the project's
-      // ai.json/state. It always uses discovery: scan actual editor config directories to give
-      // a complete, accurate view of what is installed in those editors, including
-      // non-aix-managed items and items installed without an ai.json.
-      if (isUserScope) {
-         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
-         return;
-      }
-
-      // Editors explicitly requested via --all or -e also trigger direct config-file discovery.
-      if (showAll || editorFilter !== undefined) {
-         await this.listAllEditorConfig(sections, scopeFilter, editorFilter);
-         return;
-      }
-
-      if (this.flags.json) {
-         await this.listProjectConfigJson(sections, scopeFilter);
-         return;
-      }
-
-      await this.listProjectConfig(sections, scopeFilter);
+      await this.listAllEditorConfig(sections, scope === 'all' ? undefined : scope, editorFilter);
    }
 
    private getConfigSections(
@@ -264,7 +255,7 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    private resolveEditorFilter(): EditorName[] | undefined {
-      const editors = this.flags.editor;
+      const editors = this.flags.target;
 
       if (!editors || editors.length === 0) {
          return undefined;
@@ -311,21 +302,23 @@ export default class List extends BaseCommand<typeof List> {
       const projectRoot = process.cwd(),
             projectState = await readState('project', projectRoot),
             userState = await readState('user'),
+            imported = await Promise.all(editors.map(async (editor) => {
+               try {
+                  const result = await importFromEditor(editor, { projectRoot, scope });
+
+                  return { editor, result };
+               } catch {
+                  return undefined;
+               }
+            })),
             results: Array<{
                editor: EditorName;
                result: Awaited<ReturnType<typeof importFromEditor>>;
             }> = [];
 
-      for (const editor of editors) {
-         try {
-            // eslint-disable-next-line no-await-in-loop -- Sequential for consistency
-            const result = await importFromEditor(editor, { projectRoot, scope });
-
-            if (this.hasEditorItems(result)) {
-               results.push({ editor, result });
-            }
-         } catch {
-            // Skip editors that fail to import (not installed, etc.)
+      for (const entry of imported) {
+         if (entry && (this.hasEditorItems(entry.result) || entry.result.warnings.length > 0)) {
+            results.push(entry);
          }
       }
 
@@ -344,20 +337,64 @@ export default class List extends BaseCommand<typeof List> {
       const editors = editorFilter ?? CANONICAL_EDITORS,
             scope: 'user' | 'project' | 'all' = scopeFilter ?? 'all',
             { results, projectState, userState } = await this.collectEditorConfig(editors, scope),
-            context: EditorListContext = { sections, scopeFilter, projectState, userState };
+            context: EditorListContext = { sections, scopeFilter, projectState, userState },
+            isEditorsOnly = sections.length === 1 && sections[0] === 'editors';
 
-      if (results.length === 0) {
-         this.output.info('No AI configuration found in any editor.');
+      if (isEditorsOnly) {
+         const detectedEditors = results.map(({ editor }) => editor);
+
+         if (this.flags.json) {
+            this.output.json({
+               version: 1,
+               scope: scopeFilter ?? 'all',
+               targets: editors,
+               editors: detectedEditors,
+               items: [],
+               warnings: results.flatMap(({ editor, result }) => {
+                  return result.warnings.map((warning) => ({ editor, warning }));
+               }),
+            });
+            return;
+         }
+
+         if (detectedEditors.length === 0) {
+            this.output.info('No editors with AI configuration found.');
+            return;
+         }
+
+         for (const editor of detectedEditors) {
+            this.output.log(editor);
+         }
          return;
       }
 
       if (this.flags.json) {
-         const jsonResult: Record<string, unknown> = {};
+         const items = results.flatMap(({ editor, result }) => {
+            return this.getEditorItemRows(editor, result, context).map((row) => ({
+               editor,
+               type: row.type,
+               name: row.name,
+               source: row.source,
+               status: row.status,
+               scope: row.scope,
+               path: row.path,
+            }));
+         });
 
-         for (const { editor, result } of results) {
-            jsonResult[editor] = this.buildEditorJson(result, context);
-         }
-         this.output.json(jsonResult);
+         this.output.json({
+            version: 1,
+            scope: scopeFilter ?? 'all',
+            targets: editors,
+            items,
+            warnings: results.flatMap(({ editor, result }) => {
+               return result.warnings.map((warning) => ({ editor, warning }));
+            }),
+         });
+         return;
+      }
+
+      if (results.length === 0) {
+         this.output.info('No AI configuration found in any editor.');
          return;
       }
 
@@ -365,6 +402,10 @@ export default class List extends BaseCommand<typeof List> {
 
       for (const { editor, result } of results) {
          const didPrint = this.printEditorConfig(editor, result, context, printed > 0);
+
+         for (const warning of result.warnings) {
+            this.output.warn(`${editor}: ${warning}`);
+         }
 
          if (didPrint) {
             printed++;
@@ -381,7 +422,7 @@ export default class List extends BaseCommand<typeof List> {
     * (like .agents, .github/skills, .windsurf). The default (no scope flag) also shows
     * user-scope items tracked by aix state.
     */
-   private async listProjectConfig(
+   protected async listProjectConfig(
       sections: Section[],
       scopeFilter: 'project' | undefined,
    ): Promise<void> {
@@ -432,7 +473,7 @@ export default class List extends BaseCommand<typeof List> {
       }
    }
 
-   private async listProjectConfigJson(
+   protected async listProjectConfigJson(
       sections: Section[],
       scopeFilter: 'project' | undefined,
    ): Promise<void> {
@@ -458,7 +499,7 @@ export default class List extends BaseCommand<typeof List> {
       const editors: Record<string, unknown> = {};
 
       for (const { editor, result: editorResult } of results) {
-         editors[editor] = this.buildEditorJson(editorResult, context);
+         editors[editor] = this.buildEditorJson(editor, editorResult, context);
       }
       if (Object.keys(editors).length > 0) {
          result.editors = editors;
@@ -481,11 +522,14 @@ export default class List extends BaseCommand<typeof List> {
          Object.keys(result.skills).length > 0 ||
          Object.keys(result.prompts).length > 0 ||
          Object.keys(result.agents).length > 0 ||
-         Object.keys(result.hooks).length > 0
+         Object.keys(result.hooks).length > 0 ||
+         Object.keys(result.plugins).length > 0 ||
+         Object.keys(result.marketplaces).length > 0
       );
    }
 
    private buildEditorJson(
+      editor: EditorName,
       result: Awaited<ReturnType<typeof importFromEditor>>,
       context: EditorListContext,
    ): Record<string, unknown> {
@@ -496,7 +540,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const [name] of Object.entries(result.mcp)) {
-            const managed = this.isAixManaged(name, 'mcp', projectState, userState);
+            const managed = this.isAixManaged({ editor, name, section: 'mcp', projectState, userState });
             const scope = managed?.scope ?? result.scopes.mcp[name];
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -517,7 +561,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const rule of result.rules) {
-            const managed = this.isAixManaged(rule.name, 'rules', projectState, userState);
+            const managed = this.isAixManaged({ editor, name: rule.name, section: 'rules', projectState, userState });
             const scope = rule.scope ?? result.scopes.rules[rule.name] ?? managed?.scope;
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -538,7 +582,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const [name] of Object.entries(result.skills)) {
-            const managed = this.isAixManaged(name, 'skills', projectState, userState);
+            const managed = this.isAixManaged({ editor, name, section: 'skills', projectState, userState });
             const scope = managed?.scope ?? result.scopes.skills[name];
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -559,7 +603,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const [name] of Object.entries(result.prompts)) {
-            const managed = this.isAixManaged(name, 'prompts', projectState, userState);
+            const managed = this.isAixManaged({ editor, name, section: 'prompts', projectState, userState });
             const scope = managed?.scope ?? result.scopes.prompts[name];
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -580,7 +624,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const [name] of Object.entries(result.agents)) {
-            const managed = this.isAixManaged(name, 'agents', projectState, userState);
+            const managed = this.isAixManaged({ editor, name, section: 'agents', projectState, userState });
             const scope = managed?.scope ?? result.scopes.agents[name];
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -601,7 +645,7 @@ export default class List extends BaseCommand<typeof List> {
          const items: Record<string, unknown> = {};
 
          for (const event of Object.keys(result.hooks)) {
-            const managed = this.isAixManaged(event, 'hooks', projectState, userState);
+            const managed = this.isAixManaged({ editor, name: event, section: 'hooks', projectState, userState });
             const scope = managed?.scope ?? result.scopes.hooks[event];
 
             if (scopeFilter && scope !== scopeFilter) {
@@ -618,6 +662,46 @@ export default class List extends BaseCommand<typeof List> {
          }
       }
 
+      if (includesSection(sections, 'plugins') && Object.keys(result.plugins).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const name of Object.keys(result.plugins)) {
+            const managed = this.isAixManaged({ editor, name, section: 'plugins', projectState, userState }),
+                  scope = managed?.scope ?? result.scopes.plugins[name];
+
+            if (!scopeFilter || scope === scopeFilter) {
+               items[name] = {
+                  source: managed ? 'aix' : 'external',
+                  scope,
+                  path: result.paths.plugins[name],
+               };
+            }
+         }
+         if (Object.keys(items).length > 0) {
+            out.plugins = items;
+         }
+      }
+
+      if (includesSection(sections, 'marketplaces') && Object.keys(result.marketplaces).length > 0) {
+         const items: Record<string, unknown> = {};
+
+         for (const name of Object.keys(result.marketplaces)) {
+            const managed = this.isAixManaged({ editor, name, section: 'marketplaces', projectState, userState }),
+                  scope = managed?.scope ?? result.scopes.marketplaces[name];
+
+            if (!scopeFilter || scope === scopeFilter) {
+               items[name] = {
+                  source: managed ? 'aix' : 'external',
+                  scope,
+                  path: result.paths.marketplaces[name],
+               };
+            }
+         }
+         if (Object.keys(items).length > 0) {
+            out.marketplaces = items;
+         }
+      }
+
       return out;
    }
 
@@ -627,7 +711,7 @@ export default class List extends BaseCommand<typeof List> {
       context: EditorListContext,
       addLeadingBlankLine: boolean,
    ): boolean {
-      const rows = this.getEditorItemRows(result, context);
+      const rows = this.getEditorItemRows(editor, result, context);
 
       if (rows.length === 0) {
          return false;
@@ -644,6 +728,7 @@ export default class List extends BaseCommand<typeof List> {
    }
 
    private getEditorItemRows(
+      editor: EditorName,
       result: Awaited<ReturnType<typeof importFromEditor>>,
       context: EditorListContext,
    ): EditorItemRow[] {
@@ -655,6 +740,7 @@ export default class List extends BaseCommand<typeof List> {
             ...Object.keys(result.mcp).flatMap((name) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'mcp',
                      name,
                      section: 'mcp',
@@ -672,6 +758,7 @@ export default class List extends BaseCommand<typeof List> {
             ...result.rules.flatMap((rule) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'rule',
                      name: rule.name,
                      section: 'rules',
@@ -689,6 +776,7 @@ export default class List extends BaseCommand<typeof List> {
             ...Object.keys(result.skills).flatMap((name) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'skill',
                      name,
                      section: 'skills',
@@ -706,6 +794,7 @@ export default class List extends BaseCommand<typeof List> {
             ...Object.keys(result.prompts).flatMap((name) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'prompt',
                      name,
                      section: 'prompts',
@@ -723,6 +812,7 @@ export default class List extends BaseCommand<typeof List> {
             ...Object.keys(result.agents).flatMap((name) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'agent',
                      name,
                      section: 'agents',
@@ -740,6 +830,7 @@ export default class List extends BaseCommand<typeof List> {
             ...Object.keys(result.hooks).flatMap((event) =>
                this.toEditorItemRow(
                   {
+                     editor,
                      type: 'hook',
                      name: event,
                      section: 'hooks',
@@ -752,13 +843,58 @@ export default class List extends BaseCommand<typeof List> {
          );
       }
 
+      if (includesSection(sections, 'plugins')) {
+         rows.push(
+            ...Object.keys(result.plugins).flatMap((name) =>
+               this.toEditorItemRow(
+                  {
+                     editor,
+                     type: 'plugin',
+                     name,
+                     section: 'plugins',
+                     path: result.paths.plugins[name],
+                     detectedScope: result.scopes.plugins[name],
+                     status: isDisabledConfigValue(result.plugins[name]) ? 'disabled' : 'enabled',
+                  },
+                  context,
+               ),
+            ),
+         );
+      }
+
+      if (includesSection(sections, 'marketplaces')) {
+         rows.push(
+            ...Object.keys(result.marketplaces).flatMap((name) =>
+               this.toEditorItemRow(
+                  {
+                     editor,
+                     type: 'marketplace',
+                     name,
+                     section: 'marketplaces',
+                     path: result.paths.marketplaces[name],
+                     detectedScope: result.scopes.marketplaces[name],
+                     status: isDisabledConfigValue(result.marketplaces[name]) ? 'disabled' : 'enabled',
+                  },
+                  context,
+               ),
+            ),
+         );
+      }
+
+      rows.sort((left, right) => {
+         const leftKey = `${left.type}\0${left.scope ?? ''}\0${left.name}\0${left.path ?? ''}`,
+               rightKey = `${right.type}\0${right.scope ?? ''}\0${right.name}\0${right.path ?? ''}`;
+
+         return leftKey.localeCompare(rightKey);
+      });
+
       return rows;
    }
 
    private toEditorItemRow(input: EditorItemInput, context: EditorListContext): EditorItemRow[] {
-      const { type, name, section, path, detectedScope } = input,
+      const { editor, type, name, section, path, detectedScope, status = 'enabled' } = input,
             { scopeFilter, projectState, userState } = context;
-      const managed = this.isAixManaged(name, section, projectState, userState),
+      const managed = this.isAixManaged({ editor, name, section, projectState, userState }),
             scope = detectedScope ?? managed?.scope;
 
       if (scopeFilter && scope !== scopeFilter) {
@@ -770,6 +906,7 @@ export default class List extends BaseCommand<typeof List> {
             type,
             name,
             source: managed ? 'aix' : 'external',
+            status,
             scope,
             path,
          },
@@ -783,9 +920,10 @@ export default class List extends BaseCommand<typeof List> {
                ...rows.map((row) => (row.scope ?? 'unknown').length),
             ),
             sourceWidth = Math.max('source'.length, ...rows.map((row) => row.source.length)),
+            statusWidth = Math.max('status'.length, ...rows.map((row) => row.status.length)),
             nameWidth = Math.max('name'.length, ...rows.map((row) => row.name.length));
 
-      const header = `  ${'type'.padEnd(typeWidth)}  ${'scope'.padEnd(scopeWidth)}  ${'source'.padEnd(sourceWidth)}  ${'name'.padEnd(nameWidth)}  path`;
+      const header = `  ${'type'.padEnd(typeWidth)}  ${'scope'.padEnd(scopeWidth)}  ${'source'.padEnd(sourceWidth)}  ${'status'.padEnd(statusWidth)}  ${'name'.padEnd(nameWidth)}  path`;
 
       this.output.log(chalk.dim(header));
       this.output.log(chalk.dim(`  ${'-'.repeat(header.length - 2)}`));
@@ -794,25 +932,30 @@ export default class List extends BaseCommand<typeof List> {
          const type = row.type.padEnd(typeWidth),
                scope = (row.scope ?? 'unknown').padEnd(scopeWidth),
                source = row.source.padEnd(sourceWidth),
+               status = row.status.padEnd(statusWidth),
                name = row.name.padEnd(nameWidth),
-               sourceColor = row.source === 'aix' ? chalk.green : chalk.dim;
+               sourceColor = row.source === 'aix' ? chalk.green : chalk.blue,
+               statusColor = row.status === 'disabled' ? chalk.yellow : chalk.dim;
 
          this.output.log(
-            `  ${chalk.magenta(type)}  ${chalk.dim(scope)}  ${sourceColor(source)}  ${this.output.cyan(name)}  ${chalk.dim(row.path ?? '')}`,
+            `  ${chalk.magenta(type)}  ${chalk.dim(scope)}  ${sourceColor(source)}  ${statusColor(status)}  ${this.output.cyan(name)}  ${chalk.dim(row.path ?? '')}`,
          );
       }
    }
 
-   private isAixManaged(
-      name: string,
-      section: StateSection,
-      projectState: StateFile,
-      userState: StateFile,
-   ): { scope: 'project' | 'user' } | undefined {
-      if (projectState.installed[section][name]) {
+   private isAixManaged(options: {
+      editor: string;
+      name: string;
+      section: StateSection;
+      projectState: StateFile;
+      userState: StateFile;
+   }): { scope: 'project' | 'user' } | undefined {
+      const { editor, name, section, projectState, userState } = options;
+
+      if (projectState.installed[section][name]?.editors.includes(editor)) {
          return { scope: 'project' };
       }
-      if (userState.installed[section][name]) {
+      if (userState.installed[section][name]?.editors.includes(editor)) {
          return { scope: 'user' };
       }
       return undefined;

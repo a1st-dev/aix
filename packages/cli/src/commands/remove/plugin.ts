@@ -4,22 +4,24 @@ import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
    updateLocalConfig,
    getLocalConfigPath,
    removePluginFromEditors,
+   trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
+import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
-   static override description = 'Remove a plugin from ai.json';
+   static override description = 'Remove a plugin';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> code-review',
@@ -38,6 +40,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -52,20 +55,29 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemovePlugin);
-      const loaded = await this.loadConfig();
+      const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetEditors = resolveTargetEditors(flags.target);
       const pluginName = args.name;
-      const targetScope = resolveConfigScope(
-         flags as { scope?: string; user?: boolean; project?: boolean },
-         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-      );
+      const targetScope = resolveConfigScope(flags);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if plugin exists in merged config (if we have one)
-      if (loaded && !loaded.config.plugins?.[pluginName]) {
+      if (flags.save && (!loaded || !loaded.config.plugins?.[pluginName])) {
          this.error(`Plugin "${pluginName}" not found in configuration`);
       }
+
+      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
+            editors = await resolveRemovalEditors({
+               targetEditors,
+               section: 'plugins',
+               itemName: pluginName,
+               configuredEditors: flags.local ? undefined : loaded?.config.editors,
+               scope: targetScope,
+               projectRoot,
+            });
+
+      printEditorRemovalPreview({ output: this.output, editors, itemType: 'plugin', itemName: pluginName, scope: targetScope });
 
       // Confirm removal
       if (!flags.yes) {
@@ -86,7 +98,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
       // Update ai.json / ai.local.json if present
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
@@ -98,7 +110,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
             };
          });
          this.output.success(`Removed plugin "${pluginName}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [pluginName]: _, ...remainingPlugins } = config.plugins ?? {};
 
@@ -114,16 +126,6 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
 
       // Clean up plugin config in editors unless skipped
       if (!flags['no-install']) {
-         const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-               editors = await resolveRemovalEditors({
-                  targetEditors,
-                  section: 'plugins',
-                  itemName: pluginName,
-                  configuredEditors: flags.local ? undefined : loaded?.config.editors,
-                  scope: targetScope,
-                  projectRoot,
-               });
-
          await this.removePluginFromEditorConfigs(editors, pluginName, projectRoot, targetScope);
 
          if (loaded) {
@@ -136,6 +138,8 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
             });
          }
       }
+
+      await trackRemoval(targetScope, 'plugins', pluginName, process.cwd());
 
       if (this.flags.json) {
          this.output.json({

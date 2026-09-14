@@ -1,4 +1,4 @@
-import type { PluginsConfig } from '@a1st/aix-schema';
+import { parseJsonc, type PluginsConfig } from '@a1st/aix-schema';
 import type { PluginsStrategy } from '../types.js';
 
 /**
@@ -40,5 +40,11 @@ export class ClaudeCodePluginsStrategy implements PluginsStrategy {
 
    getUnsupportedPlugins(_plugins: PluginsConfig): string[] {
       return [];
+   }
+
+   parseImportedConfig(content: string): { plugins: PluginsConfig; warnings: string[] } {
+      const parsed = parseJsonc<{ enabledPlugins?: PluginsConfig }>(content);
+
+      return { plugins: parsed.data?.enabledPlugins ?? {}, warnings: parsed.errors.map((error) => error.message) };
    }
 }

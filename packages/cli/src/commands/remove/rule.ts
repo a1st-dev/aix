@@ -4,9 +4,9 @@ import { BaseCommand } from '../../base-command.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
 import { confirm } from '@inquirer/prompts';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
@@ -15,11 +15,12 @@ import {
    computeFilesToDelete,
    deleteFiles,
    getExistingFiles,
+   printRemovalPreview,
    type FilesToDelete,
 } from '../../lib/delete-helper.js';
 
 export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
-   static override description = 'Remove a rule from ai.json';
+   static override description = 'Remove a rule';
 
    static override examples = [
       '<%= config.bin %> <%= command.id %> coding-standards',
@@ -38,6 +39,7 @@ export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       yes: Flags.boolean({
          char: 'y',
@@ -52,18 +54,15 @@ export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
 
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveRule);
-      const loaded = await this.loadConfig();
+      const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetEditors = resolveTargetEditors(flags.target);
       const resolvedName = args.name;
-      const targetScope = resolveConfigScope(
-         flags as { scope?: string; user?: boolean; project?: boolean },
-         loaded && !flags.local ? resolveScope(loaded.config) : undefined,
-      );
+      const targetScope = resolveConfigScope(flags);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if rule exists in merged config (if we have one)
-      if (loaded && !loaded.config.rules?.[resolvedName]) {
+      if (flags.save && (!loaded || !loaded.config.rules?.[resolvedName])) {
          this.error(`Rule "${args.name}" not found in configuration`);
       }
 
@@ -86,16 +85,7 @@ export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
             projectRoot,
             targetScope,
          });
-         const existingFiles = getExistingFiles(filesToDelete);
-
-         if (existingFiles.length > 0) {
-            this.output.log('');
-            this.output.log('Files to delete:');
-            for (const file of existingFiles) {
-               this.output.log(`  - ${file}`);
-            }
-            this.output.log('');
-         }
+         printRemovalPreview(this.output, filesToDelete);
       }
 
       // Confirm removal (covers both config and file deletion)
@@ -126,7 +116,7 @@ export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
       const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
 
       // Update ai.json / ai.local.json if present
-      if (flags.local) {
+      if (flags.save && flags.local) {
          const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
 
          await updateLocalConfig(localPath, (config) => {
@@ -138,7 +128,7 @@ export default class RemoveRule extends BaseCommand<typeof RemoveRule> {
             };
          });
          this.output.success(`Removed rule "${args.name}" from ai.local.json`);
-      } else if (loaded) {
+      } else if (flags.save && loaded) {
          await updateConfig(loaded.path, (config) => {
             const { [resolvedName]: _, ...remainingRules } = config.rules ?? {};
 

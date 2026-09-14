@@ -5,6 +5,7 @@ import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
+import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadRule,
@@ -27,7 +28,7 @@ import {
 type ActivationMode = 'always' | 'auto' | 'glob' | 'manual';
 
 export default class AddRule extends BaseCommand<typeof AddRule> {
-   static override description = 'Add a rule to ai.json';
+   static override description = 'Install a rule';
    static override strict = false;
 
    static override examples = [
@@ -49,6 +50,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
       ...addLockFlag,
       ...localFlag,
       ...configScopeFlags,
+      ...saveFlag,
       ...targetFlag,
       name: Flags.string({
          char: 'n',
@@ -81,7 +83,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
    async run(): Promise<void> {
       const { args, flags, argv } = await this.parse(AddRule),
             userScopeAdd = isUserScopeAdd(flags),
-            loaded = userScopeAdd ? undefined : await this.loadConfig(),
+            loaded = flags.save ? await this.loadConfig() : undefined,
             targetScope = resolveAddTargetScope(flags, loaded),
             lockableConfigPath = getLockableConfigPath(loaded),
             sources = getAddSources(args, argv),
@@ -133,6 +135,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
 
             await persistAddedItem({
                loaded,
+               save: flags.save,
                local: flags.local,
                output: this.output,
                directInstallMessage: userScopeAdd

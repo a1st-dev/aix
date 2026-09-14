@@ -1,4 +1,4 @@
-import type { PluginsConfig } from '@a1st/aix-schema';
+import { parseJsonc, type PluginsConfig } from '@a1st/aix-schema';
 import type { PluginsStrategy } from '../types.js';
 
 /**
@@ -60,5 +60,12 @@ export class OpenCodePluginsStrategy implements PluginsStrategy {
 
    getUnsupportedPlugins(_plugins: PluginsConfig): string[] {
       return [];
+   }
+
+   parseImportedConfig(content: string): { plugins: PluginsConfig; warnings: string[] } {
+      const parsed = parseJsonc<{ plugins?: string[] }>(content),
+            plugins = Object.fromEntries((parsed.data?.plugins ?? []).map((plugin) => [plugin, true]));
+
+      return { plugins, warnings: parsed.errors.map((error) => error.message) };
    }
 }
