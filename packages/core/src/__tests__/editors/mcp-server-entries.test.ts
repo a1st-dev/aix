@@ -153,6 +153,50 @@ scopes = ["read"]
          expect(result.mcp.docs).toEqual(REMOTE_SERVER);
       });
 
+      it('parses Zed settings containing JSONC comments, header, and trailing commas', () => {
+         const content = [
+                  '// Zed settings',
+                  '//',
+                  '// For information on how to configure Zed, see https://zed.dev/docs',
+                  '{',
+                  '   // User vim preference',
+                  '   "show_edit_predictions": false,',
+                  '   "context_servers": {',
+                  '      // Docs MCP server',
+                  '      "docs": {',
+                  '         "url": "https://example.com/mcp",',
+                  '         "headers": { "Authorization": "Bearer secret" },',
+                  '      },',
+                  '   },',
+                  '}',
+               ].join('\n'),
+               result = new ZedMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
+      });
+
+      it('parses Zed settings with default comment header and no context servers', () => {
+         const content = [
+                  '// Zed settings',
+                  '{',
+                  '   "theme": "One Dark",',
+                  '}',
+               ].join('\n'),
+               result = new ZedMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp).toEqual({});
+      });
+
+      it('warns on truly invalid Zed settings JSONC', () => {
+         const result = new ZedMcpStrategy().parseGlobalMcpConfig('// Zed settings\n{ invalid }');
+
+         expect(result.mcp).toEqual({});
+         expect(result.warnings).toHaveLength(1);
+         expect(result.warnings[0]).toContain('Failed to parse Zed settings:');
+      });
+
       it('writes an Antigravity stdio server to standard command, args, and env fields', () => {
          const written = JSON.parse(new AntigravityMcpStrategy().formatConfig({ github: STDIO_SERVER }));
 
