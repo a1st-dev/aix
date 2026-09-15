@@ -1,4 +1,4 @@
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
 import { isRecord } from '../../../type-guards.js';
@@ -79,13 +79,15 @@ export class CopilotMcpStrategy implements McpStrategy {
 }
 
 function parseJsonObject(content: string): Record<string, unknown> {
-   const parsed = JSON.parse(content);
+   const parsed = parseJsonc<Record<string, unknown>>(content);
 
-   if (!isRecord(parsed)) {
-      throw new Error('Config root must be an object');
+   if (parsed.errors.length > 0 || !isRecord(parsed.data)) {
+      const detail = parsed.errors[0]?.message ?? 'Config root must be an object';
+
+      throw new Error(detail);
    }
 
-   return parsed;
+   return parsed.data;
 }
 
 function getServerEntries(config: Record<string, unknown>): Record<string, unknown> {

@@ -197,6 +197,114 @@ scopes = ["read"]
          expect(result.warnings[0]).toContain('Failed to parse Zed settings:');
       });
 
+      it('parses Standard MCP settings containing JSONC comments and trailing commas', () => {
+         const content = [
+                  '// Standard MCP settings',
+                  '{',
+                  '   // Remote server',
+                  '   "mcpServers": {',
+                  '      "docs": {',
+                  '         "url": "https://example.com/mcp",',
+                  '         "headers": { "Authorization": "Bearer secret" },',
+                  '      },',
+                  '   },',
+                  '}',
+               ].join('\n'),
+               result = new StandardMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
+      });
+
+      it('warns on truly invalid Standard MCP settings JSONC', () => {
+         const result = new StandardMcpStrategy().parseGlobalMcpConfig('// Standard MCP\n{ invalid }');
+
+         expect(result.mcp).toEqual({});
+         expect(result.warnings).toHaveLength(1);
+         expect(result.warnings[0]).toContain('Failed to parse MCP config:');
+      });
+
+      it('parses Antigravity mcp_config.json containing JSONC comments and trailing commas', () => {
+         const content = [
+                  '// Antigravity MCP config',
+                  '{',
+                  '   // Remote server',
+                  '   "mcpServers": {',
+                  '      "docs": {',
+                  '         "url": "https://example.com/mcp",',
+                  '         "headers": { "Authorization": "Bearer secret" },',
+                  '      },',
+                  '   },',
+                  '}',
+               ].join('\n'),
+               result = new AntigravityMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
+      });
+
+      it('warns on truly invalid Antigravity mcp_config.json JSONC', () => {
+         const result = new AntigravityMcpStrategy().parseGlobalMcpConfig('// Antigravity\n{ invalid }');
+
+         expect(result.mcp).toEqual({});
+         expect(result.warnings).toHaveLength(1);
+         expect(result.warnings[0]).toContain('Failed to parse Antigravity mcp_config.json:');
+      });
+
+      it('parses Windsurf mcp_config.json containing JSONC comments and trailing commas', () => {
+         const content = [
+                  '// Windsurf MCP config',
+                  '{',
+                  '   // Remote server',
+                  '   "mcpServers": {',
+                  '      "docs": {',
+                  '         "serverUrl": "https://example.com/mcp",',
+                  '         "headers": { "Authorization": "Bearer secret" },',
+                  '      },',
+                  '   },',
+                  '}',
+               ].join('\n'),
+               result = new WindsurfMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
+      });
+
+      it('warns on truly invalid Windsurf mcp_config.json JSONC', () => {
+         const result = new WindsurfMcpStrategy().parseGlobalMcpConfig('// Windsurf\n{ invalid }');
+
+         expect(result.mcp).toEqual({});
+         expect(result.warnings).toHaveLength(1);
+         expect(result.warnings[0]).toContain('Failed to parse MCP config:');
+      });
+
+      it('parses Copilot mcp.json containing JSONC comments and trailing commas', () => {
+         const content = [
+                  '// Copilot MCP config',
+                  '{',
+                  '   // Remote server',
+                  '   "mcpServers": {',
+                  '      "docs": {',
+                  '         "url": "https://example.com/mcp",',
+                  '         "headers": { "Authorization": "Bearer secret" },',
+                  '      },',
+                  '   },',
+                  '}',
+               ].join('\n'),
+               result = new CopilotMcpStrategy().parseGlobalMcpConfig(content);
+
+         expect(result.warnings).toEqual([]);
+         expect(result.mcp.docs).toEqual(REMOTE_SERVER);
+      });
+
+      it('warns on truly invalid Copilot mcp.json JSONC', () => {
+         const result = new CopilotMcpStrategy().parseGlobalMcpConfig('// Copilot\n{ invalid }');
+
+         expect(result.mcp).toEqual({});
+         expect(result.warnings).toHaveLength(1);
+         expect(result.warnings[0]).toContain('Failed to parse GitHub Copilot MCP config:');
+      });
+
       it('writes an Antigravity stdio server to standard command, args, and env fields', () => {
          const written = JSON.parse(new AntigravityMcpStrategy().formatConfig({ github: STDIO_SERVER }));
 

@@ -80,4 +80,40 @@ describe('updateConfig', () => {
          cursor: { enabled: true },
       });
    });
+
+   it('preserves comments when updating config', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(
+         configPath,
+         [
+            '// Project configuration for AI tools',
+            '{',
+            '   // Base configuration to inherit',
+            '   "extends": "github:yokuze/aix-config#main",',
+            '   // Configured editors',
+            '   "editors": {',
+            '      "windsurf": { "enabled": true }',
+            '   }',
+            '}',
+            '',
+         ].join('\n'),
+         'utf-8',
+      );
+
+      await updateConfig(configPath, (cfg) => ({
+         ...cfg,
+         editors: {
+            ...cfg.editors,
+            cursor: { enabled: true },
+         },
+      }));
+
+      const raw = await readFile(configPath, 'utf-8');
+
+      expect(raw).toContain('// Project configuration for AI tools');
+      expect(raw).toContain('// Base configuration to inherit');
+      expect(raw).toContain('// Configured editors');
+      expect(raw).toContain('"cursor"');
+   });
 });

@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
 import { parseTOML } from 'confbox';
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { type McpServerConfig, parseJsonc } from '@a1st/aix-schema';
 import { CodexMcpStrategy } from '../../editors/strategies/codex/mcp.js';
 import { removeFromGlobalMcpConfig } from '../../global/processor.js';
 
@@ -321,6 +321,36 @@ args = [ "-y", "@modelcontextprotocol/server-filesystem" ]
          const removed = await removeFromGlobalMcpConfig(join(testDir, 'missing.toml'), 'server');
 
          expect(removed).toBe(false);
+      });
+
+      it('removes a server from JSON config containing comments and trailing commas', async () => {
+         const jsonPath = join(testDir, 'mcp_config.json'),
+               initialJsonc = [
+                  '// Global MCP config',
+                  '{',
+                  '   // Servers list',
+                  '   "mcpServers": {',
+                  '      "docs": { "url": "https://example.com/mcp" },',
+                  '      "github": { "command": "npx" },',
+                  '   },',
+                  '}',
+               ].join('\n');
+
+         await writeFile(jsonPath, initialJsonc, 'utf-8');
+
+         const removed = await removeFromGlobalMcpConfig(jsonPath, 'github');
+
+         expect(removed).toBe(true);
+
+         const raw = await readFile(jsonPath, 'utf-8');
+
+         expect(raw).toContain('// Global MCP config');
+         expect(raw).toContain('// Servers list');
+
+         const { data: result } = parseJsonc<Record<string, Record<string, unknown>>>(raw);
+
+         expect(result?.mcpServers).toHaveProperty('docs');
+         expect(result?.mcpServers).not.toHaveProperty('github');
       });
    });
 });

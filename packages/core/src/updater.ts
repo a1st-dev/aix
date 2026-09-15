@@ -1,6 +1,6 @@
 import { resolve, dirname, join } from 'pathe';
 import detectIndent from 'detect-indent';
-import { parseConfig, parseLocalConfig, type AiJsonConfig } from '@a1st/aix-schema';
+import { parseConfig, parseLocalConfig, applyJsoncDiff, type AiJsonConfig } from '@a1st/aix-schema';
 import { parseConfigContent } from './discovery.js';
 import { createBackup } from './backup.js';
 import { ConfigNotFoundError } from './errors.js';
@@ -45,10 +45,12 @@ export async function updateConfig(
          updated = await updater(rawConfig),
          validated = parseConfig(updated),
          // Use unique temp file name to avoid collisions (pid + timestamp)
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`;
+         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
+         tabSize = typeof indent === 'string' ? indent.length : indent,
+         output = applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize });
 
    try {
-      await fs.writeFile(tempPath, JSON.stringify(validated, null, indent) + '\n', 'utf-8');
+      await fs.writeFile(tempPath, output, 'utf-8');
       await fs.rename(tempPath, absolutePath);
    } catch (error) {
       if (fs.existsSync(tempPath)) {
@@ -82,16 +84,17 @@ export async function updateLocalConfig(
 
    // Load existing local config or start with empty object
    let existingConfig: Partial<AiJsonConfig> = {},
+       existingContent: string | null = null,
        indent: string | number = DEFAULT_INDENT;
 
    if (fs.existsSync(absolutePath)) {
       if (backup) {
          await createBackup(absolutePath);
       }
-      const content = await fs.readFile(absolutePath, 'utf-8');
+      existingContent = await fs.readFile(absolutePath, 'utf-8');
 
-      existingConfig = parseConfigContent(content) as Partial<AiJsonConfig>;
-      indent = detectIndent(content).indent || DEFAULT_INDENT;
+      existingConfig = parseConfigContent(existingContent) as Partial<AiJsonConfig>;
+      indent = detectIndent(existingContent).indent || DEFAULT_INDENT;
    } else {
       // Ensure parent directory exists
       await fs.mkdir(dirname(absolutePath), { recursive: true });
@@ -100,10 +103,14 @@ export async function updateLocalConfig(
    const updated = await updater(existingConfig),
          // Validate as local config (no extends allowed)
          validated = parseLocalConfig(updated),
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`;
+         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
+         tabSize = typeof indent === 'string' ? indent.length : indent,
+         output = existingContent
+            ? applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize })
+            : JSON.stringify(validated, null, indent) + '\n';
 
    try {
-      await fs.writeFile(tempPath, JSON.stringify(validated, null, indent) + '\n', 'utf-8');
+      await fs.writeFile(tempPath, output, 'utf-8');
       await fs.rename(tempPath, absolutePath);
    } catch (error) {
       if (fs.existsSync(tempPath)) {

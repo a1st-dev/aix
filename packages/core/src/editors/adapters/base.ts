@@ -1,7 +1,7 @@
 import { join, dirname, basename } from 'pathe';
 import { isRecord } from '../../type-guards.js';
 import type { AiJsonConfig, HooksConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
-import { parseJsonc } from '@a1st/aix-schema';
+import { parseJsonc, mergeJsonc } from '@a1st/aix-schema';
 import type {
    EditorAdapter,
    EditorConfig,
@@ -753,10 +753,18 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       try {
          const existingJson = normalizeFlatMcpConfigForMerge(existingParseResult.data),
-               newJson = JSON.parse(newContent) as Record<string, unknown>,
-               merged = deepMergeJson(existingJson, newJson, { resolver: mcpConfigMergeResolver }),
-               mergedContent = JSON.stringify(merged, null, 2) + '\n',
-               action = this.determineAction(existing, mergedContent);
+               newJson = JSON.parse(newContent) as Record<string, unknown>;
+         let mergedContent: string;
+
+         if (existingJson !== existingParseResult.data) {
+            const merged = deepMergeJson(existingJson, newJson, { resolver: mcpConfigMergeResolver });
+
+            mergedContent = JSON.stringify(merged, null, 2) + '\n';
+         } else {
+            mergedContent = mergeJsonc(existing, newJson, { resolver: mcpConfigMergeResolver });
+         }
+
+         const action = this.determineAction(existing, mergedContent);
 
          return { path: filePath, action, content: mergedContent };
       } catch {

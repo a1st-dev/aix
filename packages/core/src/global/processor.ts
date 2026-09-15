@@ -1,11 +1,12 @@
 import { join, dirname } from 'pathe';
 import { parseTOML, stringifyTOML } from 'confbox';
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { parseJsonc, modifyJsonc, removeJsoncProperty, type McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName, EditorConfig } from '../editors/types.js';
 import type { McpStrategy, PromptsStrategy } from '../editors/strategies/types.js';
 import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
+import { isRecord } from '../type-guards.js';
 import { buildStandardServerEntry } from '../editors/strategies/shared/standard-mcp.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
@@ -299,14 +300,24 @@ function buildGenericServerEntry(mcpConfig: McpServerConfig): Record<string, unk
 async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
    const globalPath = change.globalPath,
          format = change.format ?? getFileFormat(globalPath);
-   let existingConfig: Record<string, unknown> = {};
+   let existingConfig: Record<string, unknown> = {},
+       rawContent: string | null = null;
 
    // Read existing config if it exists
    if (getRuntimeAdapter().fs.existsSync(globalPath)) {
       try {
          const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8');
 
-         existingConfig = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>;
+         if (format === 'toml') {
+            existingConfig = parseTOML(content) as Record<string, unknown>;
+         } else {
+            const parsed = parseJsonc<Record<string, unknown>>(content);
+
+            if (parsed.errors.length === 0 && isRecord(parsed.data)) {
+               existingConfig = parsed.data;
+               rawContent = content;
+            }
+         }
       } catch {
          // Start fresh if parse fails
       }
@@ -314,19 +325,26 @@ async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
 
    // MCP server key differs by format: TOML uses mcp_servers, JSON uses mcpServers
    const mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
-         mcpServers = (existingConfig[mcpKey] ?? {}) as Record<string, unknown>;
+         serverEntry = change.mcpEntry ?? (change.mcpConfig ? buildGenericServerEntry(change.mcpConfig) : undefined);
 
-   if (change.mcpConfig) {
-      mcpServers[change.name] = change.mcpEntry ?? buildGenericServerEntry(change.mcpConfig);
+   if (serverEntry) {
+      const mcpServers = (existingConfig[mcpKey] ?? {}) as Record<string, unknown>;
+
+      mcpServers[change.name] = serverEntry;
+      existingConfig[mcpKey] = mcpServers;
    }
-
-   existingConfig[mcpKey] = mcpServers;
 
    // Write back in the correct format
    await getRuntimeAdapter().fs.mkdir(dirname(globalPath), { recursive: true });
-   const output = format === 'toml'
-      ? stringifyTOML(existingConfig)
-      : JSON.stringify(existingConfig, null, 2) + '\n';
+   let output: string;
+
+   if (format === 'toml') {
+      output = stringifyTOML(existingConfig);
+   } else if (rawContent) {
+      output = modifyJsonc(rawContent, [mcpKey, change.name], serverEntry);
+   } else {
+      output = JSON.stringify(existingConfig, null, 2) + '\n';
+   }
 
    await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
 }
@@ -361,9 +379,22 @@ export async function removeFromGlobalMcpConfig(
    const format = getFileFormat(globalPath);
 
    try {
-      const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8'),
-            config = (format === 'toml' ? parseTOML(content) : JSON.parse(content)) as Record<string, unknown>,
-            mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
+      const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8');
+      let config: Record<string, unknown>;
+
+      if (format === 'toml') {
+         config = parseTOML(content) as Record<string, unknown>;
+      } else {
+         const parsed = parseJsonc<Record<string, unknown>>(content);
+
+         if (parsed.errors.length > 0 || !isRecord(parsed.data)) {
+            return false;
+         }
+
+         config = parsed.data;
+      }
+
+      const mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
             mcpServers = config[mcpKey] as Record<string, unknown> | undefined;
 
       if (!mcpServers || !(serverName in mcpServers)) {
@@ -377,7 +408,7 @@ export async function removeFromGlobalMcpConfig(
       // Write back in the correct format
       const output = format === 'toml'
          ? stringifyTOML(config)
-         : JSON.stringify(config, null, 2) + '\n';
+         : removeJsoncProperty(content, [mcpKey, serverName]);
 
       await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
       return true;

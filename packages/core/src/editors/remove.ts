@@ -1,7 +1,7 @@
 import { dirname, join } from 'pathe';
 import { isRecord } from '../type-guards.js';
 import { parseTOML, stringifyTOML } from 'confbox';
-import { parseJsonc } from '@a1st/aix-schema';
+import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
 import { getAdapter } from './install.js';
@@ -101,7 +101,7 @@ function removeFromJsonMcpConfig(content: string, serverName: string): string | 
       delete servers[serverName];
       config[key] = servers;
 
-      return JSON.stringify(config, null, 2) + '\n';
+      return removeJsoncProperty(content, [key, serverName]);
    }
 
    return undefined;
@@ -224,7 +224,8 @@ function removeHookFromConfigContent(
       return undefined;
    }
 
-   let removedCount = 0;
+   let removedCount = 0,
+       currentContent = content;
 
    for (const [ nativeEvent, entries ] of Object.entries(hooks)) {
       if (!Array.isArray(entries)) {
@@ -242,8 +243,10 @@ function removeHookFromConfigContent(
       removedCount += entries.length - kept.length;
       if (kept.length === 0) {
          delete hooks[nativeEvent];
+         currentContent = removeJsoncProperty(currentContent, ['hooks', nativeEvent]);
       } else {
          hooks[nativeEvent] = kept;
+         currentContent = modifyJsonc(currentContent, ['hooks', nativeEvent], kept);
       }
    }
 
@@ -253,9 +256,10 @@ function removeHookFromConfigContent(
 
    if (Object.keys(hooks).length === 0) {
       delete config.hooks;
+      currentContent = removeJsoncProperty(currentContent, ['hooks']);
    }
 
-   return { content: JSON.stringify(config, null, 2) + '\n', removedCount };
+   return { content: currentContent, removedCount };
 }
 
 /**
@@ -346,7 +350,8 @@ function removeFromJsonMarketplacesConfig(content: string, marketplaceName: stri
    }
 
    const config = parsed.data;
-   let changed = false;
+   let changed = false,
+       currentContent = content;
 
    for (const key of MARKETPLACE_KEYS) {
       const marketplaces = config[key];
@@ -354,6 +359,7 @@ function removeFromJsonMarketplacesConfig(content: string, marketplaceName: stri
       if (isRecord(marketplaces) && marketplaceName in marketplaces) {
          delete marketplaces[marketplaceName];
          config[key] = marketplaces;
+         currentContent = removeJsoncProperty(currentContent, [key, marketplaceName]);
          changed = true;
       }
    }
@@ -362,7 +368,7 @@ function removeFromJsonMarketplacesConfig(content: string, marketplaceName: stri
       return undefined;
    }
 
-   return JSON.stringify(config, null, 2) + '\n';
+   return currentContent;
 }
 
 export async function removeMarketplaceFromEditor(
@@ -445,7 +451,8 @@ function removeFromJsonPluginsConfig(content: string, pluginName: string): strin
    }
 
    const config = parsed.data;
-   let changed = false;
+   let changed = false,
+       currentContent = content;
 
    for (const key of PLUGIN_KEYS) {
       const plugins = config[key];
@@ -457,6 +464,7 @@ function removeFromJsonPluginsConfig(content: string, pluginName: string): strin
       for (const pKey of Object.keys(plugins)) {
          if (pKey === pluginName || pKey.startsWith(`${pluginName}@`)) {
             delete plugins[pKey];
+            currentContent = removeJsoncProperty(currentContent, [key, pKey]);
             changed = true;
          }
       }
@@ -470,7 +478,7 @@ function removeFromJsonPluginsConfig(content: string, pluginName: string): strin
       return undefined;
    }
 
-   return JSON.stringify(config, null, 2) + '\n';
+   return currentContent;
 }
 
 export async function removePluginFromEditor(

@@ -1,4 +1,4 @@
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import { GlobalMcpStrategy } from '../shared/global-mcp.js';
 import { isRecord } from '../../../type-guards.js';
 import { buildStandardServerEntry, parseStandardServerEntry } from '../shared/standard-mcp.js';
@@ -52,8 +52,17 @@ function parseWindsurfMcp(content: string): {
          warnings: string[] = [];
 
    try {
-      const config = JSON.parse(content) as { mcpServers?: Record<string, unknown> },
-            servers = config.mcpServers ?? {};
+      const parsed = parseJsonc<{ mcpServers?: Record<string, unknown> }>(content);
+
+      if (parsed.errors.length > 0 || !isRecord(parsed.data)) {
+         const detail = parsed.errors[0]?.message ?? 'expected a JSON object';
+
+         warnings.push(`Failed to parse MCP config: ${detail}`);
+         return { mcp, warnings };
+      }
+
+      const config = parsed.data,
+            servers = isRecord(config.mcpServers) ? config.mcpServers : {};
 
       for (const [name, server] of Object.entries(servers)) {
          const serverConfig = parseWindsurfServerEntry(server);

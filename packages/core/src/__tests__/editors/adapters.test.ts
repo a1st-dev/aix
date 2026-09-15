@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { homedir, tmpdir } from 'node:os';
-import type { AiJsonConfig, McpServerConfig } from '@a1st/aix-schema';
+import { type AiJsonConfig, type McpServerConfig, parseJsonc } from '@a1st/aix-schema';
 import {
    WindsurfAdapter,
    CursorAdapter,
@@ -1012,14 +1012,20 @@ description: Demo skill
          await installToEditor('zed', config, testDir);
 
          const settingsContent = await readFile(settingsPath, 'utf-8');
-         const settings = JSON.parse(settingsContent);
+         const { data: settings } = parseJsonc<Record<string, unknown>>(settingsContent);
+
+         // Comments must be preserved
+         expect(settingsContent).toContain('// Zed settings file');
+         expect(settingsContent).toContain('// user preference');
+
+         const contextServers = settings?.context_servers as Record<string, unknown> | undefined;
 
          // Existing user settings must be preserved
-         expect(settings.theme).toBe('One Dark');
-         expect(settings.font_size).toBe(16);
+         expect(settings?.theme).toBe('One Dark');
+         expect(settings?.font_size).toBe(16);
          // Both MCP servers must be present
-         expect(settings.context_servers['new-server']).toBeDefined();
-         expect(settings.context_servers['old-server']).toBeDefined();
+         expect(contextServers?.['new-server']).toBeDefined();
+         expect(contextServers?.['old-server']).toBeDefined();
       });
 
       it('does not write .rules at project root when targetScope is user', async () => {
