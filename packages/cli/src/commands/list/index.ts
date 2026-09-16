@@ -23,7 +23,7 @@ import {
    type InstalledItemMeta,
    isDisabledConfigValue,
 } from '@a1st/aix-core';
-import { resolveScope } from '@a1st/aix-schema';
+import { resolveScope, type HookAction, type HookMatcher } from '@a1st/aix-schema';
 
 const STATE_SECTIONS: StateSection[] = [
    'mcp',
@@ -62,6 +62,7 @@ type EditorItemInput = {
    path: string | undefined;
    detectedScope: 'project' | 'user' | undefined;
    status?: 'enabled' | 'disabled';
+   managedKey?: string;
 };
 
 export default class List extends BaseCommand<typeof List> {
@@ -644,18 +645,24 @@ export default class List extends BaseCommand<typeof List> {
       if (includesSection(sections, 'hooks') && Object.keys(result.hooks).length > 0) {
          const items: Record<string, unknown> = {};
 
-         for (const event of Object.keys(result.hooks)) {
-            const managed = this.isAixManaged({ editor, name: event, section: 'hooks', projectState, userState });
-            const scope = managed?.scope ?? result.scopes.hooks[event];
+         for (const [event, matchers] of Object.entries(result.hooks)) {
+            const managed = this.isAixManaged({ editor, name: event, section: 'hooks', projectState, userState }),
+                  scope = managed?.scope ?? result.scopes.hooks[event];
 
             if (scopeFilter && scope !== scopeFilter) {
                continue;
             }
-            items[event] = {
-               source: managed ? 'aix' : 'external',
-               scope,
-               path: result.paths.hooks[event],
-            };
+
+            const hookItems = this.flattenHookItems(event, matchers);
+
+            for (const hookItem of hookItems) {
+               items[hookItem.name] = {
+                  source: managed ? 'aix' : 'external',
+                  scope,
+                  path: result.paths.hooks[event],
+                  event,
+               };
+            }
          }
          if (Object.keys(items).length > 0) {
             out.hooks = items;
@@ -826,21 +833,26 @@ export default class List extends BaseCommand<typeof List> {
       }
 
       if (includesSection(sections, 'hooks')) {
-         rows.push(
-            ...Object.keys(result.hooks).flatMap((event) =>
-               this.toEditorItemRow(
-                  {
-                     editor,
-                     type: 'hook',
-                     name: event,
-                     section: 'hooks',
-                     path: result.paths.hooks[event],
-                     detectedScope: result.scopes.hooks[event],
-                  },
-                  context,
-               ),
-            ),
-         );
+         for (const [event, matchers] of Object.entries(result.hooks)) {
+            const hookItems = this.flattenHookItems(event, matchers);
+
+            for (const hookItem of hookItems) {
+               rows.push(
+                  ...this.toEditorItemRow(
+                     {
+                        editor,
+                        type: 'hook',
+                        name: hookItem.name,
+                        section: 'hooks',
+                        path: result.paths.hooks[event],
+                        detectedScope: result.scopes.hooks[event],
+                        managedKey: event,
+                     },
+                     context,
+                  ),
+               );
+            }
+         }
       }
 
       if (includesSection(sections, 'plugins')) {
@@ -891,10 +903,98 @@ export default class List extends BaseCommand<typeof List> {
       return rows;
    }
 
+   private formatHookActionTarget(action: HookAction): string {
+      const rawCommand = action.command ?? action.bash ?? action.powershell,
+            command = rawCommand?.replace(/\s+/g, ' ').trim();
+
+      if (action.name && command) {
+         return `${action.name}: ${command}`;
+      }
+
+      if (action.name && action.url) {
+         return `${action.name}: ${action.url}`;
+      }
+
+      if (action.name && action.prompt) {
+         const prompt = action.prompt.replace(/\s+/g, ' ').trim(),
+               displayPrompt = prompt.length > 60 ? `${prompt.slice(0, 57)}...` : prompt;
+
+         return `${action.name}: prompt "${displayPrompt}"`;
+      }
+
+      if (action.name && action.mcp_tool) {
+         const server = action.mcp_server ? `${action.mcp_server}/` : '';
+
+         return `${action.name}: mcp ${server}${action.mcp_tool}`;
+      }
+
+      if (action.name) {
+         return action.name;
+      }
+
+      if (command) {
+         return command;
+      }
+
+      if (action.url) {
+         return `http ${action.url}`;
+      }
+
+      if (action.prompt) {
+         const prompt = action.prompt.replace(/\s+/g, ' ').trim(),
+               displayPrompt = prompt.length > 60 ? `${prompt.slice(0, 57)}...` : prompt;
+
+         return `prompt "${displayPrompt}"`;
+      }
+
+      if (action.mcp_tool) {
+         const server = action.mcp_server ? `${action.mcp_server}/` : '';
+
+         return `mcp ${server}${action.mcp_tool}`;
+      }
+
+      return action.description ?? 'hook';
+   }
+
+   private formatHookItemName(event: string, matcher?: string, action?: HookAction): string {
+      const matcherPart = matcher ? ` [${matcher}]` : '';
+
+      if (!action) {
+         return `${event}${matcherPart}`;
+      }
+
+      const target = this.formatHookActionTarget(action);
+
+      return `${event}${matcherPart} -> ${target}`;
+   }
+
+   private flattenHookItems(event: string, matchers: HookMatcher[]): Array<{ name: string }> {
+      if (!matchers || matchers.length === 0) {
+         return [ { name: event } ];
+      }
+
+      const items: Array<{ name: string }> = [];
+
+      for (const matcher of matchers) {
+         const hooks = matcher.hooks ?? [];
+
+         if (hooks.length === 0) {
+            items.push({ name: this.formatHookItemName(event, matcher.matcher) });
+            continue;
+         }
+
+         for (const action of hooks) {
+            items.push({ name: this.formatHookItemName(event, matcher.matcher, action) });
+         }
+      }
+
+      return items.length > 0 ? items : [ { name: event } ];
+   }
+
    private toEditorItemRow(input: EditorItemInput, context: EditorListContext): EditorItemRow[] {
-      const { editor, type, name, section, path, detectedScope, status = 'enabled' } = input,
-            { scopeFilter, projectState, userState } = context;
-      const managed = this.isAixManaged({ editor, name, section, projectState, userState }),
+      const { editor, type, name, section, path, detectedScope, status = 'enabled', managedKey } = input,
+            { scopeFilter, projectState, userState } = context,
+            managed = this.isAixManaged({ editor, name: managedKey ?? name, section, projectState, userState }),
             scope = detectedScope ?? managed?.scope;
 
       if (scopeFilter && scope !== scopeFilter) {

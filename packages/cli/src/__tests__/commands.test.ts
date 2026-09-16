@@ -1189,8 +1189,41 @@ describe('CLI Commands', () => {
          const { error, stdout } = await runCli(['list', 'hooks', '--target', 'claude-code'], { root });
 
          expect(error).toBeUndefined();
-         expect(stdout).toContain('pre_file_write');
+         expect(stdout).toContain('pre_file_write -> ./scripts/guard.sh');
          expect(stdout).toContain('claude-code');
+      });
+
+      it('lists multiple hooks associated with the same hook type as separate rows', async () => {
+         const fakeHome = join(testDir, 'fake-home-multi'),
+               hookFile = join(testDir, 'hooks.json');
+
+         process.env.HOME = fakeHome;
+         await writeFile(
+            hookFile,
+            JSON.stringify({
+               hooks: {
+                  pre_command: [
+                     {
+                        hooks: [
+                           { command: 'npm run lint' },
+                           { command: 'npm test' },
+                        ],
+                     },
+                  ],
+               },
+            }),
+         );
+         await runCli(
+            [ 'add', 'hook', hookFile, '--target', 'claude-code' ],
+            { root },
+         );
+
+         const { error, stdout } = await runCli([ 'list', 'hooks', '--target', 'claude-code' ], { root });
+
+         expect(error).toBeUndefined();
+         expect(stdout).toContain('pre_command -> npm run lint');
+         expect(stdout).toContain('pre_command -> npm test');
+         expect(stdout).toContain('claude-code 2 items');
       });
    });
 
