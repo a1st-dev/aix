@@ -177,25 +177,25 @@ A fragment names its event alongside the actions:
 aix add plugin <source> [flags]
 ```
 
-Adds a plugin to `ai.json` and configures it in target editors. If the target editor does not natively support plugins, its bundled skills, rules, and MCP servers are automatically unpacked and installed.
+Adds a plugin to target editors (and saves to `ai.json` with `--save`).
 
 **Flags:**
 
-- `--name <name>` / `-n`: Plugin name or identifier.
-- `--spec <spec>`: Plugin version specification or tag.
-- `--plugin-version <version>`: Explicit semantic version.
-- `--path <path>`: Subdirectory path within a plugin repository.
-- `--disabled`: Add the plugin in a disabled state (`false`).
+- `--name <name>` / `-n`: Plugin name or identifier override.
+- `--marketplace <name>` / `-m`: Marketplace name where plugin is published.
+- `--save` / `-s`: Also save the plugin to `ai.json`.
 - `--no-install`: Skip installing to editors after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--target <editor>` / `-t`: Target specific editors (repeatable).
 - `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
 **Examples:**
 
 ```bash
-aix add plugin skill-creator@claude-plugins-official
-aix add plugin ./plugins/my-helper
-aix add plugin https://github.com/my-org/code-plugin --name code-plugin
+aix add plugin code-review
+aix add plugin code-review@claude-plugins-official
+aix add plugin code-review --marketplace custom-market
+aix add plugin ./plugins/local-plugin --name my-plugin
 ```
 
 ### `aix add marketplace`
@@ -209,10 +209,11 @@ Registers a plugin marketplace or catalog in `ai.json`.
 **Flags:**
 
 - `--name <name>` / `-n`: Marketplace name (inferred from URL or repo if omitted).
-- `--type <type>`: Marketplace type (`git`, `npm`, or `url`).
-- `--disabled`: Add marketplace in disabled state.
+- `--description <desc>` / `-d`: Optional description of the marketplace.
+- `--save` / `-s`: Also save the marketplace to `ai.json`.
 - `--no-install`: Skip installing to editors after adding.
 - `--local` / `-l`: Add to `ai.local.json`.
+- `--target <editor>` / `-t`: Target specific editors (repeatable).
 - `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`): Target user-level or project-level config.
 
 **Examples:**

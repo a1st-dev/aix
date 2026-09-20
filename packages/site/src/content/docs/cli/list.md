@@ -16,25 +16,25 @@ aix list [subcommand]
 
 ## Commands
 
-- `aix list skills`: Show configured skills.
-- `aix list mcp`: Show configured MCP servers and their status.
-- `aix list rules`: Show active rules and activation modes.
-- `aix list prompts`: Show configured prompts.
-- `aix list agents`: Show configured agents, their modes, models, and references.
-- `aix list hooks`: Show configured hooks, their matchers, and what each one runs.
-- `aix list plugins`: Show installed plugins.
-- `aix list marketplaces`: Show registered plugin marketplaces.
-- `aix list editors`: Show detected/configured editors.
+- `aix list:skills` (or `aix list --only skills`): Show configured skills.
+- `aix list:mcp` (or `aix list --only mcp`): Show configured MCP servers and their status.
+- `aix list:rules` (or `aix list --only rules`): Show active rules and activation modes.
+- `aix list:prompts` (or `aix list --only prompts`): Show configured prompts.
+- `aix list:agents` (or `aix list --only agents`): Show configured agents, their modes, models, and references.
+- `aix list:hooks` (or `aix list --only hooks`): Show configured hooks, their matchers, and what each one runs.
+- `aix list:plugins` (or `aix list --only plugins`): Show installed plugins.
+- `aix list:marketplaces` (or `aix list --only marketplaces`): Show registered plugin marketplaces.
+- `aix list:editors` (or `aix list --only editors`): Show detected/configured editors.
 
 ## Flags
 
-| Flag                                                     | Description                                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `--only <field>`                                         | Filter by section: `rules`, `prompts`, `mcp`, `skills`, `agents`, `hooks`, `editors`. |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Select user or project editor config. The default is user.                            |
-| `--all`                                                  | List both user and project editor config.                                             |
-| `--target <name>` / `-t`                                 | Limit output to specific editors. Repeatable.                                         |
-| `--json`                                                 | Output as JSON.                                                                       |
+| Flag                                                     | Description                                                                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `--only <field>`                                         | Filter by section: `rules`, `prompts`, `mcp`, `skills`, `agents`, `hooks`, `plugins`, `marketplaces`, `editors`. Repeatable. |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Select user or project editor config. The default is user.                                                                   |
+| `--all`                                                  | List both user and project editor config.                                                                                    |
+| `--target <name>` / `-t`                                 | Limit output to specific editors. Repeatable.                                                                                |
+| `--json`                                                 | Output as JSON.                                                                                                              |
 
 Every list command scans native editor files. This includes items installed by hand or another
 tool, symlinked skills, MCP servers, rules, prompts, agents, hooks, plugins, and marketplaces.

@@ -89,7 +89,7 @@ aix search playwright                 # Search for MCP servers and skills
 aix install github:org/config         # Install remote config
 aix install playwright --type mcp --target claude-code --user # Direct install
 aix install --lock                    # Refresh ai.lock.json, then install
-aix install --save --only mcp         # Merge specific sections
+aix install github:org/config --save --only mcp # Merge specific sections from remote
 aix add skill ./skills/custom         # Add a skill and install to editors
 aix add skill github/awesome-copilot/typescript-mcp-server-generator # Add from a repo path
 aix add mcp playwright                # Add MCP server from registry
@@ -105,9 +105,10 @@ aix remove skill typescript           # Remove a skill and uninstall from editor
 aix remove mcp playwright             # Remove an MCP server
 aix remove agent reviewer             # Remove an agent
 aix remove hook pre_command           # Remove a hook and uninstall from editors
-aix list skills                       # List configured skills (or mcp, rules, prompts, agents, hooks, editors)
+aix list:skills                       # List installed skills (or mcp, rules, prompts, agents, hooks, editors)
+aix list --only skills                # Filter list output by section
 aix list --scope user                 # List user-scoped config only
-aix list --all --editor copilot       # Show actual editor config, including externally managed items
+aix list --all --target copilot       # Show actual editor config, including externally managed items
 ```
 
 Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to target user-level or project-level config.

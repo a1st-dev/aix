@@ -23,7 +23,7 @@ These flags are available on all commands:
 - **Management**: `add`, `remove`, `list`
 - **Discovery**: `search`
 - **Config**: `config get`, `config set`, `config show`
-- **System**: `cache`, `backups`, `global`
+- **System**: `cache`, `backups`
 
 `init --from` and `sync` sound similar, but they solve different problems:
 
