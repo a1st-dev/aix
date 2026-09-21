@@ -36,6 +36,6 @@
       "test:watch": "vitest"
    },
    "dependencies": {
-      "p-map": "7.0.4"
+      "p-map": "7.0.8"
    }
 }
