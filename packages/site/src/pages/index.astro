@@ -22,7 +22,7 @@ import '../styles/landing.css';
 const supportedEditorsText = formatEditorNameList(editorSupportProfiles);
 const title = 'aix — One config file. Every AI editor.';
 const description =
-  `Define your skills, rules, prompts, and MCP servers once in ai.json. Install to ${supportedEditorsText} with one command.`;
+  `Define your skills, rules, prompts, subagents, MCP servers, hooks, and plugins once in ai.json. Install to ${supportedEditorsText} with one command.`;
 const siteUrl = 'https://aix.a1st.dev';
 const ogImageUrl = `${siteUrl}/og/index.png`;
 ---
@@ -102,19 +102,20 @@ const ogImageUrl = `${siteUrl}/og/index.png`;
           Define your
           <a target="_blank" href="https://agentskills.io/home" class="highlight">skills</a>,
           <a target="_blank" href="https://cursor.com/docs/context/rules" class="highlight">rules</a>,
-          <a target="_blank" href="https://cursor.com/docs/context/commands" class="highlight">prompts</a>, and
-          <a target="_blank" href="https://modelcontextprotocol.io/specification/2025-11-25" class="highlight">MCP servers</a> in
+          <a target="_blank" href="https://cursor.com/docs/context/commands" class="highlight">prompts</a>,
+          <a href="/concepts/agents/" class="highlight">subagents</a>,
+          <a target="_blank" href="https://modelcontextprotocol.io/specification/2025-11-25" class="highlight">MCP servers</a>,
+          <a href="/concepts/hooks/" class="highlight">hooks</a>, and
+          <a href="/concepts/plugins/" class="highlight">plugins</a> in
           <code>ai.json</code>. Install to {supportedEditorsText} with one command.
         </p>
         <div class="hero__terminal">
           <TerminalBlock
             lines={[
               "$ npm install -g @a1st/aix",
-              "$ aix init",
-              "✓ Created ai.json",
               "$ aix add skill github:obra/superpowers:skills/brainstorming",
               "✓ Added skill brainstorming",
-              "$ aix install --to claude-code",
+              "$ aix sync cursor --to claude-code",
               "✓ Claude Code — 1 rule",
             ]}
             typing
