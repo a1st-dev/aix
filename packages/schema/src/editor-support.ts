@@ -479,7 +479,7 @@ export const editorSupportProfiles = [
       migrationPitch: 'Claude Code is the easiest target when you need native hooks and native prompts together.',
       notes: [
          'Claude Code supports more lifecycle hook events than any other supported editor.',
-         'Its native repo instruction file is `CLAUDE.md`, not `AGENTS.md`.',
+         'Natively reads `AGENTS.md` instructions in repository roots when `CLAUDE.md` is not present (or alongside it when configured).',
          'The `task_created` and `task_completed` hooks only fire when the todo and task tools are available. Since Claude Code 2.1.233 that means setting `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` on Opus 4.8, Sonnet 5, Fable 5, Mythos 5, and newer models.',
       ],
       terminology: [
@@ -587,11 +587,11 @@ export const editorSupportProfiles = [
          ),
          'agents-md': feature(
             'agents-md',
-            'unsupported',
-            'CLAUDE.md',
-            'Claude Code uses `CLAUDE.md` instead of AGENTS.md.',
-            unsupportedScope('Use `CLAUDE.md` for repository instructions.'),
-            unsupportedScope('Use `~/.claude/CLAUDE.md` for home-scoped instructions.'),
+            'native',
+            'AGENTS.md',
+            'Claude Code natively reads AGENTS.md in repository roots when CLAUDE.md is not present.',
+            nativeScope('AGENTS.md'),
+            unsupportedScope('Claude Code uses ~/.claude/CLAUDE.md for home-scoped instructions.'),
          ),
          'agents-dir': feature(
             'agents-dir',

@@ -180,6 +180,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          success: true,
          changes: [],
          errors: [],
+         warnings: [],
       };
 
       const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'plugins', 'marketplaces', 'editors'];

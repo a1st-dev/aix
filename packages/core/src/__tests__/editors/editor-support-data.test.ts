@@ -34,6 +34,13 @@ describe('editor support data', () => {
       expect(uniquePairs.size).to.eql(pairCount);
    });
 
+   it('marks agents-md as native for claude-code', () => {
+      const profile = editorSupportProfileMap['claude-code'];
+
+      expect(profile.features['agents-md'].summary).to.eql('native');
+      expect(profile.features['agents-md'].project.status).to.eql('native');
+   });
+
    describe('hooks supportedValues align with strategy event maps', () => {
       const hookStrategies: Partial<Record<typeof supportedEditorNames[number], HooksStrategy>> = {
          'claude-code': new ClaudeCodeHooksStrategy(),

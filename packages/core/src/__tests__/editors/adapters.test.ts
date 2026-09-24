@@ -26,6 +26,7 @@ import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
 import { isCI } from '../../env/index.js';
 import { safeRm } from '../../fs/safe-rm.js';
 import { AIX_SECTION_BEGIN, AIX_SECTION_END } from '../../editors/section-managed-markdown.js';
+import { CLAUDE_FALLBACK_WARNING } from '../../editors/strategies/claude-code/index.js';
 
 const createMcpServer = (command: string, args: string[] = []): McpServerConfig => {
    const config: Record<string, unknown> = { command };
@@ -526,6 +527,63 @@ describe('Editor Adapters', () => {
          expect(typescriptContent).toContain('paths:');
          expect(typescriptContent).toContain('Use TypeScript carefully.');
          expect(testingContent).toContain('Run relevant tests.');
+      });
+
+      it('detects Claude Code when .claude directory exists', async () => {
+         await mkdir(join(testDir, '.claude'), { recursive: true });
+
+         expect(await adapter.detect(testDir)).toStrictEqual(true);
+      });
+
+      it('detects Claude Code when CLAUDE.md exists in project root', async () => {
+         await writeFile(join(testDir, 'CLAUDE.md'), '# Claude Rules\n', 'utf-8');
+
+         expect(await adapter.detect(testDir)).toStrictEqual(true);
+      });
+
+      it('does not detect Claude Code when neither .claude nor CLAUDE.md exists', async () => {
+         expect(await adapter.detect(testDir)).toStrictEqual(false);
+      });
+
+      it('warns when both AGENTS.md and a fallback CLAUDE.md exist', async () => {
+         await writeFile(join(testDir, 'AGENTS.md'), '# Agent Guidelines\n', 'utf-8');
+         await writeFile(join(testDir, 'CLAUDE.md'), '@AGENTS.md\n', 'utf-8');
+
+         const config = createConfig({
+            rules: {
+               standard: {
+                  activation: 'always',
+                  content: 'Standard rule',
+               },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir);
+
+         expect(result.warnings).toBeDefined();
+         expect(result.warnings).toContain(CLAUDE_FALLBACK_WARNING);
+      });
+
+      it('does not warn when CLAUDE.md contains substantive instructions', async () => {
+         await writeFile(join(testDir, 'AGENTS.md'), '# Agent Guidelines\n', 'utf-8');
+         await writeFile(
+            join(testDir, 'CLAUDE.md'),
+            '# Project Instructions\n\n@AGENTS.md\n\n## Custom instructions\nRun npm test\n',
+            'utf-8',
+         );
+
+         const config = createConfig({
+            rules: {
+               standard: {
+                  activation: 'always',
+                  content: 'Standard rule',
+               },
+            },
+         });
+
+         const result = await installToEditor('claude-code', config, testDir);
+
+         expect(result.warnings ?? []).not.toContain(CLAUDE_FALLBACK_WARNING);
       });
    });
 

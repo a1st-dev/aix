@@ -741,6 +741,11 @@ export default class Install extends BaseCommand<typeof Install> {
       targetScope: ConfigScope = 'project',
    ): void {
       const showWarnings = (): void => {
+         if (!this.flags.quiet) {
+            for (const warning of result.warnings ?? []) {
+               this.output.warn(warning);
+            }
+         }
          showUnsupportedFeatureWarnings(this.output, this.flags.quiet, editor, result.unsupportedFeatures);
          showTargetScopeLimitationWarnings({
             output: this.output,

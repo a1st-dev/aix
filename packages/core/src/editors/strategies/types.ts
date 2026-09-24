@@ -8,6 +8,7 @@ import type {
 } from '@a1st/aix-schema';
 import type { EditorAgent, EditorPrompt, EditorRule, FileChange } from '../types.js';
 import type { NamedRule } from '../../import-writer.js';
+export type { NamedRule };
 
 /**
  * Result of parsing editor-specific frontmatter for rules.

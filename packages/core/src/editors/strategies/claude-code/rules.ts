@@ -1,7 +1,10 @@
+import { join } from 'pathe';
 import type { ActivationMode } from '@a1st/aix-schema';
-import type { ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
+import type { ImportedRulesResult, NamedRule, ParsedRuleFrontmatter, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../frontmatter-utils.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
+import { isFallbackClaudeMd } from './fallback.js';
 
 /**
  * Claude Code rules strategy. Uses markdown files with optional YAML frontmatter. Only adds
@@ -31,6 +34,93 @@ export class ClaudeCodeRulesStrategy implements RulesStrategy {
          rules.push(content.trim());
       }
       return { rules, warnings: [] };
+   }
+
+   async importProjectRules(projectRoot: string, editorConfigDir: string = '.claude'): Promise<ImportedRulesResult> {
+      const warnings: string[] = [],
+            rulesDir = join(projectRoot, editorConfigDir, this.getRulesDir()),
+            ext = this.getFileExtension();
+
+      try {
+         const files = await getRuntimeAdapter().fs.readdir(rulesDir),
+               ruleFiles = files.filter((f) => {
+                  return f.endsWith(ext);
+               }),
+               loadedRules = await Promise.all(
+                  ruleFiles.map(async (file) => {
+                     try {
+                        const filePath = join(rulesDir, file),
+                              content = await getRuntimeAdapter().fs.readFile(filePath, 'utf-8'),
+                              name = file.slice(0, -ext.length);
+
+                        return { content, name, path: filePath, scope: 'project' as const };
+                     } catch {
+                        return null;
+                     }
+                  }),
+               ),
+               rules: NamedRule[] = [],
+               paths: Record<string, string> = {},
+               scopes: Record<string, 'project'> = {};
+
+         for (const rule of loadedRules) {
+            if (rule) {
+               rules.push(rule);
+               paths[rule.name] = rule.path;
+               scopes[rule.name] = 'project';
+            }
+         }
+
+         if (rules.length > 0) {
+            return { rules, paths, scopes, warnings };
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read local rules from ${rulesDir}: ${(err as Error).message}`);
+         }
+      }
+
+      // If no granular rules found, check CLAUDE.md if it is not a fallback pointer to AGENTS.md
+      const claudeMdPath = join(projectRoot, 'CLAUDE.md');
+
+      try {
+         const content = await getRuntimeAdapter().fs.readFile(claudeMdPath, 'utf-8');
+
+         if (content.trim() && !isFallbackClaudeMd(content)) {
+            return {
+               rules: [ { content: content.trim(), name: 'CLAUDE', path: claudeMdPath, scope: 'project' } ],
+               paths: { CLAUDE: claudeMdPath },
+               scopes: { CLAUDE: 'project' },
+               warnings,
+            };
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read rules from ${claudeMdPath}: ${(err as Error).message}`);
+         }
+      }
+
+      // Finally check root AGENTS.md
+      const agentsMdPath = join(projectRoot, 'AGENTS.md');
+
+      try {
+         const content = await getRuntimeAdapter().fs.readFile(agentsMdPath, 'utf-8');
+
+         if (content.trim()) {
+            return {
+               rules: [ { content: content.trim(), name: 'AGENTS', path: agentsMdPath, scope: 'project' } ],
+               paths: { AGENTS: agentsMdPath },
+               scopes: { AGENTS: 'project' },
+               warnings,
+            };
+         }
+      } catch (err) {
+         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            warnings.push(`Failed to read rules from ${agentsMdPath}: ${(err as Error).message}`);
+         }
+      }
+
+      return { rules: [], paths: {}, scopes: {}, warnings };
    }
 
    formatRule(rule: EditorRule): string {

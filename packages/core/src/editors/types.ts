@@ -291,6 +291,7 @@ export interface ApplyResult {
    success: boolean;
    changes: FileChange[];
    errors: string[];
+   warnings?: string[];
    /** Features that were skipped because the editor doesn't support them */
    unsupportedFeatures?: UnsupportedFeatures;
    /** Features skipped because the requested target scope cannot accept them */

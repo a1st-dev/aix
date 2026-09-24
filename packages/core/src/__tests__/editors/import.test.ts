@@ -296,6 +296,68 @@ describe('Editor Config Import', () => {
          }
       });
 
+      it('imports project rules from .claude/rules/*.md', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-claude-rules-'));
+
+         try {
+            await mkdir(join(projectRoot, '.claude', 'rules'), { recursive: true });
+            await writeFile(
+               join(projectRoot, '.claude', 'rules', 'typescript.md'),
+               '---\ndescription: "TS"\n---\nUse strict types.\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('claude-code', { projectRoot, scope: 'project' });
+
+            expect(result.rules).toHaveLength(1);
+            expect(result.rules[0]?.name).toBe('typescript');
+            expect(result.rules[0]?.content).toContain('Use strict types.');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports project rules from CLAUDE.md when no .claude/rules exist', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-claude-claudemd-'));
+
+         try {
+            await writeFile(
+               join(projectRoot, 'CLAUDE.md'),
+               '# Project Rules\n\nRun npm test before committing.\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('claude-code', { projectRoot, scope: 'project' });
+
+            expect(result.rules).toHaveLength(1);
+            expect(result.rules[0]?.name).toBe('CLAUDE');
+            expect(result.rules[0]?.content).toContain('Run npm test before committing.');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
+      it('imports project rules from AGENTS.md when CLAUDE.md is a fallback pointer', async () => {
+         const projectRoot = await mkdtemp(join(tmpdir(), 'aix-claude-fallback-agents-'));
+
+         try {
+            await writeFile(join(projectRoot, 'CLAUDE.md'), '@AGENTS.md\n', 'utf-8');
+            await writeFile(
+               join(projectRoot, 'AGENTS.md'),
+               '# Agent Rules\n\nFollow project conventions.\n',
+               'utf-8',
+            );
+
+            const result = await importFromEditor('claude-code', { projectRoot, scope: 'project' });
+
+            expect(result.rules).toHaveLength(1);
+            expect(result.rules[0]?.name).toBe('AGENTS');
+            expect(result.rules[0]?.content).toContain('Follow project conventions.');
+         } finally {
+            await rm(projectRoot, { recursive: true, force: true });
+         }
+      });
+
       it('imports user-scoped Cursor hooks into generic hook events', async () => {
          const projectRoot = await mkdtemp(join(tmpdir(), 'aix-cursor-hooks-import-')),
                fakeHome = join(projectRoot, 'fake-home');

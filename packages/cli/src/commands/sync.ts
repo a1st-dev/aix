@@ -144,6 +144,11 @@ export default class Sync extends BaseCommand<typeof Sync> {
             blankAfterEachGroup: true,
             showWarningsWithoutEntries: true,
          });
+         if (!this.flags.quiet) {
+            for (const warning of result.warnings ?? []) {
+               this.output.warn(warning);
+            }
+         }
          showUnsupportedFeatureWarnings(this.output, this.flags.quiet, to, result.unsupportedFeatures);
          showTargetScopeLimitationWarnings({
             output: this.output,

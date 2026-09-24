@@ -1,7 +1,7 @@
 import type { AiJsonConfig, HooksConfig } from '@a1st/aix-schema';
 import { basename, join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, FileChange, ApplyOptions, EditorRule } from '../types.js';
+import type { EditorConfig, FileChange, ApplyOptions, ApplyResult, EditorRule } from '../types.js';
 import {
    ClaudeCodeRulesStrategy,
    ClaudeCodeMcpStrategy,
@@ -9,6 +9,8 @@ import {
    ClaudeCodeHooksStrategy,
    ClaudeCodePluginsStrategy,
    ClaudeCodeMarketplacesStrategy,
+   isFallbackClaudeMd,
+   CLAUDE_FALLBACK_WARNING,
 } from '../strategies/claude-code/index.js';
 import {
    MarkdownAgentsStrategy,
@@ -43,6 +45,16 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
          linux: ['.claude', '.claude.json'],
          win32: ['.claude', '.claude.json'],
       };
+   }
+
+   override async detect(projectRoot: string): Promise<boolean> {
+      const configDir = join(projectRoot, this.configDir),
+            claudeMd = join(projectRoot, 'CLAUDE.md');
+
+      return (
+         getRuntimeAdapter().fs.existsSync(configDir) ||
+         getRuntimeAdapter().fs.existsSync(claudeMd)
+      );
    }
 
    protected readonly rulesStrategy: RulesStrategy = new ClaudeCodeRulesStrategy();
@@ -86,6 +98,37 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
     */
    private extractHooks(config: AiJsonConfig): HooksConfig | undefined {
       return config.hooks;
+   }
+
+   override async apply(
+      editorConfig: EditorConfig,
+      projectRoot: string,
+      options: ApplyOptions = {},
+   ): Promise<ApplyResult> {
+      const result = await super.apply(editorConfig, projectRoot, options);
+
+      if (options.targetScope !== 'user') {
+         const claudeMdPath = join(projectRoot, 'CLAUDE.md'),
+               agentsMdPath = join(projectRoot, 'AGENTS.md');
+
+         if (
+            getRuntimeAdapter().fs.existsSync(claudeMdPath) &&
+            getRuntimeAdapter().fs.existsSync(agentsMdPath)
+         ) {
+            try {
+               const content = await getRuntimeAdapter().fs.readFile(claudeMdPath, 'utf-8');
+
+               if (isFallbackClaudeMd(content)) {
+                  result.warnings = result.warnings ?? [];
+                  result.warnings.push(CLAUDE_FALLBACK_WARNING);
+               }
+            } catch {
+               // Ignore unreadable CLAUDE.md
+            }
+         }
+      }
+
+      return result;
    }
 
    protected override async planChanges(
