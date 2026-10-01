@@ -38,7 +38,7 @@ aix maps these prompts to the native feature in each editor when one exists:
   are converted into Copilot skills under `~/.config/github-copilot/skills/`.
 - **Windsurf**: Maps to Cascade commands.
 - **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
-- **Antigravity**: Maps to markdown workflow files in `.agents/workflows/` with `description` frontmatter.
+- **Antigravity**: Standalone workflows are deprecated upstream; aix converts prompts to instruction-only Agent Skills in `.agents/skills/` during install.
 - **OpenCode**: Maps to markdown command files in `.opencode/commands/` or `~/.config/opencode/commands/`.
 - **Grok CLI**: Prompts are converted to instruction-only Agent Skills in `.grok/skills/`.
 - **Zed**: Not supported.
@@ -77,10 +77,10 @@ To install one prompt without creating `ai.json`, use direct install:
 aix install ./prompts/review.md --type prompt --name review --target claude-code --user
 ```
 
-## Codex conversion
+## Codex and Antigravity conversion
 
-Codex uses [Agent Skills][codex-skills] for reusable workflows. When you install an `ai.json` that contains prompts to Codex, aix converts each prompt into a skill and links it into `.agents/skills/`. The generated skill keeps the prompt content as instructions and includes the prompt description as the skill description.
+Editors like Codex and Antigravity use [Agent Skills][agent-skills] for reusable workflows (with Antigravity having deprecated standalone `.agents/workflows/` files in favor of skills). When you install an `ai.json` that contains prompts to Codex or Antigravity, aix converts each prompt into an instruction-only skill and links it into `.agents/skills/`. The generated skill keeps the prompt content as instructions and includes the prompt description as the skill description.
 
 Name conflicts are resolved in favor of real skills. If `skills.review` and `prompts.review` are both present, aix installs the configured skill as `review` and installs the converted prompt as `prompt-review`. If that name is already taken, aix adds a numeric suffix.
 
-[codex-skills]: https://developers.openai.com/codex/skills
+[agent-skills]: https://agentskills.io

@@ -981,16 +981,16 @@ export const editorSupportProfiles = [
    {
       id: 'antigravity',
       name: 'Google Antigravity',
-      summary: 'Native .agents/ rules, workflows, MCP config, skills, and hooks.',
+      summary: 'Native .agents/ rules, skills, MCP config, and hooks, with prompts converted to skills.',
       migrationPitch: "Antigravity is Google DeepMind's agent-first platform with unified .agents/ configuration.",
       notes: [
          'Antigravity standardizes on the project-level `.agents/` directory.',
-         'Workflows are stored as markdown files with YAML frontmatter in `.agents/workflows/`.',
+         'Workflows are deprecated upstream in favor of Agent Skills; aix converts prompts into instruction-only skills during install.',
          'MCP configuration is stored in `.agents/mcp_config.json`.',
       ],
       terminology: [
          { featureId: 'rules', aixTerm: 'Rules', editorTerm: '.agents/rules/' },
-         { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Workflows' },
+         { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Skills' },
       ],
       features: {
          rules: feature(
@@ -1006,11 +1006,14 @@ export const editorSupportProfiles = [
          ),
          prompts: feature(
             'prompts',
-            'native',
-            'Workflows',
-            'Markdown workflow files with `description` frontmatter in `.agents/workflows/`.',
-            nativeScope('.agents/workflows/*.md'),
-            nativeScope('~/.gemini/config/workflows/*.md'),
+            'shim',
+            'Skills',
+            'Prompt-to-skill conversion during install (workflows deprecated).',
+            shimScope('.agents/skills/prompt-{name}/', 'Prompts are installed as instruction-only Agent Skills.'),
+            shimScope('~/.gemini/config/skills/prompt-{name}/', 'User-scoped prompts are also converted to skills.'),
+            {
+               notes: [ 'Legacy `.agents/workflows/` files are deprecated upstream in favor of Agent Skills.' ],
+            },
          ),
          agents: feature(
             'agents',

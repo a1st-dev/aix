@@ -4,6 +4,7 @@ import { ClaudeCodePromptsStrategy } from '../../editors/strategies/claude-code/
 import { CursorPromptsStrategy } from '../../editors/strategies/cursor/prompts.js';
 import { WindsurfPromptsStrategy } from '../../editors/strategies/windsurf/prompts.js';
 import { CopilotPromptsStrategy } from '../../editors/strategies/copilot/prompts.js';
+import { AntigravityPromptsStrategy } from '../../editors/strategies/antigravity/prompts.js';
 import { CodexPromptsStrategy } from '../../editors/strategies/codex/prompts.js';
 import { ZedPromptsStrategy } from '../../editors/strategies/zed/prompts.js';
 import { NoPromptsStrategy } from '../../editors/strategies/shared/no-prompts.js';
@@ -161,6 +162,41 @@ describe('PromptsStrategy implementations', () => {
          expect(parseYamlValue(lines, 'name')).toBe('review');
          expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
          expect(parseYamlValue(lines, 'argument-hint')).toBe('[file-path] [context]');
+         expect(content).toBe('Review the code for potential issues.');
+      });
+   });
+
+   describe('AntigravityPromptsStrategy', () => {
+      const strategy = new AntigravityPromptsStrategy();
+
+      it('does not support prompt deployment', () => {
+         expect(strategy.isSupported()).toBe(false);
+      });
+
+      it('returns workflows for prompts directory', () => {
+         expect(strategy.getPromptsDir()).toBe('workflows');
+      });
+
+      it('returns .md file extension', () => {
+         expect(strategy.getFileExtension()).toBe('.md');
+      });
+
+      it('returns global workflows path', () => {
+         expect(strategy.getGlobalPromptsPath()).toBe('.gemini/config/workflows');
+      });
+
+      it('formats prompt with description frontmatter', () => {
+         const prompt = createPrompt({
+                  description: 'Review: code safety',
+                  argumentHint: '[file-path]',
+               }),
+               formatted = strategy.formatPrompt(prompt),
+               { frontmatter, content, hasFrontmatter } = extractFrontmatter(formatted),
+               lines = frontmatter.split('\n');
+
+         expect(hasFrontmatter).toBe(true);
+         expect(formatted).toContain('description: "Review: code safety"');
+         expect(parseYamlValue(lines, 'description')).toBe('Review: code safety');
          expect(content).toBe('Review the code for potential issues.');
       });
    });

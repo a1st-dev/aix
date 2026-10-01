@@ -1,7 +1,7 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, EditorRule, FileChange, ApplyOptions } from '../types.js';
+import type { EditorConfig, EditorRule, FileChange, ApplyOptions, UnsupportedFeatures } from '../types.js';
 import {
    AntigravityRulesStrategy,
    AntigravityMcpStrategy,
@@ -15,6 +15,7 @@ import {
    PluginCompatibilityStrategy,
    formatPlainMarkdownRule,
 } from '../strategies/shared/index.js';
+import { installPromptsAsSkills } from '../prompt-skill-installer.js';
 import type {
    RulesStrategy,
    McpStrategy,
@@ -33,7 +34,7 @@ import { upsertManagedSection } from '../section-managed-markdown.js';
  * - Rules: `.agents/rules/*.md` with YAML frontmatter triggers, plus `AGENTS.md` managed section
  * - MCP config: `.agents/mcp_config.json`
  * - Skills: `.agents/skills/{name}/`
- * - Workflows: `.agents/workflows/*.md`
+ * - Prompts: converted to Agent Skills in `.agents/skills/` (legacy `.agents/workflows/` deprecated)
  * - Agents: `.agents/agents/*.md`
  * - Hooks: `.agents/hooks.json`
  */
@@ -87,7 +88,7 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
       const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
-            { rules, skillChanges } = await this.loadRules(resolvedConfig, projectRoot, {
+            { rules, skillChanges, skills } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
                configBaseDir: options.configBaseDir,
@@ -102,8 +103,24 @@ export class AntigravityAdapter extends BaseEditorAdapter {
             mcp = filterMcpConfig(resolvedConfig.mcp),
             hooks = resolvedConfig.hooks;
 
-      this.pendingSkillChanges = skillChanges;
-      return { rules, prompts, agents, mcp, hooks, plugins: config.plugins };
+      const promptSkillChanges = await installPromptsAsSkills({
+         prompts,
+         skills,
+         skillsStrategy: this.skillsStrategy,
+         projectRoot,
+         applyOptions: options,
+      });
+
+      this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
+      return { rules, prompts: [], agents, mcp, hooks, plugins: config.plugins };
+   }
+
+   override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {
+      const unsupported = super.getUnsupportedFeatures(config);
+
+      delete unsupported.prompts;
+
+      return unsupported;
    }
 
    protected override async planChanges(

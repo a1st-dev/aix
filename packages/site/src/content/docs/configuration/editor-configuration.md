@@ -127,7 +127,7 @@ Target Grok CLI with `enabled` and optional Grok-only rules:
 
 ### Antigravity
 
-Antigravity uses `~/.gemini/antigravity` configuration, supporting subagents in `.agents/` workflows, MCP servers, rules, and skills. Target it with `enabled` and optional Antigravity-only rules:
+Antigravity uses `.agents/` project-level configuration (and `~/.gemini/config/`), supporting subagents in `.agents/agents/`, MCP servers, rules, and Agent Skills. Standalone workflows are deprecated upstream in favor of Agent Skills; aix installs prompts as converted skills into `.agents/skills/`. Target it with `enabled` and optional Antigravity-only rules:
 
 ```json
 {
@@ -136,7 +136,7 @@ Antigravity uses `~/.gemini/antigravity` configuration, supporting subagents in 
          "enabled": true,
          "rules": {
             "antigravity-context": {
-               "content": "Use Antigravity workflow conventions and tools."
+               "content": "Use Antigravity skills conventions and tools."
             }
          }
       }

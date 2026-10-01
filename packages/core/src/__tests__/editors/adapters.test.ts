@@ -2063,7 +2063,7 @@ Skill instructions.
          expect(mcpConfig.mcpServers.server.args).toEqual(['--arg']);
       });
 
-      it('writes workflows to .agents/workflows/', async () => {
+      it('installs prompts as skills into .agents/skills/', async () => {
          const config = createConfig({
             prompts: {
                review: {
@@ -2073,15 +2073,62 @@ Skill instructions.
             },
          });
 
-         await installToEditor('antigravity', config, testDir);
+         const result = await installToEditor('antigravity', config, testDir);
 
-         const workflowContent = await readFile(
-            join(testDir, '.agents/workflows/review.md'),
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/review'))).toBe(true);
+
+         const skillContent = await readFile(join(testDir, '.aix/skills/review/SKILL.md'), 'utf-8');
+
+         expect(skillContent).toContain('name: review');
+         expect(skillContent).toContain('description: "Review code"');
+         expect(skillContent).toContain('Please review this code.');
+      });
+
+      it('renames converted prompts when they conflict with configured skills', async () => {
+         const skillDir = join(testDir, 'skills', 'review');
+
+         await mkdir(skillDir, { recursive: true });
+         await writeFile(
+            join(skillDir, 'SKILL.md'),
+            `---
+name: review
+description: Review code as a skill.
+---
+
+Skill instructions.
+`,
+         );
+
+         const config = createConfig({
+            skills: {
+               review: './skills/review',
+            },
+            prompts: {
+               review: {
+                  description: 'Review code as a prompt.',
+                  content: 'Prompt instructions.',
+               },
+            },
+         });
+
+         const result = await installToEditor('antigravity', config, testDir);
+
+         expect(result.unsupportedFeatures?.prompts).toBeUndefined();
+         expect(existsSync(join(testDir, '.aix/skills/review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.aix/skills/prompt-review/SKILL.md'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/review'))).toBe(true);
+         expect(existsSync(join(testDir, '.agents/skills/prompt-review'))).toBe(true);
+
+         const promptSkillContent = await readFile(
+            join(testDir, '.aix/skills/prompt-review/SKILL.md'),
             'utf-8',
          );
 
-         expect(workflowContent).toContain('description: "Review code"');
-         expect(workflowContent).toContain('Please review this code.');
+         expect(promptSkillContent).toContain('name: prompt-review');
+         expect(promptSkillContent).toContain('Original prompt name: `review`.');
+         expect(promptSkillContent).toContain('Prompt instructions.');
       });
 
       it('writes hooks into .agents/hooks.json', async () => {

@@ -8,12 +8,14 @@ import {
 } from '../shared/prompt-utils.js';
 
 /**
- * Antigravity prompts strategy. Workflows in Antigravity are markdown files with YAML
- * frontmatter in `.agents/workflows/`.
+ * Antigravity prompts strategy. Workflows in Antigravity (`.agents/workflows/*.md`)
+ * are deprecated in favor of Agent Skills (`.agents/skills/{name}/SKILL.md`).
+ * aix converts prompts to skills during install while retaining parsing support
+ * for legacy workflow files during import.
  */
 export class AntigravityPromptsStrategy implements PromptsStrategy {
    isSupported(): boolean {
-      return true;
+      return false;
    }
 
    getPromptsDir(): string {
