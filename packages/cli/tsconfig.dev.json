@@ -1,0 +1,10 @@
+{
+   "extends": "./tsconfig.json",
+   "compilerOptions": {
+      "paths": {
+         "@a1st/aix-core": ["../core/src/index.ts"],
+         "@a1st/aix-schema": ["../schema/src/index.ts"],
+         "@a1st/mcp-registry-client": ["../mcp-registry-client/src/index.ts"]
+      }
+   }
+}

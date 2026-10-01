@@ -32,16 +32,21 @@ another editor and you want aix to bridge the formats for you.
 
 ## Local development
 
-From a checkout, run `npm install`, `npm run build`, and `npm link --workspace=@a1st/aix` once.
-That puts two commands on your PATH:
+From the repository root, install dependencies and link the development command once:
 
 ```bash
-aixd <command>  # Run the current TypeScript source without rebuilding
-aix <command>   # Run the last compiled build
+npm install
+npm run link:dev
+aixd <command>
 ```
 
-`aixd` uses this checkout's local `tsx`, so it works from any directory without relying on a
-global TypeScript runner. Rebuild when you want `aix` to pick up your changes.
+`aixd` runs the CLI and workspace dependencies directly from this checkout's TypeScript
+source. It works from any directory and picks up edits on the next run. No build or watch
+process is required.
+
+The link uses npm's global prefix. If you move the checkout or want to use another one,
+run `npm run link:dev` from that checkout. If you need the compiled `aix` command, run
+`npm run build:lib` and then `npm run link:dev`.
 
 ## Documentation
 

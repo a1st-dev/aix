@@ -19,6 +19,7 @@
       "prepack": "npm run build",
       "build": "turbo run build",
       "build:lib": "turbo run build --filter=@a1st/aix-schema --filter=@a1st/aix-core --filter=@a1st/mcp-registry-client --filter=@a1st/aix",
+      "link:dev": "npm link --workspace=@a1st/aix --ignore-scripts",
       "test": "turbo run test",
       "standards": "npm run lint && npm run format:check && npm run typecheck",
       "lint": "oxlint",
