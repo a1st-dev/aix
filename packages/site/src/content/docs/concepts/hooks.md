@@ -58,6 +58,18 @@ To install one hook fragment without creating `ai.json`, use direct install:
 aix install ./hooks/pre-command.jsonc --type hook --target claude-code --user
 ```
 
+Installation preserves existing settings and hook entries. Identical matcher groups
+are not added again on repeat installs. The output lists the installed native events,
+such as `Stop`, `SubagentStop`, and `PreToolUse`.
+
+Existing hook config files are backed up under `.aix/.tmp/backups/` in the file's
+directory before writes. Invalid JSON stops installation without replacing the file.
+
+For inherited configs, aix resolves existing relative script paths in simple commands
+against the config's source directory. For example, `node ./hooks/check.mjs` uses the
+script from the extended config while keeping the editor's working directory. For
+commands with shell operators or variable expansion, use an explicit script path.
+
 ### Hooks and Plugins
 
 In editors with native plugin support (such as Claude Code), hooks defined in `ai.json` and hooks bundled within enabled [plugins](/concepts/plugins/) both trigger on matching lifecycle events. Claude Code executes matching hooks in sequence (both project/user hooks and active plugin hooks run for the given event).

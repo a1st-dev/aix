@@ -210,7 +210,7 @@ export function displayFileChanges(options: DisplayFileChangesOptions): void {
       const seenNames = new Set<string>();
 
       for (const change of categoryChanges) {
-         if (key === 'mcp' && change.items && change.items.length > 0) {
+         if ((key === 'mcp' || key === 'hook') && change.items && change.items.length > 0) {
             for (const item of change.items) {
                const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
 

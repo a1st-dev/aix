@@ -12,7 +12,7 @@ import {
    type RuntimeAdapter,
 } from '../runtime/index.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'git-download');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'git-download');
 
 describe('withGitDownload', () => {
    beforeEach(async () => {

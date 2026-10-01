@@ -5,7 +5,7 @@ import { parseJsonc } from '@a1st/aix-schema';
 import { safeRm } from '../../fs/safe-rm.js';
 import { removeMcpFromEditor } from '../../editors/remove.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'remove-jsonc');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'remove-jsonc');
 
 describe('remove-jsonc comment preservation', () => {
    beforeEach(async () => {

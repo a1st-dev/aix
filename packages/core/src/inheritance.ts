@@ -1,5 +1,5 @@
 import { resolve, dirname, join, isAbsolute } from 'pathe';
-import { parseJsonc, detectSourceType, isLocalPath } from '@a1st/aix-schema';
+import { parseJsonc, detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
 import { withGitDownload, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
 import { parseConfigContent } from './discovery.js';
@@ -13,6 +13,7 @@ import { convertBlobToRawUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from './runtime/index.js';
+import { isRecord } from './type-guards.js';
 
 export interface ResolveOptions {
    baseDir: string;
@@ -279,9 +280,20 @@ function normalizeLocalPaths(
 ): Record<string, unknown> {
    const result = { ...config };
 
-   // Normalize skills
-   if (result.skills && typeof result.skills === 'object') {
-      result.skills = normalizeSkillPaths(result.skills as Record<string, unknown>, baseDir);
+   for (const section of ['skills', 'agents'] as const) {
+      const sources = result[section];
+
+      if (isRecord(sources)) {
+         result[section] = normalizeSourcePaths(sources, baseDir);
+      }
+   }
+
+   if (result.hooks) {
+      result.hooks = Object.fromEntries(Object.entries(hooksSchema.parse(result.hooks)).map(([event, matchers]) => {
+         return [event, matchers?.map((matcher) => {
+            return { ...matcher, hooks: matcher.hooks.map((action) => normalizeHookAction(action, baseDir)) };
+         })];
+      }));
    }
 
    // Normalize rules
@@ -298,19 +310,55 @@ function normalizeLocalPaths(
 }
 
 /**
- * Normalize skill reference paths to absolute paths.
+ * Keep file references relative to the config that declared them after inheritance.
  */
-function normalizeSkillPaths(
-   skills: Record<string, unknown>,
+function normalizeSourcePaths(
+   sources: Record<string, unknown>,
    baseDir: string,
 ): Record<string, unknown> {
    const result: Record<string, unknown> = {};
 
-   for (const [name, ref] of Object.entries(skills)) {
+   for (const [name, ref] of Object.entries(sources)) {
       result[name] = normalizeSourceRef(ref, baseDir);
    }
 
    return result;
+}
+
+function normalizeHookAction(action: HookAction, baseDir: string): HookAction {
+   const normalized = { ...action };
+
+   for (const field of ['command', 'bash', 'powershell'] as const) {
+      const command = action[field];
+
+      if (command) {
+         normalized[field] = normalizeHookCommand(command, baseDir, field === 'powershell' || action.shell === 'powershell');
+      }
+   }
+
+   return normalized;
+}
+
+function normalizeHookCommand(command: string, baseDir: string, powershell: boolean): string {
+   // ponytail: only simple shell words are rewritten; compound commands need a shell parser.
+   const words = /"[^"$`\\]*"|'[^']*'|[^\s"'$`\\|;&<>]+/g;
+
+   if (command.replace(words, '').trim()) {
+      return command;
+   }
+
+   return command.replace(words, (word) => {
+      const path = word.startsWith('"') || word.startsWith("'") ? word.slice(1, -1) : word,
+            absolutePath = resolve(baseDir, path);
+
+      if (!isLocalPath(path) || !getRuntimeAdapter().fs.existsSync(absolutePath)) {
+         return word;
+      }
+
+      const escapedPath = powershell ? absolutePath.replaceAll("'", "''") : absolutePath.replaceAll("'", "'\\''");
+
+      return `'${escapedPath}'`;
+   });
 }
 
 /**

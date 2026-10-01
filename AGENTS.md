@@ -10,15 +10,27 @@ Manual testing must never write to the real user config. `aix` resolves the home
 HOME="$(mktemp -d)" node packages/cli/bin/aixd.mjs install
 ```
 
-* Do this for anything that can touch global config: `~/.claude.json`,
+* Do this for anything that can touch global config: `~/.claude.json`, `~/.claude/settings.json`,
   `~/.gemini/settings.json`, `~/.config/zed/settings.json`, `~/.config/github-copilot/`,
-  `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `~/.aix/backups/`
-  written before each global edit
-* `npm run qa:sandbox` gives you a scratch project directory but does **not** override `HOME`,
-  so set `HOME` yourself on top of it
-* Automated tests follow the same rule: set `process.env.HOME` to a temp directory, or mock
-  `os.homedir()`, before exercising a global config path
+  `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `.aix/.tmp/backups/`
+  directory written beside each edited config file
+* `npm run qa:sandbox` gives you a scratch project and sets `HOME`, `USERPROFILE`, and
+  XDG directories to its temporary home, including for the generated `aix` wrapper
+* Automated tests use the shared setup below; do not add per-suite home isolation
 * Write to the real user config only when explicitly asked to
+
+Automated tests must run through the package `test` or `test:watch` scripts. They use
+`scripts/test-runner.mjs` and the shared `vitest.config.ts`; do not run Vitest directly.
+The runner gives each test a temporary home and sets both `HOME` and `USERPROFILE`.
+The runner also sets `TMPDIR`, `TMP`, and `TEMP` inside its temporary directory.
+On macOS, an OS sandbox restricts writes to that directory and Vite caches, including
+writes by child processes and through symlinks. Linux and Windows
+CI run on disposable GitHub-hosted machines. Other local platforms fail closed until
+an equivalent filesystem sandbox is available. `scripts/test-setup.ts` checks the
+sandbox before loading test files. Vitest's `isolate` option does not protect files.
+
+The protection checks in `test-environment.test.ts` exercise a child process with the
+real `HOME`, a native shell, and symlink traversal against disposable probe files.
 
 ## Deployment
 

@@ -36,8 +36,8 @@
    },
    "scripts": {
       "build": "tsc -p tsconfig.build.json",
-      "test": "vitest run",
-      "test:watch": "vitest"
+      "test": "node ../../scripts/test-runner.mjs run",
+      "test:watch": "node ../../scripts/test-runner.mjs"
    },
    "dependencies": {
       "@a1st/aix-schema": "*",

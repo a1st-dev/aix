@@ -5,7 +5,7 @@ import { resolveExtends } from '../inheritance.js';
 import { CircularDependencyError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'inheritance'),
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'inheritance'),
       originalFetch = global.fetch;
 
 describe('resolveExtends', () => {

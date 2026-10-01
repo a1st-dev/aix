@@ -5,7 +5,7 @@ import { updateConfig } from '../updater.js';
 import { ConfigNotFoundError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'updater');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'updater');
 
 describe('updateConfig', () => {
    beforeEach(async () => {

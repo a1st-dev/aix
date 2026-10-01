@@ -45,6 +45,7 @@ fi
 
 # Create sandbox directory
 mkdir -p "$SANDBOX_DIR"
+mkdir -p "$SANDBOX_DIR/home"
 
 print_header
 echo ""
@@ -57,7 +58,13 @@ cat > "$SANDBOX_DIR/aix" << 'SCRIPT'
 # Wrapper to run aix CLI from sandbox
 # Uses NODE_PATH to find modules while staying in sandbox directory
 
+AIX_SANDBOX_HOME="$(cd "$(dirname "$0")" && pwd)/home"
 export NODE_PATH="$AIX_PROJECT_ROOT/node_modules:$AIX_PROJECT_ROOT/packages/cli/node_modules"
+export HOME="$AIX_SANDBOX_HOME"
+export USERPROFILE="$AIX_SANDBOX_HOME"
+export XDG_CONFIG_HOME="$AIX_SANDBOX_HOME/.config"
+export XDG_CACHE_HOME="$AIX_SANDBOX_HOME/.cache"
+export XDG_DATA_HOME="$AIX_SANDBOX_HOME/.local/share"
 node "$AIX_PROJECT_ROOT/packages/cli/bin/aixd.mjs" "$@"
 SCRIPT
 chmod +x "$SANDBOX_DIR/aix"
@@ -212,6 +219,12 @@ echo ""
 
 # Export project root for the aix wrapper
 export AIX_PROJECT_ROOT="$PROJECT_ROOT"
+export AIX_SANDBOX_HOME="$SANDBOX_DIR/home"
+export HOME="$AIX_SANDBOX_HOME"
+export USERPROFILE="$AIX_SANDBOX_HOME"
+export XDG_CONFIG_HOME="$AIX_SANDBOX_HOME/.config"
+export XDG_CACHE_HOME="$AIX_SANDBOX_HOME/.cache"
+export XDG_DATA_HOME="$AIX_SANDBOX_HOME/.local/share"
 
 # Change to sandbox and start subshell
 cd "$SANDBOX_DIR"

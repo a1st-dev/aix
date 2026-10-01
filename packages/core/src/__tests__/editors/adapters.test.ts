@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'pathe';
+import { dirname, join } from 'pathe';
 import { homedir, tmpdir } from 'node:os';
 import { type AiJsonConfig, type McpServerConfig, parseJsonc } from '@a1st/aix-schema';
 import {
@@ -1567,6 +1567,22 @@ Skill instructions.
    });
 
    describe('JSON merge behavior', () => {
+      it('refuses to replace unreadable settings with a hook config', async () => {
+         const settingsPath = join(testDir, '.claude', 'settings.json'),
+               existing = '{ "model": "keep", "hooks": ';
+
+         await mkdir(dirname(settingsPath), { recursive: true });
+         await writeFile(settingsPath, existing);
+
+         const result = await installToEditor('claude-code', createConfig({
+            hooks: { pre_command: [{ hooks: [{ command: 'echo before' }] }] },
+         }), testDir);
+
+         expect(result.success).toStrictEqual(false);
+         expect(result.errors.join(' ')).toContain('Cannot merge');
+         expect(await readFile(settingsPath, 'utf-8')).toStrictEqual(existing);
+      });
+
       it('merges MCP servers with existing config by default', async () => {
          // First install with server A
          const config1 = createConfig({

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'pathe';
@@ -6,10 +6,16 @@ import { safeRm, UnsafePathError } from '../fs/safe-rm.js';
 import { nodeRuntimeAdapter, withRuntimeAdapter } from '../runtime/index.js';
 import type { RuntimeAdapter, RuntimeRemoveOptions } from '../runtime/index.js';
 
-const fixtureRoot = join(process.cwd(), '.safe-rm-regression');
+const fixtureRoot = join(process.env.HOME ?? '', '.safe-rm-regression');
 
 describe('safeRm', () => {
+   beforeEach(() => {
+      // Exercise editor path checks without the blanket permission for temporary paths.
+      vi.spyOn(nodeRuntimeAdapter.os, 'tmpdir').mockReturnValue('/unrelated-temp-directory');
+   });
+
    afterEach(async () => {
+      vi.restoreAllMocks();
       await rm(fixtureRoot, { recursive: true, force: true });
    });
 

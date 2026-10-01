@@ -1,10 +1,11 @@
-import { execFile } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, realpath, symlink } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import { safeRm } from '@a1st/aix-core';
+import { listBackups, safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -12,7 +13,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..');
 const maxBuffer = 1024 * 1024 * 10,
-      binPath = join(root, 'dist', 'cli.js');
+      binPath = join(root, 'dist', 'cli.js'),
+      runShellCommand = promisify(exec);
 const TEST_DIR_CLEANUP_RETRIES = 12,
       TEST_DIR_CLEANUP_DELAY_MS = 250,
       RETRYABLE_CLEANUP_ERROR_CODES = new Set([ 'EBUSY', 'ENOTEMPTY', 'EPERM' ]);
@@ -259,6 +261,56 @@ describe('CLI Commands', () => {
    });
 
    describe('install', () => {
+      it('installs inherited agents and runnable hooks without replacing user settings', async () => {
+         const sourceDir = join(testDir, 'shared config'),
+               settingsPath = join(process.env.HOME ?? '', '.claude', 'settings.json'),
+               settings = {
+                  model: 'existing-model',
+                  permissions: { allow: ['Read'] },
+                  hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo existing' }] }] },
+               };
+
+         await mkdir(join(sourceDir, 'agents'), { recursive: true });
+         await mkdir(join(sourceDir, 'hooks'), { recursive: true });
+         await mkdir(dirname(settingsPath), { recursive: true });
+         await writeFile(settingsPath, JSON.stringify(settings));
+         await writeFile(join(sourceDir, 'agents', 'review.md'), 'Review the changes.');
+         await writeFile(join(sourceDir, 'hooks', 'check.mjs'), 'process.stdout.write(process.cwd());');
+         await writeValidConfig(join(sourceDir, 'ai.json'), {
+            agents: { review: './agents/review.md' },
+            hooks: { agent_stop: [{ hooks: [{ command: 'node ./hooks/check.mjs' }] }] },
+         });
+         await writeValidConfig(join(testDir, 'ai.json'), { extends: './shared config/ai.json' });
+
+         const installed = await runCli(['i', '-t', 'claude-code', '--user']),
+               actualSettings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+         expect(installed.error).toBeUndefined();
+         expect(installed.stdout + installed.stderr).toContain('Hooks');
+         expect(actualSettings.model).toStrictEqual(settings.model);
+         expect(actualSettings.permissions).toEqual(settings.permissions);
+         expect(actualSettings.hooks.Stop).toHaveLength(2);
+         expect(actualSettings.hooks.Stop[0]).toEqual(settings.hooks.Stop[0]);
+         expect(actualSettings.hooks.Stop[1].hooks[0].command).toContain(join(sourceDir, 'hooks', 'check.mjs'));
+         expect(existsSync(join(process.env.HOME ?? '', '.claude', 'agents', 'review.md'))).toStrictEqual(true);
+
+         const hook = await runShellCommand(actualSettings.hooks.Stop[1].hooks[0].command, { cwd: testDir }),
+               backups = await listBackups(settingsPath),
+               backupContents = await Promise.all(backups.map((backup) => {
+                  return readFile(backup.path, 'utf-8');
+               }));
+
+         expect(hook.stdout).toStrictEqual(await realpath(testDir));
+         expect(backups).toHaveLength(1);
+         expect(backupContents).toEqual([JSON.stringify(settings)]);
+
+         const repeated = await runCli(['i', '-t', 'claude-code', '--user']),
+               repeatedSettings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+         expect(repeated.error).toBeUndefined();
+         expect(repeatedSettings.hooks.Stop).toHaveLength(2);
+      });
+
       it('directly installs a user-scope Claude Code MCP server without ai.json', async () => {
          const fakeHome = join(testDir, 'fake-home');
 
@@ -817,7 +869,7 @@ describe('CLI Commands', () => {
          expect(error).toBeUndefined();
          expect(stdout).toContain('hooks: 1');
          expect(stdout).toContain('Hooks');
-         expect(stdout).toContain('settings.json');
+         expect(stdout).toContain('PreToolUse');
       });
 
       it('records synced items so the destination lists them as aix-managed', async () => {

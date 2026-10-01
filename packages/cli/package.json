@@ -45,8 +45,8 @@
       "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json && chmod +x dist/cli.js && npm run manifest",
       "manifest": "oclif manifest",
       "dev": "node bin/aixd.mjs",
-      "test": "vitest run",
-      "test:watch": "vitest"
+      "test": "node ../../scripts/test-runner.mjs run",
+      "test:watch": "node ../../scripts/test-runner.mjs"
    },
    "dependencies": {
       "@a1st/aix-core": "*",

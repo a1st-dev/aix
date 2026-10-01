@@ -32,8 +32,8 @@
    },
    "scripts": {
       "build": "tsc -p tsconfig.build.json",
-      "test": "vitest run --passWithNoTests",
-      "test:watch": "vitest"
+      "test": "node ../../scripts/test-runner.mjs run --passWithNoTests",
+      "test:watch": "node ../../scripts/test-runner.mjs"
    },
    "dependencies": {
       "p-map": "7.0.4"

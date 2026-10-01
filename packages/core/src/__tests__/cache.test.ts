@@ -12,7 +12,7 @@ import {
 } from '../cache/index.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'cache-test');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'cache-test');
 
 describe('cache utilities', () => {
    beforeEach(async () => {

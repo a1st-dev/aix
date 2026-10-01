@@ -4,7 +4,7 @@ import { join } from 'pathe';
 import { createBackup, restoreBackup, listBackups } from '../backup.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'backup');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'backup');
 
 describe('backup', () => {
    beforeEach(async () => {

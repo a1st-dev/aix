@@ -9,5 +9,7 @@
       "test": {
          "dependsOn": ["^build"]
       }
-   }
+   },
+   "globalDependencies": ["scripts/test-runner.mjs", "scripts/test-setup.ts", "vitest.config.ts"],
+   "globalEnv": ["GITHUB_ACTIONS", "RUNNER_ENVIRONMENT"]
 }

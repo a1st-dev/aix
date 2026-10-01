@@ -6,7 +6,7 @@
    "scripts": {
       "dev": "astro dev",
       "build": "astro build",
-      "test": "vitest run",
+      "test": "node ../../scripts/test-runner.mjs run",
       "preview": "astro preview"
    },
    "dependencies": {

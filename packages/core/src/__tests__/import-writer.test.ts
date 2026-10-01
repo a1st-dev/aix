@@ -12,7 +12,7 @@ import {
 import type { GitSourceInfo } from '../remote-loader.js';
 import { safeRm } from '../fs/safe-rm.js';
 
-const testDir = join(process.cwd(), 'test-fixtures', 'import-writer');
+const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'import-writer');
 
 describe('import-writer', () => {
    beforeEach(async () => {

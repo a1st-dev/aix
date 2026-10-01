@@ -41,6 +41,28 @@ import {
    unpackAllPlugins,
 } from '../strategies/shared/index.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
+import { createBackup } from '../../backup.js';
+
+/** Keep handwritten hooks when installing another handler for the same native event. */
+function preserveNativeHooks(existing: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+   if (!isRecord(existing.hooks) || !isRecord(incoming.hooks)) {
+      return incoming;
+   }
+
+   const hooks = { ...incoming.hooks };
+
+   for (const [event, added] of Object.entries(hooks)) {
+      const current = existing.hooks[event];
+
+      if (Array.isArray(current) && Array.isArray(added)) {
+         const serializedHooks = new Set(current.map((hook: unknown) => JSON.stringify(hook)));
+
+         hooks[event] = [...current, ...added.filter((hook: unknown) => !serializedHooks.has(JSON.stringify(hook)))];
+      }
+   }
+
+   return { ...incoming, hooks };
+}
 
 /**
  * Filter out `false` values from MCP config (used to disable inherited servers).
@@ -249,6 +271,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             if (getRuntimeAdapter().fs.existsSync(change.path)) {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
                originalContent = await getRuntimeAdapter().fs.readFile(change.path, 'utf-8');
+               // eslint-disable-next-line no-await-in-loop -- Back up before each overwrite
+               await createBackup(change.path);
             }
             applied.push({ path: change.path, originalContent });
 
@@ -289,11 +313,11 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     * Read existing file content, returning null if file doesn't exist.
     */
    protected async readExisting(filePath: string): Promise<string | null> {
-      try {
-         return await getRuntimeAdapter().fs.readFile(filePath, 'utf-8');
-      } catch {
+      if (!getRuntimeAdapter().fs.existsSync(filePath)) {
          return null;
       }
+
+      return getRuntimeAdapter().fs.readFile(filePath, 'utf-8');
    }
 
    /**
@@ -587,7 +611,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       const change = await this.planJsonFileChange(hooksPath, formattedHooks, options);
 
-      changes.push({ ...change, category: 'hook' });
+      changes.push({ ...change, category: 'hook', items: Object.keys(parsedHooks.hooks) });
 
       return changes;
    }
@@ -747,14 +771,13 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       const existingParseResult = parseJsonc<Record<string, unknown>>(existing);
 
       if (existingParseResult.errors.length > 0 || !isRecord(existingParseResult.data)) {
-         const action = this.determineAction(existing, newContent);
-
-         return { path: filePath, action, content: newContent };
+         throw new Error(`Cannot merge ${filePath}: existing content is not a valid JSON object. Fix the file before installing.`);
       }
 
       try {
          const existingJson = normalizeFlatMcpConfigForMerge(existingParseResult.data),
-               newJson = JSON.parse(newContent) as Record<string, unknown>;
+               newJson = preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
+
          let mergedContent: string;
 
          if (existingJson !== existingParseResult.data) {
@@ -768,10 +791,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const action = this.determineAction(existing, mergedContent);
 
          return { path: filePath, action, content: mergedContent };
-      } catch {
-         const action = this.determineAction(existing, newContent);
+      } catch (error) {
+         const message = error instanceof Error ? error.message : String(error);
 
-         return { path: filePath, action, content: newContent };
+         throw new Error(`Cannot merge ${filePath}: ${message}`, { cause: error });
       }
    }
 

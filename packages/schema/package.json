@@ -34,8 +34,8 @@
    "scripts": {
       "build": "tsc -p tsconfig.build.json && npm run generate-schema",
       "generate-schema": "node --import=@poppinss/ts-exec scripts/generate-schema.ts && oxfmt schema.json",
-      "test": "vitest run",
-      "test:watch": "vitest"
+      "test": "node ../../scripts/test-runner.mjs run",
+      "test:watch": "node ../../scripts/test-runner.mjs"
    },
    "dependencies": {
       "compare-versions": "6.1.1",
