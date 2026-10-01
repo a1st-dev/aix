@@ -13,5 +13,11 @@
    "prompts": {
       "plan": "./examples/custom/prompts/plan.md",
       "code-review": "./examples/custom/prompts/code-review.md"
+   },
+   "plugins": {
+      "ponytail@ponytail": true
+   },
+   "marketplaces": {
+      "ponytail": "github:dietrichgebert/ponytail"
    }
 }
