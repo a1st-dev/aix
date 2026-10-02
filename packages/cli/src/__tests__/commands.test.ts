@@ -294,7 +294,9 @@ describe('CLI Commands', () => {
          expect(actualSettings.hooks.Stop[1].hooks[0].command).toContain(join(sourceDir, 'hooks', 'check.mjs'));
          expect(existsSync(join(process.env.HOME ?? '', '.claude', 'agents', 'review.md'))).toStrictEqual(true);
 
-         const hook = await runShellCommand(actualSettings.hooks.Stop[1].hooks[0].command, { cwd: testDir }),
+         const shell = process.platform === 'win32' ? join(process.env.ProgramFiles ?? 'C:/Program Files', 'Git', 'bin', 'bash.exe')
+                  : '/bin/bash',
+               hook = await runShellCommand(actualSettings.hooks.Stop[1].hooks[0].command, { cwd: testDir, shell }),
                backups = await listBackups(settingsPath),
                backupContents = await Promise.all(backups.map((backup) => {
                   return readFile(backup.path, 'utf-8');

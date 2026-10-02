@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { describe, it, expect } from 'vitest';
 import { runCommand } from '@oclif/test';
+import { normalize } from 'pathe';
 
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..'),
@@ -84,7 +85,7 @@ describe('aixd', () => {
                validation = await run(process.execPath, [ launcher, 'validate', '--json' ], { cwd: project, env });
 
          expect(help.stdout).toContain('validate');
-         expect(JSON.parse(validation.stdout)).toMatchObject({ valid: true, path: join(project, 'ai.json') });
+         expect(JSON.parse(validation.stdout)).toMatchObject({ valid: true, path: normalize(join(project, 'ai.json')) });
       } finally {
          await rm(sandbox, { recursive: true, force: true });
       }
