@@ -7,6 +7,7 @@ import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
 import { parseTOML } from 'confbox';
 import { installToEditor } from '../../editors/install.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import * as ciEnvironment from '../../env/ci.js';
 import { safeRm } from '../../fs/safe-rm.js';
 
 describe('editor install receipts', () => {
@@ -271,6 +272,8 @@ describe('editor install receipts', () => {
             options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
 
+      vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);
+
       await installToEditor('codex', config, projectRoot, { ...options, scopes: [...options.scopes] });
       await installToEditor('codex', createEmptyConfig(), projectRoot, { ...options, scopes: [...options.scopes] });
 
@@ -281,6 +284,8 @@ describe('editor install receipts', () => {
       const config: AiJsonConfig = { ...createEmptyConfig(), mcp: { managed: { command: 'original' } } },
             options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
+
+      vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);
 
       await installToEditor('codex', config, projectRoot, { ...options, scopes: [...options.scopes] });
       const before = await readFile(path, 'utf-8'),
