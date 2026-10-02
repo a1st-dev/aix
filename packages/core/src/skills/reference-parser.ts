@@ -1,3 +1,5 @@
+import { isAbsolute } from 'pathe';
+
 export type LocalRef = { type: 'local'; path: string };
 export type GitRef = { type: 'git'; url: string; ref?: string; path?: string };
 export type NpmRef = {
@@ -145,7 +147,7 @@ export function parseSkillRef(name: string, input: unknown): SkillRef {
 
    if (typeof input === 'string') {
       // Local path
-      if (input.startsWith('./') || input.startsWith('/') || input.startsWith('../')) {
+      if (input.startsWith('./') || isAbsolute(input) || input.startsWith('../')) {
          return { type: 'local', path: input };
       }
       // Git shorthand (github:user/repo, gh:user/repo, gitlab:user/repo)

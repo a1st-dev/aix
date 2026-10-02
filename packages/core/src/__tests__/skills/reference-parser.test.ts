@@ -21,6 +21,16 @@ describe('parseSkillRef', () => {
          expect(ref).toEqual({ type: 'local', path: '/home/user/skills/my-skill' });
       });
 
+      it.each([
+         'C:/Users/me/skills/my-skill',
+         'C:\\Users\\me\\skills\\my-skill',
+         '\\\\server\\share\\skills\\my-skill',
+      ])('parses Windows absolute path %s', (path) => {
+         const ref = parseSkillRef('my-skill', path);
+
+         expect(ref).toEqual({ type: 'local', path });
+      });
+
       it('parses object with path property', () => {
          const ref = parseSkillRef('my-skill', { path: './local/skill' });
 
