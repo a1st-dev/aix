@@ -302,7 +302,7 @@ describe('CLI Commands', () => {
                   return readFile(backup.path, 'utf-8');
                }));
 
-         expect(hook.stdout).toStrictEqual(await realpath(testDir));
+         expect(await realpath(hook.stdout)).toStrictEqual(await realpath(testDir));
          expect(backups).toHaveLength(1);
          expect(backupContents).toEqual([JSON.stringify(settings)]);
 
