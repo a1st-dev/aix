@@ -451,6 +451,91 @@ describe('CLI Commands', () => {
    });
 
    describe('install state tracking', () => {
+      it('reconciles changed hooks from the same ai.json and previews removal without writing', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               settingsPath = join(testDir, '.claude', 'settings.json');
+
+         await writeValidConfig(configPath, { hooks: {
+            agent_stop: [{ hooks: [{ command: 'echo old' }] }],
+            subagent_stop: [{ hooks: [{ command: 'echo subagent' }] }],
+         } });
+         const installed = await runCli(['install', '--config', configPath, '--target', 'claude-code', '--project']);
+
+         expect(installed.error).toBeUndefined();
+
+         await writeValidConfig(configPath, { hooks: { agent_stop: [{ hooks: [{ command: 'echo new' }] }] } });
+         const before = await readFile(settingsPath, 'utf-8'),
+               preview = await runCli(['install', '--config', configPath, '--target', 'claude-code', '--project', '--dry-run']);
+
+         expect(preview.error).toBeUndefined();
+         expect(await readFile(settingsPath, 'utf-8')).toBe(before);
+
+         const updated = await runCli(['install', '--config', configPath, '--target', 'claude-code', '--project']),
+               settings = JSON.parse(await readFile(settingsPath, 'utf-8')),
+               state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(updated.error).toBeUndefined();
+         expect(settings.hooks.Stop).toEqual([{ matcher: '', hooks: [{ type: 'command', command: 'echo new' }] }]);
+         expect(settings.hooks.SubagentStop).toEqual([]);
+         expect(Object.keys(state.installed.hooks)).toEqual(['agent_stop']);
+         expect(state.installed.hooks.agent_stop.sources[configPath]).toEqual(['claude-code']);
+      });
+
+      it('preserves shared user hooks and inventory until the last contributing config removes them', async () => {
+         const firstPath = join(testDir, 'first-ai.json'),
+               secondPath = join(testDir, 'second-ai.json'),
+               hooks = { agent_stop: [{ hooks: [{ command: 'echo shared' }] }] },
+               settingsPath = join(process.env.HOME ?? '', '.claude', 'settings.json'),
+               statePath = join(process.env.HOME ?? '', '.aix', 'state.json');
+
+         await writeValidConfig(firstPath, { hooks });
+         await writeValidConfig(secondPath, { hooks });
+         const first = await runCli(['install', '--config', firstPath, '--target', 'claude-code', '--user']),
+               second = await runCli(['install', '--config', secondPath, '--target', 'claude-code', '--user']);
+
+         expect(first.error).toBeUndefined();
+         expect(second.error).toBeUndefined();
+
+         await writeValidConfig(firstPath);
+         const firstRemoved = await runCli(['install', '--config', firstPath, '--target', 'claude-code', '--user']),
+               sharedState = JSON.parse(await readFile(statePath, 'utf-8'));
+
+         expect(firstRemoved.error).toBeUndefined();
+         expect(JSON.parse(await readFile(settingsPath, 'utf-8')).hooks.Stop).toHaveLength(1);
+         expect(sharedState.installed.hooks.agent_stop.sources).toEqual({ [secondPath]: ['claude-code'] });
+
+         await writeValidConfig(secondPath);
+         const secondRemoved = await runCli(['install', '--config', secondPath, '--target', 'claude-code', '--user']);
+
+         expect(secondRemoved.error).toBeUndefined();
+         expect(JSON.parse(await readFile(settingsPath, 'utf-8')).hooks.Stop).toEqual([]);
+         expect(JSON.parse(await readFile(statePath, 'utf-8')).installed.hooks).toEqual({});
+      });
+
+      it('uninstalls a source contribution from editors that its ai.json no longer targets', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               hooks = { agent_stop: [{ hooks: [{ command: 'echo managed' }] }] };
+
+         await writeValidConfig(configPath, { editors: { 'claude-code': {}, cursor: {} }, hooks });
+         const installed = await runCli(['install', '--config', configPath, '--project', '--only', 'hooks']);
+
+         expect(installed.error).toBeUndefined();
+
+         await writeValidConfig(configPath, { editors: { 'claude-code': {} }, hooks });
+         const updated = await runCli(['install', '--config', configPath, '--project', '--only', 'hooks']),
+               state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
+
+         expect(updated.error).toBeUndefined();
+         expect(JSON.parse(await readFile(join(testDir, '.cursor', 'hooks.json'), 'utf-8')).hooks.stop).toEqual([]);
+         expect(state.installed.hooks.agent_stop.editors).toEqual(['claude-code']);
+
+         await writeValidConfig(configPath, { editors: { 'claude-code': { enabled: false } }, hooks });
+         const disabled = await runCli(['install', '--config', configPath, '--project', '--only', 'hooks']);
+
+         expect(disabled.error).toBeUndefined();
+         expect(JSON.parse(await readFile(join(testDir, '.claude', 'settings.json'), 'utf-8')).hooks.Stop).toEqual([]);
+      });
+
       it('records every installed section so listings mark the items as aix-managed', async () => {
          const configPath = join(testDir, 'ai.json');
 

@@ -206,6 +206,8 @@ export interface EditorConfig {
 export interface ApplyOptions {
    dryRun?: boolean;
    scopes?: ConfigScope[];
+   /** Stable source identity used to reconcile this config's previous editor installs. */
+   configSource?: string;
    /** Whether to target project-local or user-level editor config where supported. */
    targetScope?: 'project' | 'user';
    /**
@@ -261,6 +263,9 @@ export interface FileChange {
    path: string;
    action: 'create' | 'update' | 'delete' | 'unchanged';
    content?: string;
+   /** Native contribution before merging with the editor's existing settings. */
+   managedContent?: string;
+   managedSection?: ConfigScope;
    /** If true, this change represents a directory that was already copied (e.g., skills) */
    isDirectory?: boolean;
    /** File mode (permissions) to set, e.g., 0o755 for executable scripts */

@@ -23,6 +23,8 @@ export interface InstalledItemMeta {
    updatedAt: string;
    /** Editor names the item was installed to */
    editors: string[];
+   /** Editor claims per source config, so one config cannot erase another's inventory. */
+   sources?: Record<string, string[]>;
 }
 
 /**

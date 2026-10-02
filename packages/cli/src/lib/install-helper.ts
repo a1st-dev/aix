@@ -12,7 +12,6 @@ import {
    type StateSection,
 } from '@a1st/aix-core';
 import {
-   normalizeEditors,
    createEmptyConfig,
    isHookEvent,
    resolveScope,
@@ -20,6 +19,7 @@ import {
    type AiJsonConfig,
    type HookMatcher,
 } from '@a1st/aix-schema';
+import { resolveConfiguredEditors } from '../flags/target.js';
 
 export interface InstallAfterAddOptions {
    configPath: string;
@@ -95,9 +95,7 @@ export async function installAfterAdd(
       return { installed: false, results: [], editors: [] };
    }
 
-   const configuredEditors = loaded.config.editors,
-         normalizedEditors = configuredEditors ? normalizeEditors(configuredEditors) : {},
-         editors = options.editors ?? (Object.keys(normalizedEditors) as EditorName[]);
+   const editors = options.editors ?? resolveConfiguredEditors(loaded.config.editors);
 
    if (editors.length === 0) {
       return { installed: false, results: [], editors: [] };
@@ -112,6 +110,7 @@ export async function installAfterAdd(
                   return await installToEditor(editor, loaded.config, projectRoot, {
                      scopes: options.sections,
                      configBaseDir: loaded.configBaseDir,
+                     configSource: loaded.path,
                      targetScope,
                   });
                } catch (error) {
@@ -129,6 +128,7 @@ export async function installAfterAdd(
       scope: targetScope,
       editors: results.filter((r) => r.success).map((r) => r.editor),
       projectRoot,
+      source: loaded.path,
    });
 
    return { installed: true, results, editors };
@@ -143,6 +143,7 @@ export interface RecordInstalledSectionsOptions {
    /** Editors the install succeeded for */
    editors: EditorName[];
    projectRoot?: string;
+   source?: string;
 }
 
 /** The item names a config contributes to each tracked section. */
@@ -177,9 +178,8 @@ function getSectionsToRecord(
 
 /**
  * Record what a full install pass put in place, so `aix list` can tell aix-managed items
- * from ones that were already in the editor's config. Each installed section's tracked
- * set is replaced by the config's item names, so items dropped from ai.json stop being
- * reported as aix-managed. Callers must skip this on a dry run.
+ * from ones that were already in the editor's config. A source-aware pass replaces only
+ * that source's claims for the selected editors and sections. Callers must skip dry runs.
  */
 export async function recordInstalledSections(
    options: RecordInstalledSectionsOptions,
@@ -193,6 +193,7 @@ export async function recordInstalledSections(
       sections: getSectionsToRecord(options),
       editors: options.editors,
       projectRoot: options.projectRoot,
+      source: options.source,
    });
 }
 
@@ -212,6 +213,7 @@ export async function recordInstalledItems(
       sections: getSectionsToRecord(options),
       editors: options.editors,
       projectRoot: options.projectRoot,
+      source: options.source,
       mode: 'merge',
    });
 }

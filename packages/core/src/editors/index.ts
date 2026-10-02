@@ -22,6 +22,8 @@ export {
    isEditorInputName,
 } from './types.js';
 
+export { listConfigInstallEditors } from './install-receipts.js';
+
 export {
    BaseEditorAdapter,
    WindsurfAdapter,

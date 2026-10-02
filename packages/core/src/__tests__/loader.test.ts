@@ -36,6 +36,18 @@ describe('loadConfig', () => {
       expect(result?.path).toBe(configPath);
    });
 
+   it('uses the same source identity for relative and absolute local paths', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify({ skills: {}, mcp: {} }), 'utf-8');
+
+      const relative = await loadConfig({ remoteSource: './ai.json', startDir: testDir }),
+            absolute = await loadConfig({ remoteSource: configPath, startDir: testDir });
+
+      expect(relative?.path).toBe(configPath);
+      expect(absolute?.path).toBe(relative?.path);
+   });
+
    it('resolves extends before validation', async () => {
       const baseConfig = { skills: { typescript: '^1.0.0' } },
             baseConfigPath = join(testDir, 'base.json'),

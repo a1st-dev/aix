@@ -1,4 +1,4 @@
-import { join, dirname, basename } from 'pathe';
+import { join, basename } from 'pathe';
 import { isRecord } from '../../type-guards.js';
 import type { AiJsonConfig, HooksConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import { parseJsonc, mergeJsonc } from '@a1st/aix-schema';
@@ -41,25 +41,29 @@ import {
    unpackAllPlugins,
 } from '../strategies/shared/index.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
-import { createBackup } from '../../backup.js';
+import { deduplicateNativeHooks } from '../native-hook-content.js';
+import { planInstallReceipt } from '../install-receipts.js';
+import { applyFileChanges, getFileChangeAction } from '../apply-file-changes.js';
 
 /** Keep handwritten hooks when installing another handler for the same native event. */
-function preserveNativeHooks(existing: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown> {
+async function preserveNativeHooks(
+   existing: Record<string, unknown>,
+   incoming: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
    if (!isRecord(existing.hooks) || !isRecord(incoming.hooks)) {
       return incoming;
    }
 
-   const hooks = { ...incoming.hooks };
+   const hooks = { ...incoming.hooks },
+         existingHooks = existing.hooks;
 
-   for (const [event, added] of Object.entries(hooks)) {
-      const current = existing.hooks[event];
+   await Promise.all(Object.entries(hooks).map(async ([event, added]) => {
+      const current = existingHooks[event];
 
-      if (Array.isArray(current) && Array.isArray(added)) {
-         const serializedHooks = new Set(current.map((hook: unknown) => JSON.stringify(hook)));
-
-         hooks[event] = [...current, ...added.filter((hook: unknown) => !serializedHooks.has(JSON.stringify(hook)))];
+      if (Array.isArray(added)) {
+         hooks[event] = await deduplicateNativeHooks([...(Array.isArray(current) ? current : []), ...added]);
       }
-   }
+   }));
 
    return { ...incoming, hooks };
 }
@@ -214,7 +218,16 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          }
 
          // Generate file changes
-         const changes = await this.planChanges(editorConfig, projectRoot, scopes, options);
+         const planned = await this.planChanges(editorConfig, projectRoot, scopes, options),
+               reconciled = await planInstallReceipt({
+                  editor: this.name,
+                  projectRoot,
+                  source: options.configSource ?? join(projectRoot, 'ai.json'),
+                  scope: options.targetScope ?? 'project',
+                  scopes,
+                  changes: planned,
+               }),
+               { changes, receiptChange } = reconciled;
 
          result.changes = changes;
 
@@ -224,7 +237,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          }
 
          // Apply changes atomically
-         await this.applyChanges(changes);
+         await applyFileChanges(receiptChange ? [...changes, receiptChange] : changes);
       } catch (error) {
          result.success = false;
          result.errors.push(error instanceof Error ? error.message : String(error));
@@ -247,66 +260,15 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          return;
       }
 
-      // Remove the .aix folder entirely, then recreate .tmp if needed
-      await getRuntimeAdapter().fs.rm(aixPath, { recursive: true, force: true });
-   }
+      // Clear generated content while retaining ownership records for reconciliation.
+      const entries = await getRuntimeAdapter().fs.readdir(aixPath);
 
-   /**
-    * Apply file changes atomically. If any write fails, attempt to rollback.
-    * Sequential execution is required here for atomic rollback support.
-    */
-   protected async applyChanges(changes: FileChange[]): Promise<void> {
-      const applied: Array<{ path: string; originalContent: string | null }> = [];
-
-      try {
-         for (const change of changes) {
-            // Skip unchanged and directory changes (directories are already copied elsewhere)
-            if (change.action === 'unchanged' || change.isDirectory) {
-               continue;
-            }
-
-            // Store original content for rollback
-            let originalContent: string | null = null;
-
-            if (getRuntimeAdapter().fs.existsSync(change.path)) {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               originalContent = await getRuntimeAdapter().fs.readFile(change.path, 'utf-8');
-               // eslint-disable-next-line no-await-in-loop -- Back up before each overwrite
-               await createBackup(change.path);
-            }
-            applied.push({ path: change.path, originalContent });
-
-            if (change.action === 'delete') {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await getRuntimeAdapter().fs.rm(change.path, { force: true });
-            } else {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await getRuntimeAdapter().fs.mkdir(dirname(change.path), { recursive: true });
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-               await getRuntimeAdapter().fs.writeFile(change.path, change.content ?? '', 'utf-8');
-               if (change.mode !== undefined) {
-                  // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-                  await getRuntimeAdapter().fs.chmod(change.path, change.mode);
-               }
-            }
-         }
-      } catch (error) {
-         // Rollback on failure - must be sequential to restore in reverse order
-         for (const { path, originalContent } of applied) {
-            try {
-               if (originalContent === null) {
-                  // eslint-disable-next-line no-await-in-loop -- Sequential rollback
-                  await getRuntimeAdapter().fs.rm(path, { force: true });
-               } else {
-                  // eslint-disable-next-line no-await-in-loop -- Sequential rollback
-                  await getRuntimeAdapter().fs.writeFile(path, originalContent, 'utf-8');
-               }
-            } catch {
-               // Best effort rollback
-            }
-         }
-         throw error;
-      }
+      // Receipts must survive cleanup so stale editor entries can still be removed.
+      await Promise.all(entries.filter((entry) => {
+         return entry !== 'installs';
+      }).map((entry) => {
+         return getRuntimeAdapter().fs.rm(join(aixPath, entry), { recursive: true, force: true });
+      }));
    }
 
    /**
@@ -327,13 +289,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       existingContent: string | null,
       newContent: string,
    ): 'create' | 'update' | 'unchanged' {
-      if (existingContent === null) {
-         return 'create';
-      }
-      if (existingContent === newContent) {
-         return 'unchanged';
-      }
-      return 'update';
+      return getFileChangeAction(existingContent, newContent);
    }
 
    /**
@@ -510,7 +466,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
                      existing = await this.readExisting(filePath),
                      action = this.determineAction(existing, content);
 
-               return { path: filePath, action, content, category: 'workflow' as const };
+               return { path: filePath, action, content, category: 'workflow' as const, managedSection: 'prompts' as const };
             }),
          );
 
@@ -541,7 +497,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
                      existing = await this.readExisting(filePath),
                      action = this.determineAction(existing, content);
 
-               return { path: filePath, action, content, category: 'workflow' as const };
+               return { path: filePath, action, content, category: 'workflow' as const, managedSection: 'agents' as const };
             }),
          );
 
@@ -609,7 +565,9 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          return changes;
       }
 
-      const change = await this.planJsonFileChange(hooksPath, formattedHooks, options);
+      const uniqueHooks = await preserveNativeHooks({ hooks: {} }, parsedHooks),
+            content = JSON.stringify(uniqueHooks, null, 2) + '\n',
+            change = await this.planJsonFileChange(hooksPath, content, options);
 
       changes.push({ ...change, category: 'hook', items: Object.keys(parsedHooks.hooks) });
 
@@ -668,6 +626,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       if (existingInChanges) {
          existingInChanges.content = change.content;
          existingInChanges.action = change.action;
+         changes.push({ ...change, category: 'plugin', items: pluginNames });
          if (existingInChanges.items) {
             existingInChanges.items.push(...pluginNames);
          }
@@ -730,6 +689,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       if (existingInChanges) {
          existingInChanges.content = change.content;
          existingInChanges.action = change.action;
+         changes.push({ ...change, category: 'marketplace', items: marketplaceNames });
          if (existingInChanges.items) {
             existingInChanges.items.push(...marketplaceNames);
          }
@@ -762,7 +722,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       if (options.overwrite || existing === null) {
          const action = this.determineAction(existing, newContent);
 
-         return { path: filePath, action, content: newContent };
+         return { path: filePath, action, content: newContent, managedContent: newContent };
       }
 
       // Merge existing JSON with new JSON. Use parseJsonc so files with comments or
@@ -776,7 +736,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       try {
          const existingJson = normalizeFlatMcpConfigForMerge(existingParseResult.data),
-               newJson = preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
+               newJson = await preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
 
          let mergedContent: string;
 
@@ -790,7 +750,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          const action = this.determineAction(existing, mergedContent);
 
-         return { path: filePath, action, content: mergedContent };
+         return { path: filePath, action, content: mergedContent, managedContent: newContent };
       } catch (error) {
          const message = error instanceof Error ? error.message : String(error);
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'pathe';
+import { dirname, join, relative } from 'pathe';
 import { homedir, tmpdir } from 'node:os';
 import { type AiJsonConfig, type McpServerConfig, parseJsonc } from '@a1st/aix-schema';
 import {
@@ -431,6 +431,94 @@ describe('Editor Adapters', () => {
       it('has correct name and configDir', () => {
          expect(adapter.name).toBe('claude-code');
          expect(adapter.configDir).toBe('.claude');
+      });
+
+      describe('hook content deduplication', () => {
+         it('replaces duplicate script copies with the incoming registration and keeps unrelated hooks', async () => {
+            const oldPath = join(testDir, 'old.mjs'),
+                  duplicatePath = join(testDir, 'duplicate.mjs'),
+                  newPath = join(testDir, 'new hook.mjs'),
+                  settingsPath = join(testDir, '.claude', 'settings.json'),
+                  unrelated = { hooks: [{ type: 'command', command: 'echo unrelated' }] },
+                  command = `node '${newPath}'`,
+                  config = createConfig({ hooks: { agent_stop: [{ hooks: [{ command }] }] } });
+
+            await Promise.all([oldPath, duplicatePath, newPath].map((path) => {
+               return writeFile(path, 'console.log("same content");');
+            }));
+            await mkdir(dirname(settingsPath), { recursive: true });
+            await writeFile(settingsPath, JSON.stringify({ model: 'keep', hooks: { Stop: [
+               { hooks: [{ type: 'command', command: `node ${oldPath}` }] },
+               unrelated,
+               { matcher: '', hooks: [{ command: `node "${duplicatePath}"`, type: 'command' }] },
+            ] } }));
+
+            await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+            await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+
+            const settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+            expect(settings.model).toBe('keep');
+            expect(settings.hooks.Stop).toEqual([
+               unrelated,
+               { matcher: '', hooks: [{ type: 'command', command }] },
+            ]);
+         });
+
+         it.each([
+            { name: 'different script bytes', content: 'console.log("different");', suffix: '', matcher: '', timeout: undefined },
+            { name: 'different arguments', content: 'console.log("same");', suffix: ' --strict', matcher: '', timeout: undefined },
+            { name: 'different matchers', content: 'console.log("same");', suffix: '', matcher: 'startup', timeout: undefined },
+            { name: 'different options', content: 'console.log("same");', suffix: '', matcher: '', timeout: 30 },
+            { name: 'missing scripts', content: undefined, suffix: '', matcher: '', timeout: undefined },
+            { name: 'compound commands', content: 'console.log("same");', suffix: ' && echo done', matcher: '', timeout: undefined },
+         ])('keeps hooks with $name separate', async ({ content, suffix, matcher, timeout }) => {
+            const oldPath = join(testDir, 'old.mjs'),
+                  newPath = join(testDir, 'new.mjs'),
+                  settingsPath = join(testDir, '.claude', 'settings.json'),
+                  existing = { matcher, hooks: [{ type: 'command', command: `node ${oldPath}${suffix}`, timeout }] },
+                  command = `node ${newPath}`,
+                  config = createConfig({ hooks: { agent_stop: [{ hooks: [{ command }] }] } });
+
+            if (content !== undefined) {
+               await writeFile(oldPath, content);
+               await writeFile(newPath, 'console.log("same");');
+            }
+            await mkdir(dirname(settingsPath), { recursive: true });
+            await writeFile(settingsPath, JSON.stringify({ hooks: { Stop: [existing] } }));
+
+            await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+
+            const settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+            expect(settings.hooks.Stop).toEqual([
+               JSON.parse(JSON.stringify(existing)),
+               { matcher: '', hooks: [{ type: 'command', command }] },
+            ]);
+         });
+
+         it.each(['$HOME', '${HOME}'])('compares script content through %s without changing the home directory', async (variable) => {
+            const home = process.env.HOME ?? '',
+                  oldPath = join(testDir, 'old.mjs'),
+                  newPath = join(testDir, 'new.mjs'),
+                  settingsPath = join(testDir, '.claude', 'settings.json'),
+                  relativePath = `/${relative(home, oldPath)}`,
+                  command = `node '${newPath}'`,
+                  config = createConfig({ hooks: { agent_stop: [{ hooks: [{ command }] }] } });
+
+            await writeFile(oldPath, 'console.log("same");');
+            await writeFile(newPath, 'console.log("same");');
+            await mkdir(dirname(settingsPath), { recursive: true });
+            await writeFile(settingsPath, JSON.stringify({ hooks: { Stop: [
+               { hooks: [{ type: 'command', command: `node "${variable}${relativePath}"` }] },
+            ] } }));
+
+            await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+
+            const settings = JSON.parse(await readFile(settingsPath, 'utf-8'));
+
+            expect(settings.hooks.Stop).toEqual([{ matcher: '', hooks: [{ type: 'command', command }] }]);
+         });
       });
 
       it('writes rules with optional frontmatter', async () => {
@@ -1583,7 +1671,7 @@ Skill instructions.
          expect(await readFile(settingsPath, 'utf-8')).toStrictEqual(existing);
       });
 
-      it('merges MCP servers with existing config by default', async () => {
+      it('merges MCP servers contributed by different source configs', async () => {
          // First install with server A
          const config1 = createConfig({
             mcp: {
@@ -1591,7 +1679,7 @@ Skill instructions.
             },
          });
 
-         await installToEditor('cursor', config1, testDir);
+         await installToEditor('cursor', config1, testDir, { configSource: join(testDir, 'first-ai.json') });
 
          // Second install with server B - should merge, not replace
          const config2 = createConfig({
@@ -1728,7 +1816,7 @@ Skill instructions.
          expect(ruleContent).not.toContain('Original content');
       });
 
-      it('dry-run shows accurate merged content', async () => {
+      it('dry-run previews replacement of a source config', async () => {
          // First install with server A
          const config1 = createConfig({
             mcp: {
@@ -1746,13 +1834,13 @@ Skill instructions.
          });
          const result = await installToEditor('cursor', config2, testDir, { dryRun: true });
 
-         // Verify dry-run shows merged content
+         // Preview removes the old contribution without changing the editor config.
          const mcpChange = result.changes.find((c) => c.path.includes('mcp.json'));
 
          expect(mcpChange).toBeDefined();
          const previewContent = JSON.parse(mcpChange!.content!);
 
-         expect(previewContent.mcpServers.serverA).toBeDefined();
+         expect(previewContent.mcpServers.serverA).toBeUndefined();
          expect(previewContent.mcpServers.serverB).toBeDefined();
       });
    });

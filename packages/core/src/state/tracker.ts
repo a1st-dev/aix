@@ -193,6 +193,7 @@ export function detectNewItems(
 
 export interface UpdateInstalledStateOptions {
    scope: ConfigScope;
+   source?: string;
    /** Item names per section. Sections not listed are left alone. */
    sections: Partial<Record<StateSection, string[]>>;
    editors: string[];
@@ -210,7 +211,7 @@ export interface UpdateInstalledStateOptions {
  * calls would race: each reads the same state file and the last write wins.
  */
 export async function updateInstalledState(options: UpdateInstalledStateOptions): Promise<void> {
-   const { scope, sections, editors, projectRoot, mode = 'replace' } = options,
+   const { scope, sections, editors, projectRoot, source, mode = 'replace' } = options,
          entries = Object.entries(sections);
 
    if (entries.length === 0) {
@@ -225,14 +226,49 @@ export async function updateInstalledState(options: UpdateInstalledStateOptions)
          continue;
       }
 
-      const updated: InstalledItems = mode === 'merge' ? { ...state.installed[section] } : {};
+      const updated: InstalledItems = mode === 'merge' || source ? { ...state.installed[section] } : {};
+
+      if (source) {
+         for (const [name, existing] of Object.entries(updated)) {
+            if (!existing.sources) {
+               continue;
+            }
+
+            const sources = { ...existing.sources },
+                  remaining = (sources[source] ?? []).filter((editor) => {
+                     return !editors.includes(editor);
+                  });
+
+            if (remaining.length > 0) {
+               sources[source] = remaining;
+            } else {
+               delete sources[source];
+            }
+            if (Object.keys(sources).length === 0) {
+               delete updated[name];
+            } else {
+               updated[name] = { ...existing, sources, editors: [...new Set(Object.values(sources).flat())] };
+            }
+         }
+      }
 
       for (const name of names) {
-         const existing = state.installed[section][name];
+         const existing = state.installed[section][name],
+               sourceEditors = source ? updated[name]?.sources?.[source] ?? [] : [],
+               sources = source ? {
+                  ...updated[name]?.sources,
+                  [source]: [...new Set([...sourceEditors, ...editors])],
+               } : existing?.sources,
+               installedEditors = sources ? [...new Set(Object.values(sources).flat())] :
+                  [...new Set([...(existing?.editors ?? []), ...editors])];
 
          updated[name] = existing
-            ? { ...existing, updatedAt: now, editors: [ ...new Set([ ...existing.editors, ...editors ]) ] }
-            : { installedAt: now, updatedAt: now, editors };
+            ? { ...existing, updatedAt: now, editors: installedEditors }
+            : { installedAt: now, updatedAt: now, editors: installedEditors };
+
+         if (sources) {
+            updated[name].sources = sources;
+         }
       }
       state.installed[section] = updated;
    }

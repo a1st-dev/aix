@@ -1,4 +1,4 @@
-import { dirname } from 'pathe';
+import { dirname, resolve } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
@@ -123,7 +123,7 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
    const sourceType: 'file' | 'remote' = remote.source === 'local' ? 'file' : 'remote';
 
    return {
-      path: source,
+      path: sourceType === 'file' ? resolve(cwd, source) : source,
       config: validated,
       source: sourceType,
       configBaseDir: remote.baseUrl,

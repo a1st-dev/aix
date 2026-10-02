@@ -14,6 +14,16 @@ editor to another, use [`aix sync`](/cli/sync/) instead.
 
 You can also install a single item without a local `ai.json` by passing `--type`.
 
+Aix records each source config's contributions per editor under `.aix/installs/` in the
+target scope (`~/.aix/installs/` for user installs). On the next install from that source,
+entries and generated files removed from the config are removed from the editor too.
+Cleanup preserves other sources' contributions and direct user edits. Entries that predate
+these receipts remain untracked; aix does not infer ownership from their paths.
+
+`--only` reconciles just the selected sections. `--dry-run` previews cleanup without
+changing editor files or receipts. Receipts are written with the corresponding editor
+changes, so a failed file write does not advance the recorded install.
+
 ## Usage
 
 ```bash

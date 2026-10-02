@@ -112,6 +112,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
          const syncedConfig = buildConfigFromEditorImport(from, imported),
                result = await installToEditor(to, syncedConfig, projectRoot, {
                   dryRun: isDryRun,
+                  configSource: `sync:${from}:${fromScope}:${projectRoot}`,
                   targetScope: toScope,
                   strictTargetScope: true,
                });
@@ -161,6 +162,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
          if (!isDryRun) {
             await recordInstalledSections({
                config: syncedConfig,
+               source: `sync:${from}:${fromScope}:${projectRoot}`,
                sections: SYNCED_SECTIONS,
                scope: toScope,
                editors: [to],

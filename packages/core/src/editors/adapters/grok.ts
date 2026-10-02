@@ -200,7 +200,7 @@ export class GrokAdapter extends BaseEditorAdapter {
       const content = stringifyTOML(config),
             action = this.determineAction(existing, content);
 
-      return [{ path: mcpPath, action, content, category: 'mcp', items: mcpEntries }];
+      return [{ path: mcpPath, action, content, managedContent: this.mcpStrategy.formatConfig(mcp), category: 'mcp', items: mcpEntries }];
    }
 
    private async installPromptSkills(

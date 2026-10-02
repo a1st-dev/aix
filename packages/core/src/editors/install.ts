@@ -1,7 +1,14 @@
 import pMap from 'p-map';
 import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
-import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo } from './types.js';
+import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
+import { parseTOML, stringifyTOML } from 'confbox';
+import { parseJsonc, modifyJsonc } from '@a1st/aix-schema';
+import { isRecord } from '../type-guards.js';
+import { planInstallReceipt } from './install-receipts.js';
+import { applyFileChanges, getFileChangeAction } from './apply-file-changes.js';
+import { deepMergeJson, mcpConfigMergeResolver } from '../json.js';
+import { isCI } from '../env/ci.js';
 import {
    editorInputNames,
    editorNames,
@@ -182,22 +189,32 @@ export async function installToEditor(
    }
 
    // Handle global-only features (MCP for Windsurf/Codex, Prompts for Codex)
-   const globalChanges = await processGlobalFeatures(adapter, editorConfig, projectRoot, {
-      ...options,
-      skipGlobal:
-         options?.skipGlobal ??
-         (options?.strictTargetScope === true && targetScope === 'project'),
-      skipGlobalReason:
-         options?.skipGlobalReason ??
-         (
-            options?.strictTargetScope === true && targetScope === 'project'
-               ? 'Requested target scope is project, so aix did not write global-only config'
-               : undefined
-         ),
-   });
+   if (!result.success) {
+      return result;
+   }
 
-   if (globalChanges) {
-      result.globalChanges = globalChanges;
+   try {
+      const globalChanges = await processGlobalFeatures(adapter, editorConfig, projectRoot, {
+         ...options,
+         skipGlobal:
+            options?.skipGlobal ??
+            (options?.strictTargetScope === true && targetScope === 'project'),
+         skipGlobalReason:
+            options?.skipGlobalReason ??
+            (
+               options?.strictTargetScope === true && targetScope === 'project'
+                  ? 'Requested target scope is project, so aix did not write global-only config'
+                  : undefined
+            ),
+      });
+
+      if (globalChanges) {
+         result.globalChanges = globalChanges.info;
+         result.changes.push(...globalChanges.changes);
+      }
+   } catch (error) {
+      result.success = false;
+      result.errors.push(error instanceof Error ? error.message : String(error));
    }
 
    return result;
@@ -241,12 +258,18 @@ async function processGlobalFeatures(
    editorConfig: import('./types.js').EditorConfig,
    projectRoot: string,
    options?: ApplyOptions,
-): Promise<GlobalChangesInfo | undefined> {
-   const { mcpStrategy, promptsStrategy } = adapter.getStrategyBundle();
+): Promise<{ info: GlobalChangesInfo; changes: FileChange[] } | undefined> {
+   const { mcpStrategy, promptsStrategy } = adapter.getStrategyBundle(),
+         scopes = options?.scopes ?? ['mcp', 'prompts'],
+         globalConfig = {
+            ...editorConfig,
+            mcp: scopes.includes('mcp') ? editorConfig.mcp : {},
+            prompts: scopes.includes('prompts') || scopes.includes('editors') ? editorConfig.prompts : [],
+         };
 
    // Check if this editor has any global-only features
-   const hasMcpGlobalOnly = mcpStrategy?.isGlobalOnly?.() && Object.keys(editorConfig.mcp).length > 0,
-         hasPromptsGlobalOnly = promptsStrategy?.isGlobalOnly?.() && editorConfig.prompts.length > 0;
+   const hasMcpGlobalOnly = mcpStrategy?.isGlobalOnly?.() && scopes.includes('mcp'),
+         hasPromptsGlobalOnly = promptsStrategy?.isGlobalOnly?.() && (scopes.includes('prompts') || scopes.includes('editors'));
 
    if (!hasMcpGlobalOnly && !hasPromptsGlobalOnly) {
       return undefined;
@@ -255,11 +278,7 @@ async function processGlobalFeatures(
    assertGlobalHomeAccess(`applying global-only ${adapter.name} configuration`);
 
    // Analyze what global changes are needed
-   const changes = await analyzeGlobalChanges(adapter.name, editorConfig, mcpStrategy, promptsStrategy);
-
-   if (changes.length === 0) {
-      return undefined;
-   }
+   const changes = await analyzeGlobalChanges(adapter.name, globalConfig, mcpStrategy, promptsStrategy);
 
    // Apply the changes (respecting skipGlobal and autoConfirmGlobal options)
    const globalResult = await applyGlobalChanges(changes, {
@@ -267,8 +286,92 @@ async function processGlobalFeatures(
       skipGlobalReason: options?.skipGlobalReason,
       autoConfirm: options?.autoConfirmGlobal,
       projectPath: projectRoot,
-      dryRun: options?.dryRun,
+      dryRun: true,
    });
+
+   let receiptChanges: FileChange[] = [];
+
+   if (!options?.skipGlobal && !await isCI()) {
+      const installed = [...globalResult.applied, ...globalResult.skipped.filter((change) => {
+               return change.configsMatch;
+            })],
+            nativeChanges: FileChange[] = [],
+            contents = new Map<string, string>();
+
+      for (const change of installed) {
+         const { fs } = getRuntimeAdapter(),
+               exists = fs.existsSync(change.globalPath);
+         let content = contents.get(change.globalPath);
+
+         if (content === undefined) {
+            // eslint-disable-next-line no-await-in-loop -- Changes sharing one global file must be planned in order.
+            content = exists ? await fs.readFile(change.globalPath, 'utf-8') : '{}';
+            if (!exists && change.format === 'toml') {
+               content = '';
+            }
+         }
+
+         let desiredContent = change.promptContent ?? content,
+             managedContent = change.promptContent;
+
+         if (change.type === 'mcp') {
+            const parsed: unknown = change.format === 'toml' ? parseTOML(content) : parseJsonc(content).data,
+                  key = change.format === 'toml' ? 'mcp_servers' : 'mcpServers',
+                  servers = isRecord(parsed) ? parsed[key] : undefined,
+                  entry = change.mcpEntry ?? (isRecord(servers) ? servers[change.name] : undefined);
+
+            if (!isRecord(parsed) || (change.format !== 'toml' && parseJsonc(content).errors.length > 0)) {
+               throw new Error(`Cannot merge invalid global config: ${change.globalPath}`);
+            }
+            if (entry === undefined) {
+               throw new Error(`Installed MCP entry is missing: ${change.name}`);
+            }
+
+            const contribution = { [key]: { [change.name]: entry } },
+                  merged = deepMergeJson(parsed, contribution, { resolver: mcpConfigMergeResolver });
+
+            managedContent = change.format === 'toml' ? stringifyTOML(contribution) : JSON.stringify(contribution);
+            desiredContent = change.format === 'toml' ? stringifyTOML(merged) : modifyJsonc(content, [key, change.name], entry);
+            if (change.configsMatch) {
+               desiredContent = content;
+            }
+         }
+
+         const action = getFileChangeAction(exists ? content : null, desiredContent);
+
+         contents.set(change.globalPath, desiredContent);
+         nativeChanges.push({
+            path: change.globalPath, action, content: desiredContent, managedContent,
+            category: change.type === 'mcp' ? 'mcp' : 'workflow',
+            managedSection: change.type === 'mcp' ? 'mcp' : 'prompts',
+         });
+      }
+
+      const completedScopes = scopes.filter((section) => {
+               return !globalResult.skipped.some((change) => {
+                  const matchesSection = change.type === section ||
+                     (change.type === 'prompt' && (section === 'prompts' || section === 'editors'));
+
+                  return matchesSection && !change.configsMatch;
+               });
+            }),
+            reconciled = await planInstallReceipt({
+               source: options?.configSource ?? join(projectRoot, 'ai.json'),
+               editor: `${adapter.name}:global`,
+               projectRoot,
+               scope: 'user',
+               scopes: completedScopes,
+               changes: nativeChanges,
+            });
+
+      if (!options?.dryRun) {
+         await applyFileChanges(reconciled.receiptChange
+            ? [...reconciled.changes, reconciled.receiptChange] : reconciled.changes);
+      }
+      receiptChanges = reconciled.changes.filter((change) => {
+         return change.action !== 'unchanged';
+      });
+   }
 
    // Convert to GlobalChangesInfo format
    const info: GlobalChangesInfo = {
@@ -285,7 +388,11 @@ async function processGlobalFeatures(
       warnings: globalResult.warnings,
    };
 
-   return info;
+   if (changes.length === 0 && receiptChanges.length === 0) {
+      return undefined;
+   }
+
+   return { info, changes: receiptChanges };
 }
 
 /**

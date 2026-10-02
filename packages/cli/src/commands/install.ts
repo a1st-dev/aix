@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { select, confirm } from '@inquirer/prompts';
-import { parseConfig, normalizeEditors, parseJsonc, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
+import { parseConfig, parseJsonc, createEmptyConfig, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import {
    displayFileChanges,
@@ -13,11 +13,12 @@ import {
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
-import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
+import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
 import {
    installToEditor,
+   listConfigInstallEditors,
    detectEditors,
    updateConfig,
    loadConfig,
@@ -137,7 +138,7 @@ export default class Install extends BaseCommand<typeof Install> {
          default: false,
       }),
       clean: Flags.boolean({
-         description: 'Remove .aix folder before installing to ensure exact match with ai.json',
+         description: 'Clear .aix content before installing, preserving install receipts for cleanup',
          default: false,
       }),
       copy: Flags.boolean({
@@ -260,11 +261,26 @@ export default class Install extends BaseCommand<typeof Install> {
          return;
       }
 
-      const { editors, shouldPromptToSave } = resolved;
+      const { editors, shouldPromptToSave } = resolved,
+            configuredEditors = localEditors ?? loaded.config.editors,
+            previousEditors = !this.flags.target?.length && configuredEditors && Object.keys(configuredEditors).length > 0
+               ? await listConfigInstallEditors({ source: loaded.path, scope: targetScope, projectRoot }) : [],
+            removedEditors = previousEditors.filter((editor) => {
+               return !editors.includes(editor);
+            });
 
       // Install to editors sequentially to avoid overwhelming the system with concurrent file I/O
       // and to provide clear sequential output to the user
       const results: ApplyResult[] = [];
+
+      for (const editor of removedEditors) {
+         // eslint-disable-next-line no-await-in-loop -- Reconcile a removed target before installing the remaining targets.
+         const result = await this.installToSingleEditor(editor, createEmptyConfig(), projectRoot, {
+            isDryRun, sections, configSource: loaded.path, targetScope,
+         });
+
+         results.push(result);
+      }
 
       for (const editor of editors) {
          // eslint-disable-next-line no-await-in-loop -- Sequential for user feedback and file safety
@@ -273,6 +289,7 @@ export default class Install extends BaseCommand<typeof Install> {
             sections,
             clean: this.flags.clean,
             configBaseDir: loaded.configBaseDir,
+            configSource: loaded.path,
             targetScope,
          });
 
@@ -284,9 +301,15 @@ export default class Install extends BaseCommand<typeof Install> {
       if (!isDryRun) {
          await recordInstalledSections({
             config: loaded.config,
+            source: loaded.path,
             sections: sections as ConfigSection[],
             scope: targetScope,
-            editors: results.filter((result) => result.success).map((result) => result.editor),
+            editors: results.filter((result) => result.success && editors.includes(result.editor)).map((result) => result.editor),
+            projectRoot,
+         });
+         await recordInstalledSections({
+            config: createEmptyConfig(), source: loaded.path, sections: sections as ConfigSection[], scope: targetScope,
+            editors: results.filter((result) => result.success && removedEditors.includes(result.editor)).map((result) => result.editor),
             projectRoot,
          });
       }
@@ -516,6 +539,7 @@ export default class Install extends BaseCommand<typeof Install> {
          changes: result.changes.map((change) => ({
             ...change,
             ...(change.content ? { content: this.redactString(change.content, sensitiveValues) } : {}),
+            ...(change.managedContent ? { managedContent: this.redactString(change.managedContent, sensitiveValues) } : {}),
          })),
       }));
    }
@@ -590,6 +614,7 @@ export default class Install extends BaseCommand<typeof Install> {
             isDryRun,
             sections,
             clean: this.flags.clean,
+            configSource: `direct:${type}:${source ?? this.flags.name ?? type}`,
             targetScope,
          });
 
@@ -599,6 +624,7 @@ export default class Install extends BaseCommand<typeof Install> {
       if (!isDryRun) {
          await recordInstalledItems({
             config: direct.config,
+            source: `direct:${type}:${source ?? this.flags.name ?? type}`,
             sections,
             scope: targetScope,
             editors: results.filter((result) => result.success).map((result) => result.editor),
@@ -659,9 +685,10 @@ export default class Install extends BaseCommand<typeof Install> {
          const configEditors = localEditors ?? config.editors;
 
          if (configEditors) {
-            const normalized = normalizeEditors(configEditors);
-
-            editors = Object.keys(normalized) as EditorName[];
+            editors = resolveConfiguredEditors(configEditors);
+            if (editors.length === 0 && Object.keys(configEditors).length > 0) {
+               return { editors: [], shouldPromptToSave: false };
+            }
          }
 
          if (editors.length === 0) {
@@ -704,9 +731,16 @@ export default class Install extends BaseCommand<typeof Install> {
       editor: EditorName,
       config: AiJsonConfig,
       projectRoot: string,
-      options: { isDryRun: boolean; sections: ConfigSection[]; clean?: boolean; configBaseDir?: string; targetScope?: ConfigScope },
+      options: {
+         isDryRun: boolean;
+         sections: ConfigSection[];
+         clean?: boolean;
+         configBaseDir?: string;
+         configSource?: string;
+         targetScope?: ConfigScope;
+      },
    ): Promise<ApplyResult> {
-      const { isDryRun, sections, clean, configBaseDir, targetScope } = options;
+      const { isDryRun, sections, clean, configBaseDir, configSource, targetScope } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
@@ -717,6 +751,7 @@ export default class Install extends BaseCommand<typeof Install> {
             overwrite: this.flags.overwrite,
             clean,
             configBaseDir,
+            configSource,
             targetScope,
          });
 

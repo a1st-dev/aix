@@ -36,5 +36,9 @@ export async function installPromptsAsSkills(options: InstallPromptsAsSkillsOpti
       existingSkillNames,
    });
 
-   return skillsStrategy.installSkills(promptSkills, projectRoot, applyOptions);
+   const changes = await skillsStrategy.installSkills(promptSkills, projectRoot, applyOptions);
+
+   return changes.map((change) => {
+      return Object.assign({}, change, { managedSection: 'prompts' as const });
+   });
 }

@@ -58,8 +58,12 @@ To install one hook fragment without creating `ai.json`, use direct install:
 aix install ./hooks/pre-command.jsonc --type hook --target claude-code --user
 ```
 
-Installation preserves existing settings and hook entries. Identical matcher groups
-are not added again on repeat installs. The output lists the installed native events,
+Installation preserves existing settings and distinct hook entries. For simple commands
+with readable absolute script paths (including paths beginning with `$HOME` or `${HOME}`),
+aix compares file contents rather than paths. Handlers with the same arguments,
+matchers, and options use the incoming registration, so reinstalling updates the path
+without adding another copy, even if handlers were grouped differently. Compound commands and unreadable paths use the literal
+command instead. The output lists the installed native events,
 such as `Stop`, `SubagentStop`, and `PreToolUse`.
 
 Existing hook config files are backed up under `.aix/.tmp/backups/` in the file's

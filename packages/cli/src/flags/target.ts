@@ -1,4 +1,5 @@
 import { Flags } from '@oclif/core';
+import { normalizeEditors, type AiJsonConfig } from '@a1st/aix-schema';
 import {
    getAcceptedEditorNames,
    isEditorInputName,
@@ -23,6 +24,18 @@ export function resolveTargetEditors(targets: string[] | undefined): EditorName[
    }
 
    return normalizeEditorNames(targets);
+}
+
+/** Explicitly disabled editors must not be selected for installation. */
+export function resolveConfiguredEditors(editors: AiJsonConfig['editors']): EditorName[] {
+   const normalized = editors ? normalizeEditors(editors) : {},
+         enabled = Object.entries(normalized).filter(([, config]) => {
+            return config.enabled;
+         }).map(([name]) => {
+            return name;
+         });
+
+   return normalizeEditorNames(enabled);
 }
 
 export function validateTargetEditors(
