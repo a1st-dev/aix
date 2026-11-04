@@ -220,6 +220,11 @@ async function resolveGitExtends(
       await fs.mkdir(dirname(permanentDir), { recursive: true });
       await fs.cp(dir, permanentDir, { recursive: true, force: true });
 
+      // Hook commands run scripts from this copy, and those scripts can import its packages.
+      if (fs.existsSync(join(permanentDir, 'package.json'))) {
+         await getRuntimeAdapter().npm.installDependencies(permanentDir);
+      }
+
       // Normalize local paths to point at the permanent copy
       return normalizeLocalPaths(resolved, permanentDir);
    });

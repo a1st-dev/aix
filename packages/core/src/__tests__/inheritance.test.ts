@@ -4,6 +4,8 @@ import { join } from 'pathe';
 import { resolveExtends } from '../inheritance.js';
 import { CircularDependencyError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
+import { nodeRuntimeAdapter, withRuntimeAdapter } from '../runtime/index.js';
+import type { RuntimeAdapter } from '../runtime/index.js';
 
 const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'inheritance'),
       originalFetch = global.fetch;
@@ -158,5 +160,51 @@ describe('resolveExtends', () => {
       await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
       expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json');
+   });
+
+   describe('git extends dependencies', () => {
+      async function resolveGitExtends(files: Record<string, string>): Promise<string[]> {
+         const installedDirs: string[] = [],
+               adapter: RuntimeAdapter = {
+                  ...nodeRuntimeAdapter,
+                  git: {
+                     downloadTemplate: async (_template, options) => {
+                        const dir = options.dir ?? '';
+
+                        await mkdir(dir, { recursive: true });
+                        await Promise.all(Object.entries(files).map(([ name, content ]) => {
+                           return writeFile(join(dir, name), content, 'utf-8');
+                        }));
+
+                        return { dir };
+                     },
+                  },
+                  npm: {
+                     ...nodeRuntimeAdapter.npm,
+                     installDependencies: async (cwd) => {
+                        installedDirs.push(cwd);
+                     },
+                  },
+               };
+
+         await withRuntimeAdapter(adapter, () => {
+            return resolveExtends({ extends: 'github:org/config#main' }, { baseDir: testDir, projectRoot: testDir });
+         });
+
+         return installedDirs;
+      }
+
+      it('installs dependencies in the extends copy when it has a package.json', async () => {
+         const installedDirs = await resolveGitExtends({ 'ai.json': '{}', 'package.json': '{}' });
+
+         expect(installedDirs).toHaveLength(1);
+         expect(installedDirs[0]?.startsWith(join(testDir, '.aix', 'extends'))).toBe(true);
+      });
+
+      it('skips the install when the extends copy has no package.json', async () => {
+         const installedDirs = await resolveGitExtends({ 'ai.json': '{}' });
+
+         expect(installedDirs).toEqual([]);
+      });
    });
 });

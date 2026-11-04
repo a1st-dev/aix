@@ -82,6 +82,12 @@ async function ensureDependencyInstalled(packageSpec: string, cwd: string): Prom
    await nypmEnsureInstalled(packageSpec, { cwd });
 }
 
+async function installDependencies(cwd: string): Promise<void> {
+   const { installDependencies: nypmInstallDependencies } = await import('nypm');
+
+   await nypmInstallDependencies({ cwd, silent: true });
+}
+
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
    const projectRequire = getModuleModule().createRequire(new URL('package.json', getFileUrlForPath(projectRoot))),
          resolvedPath = projectRequire.resolve(`${packageName}/${subpath}`);
@@ -246,6 +252,7 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    },
    npm: {
       ensureDependencyInstalled,
+      installDependencies,
       resolvePackagePath,
    },
    os: {

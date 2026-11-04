@@ -91,6 +91,7 @@ export interface RuntimeGitAdapter {
 
 export interface RuntimeNpmAdapter {
    ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void>;
+   installDependencies(cwd: string): Promise<void>;
    resolvePackagePath(packageName: string, projectRoot: string, subpath?: string): Promise<string>;
 }
 
