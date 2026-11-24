@@ -40,9 +40,9 @@
       "registry": "https://registry.npmjs.org/"
    },
    "scripts": {
-      "prepack": "npm run build",
+      "prepack": "npm run build && npm run manifest",
       "postpack": "rm -f oclif.manifest.json",
-      "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json && chmod +x dist/cli.js && npm run manifest",
+      "build": "rm -rf dist tsconfig.build.tsbuildinfo oclif.manifest.json && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
       "manifest": "oclif manifest",
       "dev": "node bin/aixd.mjs",
       "test": "node ../../scripts/test-runner.mjs run",
