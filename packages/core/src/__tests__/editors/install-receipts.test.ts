@@ -196,6 +196,32 @@ describe('editor install receipts', () => {
       expect(content).not.toContain('/second.md');
    });
 
+   it('lists each Claude rule import once when several source configs share it', async () => {
+      const path = join(homedir(), '.claude', 'CLAUDE.md'),
+            sources = { first: ['shared', 'first'], second: ['shared', 'second'] };
+
+      for (const [source, ruleNames] of Object.entries(sources)) {
+         const rules = Object.fromEntries(ruleNames.map((name) => {
+                  return [name, { content: `${name} instructions.` }];
+               })),
+               config: AiJsonConfig = { ...createEmptyConfig(), rules };
+
+         // Installing twice proves repeat installs do not grow the section either.
+         for (let attempt = 0; attempt < 2; attempt++) {
+            // eslint-disable-next-line no-await-in-loop -- Each install reconciles against the previous receipts.
+            await installToEditor('claude-code', config, projectRoot, {
+               targetScope: 'user', configSource: join(projectRoot, `${source}-ai.json`), scopes: ['rules'],
+            });
+         }
+      }
+      const content = await readFile(path, 'utf-8');
+
+      expect(content.match(/## aix rules/g)).toHaveLength(1);
+      expect(content.match(/@rules\/shared\.md/g)).toHaveLength(1);
+      expect(content).toContain('@rules/first.md');
+      expect(content).toContain('@rules/second.md');
+   });
+
    it('retains receipts across --clean so removed skill links and hooks can still be reconciled', async () => {
       const skillPath = join(projectRoot, 'source-skill'),
             config: AiJsonConfig = {

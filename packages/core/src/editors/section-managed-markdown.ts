@@ -14,6 +14,24 @@ export const AIX_SECTION_BEGIN = '<!-- BEGIN AIX MANAGED SECTION — DO NOT EDIT
 export const AIX_SECTION_END = '<!-- END AIX MANAGED SECTION -->';
 
 /**
+ * How several sources' contributions to one managed section combine.
+ *
+ * - `blocks`: each contribution is kept whole, and identical contributions appear once.
+ * - `lines`: every line is an independent entry (such as a Claude Code `@` import), so the
+ *   section holds each distinct line once, in first-seen order.
+ */
+export type ManagedSectionMerge = 'blocks' | 'lines';
+
+export function mergeManagedSections(contributions: string[], merge: ManagedSectionMerge = 'blocks'): string {
+   if (merge === 'lines') {
+      return [...new Set(contributions.flatMap((contribution) => {
+         return contribution.split('\n');
+      }))].join('\n');
+   }
+   return [...new Set(contributions)].join('\n\n');
+}
+
+/**
  * Insert or update the aix managed section in a markdown file. Preserves all content outside
  * the section markers.
  *

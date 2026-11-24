@@ -7,6 +7,7 @@ import type {
    MarketplacesConfig,
 } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
+import type { ManagedSectionMerge } from './section-managed-markdown.js';
 import type { EditorStrategyBundle, UnsupportedHookField } from './strategies/types.js';
 
 /**
@@ -266,6 +267,8 @@ export interface FileChange {
    /** Native contribution before merging with the editor's existing settings. */
    managedContent?: string;
    managedSection?: ConfigScope;
+   /** How this file's aix managed Markdown section combines with other sources' contributions. */
+   managedSectionMerge?: ManagedSectionMerge;
    /** If true, this change represents a directory that was already copied (e.g., skills) */
    isDirectory?: boolean;
    /** File mode (permissions) to set, e.g., 0o755 for executable scripts */

@@ -186,7 +186,7 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
             action = this.determineAction(existing, content);
 
       return [
-         { path: claudePath, action, content, category: 'rule' },
+         { path: claudePath, action, content, category: 'rule', managedSectionMerge: 'lines' },
          ...ruleChanges,
       ];
    }

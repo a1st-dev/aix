@@ -7,7 +7,7 @@ import { getStatePath } from '../state/tracker.js';
 import { isRecord } from '../type-guards.js';
 import type { ConfigSection } from '../merge.js';
 import type { FileChange, FileChangeCategory } from './types.js';
-import { extractManagedSection, upsertManagedSection } from './section-managed-markdown.js';
+import { extractManagedSection, mergeManagedSections, upsertManagedSection, type ManagedSectionMerge } from './section-managed-markdown.js';
 import { getNativeHookKeys, filterNativeHooks } from './native-hook-content.js';
 import { getFileChangeAction } from './apply-file-changes.js';
 import { normalizeEditorNames, type EditorName } from './types.js';
@@ -18,6 +18,7 @@ interface InstalledFile {
    kind: 'json' | 'toml' | 'section' | 'file' | 'directory';
    content: string;
    renderedContent?: string;
+   merge?: ManagedSectionMerge;
    hookKeys?: Record<string, string[]>;
 }
 
@@ -48,6 +49,7 @@ function isInstalledFile(value: unknown): value is InstalledFile {
    return isRecord(value) && typeof value.path === 'string' && isAbsolute(value.path) && isSection(value.section) &&
       ['json', 'toml', 'section', 'file', 'directory'].includes(String(value.kind)) && typeof value.content === 'string' &&
       (value.renderedContent === undefined || typeof value.renderedContent === 'string') &&
+      (value.merge === undefined || value.merge === 'blocks' || value.merge === 'lines') &&
       (value.hookKeys === undefined || (isRecord(value.hookKeys) && Object.values(value.hookKeys).every((keys) => {
          return Array.isArray(keys) && keys.every((key) => {
             return typeof key === 'string';
@@ -181,6 +183,10 @@ async function snapshotChange(change: FileChange): Promise<InstalledFile | undef
    }
 
    const snapshot: InstalledFile = { path: change.path, section, kind, content: managed ?? content };
+
+   if (kind === 'section' && change.managedSectionMerge) {
+      snapshot.merge = change.managedSectionMerge;
+   }
 
    if (section === 'hooks' && kind === 'json') {
       const parsed = parseStructured(snapshot, content),
@@ -330,7 +336,7 @@ async function stripFile(file: InstalledFile, content: string, protectedFiles: I
       });
 
       if (knownSection) {
-         return upsertManagedSection(content, [...new Set(others)].join('\n\n'));
+         return upsertManagedSection(content, mergeManagedSections(others, file.merge));
       }
       return content;
    }
@@ -434,7 +440,7 @@ export async function planInstallReceipt(
             }), file.content];
 
       if (change?.content !== undefined) {
-         change.content = upsertManagedSection(change.content, [...new Set(sections)].join('\n\n'));
+         change.content = upsertManagedSection(change.content, mergeManagedSections(sections, file.merge));
          file.renderedContent = extractManagedSection(change.content) ?? file.content;
       }
    }
