@@ -86,4 +86,5 @@ After importing, review the generated `ai.json` and clean up anything that doesn
 aix install
 ```
 
-This syncs the config to all your detected editors — including the one you originally imported from.
+When aix detects more than one editor, it asks which ones to install to, with all of them
+selected. Keep the one you originally imported from selected so it stays in sync.

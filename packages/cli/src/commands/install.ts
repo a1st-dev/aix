@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
-import { select } from '@inquirer/prompts';
+import { checkbox } from '@inquirer/prompts';
 import { parseConfig, parseJsonc, createEmptyConfig, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import {
@@ -615,7 +615,8 @@ export default class Install extends BaseCommand<typeof Install> {
 
    /**
     * Resolve which editors to install to based on flags, config, and detection. When several
-    * editors are detected, the prompt defaults to the editor this config was last installed to.
+    * editors are detected, the prompt preselects the editors this config was last installed to,
+    * or every detected editor on a first install.
     */
    private async resolveEditors(options: {
       config: AiJsonConfig;
@@ -650,19 +651,21 @@ export default class Install extends BaseCommand<typeof Install> {
          return detected;
       }
 
-      const previousEditors = await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }),
-            selectedEditor = await select<EditorName>({
-               message: 'Multiple editors detected. Which one should aix install to?',
-               choices: detected.map((editor) => {
-                  return { name: editor, value: editor };
-               }),
-               default: previousEditors.find((editor) => {
+      const previousEditors = (await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }))
+               .filter((editor) => {
                   return detected.includes(editor);
                }),
+            preselectedEditors = previousEditors.length > 0 ? previousEditors : detected,
+            selectedEditors = await checkbox<EditorName>({
+               message: 'Multiple editors detected. Which ones should aix install to?',
+               choices: detected.map((editor) => {
+                  return { name: editor, value: editor, checked: preselectedEditors.includes(editor) };
+               }),
+               required: true,
             });
 
       this.output.log(this.output.dim('  Hint: Add `editors` to ai.json or pass --target to skip this prompt'));
-      return [selectedEditor];
+      return selectedEditors;
    }
 
    /**

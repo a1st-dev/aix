@@ -14,6 +14,14 @@ editor to another, use [`aix sync`](/cli/sync/) instead.
 
 You can also install a single item without a local `ai.json` by passing `--type`.
 
+## Choosing editors
+
+Aix installs to the editors named by `--target`. Without `--target`, it uses the enabled
+editors in the `editors` field of `ai.json`. If neither is set, aix detects installed
+editors. With one editor detected, aix installs to it. With several, aix asks which ones to
+install to. The first time, every detected editor is selected. After that, the editors that
+config was last installed to are selected.
+
 Aix records each source config's contributions per editor under `.aix/installs/` in the
 target scope (`~/.aix/installs/` for user installs). On the next install from that source,
 entries and generated files removed from the config are removed from the editor too.
