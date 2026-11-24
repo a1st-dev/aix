@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
-import { select, confirm } from '@inquirer/prompts';
+import { select } from '@inquirer/prompts';
 import { parseConfig, parseJsonc, createEmptyConfig, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import {
@@ -20,7 +20,6 @@ import {
    installToEditor,
    listConfigInstallEditors,
    detectEditors,
-   updateConfig,
    loadConfig,
    createBackup,
    mergeConfigs,
@@ -255,14 +254,19 @@ export default class Install extends BaseCommand<typeof Install> {
       }
 
       // Resolve which editors to install to (prefer local editors config over remote)
-      const resolved = await this.resolveEditors(loaded.config, projectRoot, localEditors);
+      const editors = await this.resolveEditors({
+         config: loaded.config,
+         configSource: loaded.path,
+         projectRoot,
+         targetScope,
+         localEditors,
+      });
 
-      if (!resolved) {
+      if (!editors) {
          return;
       }
 
-      const { editors, shouldPromptToSave } = resolved,
-            configuredEditors = localEditors ?? loaded.config.editors,
+      const configuredEditors = localEditors ?? loaded.config.editors,
             previousEditors = !this.flags.target?.length && configuredEditors && Object.keys(configuredEditors).length > 0
                ? await listConfigInstallEditors({ source: loaded.path, scope: targetScope, projectRoot }) : [],
             removedEditors = previousEditors.filter((editor) => {
@@ -324,60 +328,6 @@ export default class Install extends BaseCommand<typeof Install> {
 
          if (cleanup.deletedPaths.length > 0 && !this.flags.quiet) {
             this.output.info(`Cleaned ${cleanup.deletedPaths.length} stale cache entries`);
-         }
-      }
-
-      // After successful installation, prompt to save editor to ai.json
-      if (!args.source && shouldPromptToSave && allSucceeded && !isDryRun && editors.length === 1) {
-         const editor = editors[0] as EditorName,
-               localConfigPath = join(projectRoot, 'ai.json'),
-               localConfigExists = existsSync(localConfigPath),
-               saveToConfig = await confirm({
-                  message: `Save "${editor}" as the default editor in ai.json?`,
-                  default: true,
-               });
-
-         if (saveToConfig) {
-            if (!localConfigExists) {
-               const createConfig = await confirm({
-                  message: 'No ai.json found. Create one?',
-                  default: true,
-               });
-
-               if (createConfig) {
-                  // When installing from a remote source, persist it as extends so future
-                  // `aix i` (without a source argument) can re-fetch the config.
-                  const newConfig: Record<string, unknown> = {
-                     ...(args.source && { extends: args.source }),
-                     editors: { [editor]: { enabled: true } },
-                  };
-
-                  await writeFile(localConfigPath, JSON.stringify(newConfig, null, 2) + '\n', 'utf-8');
-                  this.output.success(`Created ./ai.json with "${editor}" as the default editor.`);
-               }
-            } else {
-               await updateConfig(localConfigPath, (config) => ({
-                  ...config,
-                  editors: {
-                     ...config.editors,
-                     [editor]: { enabled: true },
-                  },
-               }));
-               this.output.success(
-                  `Added "${editor}" to ai.json. Future installs will target this editor.`,
-               );
-            }
-         }
-
-         if (this.flags.lock) {
-            const reloaded = await loadConfig({
-               explicitPath: localConfigPath,
-               lockfileMode: 'ignore',
-            });
-
-            if (reloaded) {
-               loaded = await this.updateLockfile(reloaded, projectRoot);
-            }
          }
       }
 
@@ -664,64 +614,55 @@ export default class Install extends BaseCommand<typeof Install> {
    }
 
    /**
-    * Resolve which editors to install to based on flags, config, and detection.
-    * @param config - The config being installed (may be remote)
-    * @param projectRoot - The project root directory
-    * @param localEditors - Optional local ai.json editors config (takes precedence over remote)
+    * Resolve which editors to install to based on flags, config, and detection. When several
+    * editors are detected, the prompt defaults to the editor this config was last installed to.
     */
-   private async resolveEditors(
-      config: AiJsonConfig,
-      projectRoot: string,
-      localEditors?: AiJsonConfig['editors'],
-   ): Promise<{ editors: EditorName[]; shouldPromptToSave: boolean } | null> {
-      let editors: EditorName[] = [];
-      let shouldPromptToSave = false;
+   private async resolveEditors(options: {
+      config: AiJsonConfig;
+      configSource: string;
+      projectRoot: string;
+      targetScope: ConfigScope;
+      /** Local ai.json editors config, which takes precedence over a remote config's editors */
+      localEditors?: AiJsonConfig['editors'];
+   }): Promise<EditorName[] | null> {
+      const { config, configSource, projectRoot, targetScope, localEditors } = options,
+            configEditors = localEditors ?? config.editors;
 
       if (this.flags.target && this.flags.target.length > 0) {
-         editors = resolveTargetEditors(this.flags.target) ?? [];
+         const editors = resolveTargetEditors(this.flags.target) ?? [];
+
          validateTargetEditors(editors, this.error.bind(this));
-      } else {
-         // Prefer local editors config over remote config's editors
-         const configEditors = localEditors ?? config.editors;
-
-         if (configEditors) {
-            editors = resolveConfiguredEditors(configEditors);
-            if (editors.length === 0 && Object.keys(configEditors).length > 0) {
-               return { editors: [], shouldPromptToSave: false };
-            }
-         }
-
-         if (editors.length === 0) {
-            const detected = await detectEditors(projectRoot);
-
-            if (detected.length === 0) {
-               this.output.warn('No editors detected.');
-               this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
-               return null;
-            }
-            if (detected.length === 1) {
-               editors = detected;
-               this.output.info(`Detected editor: ${detected[0]}`);
-               shouldPromptToSave = true;
-            } else {
-               const selectedEditor = await select<EditorName>({
-                  message: 'Multiple editors detected. Which one should aix install to?',
-                  choices: detected.map((e) => ({ name: e, value: e })),
-               });
-
-               editors = [selectedEditor];
-               shouldPromptToSave = true;
-            }
-         }
+         return editors;
+      }
+      if (configEditors && Object.keys(configEditors).length > 0) {
+         return resolveConfiguredEditors(configEditors);
       }
 
-      if (editors.length === 0) {
-         this.output.warn('No editors found.');
+      const detected = await detectEditors(projectRoot);
+
+      if (detected.length === 0) {
+         this.output.warn('No editors detected.');
          this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
          return null;
       }
+      if (detected.length === 1) {
+         this.output.info(`Detected editor: ${detected[0]}`);
+         return detected;
+      }
 
-      return { editors, shouldPromptToSave };
+      const previousEditors = await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }),
+            selectedEditor = await select<EditorName>({
+               message: 'Multiple editors detected. Which one should aix install to?',
+               choices: detected.map((editor) => {
+                  return { name: editor, value: editor };
+               }),
+               default: previousEditors.find((editor) => {
+                  return detected.includes(editor);
+               }),
+            });
+
+      this.output.log(this.output.dim('  Hint: Add `editors` to ai.json or pass --target to skip this prompt'));
+      return [selectedEditor];
    }
 
    /**
