@@ -13,16 +13,17 @@ jobs:
          id-token: write
       steps:
          - name: Checkout code
-           uses: actions/checkout@v4
+           uses: actions/checkout@v7
 
          - name: Setup Node.js
-           uses: actions/setup-node@v4
+           uses: actions/setup-node@v7
            with:
               node-version: lts/*
               registry-url: https://registry.npmjs.org
+              package-manager-cache: false
 
          - name: Verify release tag is signed and GitHub-verified
-           uses: actions/github-script@v7
+           uses: actions/github-script@v9
            env:
               TAG: ${{ github.ref_name }}
            with:
@@ -125,7 +126,7 @@ jobs:
               echo "version=$VERSION" >> $GITHUB_OUTPUT
 
          - name: Create GitHub Release
-           uses: softprops/action-gh-release@v2
+           uses: softprops/action-gh-release@v3
            with:
               tag_name: ${{ github.ref_name }}
               name: Release ${{ steps.version.outputs.version }}
