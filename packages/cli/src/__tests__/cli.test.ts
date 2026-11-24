@@ -10,7 +10,10 @@ import { normalize } from 'pathe';
 
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..'),
-      loadOpts = { root, devPlugins: false };
+      loadOpts = { root, devPlugins: false },
+      // Two cold aixd runs transpile a copied checkout from scratch, which nears the default
+      // timeout on Windows runners.
+      AIXD_TEST_TIMEOUT_MS = 60_000;
 const runCli = (args: string[] | string) =>
    runCommand(args, loadOpts, { testNodeEnv: 'production' });
 
@@ -89,5 +92,5 @@ describe('aixd', () => {
       } finally {
          await rm(sandbox, { recursive: true, force: true });
       }
-   });
+   }, AIXD_TEST_TIMEOUT_MS);
 });
