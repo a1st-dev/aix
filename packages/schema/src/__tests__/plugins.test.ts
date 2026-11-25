@@ -17,6 +17,10 @@ describe('pluginsSchema', () => {
       expect(pluginNameSchema.safeParse('Invalid Name with Spaces').success).toBe(false);
    });
 
+   it.each([ '.', '..', '../x', '@scope/..', 'review@..' ])('rejects "%s", which would act as a path segment', (name) => {
+      expect(pluginNameSchema.safeParse(name).success).toStrictEqual(false);
+   });
+
    it('validates plugin object with marketplace and source', () => {
       const parsed = pluginObjectSchema.parse({
          marketplace: 'claude-plugins-official',

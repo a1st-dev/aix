@@ -7,7 +7,9 @@ export const pluginNameSchema = z
    .min(1)
    .max(128)
    .regex(
-      /^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(@[a-z0-9_.-]+)?$/,
+      // Each part starts with a letter or digit. A part of only dots would be a path segment
+      // once the name is used as a directory.
+      /^(@[a-z0-9][a-z0-9_.-]*\/)?[a-z0-9][a-z0-9_.-]*(@[a-z0-9][a-z0-9_.-]*)?$/,
       'Plugin name must be a valid package name or plugin@marketplace identifier',
    )
    .describe('Plugin identifier (e.g., "code-review", "code-review@claude-plugins-official", "@scope/pkg")');

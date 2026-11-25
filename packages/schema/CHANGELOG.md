@@ -19,6 +19,8 @@ version may appear here with no changes to this package.
   default
 - Accept `codex` in the `editors` array shorthand and reject `neovim`, which aix cannot
   install to
+- Reject plugin names made only of dots, such as `..`, which resolved to a parent
+  directory when the name was used as a skill directory
 
 ## [0.6.0] - 2026-08-12
 
