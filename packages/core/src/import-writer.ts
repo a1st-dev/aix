@@ -135,15 +135,45 @@ export async function writeImportedContent(
 }
 
 /**
- * Commit staged import: backup existing, move staging to final location, cleanup.
- * This should be called after ai.json has been successfully written.
+ * Move every staged entry into the imported directory. An entry (one rule, prompt or agent
+ * file, or one skill directory) replaces an existing entry of the same name as a whole, so a
+ * re-imported skill does not keep files its new version dropped. Entries that were not
+ * staged are left alone: ai.json may still reference them from an earlier import.
+ */
+async function mergeStagedImport(stagingDir: string, finalDir: string): Promise<void> {
+   const { fs } = getRuntimeAdapter(),
+         sections = (await fs.readdir(stagingDir, { withFileTypes: true })).filter((section) => {
+            return section.isDirectory();
+         });
+
+   await Promise.all(sections.map(async (section) => {
+      const stagedSectionDir = join(stagingDir, section.name),
+            finalSectionDir = join(finalDir, section.name),
+            entryNames = await fs.readdir(stagedSectionDir);
+
+      await fs.mkdir(finalSectionDir, { recursive: true });
+
+      await Promise.all(entryNames.map(async (entryName) => {
+         const finalPath = join(finalSectionDir, entryName);
+
+         await safeRm(finalPath, { force: true });
+         await fs.rename(join(stagedSectionDir, entryName), finalPath);
+      }));
+   }));
+}
+
+/**
+ * Commit staged import: backup existing, merge staging into the final location, cleanup.
+ * This should be called after ai.json has been successfully written. If it throws, call
+ * `rollbackImport` to restore the imported directory from the backup taken here.
  *
  * @param projectRoot - The project root directory
  */
 export async function commitImport(projectRoot: string): Promise<void> {
    const stagingDir = getImportStagingDir(projectRoot),
          finalDir = getImportedDir(projectRoot),
-         backupDir = getImportBackupDir(projectRoot);
+         backupDir = getImportBackupDir(projectRoot),
+         { fs } = getRuntimeAdapter();
 
    // If staging directory doesn't exist, nothing was staged - skip commit
    if (!(await dirExists(stagingDir))) {
@@ -153,17 +183,16 @@ export async function commitImport(projectRoot: string): Promise<void> {
    // Clean any existing backup
    await safeRm(backupDir, { force: true });
 
-   // If final directory exists, move it to backup
+   // The backup is a copy, not a move: the existing files stay in place to be merged into.
    if (await dirExists(finalDir)) {
-      await getRuntimeAdapter().fs.mkdir(dirname(backupDir), { recursive: true });
-      await getRuntimeAdapter().fs.rename(finalDir, backupDir);
+      await fs.mkdir(dirname(backupDir), { recursive: true });
+      await fs.cp(finalDir, backupDir, { recursive: true });
    }
 
-   // Move staging to final location
-   await getRuntimeAdapter().fs.mkdir(join(projectRoot, '.aix'), { recursive: true });
-   await getRuntimeAdapter().fs.rename(stagingDir, finalDir);
+   await mergeStagedImport(stagingDir, finalDir);
 
-   // Clean up backup (success path)
+   // Clean up (success path)
+   await safeRm(stagingDir, { force: true });
    await safeRm(backupDir, { force: true });
 }
 
