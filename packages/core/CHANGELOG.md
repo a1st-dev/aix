@@ -135,6 +135,8 @@ version may appear here with no changes to this package.
   `aix add --save` reported success and the item was never read
 - Resolve the local overrides of a config in `package.json` to `ai.local.json`, the file
   discovery reads, and not to `package.local.json`
+- Name `ai.local.json` in the error when that file has a syntax error. The error named
+  `ai.json`
 
 ## [0.6.0] - 2026-08-12
 

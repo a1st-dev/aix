@@ -155,9 +155,11 @@ function mergeLocalOverrides(
    localContent: string,
    localPath: string,
 ): { config: AiJsonConfig; hasLocalOverrides: true } {
-   const localParsed = parseConfigContent(localContent) as Record<string, unknown>;
+   let localParsed: unknown;
 
    try {
+      localParsed = parseConfigContent(localContent);
+
       const localValidated = parseLocalConfig(localParsed);
 
       return {

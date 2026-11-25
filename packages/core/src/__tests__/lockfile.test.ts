@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { describe, expect, it, afterEach } from 'vitest';
 import { parseConfig } from '@a1st/aix-schema';
-import { generateAndWriteLockfile, generateLockfile, loadConfig, safeRm } from '../index.js';
+import { ConfigParseError, generateAndWriteLockfile, generateLockfile, loadConfig, safeRm } from '../index.js';
 
 const testDirs: string[] = [];
 
@@ -64,6 +64,21 @@ describe('lockfile', () => {
 
       expect(loaded?.lockfilePath).toBe(join(dir, 'ai.lock.json'));
       expect(loaded?.lockfile?.entities.rules.style?.digest).toMatch(/^sha256:/);
+   });
+
+   it('names ai.local.json when that is the file that does not parse', async () => {
+      const dir = await createTestDir(),
+            configPath = join(dir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify(parseConfig({})), 'utf-8');
+      await writeFile(join(dir, 'ai.local.json'), '{ "mcp": ', 'utf-8');
+
+      const error: unknown = await loadConfig({ explicitPath: configPath }).catch((caught: unknown) => {
+         return caught;
+      });
+
+      expect(error).toBeInstanceOf(ConfigParseError);
+      expect(error instanceof ConfigParseError ? error.filePath : undefined).toBe(join(dir, 'ai.local.json'));
    });
 
    it('rejects a stale sibling lockfile', async () => {
