@@ -197,11 +197,6 @@ export interface ApplyOptions {
     */
    skipGlobal?: boolean;
    /**
-    * If true, automatically confirm global changes without prompting.
-    * Used for testing or non-interactive environments.
-    */
-   autoConfirmGlobal?: boolean;
-   /**
     * Base directory/URL for resolving relative paths in the config (skills, rules, etc.). When
     * installing from a remote URL, this is the remote URL directory. When installing from a local
     * config, this defaults to the directory containing the config file. If not provided, falls back

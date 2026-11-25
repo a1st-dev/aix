@@ -1,13 +1,10 @@
-import { join, dirname } from 'pathe';
-import { parseTOML, stringifyTOML } from 'confbox';
-import { parseJsonc, modifyJsonc, removeJsoncProperty, type McpServerConfig } from '@a1st/aix-schema';
+import { join } from 'pathe';
+import type { McpServerConfig } from '@a1st/aix-schema';
 import type { EditorName, EditorConfig } from '../editors/types.js';
 import type { McpStrategy, PromptsStrategy } from '../editors/strategies/types.js';
 import { mcpConfigsMatch, promptsMatch } from './comparison.js';
 import type { GlobalChangeRequest, GlobalChangeResult, GlobalChangeOptions } from './types.js';
 import { isCI } from '../env/ci.js';
-import { isRecord } from '../type-guards.js';
-import { buildStandardServerEntry } from '../editors/strategies/shared/standard-mcp.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 /** Derive config file format from path extension. */
@@ -195,9 +192,10 @@ async function analyzePromptChange(
 }
 
 /**
- * Apply approved global changes. Writes files and updates tracking.
+ * Decide which of the analyzed global changes go ahead. Nothing is written here: the caller
+ * turns the applied ones into file changes and writes them with every other change.
  */
-export async function applyGlobalChanges(
+export async function planGlobalChanges(
    changes: GlobalChangeRequest[],
    options: GlobalChangeOptions,
 ): Promise<GlobalChangeResult> {
@@ -225,7 +223,6 @@ export async function applyGlobalChanges(
       return { applied, skipped, warnings };
    }
 
-   // Process each change
    for (const change of changes) {
       if (change.action === 'skip') {
          skipped.push(change);
@@ -239,7 +236,6 @@ export async function applyGlobalChanges(
          continue;
       }
 
-      // Skip if skipGlobal option is set
       if (options.skipGlobal) {
          skipped.push({
             ...change,
@@ -249,170 +245,8 @@ export async function applyGlobalChanges(
          continue;
       }
 
-      // Apply the change
-      if (!options.dryRun) {
-         try {
-            if (change.type === 'mcp' && change.mcpConfig) {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await applyMcpChange(change);
-            } else if (change.type === 'prompt' && change.promptContent) {
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await getRuntimeAdapter().fs.mkdir(dirname(change.globalPath), { recursive: true });
-               // eslint-disable-next-line no-await-in-loop -- Sequential for atomic operations
-               await getRuntimeAdapter().fs.writeFile(change.globalPath, change.promptContent, 'utf-8');
-            }
-         } catch (error) {
-            warnings.push(
-               `[${change.editor}] Failed to apply ${change.type} "${change.name}": ${(error as Error).message}`,
-            );
-            skipped.push({
-               ...change,
-               action: 'skip',
-               skipReason: `Failed: ${(error as Error).message}`,
-            });
-            continue;
-         }
-      }
-
       applied.push(change);
    }
 
    return { applied, skipped, warnings };
-}
-
-/**
- * Build a server entry for editors whose MCP strategy does not format its own entries. Every
- * strategy shipped today formats its own, so this is the fallback for one that does not.
- */
-function buildGenericServerEntry(mcpConfig: McpServerConfig): Record<string, unknown> {
-   const serverConfig = buildStandardServerEntry(mcpConfig);
-
-   if ('disabledTools' in mcpConfig && Array.isArray(mcpConfig.disabledTools)) {
-      serverConfig.disabledTools = mcpConfig.disabledTools;
-   }
-
-   return serverConfig;
-}
-
-/**
- * Apply an MCP change by merging with existing config.
- */
-async function applyMcpChange(change: GlobalChangeRequest): Promise<void> {
-   const globalPath = change.globalPath,
-         format = change.format ?? getFileFormat(globalPath);
-   let existingConfig: Record<string, unknown> = {},
-       rawContent: string | null = null;
-
-   // Read existing config if it exists
-   if (getRuntimeAdapter().fs.existsSync(globalPath)) {
-      try {
-         const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8');
-
-         if (format === 'toml') {
-            existingConfig = parseTOML(content) as Record<string, unknown>;
-         } else {
-            const parsed = parseJsonc<Record<string, unknown>>(content);
-
-            if (parsed.errors.length === 0 && isRecord(parsed.data)) {
-               existingConfig = parsed.data;
-               rawContent = content;
-            }
-         }
-      } catch {
-         // Start fresh if parse fails
-      }
-   }
-
-   // MCP server key differs by format: TOML uses mcp_servers, JSON uses mcpServers
-   const mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
-         serverEntry = change.mcpEntry ?? (change.mcpConfig ? buildGenericServerEntry(change.mcpConfig) : undefined);
-
-   if (serverEntry) {
-      const mcpServers = (existingConfig[mcpKey] ?? {}) as Record<string, unknown>;
-
-      mcpServers[change.name] = serverEntry;
-      existingConfig[mcpKey] = mcpServers;
-   }
-
-   // Write back in the correct format
-   await getRuntimeAdapter().fs.mkdir(dirname(globalPath), { recursive: true });
-   let output: string;
-
-   if (format === 'toml') {
-      output = stringifyTOML(existingConfig);
-   } else if (rawContent) {
-      output = modifyJsonc(rawContent, [mcpKey, change.name], serverEntry);
-   } else {
-      output = JSON.stringify(existingConfig, null, 2) + '\n';
-   }
-
-   await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
-}
-
-/**
- * Get a summary of global changes for display to the user.
- */
-export function summarizeGlobalChanges(changes: GlobalChangeRequest[]): {
-   toAdd: GlobalChangeRequest[];
-   toSkip: GlobalChangeRequest[];
-   alreadyConfigured: GlobalChangeRequest[];
-} {
-   const toAdd = changes.filter((c) => c.action === 'add'),
-         toSkip = changes.filter((c) => c.action === 'skip' && !c.configsMatch),
-         alreadyConfigured = changes.filter((c) => c.action === 'skip' && c.configsMatch);
-
-   return { toAdd, toSkip, alreadyConfigured };
-}
-
-/**
- * Remove an MCP server from a global config file.
- * Returns true if the server was removed, false if it didn't exist.
- */
-export async function removeFromGlobalMcpConfig(
-   globalPath: string,
-   serverName: string,
-): Promise<boolean> {
-   if (!getRuntimeAdapter().fs.existsSync(globalPath)) {
-      return false;
-   }
-
-   const format = getFileFormat(globalPath);
-
-   try {
-      const content = await getRuntimeAdapter().fs.readFile(globalPath, 'utf-8');
-      let config: Record<string, unknown>;
-
-      if (format === 'toml') {
-         config = parseTOML(content) as Record<string, unknown>;
-      } else {
-         const parsed = parseJsonc<Record<string, unknown>>(content);
-
-         if (parsed.errors.length > 0 || !isRecord(parsed.data)) {
-            return false;
-         }
-
-         config = parsed.data;
-      }
-
-      const mcpKey = format === 'toml' ? 'mcp_servers' : 'mcpServers',
-            mcpServers = config[mcpKey] as Record<string, unknown> | undefined;
-
-      if (!mcpServers || !(serverName in mcpServers)) {
-         return false;
-      }
-
-      // Remove the server
-      delete mcpServers[serverName];
-      config[mcpKey] = mcpServers;
-
-      // Write back in the correct format
-      const output = format === 'toml'
-         ? stringifyTOML(config)
-         : removeJsoncProperty(content, [mcpKey, serverName]);
-
-      await getRuntimeAdapter().fs.writeFile(globalPath, output, 'utf-8');
-      return true;
-   } catch {
-      return false;
-   }
 }

@@ -295,7 +295,7 @@ describe('editor install receipts', () => {
 
    it('reconciles global-only Codex MCP entries when their source config changes', async () => {
       const config: AiJsonConfig = { ...createEmptyConfig(), mcp: { managed: { command: 'server' } } },
-            options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
+            options = { targetScope: 'user' as const, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
 
       vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);
@@ -308,7 +308,7 @@ describe('editor install receipts', () => {
 
    it('rolls back global MCP changes when their receipt cannot be written', async () => {
       const config: AiJsonConfig = { ...createEmptyConfig(), mcp: { managed: { command: 'original' } } },
-            options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
+            options = { targetScope: 'user' as const, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
 
       vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);

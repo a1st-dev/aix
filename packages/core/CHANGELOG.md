@@ -35,6 +35,10 @@ version may appear here with no changes to this package.
   longer cache content
 - Remove the unused `hasUnresolvedEnvVars` and `hasUnresolvedVariables` exports, and
   `ResolveOptions.visited`
+- Remove `applyGlobalChanges`, `removeFromGlobalMcpConfig`, `summarizeGlobalChanges`, and
+  the `autoConfirmGlobal` apply option. Their write paths were unreachable from an install
+  and overwrote a global config file that failed to parse. `planGlobalChanges` replaces
+  the first
 
 ### Fixed
 

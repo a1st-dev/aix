@@ -27,7 +27,7 @@ import {
    OpenCodeAdapter,
    GrokAdapter,
 } from './adapters/index.js';
-import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
+import { analyzeGlobalChanges, planGlobalChanges } from '../global/processor.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
@@ -251,7 +251,7 @@ function stripTargetScopeLimitedFeatures(
 
 /**
  * Process global-only features for an editor.
- * Analyzes what global changes are needed and applies them (with user confirmation in CLI).
+ * Analyzes what global changes are needed and plans them as file changes.
  */
 async function processGlobalFeatures(
    adapter: EditorAdapter,
@@ -280,13 +280,9 @@ async function processGlobalFeatures(
    // Analyze what global changes are needed
    const changes = await analyzeGlobalChanges(adapter.name, globalConfig, mcpStrategy, promptsStrategy);
 
-   // Apply the changes (respecting skipGlobal and autoConfirmGlobal options)
-   const globalResult = await applyGlobalChanges(changes, {
+   const globalResult = await planGlobalChanges(changes, {
       skipGlobal: options?.skipGlobal,
       skipGlobalReason: options?.skipGlobalReason,
-      autoConfirm: options?.autoConfirmGlobal,
-      projectPath: projectRoot,
-      dryRun: true,
    });
 
    let receiptChanges: FileChange[] = [];
