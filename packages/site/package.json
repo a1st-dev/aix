@@ -7,6 +7,7 @@
       "dev": "astro dev",
       "build": "astro build",
       "test": "node ../../scripts/test-runner.mjs run",
+      "typecheck": "astro check",
       "preview": "astro preview"
    },
    "dependencies": {
@@ -26,5 +27,8 @@
       "astro-seo": "1.1.0",
       "sharp": "^0.34.5",
       "yaml": "2.8.4"
+   },
+   "devDependencies": {
+      "@astrojs/check": "0.9.9"
    }
 }
