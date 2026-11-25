@@ -107,6 +107,8 @@ version may appear here with no changes to this package.
 - Read a state file that lacks sections added in later versions without failing
 - Install editors one at a time in `installToEditors`; two at once raced on files that
   editors share
+- Do not edit home-directory MCP config when `removeMcpFromEditor` targets project scope,
+  or project config when it targets user scope for an editor with no user-level path
 
 ## [0.6.0] - 2026-08-12
 

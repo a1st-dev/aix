@@ -90,36 +90,36 @@ export function resolveListScope(flags: {
       return 'all';
    }
 
-   return resolveConfigScope(flags);
+   return resolveTargetScope(flags);
 }
 
-/**
- * Resolve the target ConfigScope from the parsed flags.
- * Priority: --scope > --user/--project > defaultScope.
- */
-export function resolveConfigScope(
-   flags: { scope?: string; user?: boolean; project?: boolean },
-   defaultScope?: ConfigScope,
-): ConfigScope;
-export function resolveConfigScope(
-   flags: { scope?: string; user?: boolean; project?: boolean },
-   defaultScope: undefined,
-): ConfigScope | undefined;
-export function resolveConfigScope(
-   flags: { scope?: string; user?: boolean; project?: boolean },
-   defaultScope?: ConfigScope | undefined,
-): ConfigScope | undefined {
-   // Use 'user' as default only when argument is not passed at all
-   const resolvedDefault = arguments.length < 2 ? ('user' as ConfigScope) : defaultScope;
+interface ScopeFlags {
+   scope?: string;
+   user?: boolean;
+   project?: boolean;
+}
 
-   if (flags.scope) {
-      return flags.scope as ConfigScope;
+function isConfigScope(value: string | undefined): value is ConfigScope {
+   return value === 'user' || value === 'project';
+}
+
+/** The scope the flags ask for, or nothing when none of them was passed. `--scope` wins. */
+export function getFlagScope(flags: ScopeFlags): ConfigScope | undefined {
+   if (isConfigScope(flags.scope)) {
+      return flags.scope;
    }
    if (flags.user) {
       return 'user';
    }
-   if (flags.project) {
-      return 'project';
-   }
-   return resolvedDefault;
+
+   return flags.project ? 'project' : undefined;
+}
+
+/**
+ * The scope a command reads or writes editor config at: a scope flag, then the `scope` the
+ * loaded ai.json declares, then user scope. Every command resolves its scope here, so one
+ * project gives the same answer whichever command runs.
+ */
+export function resolveTargetScope(flags: ScopeFlags, config?: { scope?: ConfigScope }): ConfigScope {
+   return getFlagScope(flags) ?? config?.scope ?? 'user';
 }

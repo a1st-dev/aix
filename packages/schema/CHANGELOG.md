@@ -13,6 +13,14 @@ version may appear here with no changes to this package.
   editors, which core now reuses
 - Declare the MIT license in `package.json`
 
+### Changed
+
+- Record any scope passed to `createEmptyConfig`, not only `user`
+
+### Removed
+
+- Remove `resolveScope`, whose project default disagreed with what `aix install` does
+
 ### Fixed
 
 - Accept the `{ "npm", "path", "version" }` object form for skill and plugin sources

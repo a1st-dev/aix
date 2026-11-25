@@ -520,6 +520,44 @@ describe('CLI Commands', () => {
          expect(installed.stdout).toContain('~/.claude.json');
       });
 
+      it('records the scope in ai.json when init is given one, so install follows it', async () => {
+         await runCli(['init', '--project']);
+
+         const withFlag = JSON.parse(await readFile(join(testDir, 'ai.json'), 'utf-8'));
+
+         await runCli(['init', '--force']);
+
+         const withoutFlag = JSON.parse(await readFile(join(testDir, 'ai.json'), 'utf-8'));
+
+         expect(withFlag.scope).toStrictEqual('project');
+         expect(withoutFlag.scope).toBeUndefined();
+      });
+
+      it('follows the scope ai.json declares when adding with --save', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { scope: 'project' });
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--save', '--target', 'claude-code']);
+
+         expect(added.error).toBeUndefined();
+         expect(existsSync(join(testDir, '.mcp.json'))).toStrictEqual(true);
+         expect(existsSync(join(process.env.HOME ?? '', '.claude.json'))).toStrictEqual(false);
+      });
+
+      it('leaves global-only editor config alone when adding or removing at project scope', async () => {
+         const globalMcpPath = join(process.env.HOME ?? '', '.codeium', 'windsurf', 'mcp_config.json'),
+               existing = JSON.stringify({ mcpServers: { docs: { command: 'node' } } });
+
+         await mkdir(dirname(globalMcpPath), { recursive: true });
+         await writeFile(globalMcpPath, existing);
+
+         const added = await runCli(['add', 'mcp', 'other', '--command', 'node other.js', '--project', '--target', 'windsurf']),
+               removed = await runCli(['remove', 'mcp', 'docs', '--yes', '--project', '--target', 'windsurf']);
+
+         expect(added.error).toBeUndefined();
+         expect(removed.error).toBeUndefined();
+         expect(await readFile(globalMcpPath, 'utf-8')).toStrictEqual(existing);
+      });
+
       it('leaves global-only editor config alone in a project-scope install', async () => {
          const globalMcpPath = join(process.env.HOME ?? '', '.codeium', 'windsurf', 'mcp_config.json'),
                existing = JSON.stringify({ mcpServers: { mine: { command: 'node' } } });

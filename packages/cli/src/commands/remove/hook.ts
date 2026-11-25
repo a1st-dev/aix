@@ -3,7 +3,7 @@ import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
@@ -63,7 +63,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       const { args, flags } = await this.parse(RemoveHook),
             loaded = flags.save ? await this.loadConfig() : undefined,
             targetEditors = resolveTargetEditors(flags.target),
-            targetScope = resolveConfigScope(flags);
+            targetScope = resolveTargetScope(flags, loaded?.config);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 

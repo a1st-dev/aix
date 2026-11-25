@@ -3,7 +3,7 @@ import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
@@ -55,7 +55,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    async run(): Promise<void> {
       const { args, flags } = await this.parse(RemoveMcp);
       const loaded = flags.save ? await this.loadConfig() : undefined;
-      const targetScope = resolveConfigScope(flags);
+      const targetScope = resolveTargetScope(flags, loaded?.config);
       const targetEditors = resolveTargetEditors(flags.target);
 
       validateTargetEditors(targetEditors, this.error.bind(this));

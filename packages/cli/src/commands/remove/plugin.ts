@@ -3,7 +3,7 @@ import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
@@ -58,7 +58,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetEditors = resolveTargetEditors(flags.target);
       const pluginName = args.name;
-      const targetScope = resolveConfigScope(flags);
+      const targetScope = resolveTargetScope(flags, loaded?.config);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 

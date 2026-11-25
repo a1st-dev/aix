@@ -12,7 +12,7 @@ import type { AiJsonConfig } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
 import { removeLockFlag } from '../flags/lock.js';
 import { localFlag } from '../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../flags/scope.js';
 import { saveFlag } from '../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { confirmAction } from './confirm.js';
@@ -84,7 +84,7 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
             loaded = flags.save ? await this.loadConfig() : undefined,
             name = this.resolveItemName(args.name, loaded?.config),
             targetEditors = resolveTargetEditors(flags.target),
-            scope = resolveConfigScope(flags),
+            scope = resolveTargetScope(flags, loaded?.config),
             targetFile = flags.local ? 'ai.local.json' : 'ai.json';
 
       validateTargetEditors(targetEditors, this.error.bind(this));

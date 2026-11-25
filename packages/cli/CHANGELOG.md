@@ -25,6 +25,14 @@ version may appear here with no changes to this package.
   project-scope `aix install` and report it as skipped
 - Use only the arrow keys to move and Enter to install in `aix search`. `j`, `k`, and
   Space also typed into the query, so a two-word search triggered an install
+- Resolve the scope the same way in every command: a scope flag, then the `scope` in
+  `ai.json`, then user scope. `aix add --save` ignored the config's scope, and
+  `aix search` defaulted to project scope for a config that `aix install` installed at
+  user scope
+
+### Removed
+
+- Remove about 450 lines of `aix list` code that nothing called
 
 ### Fixed
 
@@ -69,6 +77,10 @@ version may appear here with no changes to this package.
 - Install the MCP server that is highlighted in `aix search`; it searched again by short
   name and installed the first match
 - Report an install from `aix search` as failed when no editor received the item
+- Record the scope in `ai.json` when `aix init` is given `--project` or `--scope project`,
+  so a later `aix install` stays in the project
+- Leave global-only editor config untouched in a project-scope `aix add` or
+  `aix remove mcp`, as `aix install --project` already does
 
 ## [0.6.0] - 2026-08-12
 

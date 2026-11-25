@@ -106,12 +106,14 @@ function getMcpConfigPath(
 ): string | undefined {
    const globalPath = strategy.getGlobalMcpConfigPath();
 
-   if (strategy.isGlobalOnly?.()) {
+   if (targetScope === 'user') {
       return globalPath ? join(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
    }
 
-   if (targetScope === 'user' && globalPath) {
-      return join(getRuntimeAdapter().os.homedir(), globalPath);
+   // An editor that keeps MCP servers only in the home directory has nothing at project scope.
+   // A project-scope install writes nothing there, so a project-scope removal must not either.
+   if (strategy.isGlobalOnly?.()) {
+      return undefined;
    }
 
    return join(strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir), strategy.getConfigPath());

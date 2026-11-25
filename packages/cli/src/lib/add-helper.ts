@@ -1,7 +1,8 @@
 import { updateConfig, loadConfig, type EditorName } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
-import { normalizeEditors, resolveScope, type ConfigScope } from '@a1st/aix-schema';
+import { normalizeEditors, type ConfigScope } from '@a1st/aix-schema';
 import { dirname } from 'pathe';
+import { resolveTargetScope } from '../flags/scope.js';
 import { installAfterAdd } from './install-helper.js';
 import { isValidSkillName, normalizeSkillName, parseSkillSource } from './skill-source.js';
 import { deleteFiles, findFilesToDelete } from './delete-helper.js';
@@ -206,7 +207,7 @@ export async function removeSkill(options: { configPath: string; name: string })
 
    try {
       const loaded = await loadConfig(configPath),
-            scope = loaded ? resolveScope(loaded.config) : 'user',
+            scope = resolveTargetScope({}, loaded?.config),
             normalizedName = isValidSkillName(name) ? name : normalizeSkillName(name),
             editors = loaded?.config.editors
                ? (Object.keys(normalizeEditors(loaded.config.editors)) as EditorName[])

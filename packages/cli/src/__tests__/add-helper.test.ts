@@ -124,6 +124,7 @@ describe('removeSkill helper', () => {
          JSON.stringify(
             {
                $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+               scope: 'project',
                skills: { 'demo-skill': './skills/demo-skill' },
                mcp: {},
                rules: {},
@@ -168,6 +169,7 @@ description: Demo skill
          JSON.stringify(
             {
                $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+               scope: 'project',
                skills: {
                   'react-components': {
                      git: 'https://github.com/google-labs-code/stitch-skills',
@@ -204,23 +206,23 @@ description: Demo skill
    });
 });
 
+function registryServer(name: string, identifier: string): object {
+   return {
+      server: {
+         name,
+         description: name,
+         version: '1.0.0',
+         packages: [ { registryType: 'npm', identifier, version: '1.0.0', transport: { type: 'stdio' } } ],
+      },
+   };
+}
+
 describe('addMcp helper', () => {
    const testDirs: string[] = [];
 
    afterEach(async () => {
       await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
    });
-
-   function registryServer(name: string, identifier: string): object {
-      return {
-         server: {
-            name,
-            description: name,
-            version: '1.0.0',
-            packages: [ { registryType: 'npm', identifier, version: '1.0.0', transport: { type: 'stdio' } } ],
-         },
-      };
-   }
 
    it('adds the server the caller selected, not the first search result', async () => {
       const testDir = createTestDir(),

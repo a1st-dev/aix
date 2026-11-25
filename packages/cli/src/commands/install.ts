@@ -12,7 +12,7 @@ import {
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
-import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { onlyFlag, parseSections, configScopeFlags, getFlagScope, resolveTargetScope } from '../flags/scope.js';
 import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
@@ -202,9 +202,7 @@ export default class Install extends BaseCommand<typeof Install> {
             isSaveMode = this.flags.save,
             isDryRun = this.flags['dry-run'];
 
-      // A scope flag wins, then the `scope` the config declares, then the user-scope default.
-      const flagScope = resolveConfigScope(this.flags as { scope?: string; user?: boolean; project?: boolean }, undefined),
-            targetScope: ConfigScope = flagScope ?? loaded.config.scope ?? 'user';
+      const targetScope = resolveTargetScope(this.flags, loaded.config);
 
       this.announceScope(targetScope, projectRoot);
 
@@ -509,10 +507,9 @@ export default class Install extends BaseCommand<typeof Install> {
       const type = this.flags.type as DirectInstallType,
             isDryRun = this.flags['dry-run'],
             editors = resolveTargetEditors(this.flags.target) ?? [],
-            targetScope = resolveConfigScope(
-               this.flags as { scope?: string; user?: boolean; project?: boolean },
-               'project',
-            );
+            // A direct install has no config to read a scope from, and the item usually belongs
+            // to the project the command runs in.
+            targetScope = getFlagScope(this.flags) ?? 'project';
 
       this.announceScope(targetScope, process.cwd());
       if (this.flags.lock) {

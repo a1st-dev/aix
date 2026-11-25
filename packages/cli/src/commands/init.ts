@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BaseCommand } from '../base-command.js';
 import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
-import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { configScopeFlags, getFlagScope } from '../flags/scope.js';
 import {
    importFromEditor,
    normalizeEditorImport,
@@ -61,12 +61,9 @@ export default class Init extends BaseCommand<typeof Init> {
          this.error('ai.json already exists. Use --force to overwrite.');
       }
 
-      const scopeFlag = resolveConfigScope(
-         this.flags as { scope?: string; user?: boolean; project?: boolean },
-         'project',
-      );
-      // Only pass scope when user explicitly asked for "user"
-      const scope = scopeFlag === 'user' ? 'user' : undefined;
+      // Record a scope only when one was asked for. `aix install` then follows it, so
+      // `aix init --project` yields a config that installs into the project.
+      const scope = getFlagScope(this.flags);
 
       let config: AiJsonConfig;
       const editor = this.flags.from ? normalizeEditorName(this.flags.from) : undefined;

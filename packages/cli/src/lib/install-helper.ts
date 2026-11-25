@@ -14,11 +14,11 @@ import {
 import {
    createEmptyConfig,
    isHookEvent,
-   resolveScope,
    type ConfigScope,
    type AiJsonConfig,
    type HookMatcher,
 } from '@a1st/aix-schema';
+import { resolveTargetScope } from '../flags/scope.js';
 import { resolveConfiguredEditors } from '../flags/target.js';
 
 export interface InstallAfterAddOptions {
@@ -105,7 +105,7 @@ export async function installAfterAdd(
       return { installed: false, results: [], editors: [] };
    }
 
-   const targetScope = options.scope ?? resolveScope(loaded.config),
+   const targetScope = options.scope ?? resolveTargetScope({}, loaded.config),
          results = await pMap(
             editors,
             async (editor) => {
@@ -115,6 +115,7 @@ export async function installAfterAdd(
                      configBaseDir: loaded.configBaseDir,
                      configSource: loaded.path,
                      targetScope,
+                     strictTargetScope: targetScope === 'project',
                   });
                } catch (error) {
                   const message = error instanceof Error ? error.message : String(error);
@@ -295,6 +296,7 @@ export async function installSingleItem(
             return await installToEditor(editor, config, projectRoot, {
                scopes: [section],
                targetScope: scope,
+               strictTargetScope: scope === 'project',
                // Each item is its own install source. Sharing the project's ai.json source would
                // make this one-item config look like the whole config, and reconciling against it
                // would remove everything installed before.
