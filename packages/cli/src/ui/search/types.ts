@@ -13,7 +13,7 @@ export interface SearchUIProps {
    onUninstall?: (item: InstallItem) => Promise<ActionOutcome>;
    /** Called when search exits. Receives list of items installed during session. */
    onExit: (installedItems: InstallItem[]) => void;
-   /** Items already installed (from ai.json) */
+   /** Names of the skills and MCP servers that ai.json already declares. */
    alreadyInstalled?: Set<string>;
 }
 

@@ -103,6 +103,8 @@ version may appear here with no changes to this package.
 - Remove an MCP server from the editors, not only from `ai.json`, when it is uninstalled
   in `aix search`
 - Print JSON from `aix search --json` when there are no results
+- Mark the skills and MCP servers that `ai.json` already declares as installed in
+  `aix search`; every result looked uninstalled
 
 ## [0.6.0] - 2026-08-12
 

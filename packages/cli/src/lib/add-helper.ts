@@ -157,13 +157,30 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
    }
 }
 
-/**
- * Find the config path by searching up from cwd.
- */
-export async function findConfigPath(): Promise<string | null> {
-   const loaded = await loadConfig({ startDir: process.cwd() });
+export interface ProjectConfigSummary {
+   path: string;
+   /** Names of the skills and MCP servers the config declares and has not disabled. */
+   declaredNames: Set<string>;
+}
 
-   return loaded?.path ?? null;
+/** Find the ai.json a search installs into, searching up from the working directory. */
+export async function findProjectConfig(startDir: string = process.cwd()): Promise<ProjectConfigSummary | null> {
+   const loaded = await loadConfig({ startDir, installExtendsDependencies: false });
+
+   if (!loaded) {
+      return null;
+   }
+
+   const declared = [ ...Object.entries(loaded.config.skills ?? {}), ...Object.entries(loaded.config.mcp ?? {}) ];
+
+   return {
+      path: loaded.path,
+      declaredNames: new Set(declared.filter(([ , value ]) => {
+         return value !== false;
+      }).map(([ name ]) => {
+         return name;
+      })),
+   };
 }
 
 export interface RemoveResult {

@@ -7,7 +7,7 @@ import {
 } from '../lib/search/index.js';
 import { getSkillInstallRequest } from '../lib/search/skill-install.js';
 import { renderSearchUI, type ActionOutcome, type InstallItem } from '../ui/search/index.js';
-import { addSkill, addMcp, removeSkill, removeMcp, findConfigPath } from '../lib/add-helper.js';
+import { addSkill, addMcp, removeSkill, removeMcp, findProjectConfig } from '../lib/add-helper.js';
 
 type OutputMode = 'interactive' | 'plain' | 'json';
 
@@ -120,10 +120,14 @@ export default class Search extends BaseCommand<typeof Search> {
       types: SearchType[],
       initialQuery?: string,
    ): Promise<void> {
-      let configPath: string | null = null;
+      let configPath: string | null = null,
+          declaredNames = new Set<string>();
 
       try {
-         configPath = await findConfigPath();
+         const projectConfig = await findProjectConfig();
+
+         configPath = projectConfig?.path ?? null;
+         declaredNames = projectConfig?.declaredNames ?? declaredNames;
          if (!configPath) {
             this.output.warn('No ai.json found. Run "aix init" first to create one.');
             this.output.info('Falling back to preview mode (no installation).');
@@ -192,6 +196,7 @@ export default class Search extends BaseCommand<typeof Search> {
          },
          onInstall: handleInstall,
          onUninstall: handleUninstall,
+         alreadyInstalled: declaredNames,
       });
 
       // Print summary of installed items

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { safeRm } from '@a1st/aix-core';
-import { addMcp, addSkill, removeMcp, removeSkill } from '../lib/add-helper.js';
+import { addMcp, addSkill, findProjectConfig, removeMcp, removeSkill } from '../lib/add-helper.js';
 
 function createTestDir(): string {
    return join(tmpdir(), `aix-add-helper-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -281,5 +281,39 @@ describe('removeMcp helper', () => {
       expect(result).toEqual({ success: true, name: 'docs' });
       expect(config.mcp.docs).toBeUndefined();
       expect(Object.keys(editorConfig.mcpServers)).toEqual([ 'mine' ]);
+   });
+});
+
+describe('findProjectConfig', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   it('reports the skills and MCP servers ai.json declares, leaving out disabled ones', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json');
+
+      testDirs.push(testDir);
+      await mkdir(join(testDir, 'nested'), { recursive: true });
+      await writeFile(configPath, JSON.stringify({
+         skills: { review: './skills/review', disabled: false },
+         mcp: { docs: { command: 'node' }, off: false },
+      }));
+
+      const found = await findProjectConfig(join(testDir, 'nested'));
+
+      expect(found?.path).toStrictEqual(configPath);
+      expect([ ...found?.declaredNames ?? [] ].toSorted()).toEqual([ 'docs', 'review' ]);
+   });
+
+   it('finds nothing where there is no ai.json', async () => {
+      const testDir = createTestDir();
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+
+      expect(await findProjectConfig(testDir)).toBeNull();
    });
 });
