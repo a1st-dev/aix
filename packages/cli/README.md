@@ -19,16 +19,26 @@ aix init                              # Create ai.json
 aix init --from cursor                # Bootstrap ai.json from an editor
 aix sync cursor --to claude-code      # Sync supported config editor -> editor
 aix search <query>                    # Search for MCP servers and skills
+aix install                           # Install ai.json to your editors
+aix install --project --dry-run       # Preview a project-scope install
 aix install github:org/config         # Install remote config
 aix install playwright --type mcp --target claude-code --user # Direct install
-aix add skill <source>                # Add a skill
-aix add mcp <name>                    # Add MCP server from registry
-aix add agent <source>                # Add an agent from markdown file
+aix add skill <source>                # Install a skill to your editors
+aix add mcp <name> --save             # Install an MCP server and save it to ai.json
+aix add agent <source>                # Install an agent from markdown file
+aix remove rule <name>                # Remove a rule from your editors
 aix list [--scope user|project]       # List skills, mcp, rules, prompts, agents, hooks, or editors
+aix backups                           # List the backups aix made before changing files
+aix backups restore <backup file>     # Copy a backup over the file it was taken from
 ```
 
 Use `aix install` to apply `ai.json` to editors. Use `aix sync` when the source of truth is
 another editor and you want aix to bridge the formats for you.
+
+`aix add`, `aix remove`, and `aix sync` work at user scope (editor config under your home
+directory) unless you pass a scope flag. `aix install` uses the `scope` field of `ai.json`,
+and user scope when the file has none. Before aix changes a file that already exists, it
+backs the file up to `~/.aix/backups`.
 
 ## Local development
 
