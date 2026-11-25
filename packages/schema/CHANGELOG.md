@@ -22,6 +22,8 @@ version may appear here with no changes to this package.
   install to
 - Reject plugin names made only of dots, such as `..`, which resolved to a parent
   directory when the name was used as a skill directory
+- Correct the editor support data for Claude Code user-scope rules
+  (`~/.claude/rules/*.md`) and for the name of a prompt installed as a skill
 
 ## [0.6.0] - 2026-08-12
 
