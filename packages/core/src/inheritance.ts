@@ -29,11 +29,18 @@ export interface ResolveOptions {
    projectRoot: string;
    /** Whether the baseDir is a remote URL (for resolving relative extends) */
    isRemote?: boolean;
+   /**
+    * Whether a git `extends` may run a package manager to install the packages its hook scripts
+    * import. Defaults to true. Pass false for a load that only reads the config, such as a
+    * validation or a dry run, so that looking at a config never installs anything.
+    */
+   installDependencies?: boolean;
 }
 
 /** State shared by every config in one `resolveExtends` call */
 interface ExtendsContext {
    projectRoot: string;
+   installDependencies: boolean;
    /** Names of the copies under `.aix/extends/` that the resolved config points into */
    usedExtendsKeys: Set<string>;
 }
@@ -50,8 +57,8 @@ export async function resolveExtends(
    config: Record<string, unknown>,
    options: ResolveOptions,
 ): Promise<AiJsonConfig> {
-   const { baseDir, projectRoot, isRemote = false } = options,
-         context: ExtendsContext = { projectRoot, usedExtendsKeys: new Set<string>() },
+   const { baseDir, projectRoot, isRemote = false, installDependencies = true } = options,
+         context: ExtendsContext = { projectRoot, installDependencies, usedExtendsKeys: new Set<string>() },
          resolved = await resolveExtendsChain(config, { baseDir, context, visited: new Set<string>(), isRemote });
 
    if (config.extends) {
@@ -319,9 +326,19 @@ async function resolveGitExtends(
          throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
       }
 
-      const config = parseExtendedConfig(fs.readFileSync(configPath, 'utf-8'), configPath);
+      const config = parseExtendedConfig(fs.readFileSync(configPath, 'utf-8'), configPath),
+            installedConfigPath = resolve(permanentDir, 'ai.json');
 
-      await installExtendsDependencies(dir, permanentDir);
+      if (!context.installDependencies && needsDependencyInstall(dir, permanentDir)) {
+         // This load may not install, and the download cannot replace the copy without its
+         // packages: installed hooks run scripts from that copy. Keep reading the copy as it
+         // was installed. The next load that may install picks up the new version.
+         if (fs.existsSync(installedConfigPath)) {
+            return parseExtendedConfig(fs.readFileSync(installedConfigPath, 'utf-8'), installedConfigPath);
+         }
+      } else {
+         await installExtendsDependencies(dir, permanentDir);
+      }
       await fs.mkdir(dirname(permanentDir), { recursive: true });
       await safeRm(permanentDir, { force: true });
       await fs.rename(dir, permanentDir);
@@ -334,6 +351,33 @@ async function resolveGitExtends(
    return normalizeLocalPaths(resolved, permanentDir);
 }
 
+/** A digest of a directory's dependency manifests, or nothing when it declares no packages. */
+function getDependencyFingerprint(dir: string): string | undefined {
+   const { fs } = getRuntimeAdapter();
+
+   if (!fs.existsSync(join(dir, 'package.json'))) {
+      return undefined;
+   }
+
+   return createCacheKey(...DEPENDENCY_MANIFESTS.map((name) => {
+      return fs.existsSync(join(dir, name)) ? fs.readFileSync(join(dir, name), 'utf-8') : undefined;
+   }));
+}
+
+/**
+ * Whether a downloaded extends copy has to have the package manager run on it. It does not
+ * when it declares no packages, or when the copy it replaces was installed from the same
+ * manifests and can hand its packages over.
+ */
+function needsDependencyInstall(dir: string, previousDir: string): boolean {
+   const { fs } = getRuntimeAdapter(),
+         fingerprint = getDependencyFingerprint(dir),
+         canTakeOverPackages = !fs.existsSync(join(dir, 'node_modules')) &&
+            readInstallFingerprint(join(previousDir, 'node_modules')) === fingerprint;
+
+   return fingerprint !== undefined && !canTakeOverPackages;
+}
+
 /**
  * Give a downloaded extends copy the packages that its hook scripts import. The package
  * manager runs only when the dependency manifests differ from those the copy being replaced
@@ -343,17 +387,14 @@ async function resolveGitExtends(
 async function installExtendsDependencies(dir: string, previousDir: string): Promise<void> {
    const { fs, npm } = getRuntimeAdapter(),
          modulesDir = join(dir, 'node_modules'),
-         previousModulesDir = join(previousDir, 'node_modules');
+         previousModulesDir = join(previousDir, 'node_modules'),
+         fingerprint = getDependencyFingerprint(dir);
 
-   if (!fs.existsSync(join(dir, 'package.json'))) {
+   if (fingerprint === undefined) {
       return;
    }
 
-   const fingerprint = createCacheKey(...DEPENDENCY_MANIFESTS.map((name) => {
-      return fs.existsSync(join(dir, name)) ? fs.readFileSync(join(dir, name), 'utf-8') : undefined;
-   }));
-
-   if (!fs.existsSync(modulesDir) && readInstallFingerprint(previousModulesDir) === fingerprint) {
+   if (!needsDependencyInstall(dir, previousDir)) {
       await fs.rename(previousModulesDir, modulesDir);
       return;
    }

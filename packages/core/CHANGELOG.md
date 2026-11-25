@@ -17,6 +17,9 @@ version may appear here with no changes to this package.
   find the original path itself and backs up the file it replaces
 - Declare the MIT license in `package.json`
 - Export `replaceFile`
+- Add the `installExtendsDependencies` load option (`installDependencies` on
+  `resolveExtends`), which lets a caller that only reads a config skip the package install
+  for a git `extends`
 
 ### Changed
 

@@ -157,6 +157,10 @@ export default class Install extends BaseCommand<typeof Install> {
       return this.flags.lock ? 'ignore' : 'auto';
    }
 
+   protected override installsExtendsDependencies(): boolean {
+      return !this.flags['dry-run'];
+   }
+
    async run(): Promise<void> {
       const { args } = await this.parse(Install);
 
@@ -187,6 +191,7 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await loadConfig({
             remoteSource: args.source,
             lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            installExtendsDependencies: this.installsExtendsDependencies(),
          });
 
          if (!result) {
@@ -216,6 +221,7 @@ export default class Install extends BaseCommand<typeof Install> {
             const localLoaded = await loadConfig({
                explicitPath: localConfigPath,
                lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
             localEditors = localLoaded?.config.editors;
@@ -243,6 +249,7 @@ export default class Install extends BaseCommand<typeof Install> {
             const localLoaded = await loadConfig({
                explicitPath: join(projectRoot, 'ai.json'),
                lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
             if (localLoaded) {

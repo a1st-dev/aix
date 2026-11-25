@@ -92,6 +92,9 @@ version may appear here with no changes to this package.
 - Show subcommands with spaces in help output (`list skills`, not `list:skills`), and stop
   every `list` subcommand from claiming the `ls` alias
 - Write `ai.json` through a temporary file in `aix init` and `aix install --save`
+- Stop `aix validate`, `aix install --dry-run`, and every other command that only reads
+  the config from running a package manager for a git `extends`; only a real `aix install`
+  does
 
 ## [0.6.0] - 2026-08-12
 

@@ -82,6 +82,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       const result = await coreLoadConfig({
          explicitPath: this.flags.config,
          lockfileMode: this.getLockfileMode(),
+         installExtendsDependencies: this.installsExtendsDependencies(),
       });
 
       if (result) {
@@ -105,6 +106,15 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
 
    protected getLockfileMode(): LockfileMode {
       return 'auto';
+   }
+
+   /**
+    * Whether loading the config may install packages for a git `extends`. Hook scripts in an
+    * extended config need them, so a command that installs hooks says yes. A command that
+    * only reads the config must not run a package manager as a side effect.
+    */
+   protected installsExtendsDependencies(): boolean {
+      return false;
    }
 
    /** Log formatted install results */

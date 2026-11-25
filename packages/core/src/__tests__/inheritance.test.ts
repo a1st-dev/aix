@@ -474,7 +474,11 @@ describe('resolveExtends', () => {
       const EXTENDS = 'github:org/config#main',
             copyDir = join(testDir, '.aix', 'extends', createDownloadKey(EXTENDS));
 
-      function loadConfigExtending(remote: FakeRemote, extendsValue: string = EXTENDS): Promise<Record<string, unknown>> {
+      function loadConfigExtending(
+         remote: FakeRemote,
+         extendsValue: string = EXTENDS,
+         installDependencies: boolean = true,
+      ): Promise<Record<string, unknown>> {
          const adapter: RuntimeAdapter = {
             ...nodeRuntimeAdapter,
             git: {
@@ -509,9 +513,45 @@ describe('resolveExtends', () => {
          };
 
          return withRuntimeAdapter(adapter, () => {
-            return resolveExtends({ extends: extendsValue }, { baseDir: testDir, projectRoot: testDir });
+            return resolveExtends({ extends: extendsValue }, { baseDir: testDir, projectRoot: testDir, installDependencies });
          });
       }
+
+      describe('a load that may not install dependencies', () => {
+         it('never runs the package manager, and leaves a first copy without packages', async () => {
+            const remote = createRemote({ 'ai.json': '{ "rules": { "style": { "content": "New" } } }', 'package.json': '{}' });
+
+            const config = await loadConfigExtending(remote, EXTENDS, false);
+
+            expect(remote.installs).toEqual([]);
+            expect(config.rules).toEqual({ style: { content: 'New' } });
+            expect(existsSync(join(copyDir, 'node_modules'))).toStrictEqual(false);
+         });
+
+         it('keeps reading the installed copy when the new version would need an install', async () => {
+            const remote = createRemote({ 'ai.json': '{ "rules": { "style": { "content": "Old" } } }', 'package.json': '{}' });
+
+            await loadConfigExtending(remote);
+            remote.files['ai.json'] = '{ "rules": { "style": { "content": "New" } } }';
+            remote.files['package.json'] = '{ "dependencies": { "left-pad": "1.3.0" } }';
+
+            const config = await loadConfigExtending(remote, EXTENDS, false);
+
+            expect(remote.installs).toHaveLength(1);
+            expect(config.rules).toEqual({ style: { content: 'Old' } });
+            expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+         });
+
+         it('is followed by an install on the next load that may install', async () => {
+            const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}' });
+
+            await loadConfigExtending(remote, EXTENDS, false);
+            await loadConfigExtending(remote);
+
+            expect(remote.installs).toHaveLength(1);
+            expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+         });
+      });
 
       it('installs dependencies before the download becomes the extends copy', async () => {
          const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}' });

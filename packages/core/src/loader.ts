@@ -49,6 +49,11 @@ export interface LoadConfigOptions {
    startDir?: string;
    /** Controls ai.lock.json autodetection. Defaults to auto. */
    lockfileMode?: LockfileMode;
+   /**
+    * Whether a git `extends` may run a package manager for the packages its hook scripts import.
+    * Defaults to true. Pass false when the config is only being read.
+    */
+   installExtendsDependencies?: boolean;
 }
 
 /**
@@ -78,11 +83,12 @@ export async function loadConfig(
       remoteSource,
       startDir: cwd = getRuntimeAdapter().process.cwd(),
       lockfileMode = 'auto',
+      installExtendsDependencies = true,
    } = opts;
 
    // If remoteSource is provided, load from URL/git/path
    if (remoteSource) {
-      return loadFromRemoteSource(remoteSource, cwd);
+      return loadFromRemoteSource(remoteSource, cwd, installExtendsDependencies);
    }
 
    // Existing discovery behavior
@@ -92,18 +98,19 @@ export async function loadConfig(
       return undefined;
    }
 
-   return loadFromDiscovered(discovered, lockfileMode);
+   return loadFromDiscovered(discovered, { lockfileMode, installExtendsDependencies });
 }
 
 /**
  * Load config from a remote source (URL, git shorthand, or local path).
  */
-async function loadFromRemoteSource(source: string, cwd: string): Promise<LoadedConfig> {
+async function loadFromRemoteSource(source: string, cwd: string, installDependencies: boolean): Promise<LoadedConfig> {
    const remote = await loadFromSource(source, cwd),
          resolved = await resolveExtends(remote.content, {
             baseDir: remote.baseUrl,
             projectRoot: cwd,
             isRemote: remote.isRemote,
+            installDependencies,
          });
 
    let validated: AiJsonConfig;
@@ -178,11 +185,13 @@ async function loadFromDiscovered(discovered: {
    packageJsonAlsoHasAi?: boolean;
    localPath?: string;
    localContent?: string;
-}, lockfileMode: LockfileMode): Promise<LoadedConfig> {
+}, options: { lockfileMode: LockfileMode; installExtendsDependencies: boolean }): Promise<LoadedConfig> {
+   const { lockfileMode, installExtendsDependencies: installDependencies } = options;
+
    try {
       const parsed = parseConfigContent(discovered.content) as Record<string, unknown>,
             baseDir = dirname(discovered.path),
-            resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir });
+            resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir, installDependencies });
 
       let validated = parseResolvedConfig(resolved);
 
