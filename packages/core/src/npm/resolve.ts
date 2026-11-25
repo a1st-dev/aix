@@ -1,7 +1,9 @@
 import { dirname, join } from 'pathe';
-import { getAixDir, getNpmCacheDir } from '../cache/paths.js';
+import { getNpmCacheDir } from '../cache/paths.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
+
+const INSTALL_ROOT_PACKAGE_JSON = { private: true };
 
 export interface NpmResolveOptions {
    packageName: string;
@@ -22,12 +24,14 @@ export async function resolveNpmPath(options: NpmResolveOptions): Promise<string
    const { packageName, subpath, version, projectRoot } = options;
 
    if (version) {
-      const aixDir = getAixDir(projectRoot),
+      const cacheDir = getNpmCacheDir(projectRoot),
+            installRoot = dirname(cacheDir),
             packageSpec = `${packageName}@${version}`;
 
-      await getRuntimeAdapter().npm.ensureDependencyInstalled(packageSpec, aixDir);
+      await ensureInstallRoot(installRoot);
+      await getRuntimeAdapter().npm.ensureDependencyInstalled(packageSpec, installRoot);
 
-      const cachedRoot = join(getNpmCacheDir(projectRoot), packageName);
+      const cachedRoot = join(cacheDir, packageName);
 
       return subpath ? join(cachedRoot, subpath) : cachedRoot;
    }
@@ -46,6 +50,23 @@ export async function resolveNpmPath(options: NpmResolveOptions): Promise<string
          { cause: error },
       );
    }
+}
+
+/**
+ * Make `installRoot` a package root of its own. npm installs into the nearest ancestor that
+ * has a package.json, so without one here an auto-installed package would land in the user's
+ * project (and be added to its package.json) instead of in the cache it is then read from.
+ */
+async function ensureInstallRoot(installRoot: string): Promise<void> {
+   const { fs } = getRuntimeAdapter(),
+         packageJsonPath = join(installRoot, 'package.json');
+
+   if (fs.existsSync(packageJsonPath)) {
+      return;
+   }
+
+   await fs.mkdir(installRoot, { recursive: true });
+   await fs.writeFile(packageJsonPath, `${JSON.stringify(INSTALL_ROOT_PACKAGE_JSON, null, 2)}\n`, 'utf-8');
 }
 
 /**
