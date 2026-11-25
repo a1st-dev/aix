@@ -126,8 +126,9 @@ version may appear here with no changes to this package.
   config sets the limit, and `setMaxBackupsPerFile` sets it directly
 - Write Zed user-scope config to `%APPDATA%\Zed` on Windows, where Zed reads it; aix
   wrote `~/.config/zed` on every platform
-- Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and check
-  an absolute detection path such as `/Applications/Antigravity.app` as written
+- Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and
+  Antigravity on macOS by its application support directory; its list held an absolute
+  `/Applications` path that was joined onto the home directory and never matched
 
 ## [0.6.0] - 2026-08-12
 

@@ -1,5 +1,5 @@
 import pMap from 'p-map';
-import { isAbsolute, join } from 'pathe';
+import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
 import { stringifyTOML } from 'confbox';
@@ -81,7 +81,9 @@ export function getAcceptedEditorNames(): EditorInputName[] {
 }
 
 /**
- * Check if an editor is installed globally on the system by looking for its config/data directory.
+ * Check if an editor is installed by looking for its config or data directory under the home
+ * directory. Every path is relative to home on purpose: detection then follows an alternate
+ * home (`AIX_USER_HOME`), and a run pointed at a throwaway home finds no editors.
  */
 async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
    assertGlobalHomeAccess('detecting globally installed editors');
@@ -100,7 +102,7 @@ async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
    for (const p of paths) {
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential: first-match lookup
-         await getRuntimeAdapter().fs.access(isAbsolute(p) ? p : join(home, p), getRuntimeAdapter().fs.constants.F_OK);
+         await getRuntimeAdapter().fs.access(join(home, p), getRuntimeAdapter().fs.constants.F_OK);
          return true;
       } catch {
          // Continue checking other paths
