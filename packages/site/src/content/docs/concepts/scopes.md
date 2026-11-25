@@ -48,7 +48,7 @@ Every command that reads an `ai.json` resolves its scope the same way: a scope f
 - `--user` (`-u`), which is short for `--scope user`
 - `--project` (`-p`), which is short for `--scope project`
 
-`--user` and `--project` cannot be combined. `aix list` also takes `--all`, which reads both
+Only one of the three can be passed at a time. `aix list` also takes `--all`, which reads both
 scopes. `aix sync` takes `--scope` (`-s`) for both editors, or `--from-scope` and `--to-scope`
 to set them separately.
 

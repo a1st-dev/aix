@@ -108,6 +108,8 @@ version may appear here with no changes to this package.
 - Print JSON from `aix search --json` when there are no results
 - Mark the skills and MCP servers that `ai.json` already declares as installed in
   `aix search`; every result looked uninstalled
+- Reject `--scope` combined with `--user` or `--project`. A command given
+  `--scope project --user` used to follow `--scope` and ignore the other flag.
 
 ## [0.6.0] - 2026-08-12
 

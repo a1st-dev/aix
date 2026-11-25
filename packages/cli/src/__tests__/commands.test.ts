@@ -482,6 +482,13 @@ describe('CLI Commands', () => {
          expect(existsSync(join(testDir, '.claude', 'agents', 'planner.md'))).toStrictEqual(true);
       });
 
+      it('rejects scope flags that disagree', async () => {
+         const installed = await runCli(['install', '--scope', 'project', '--user', '--dry-run']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('--user');
+      });
+
       it('says that there is nothing to remove instead of asking to confirm', async () => {
          const removed = await runCli(['remove', 'rule', 'missing', '--project', '--target', 'claude-code']);
 
