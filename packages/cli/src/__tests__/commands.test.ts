@@ -447,6 +447,23 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install without a terminal', () => {
+      it('names the detected editors and how to choose between them, rather than prompting', async () => {
+         const home = process.env.HOME ?? '';
+
+         await mkdir(join(home, '.claude'), { recursive: true });
+         await mkdir(join(home, '.codex'), { recursive: true });
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { style: { content: 'Be brief.' } } });
+
+         const installed = await runCli(['install', '--dry-run']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('claude-code, codex');
+         expect(installed.stderr).toContain('--target');
+         expect(installed.stderr).not.toContain('ExitPromptError');
+      });
+   });
+
    describe('exit status', () => {
       it('is non-zero when an editor could not be installed to, after the others were', async () => {
          const codexConfig = join(process.env.HOME ?? '', '.codex', 'config.toml');

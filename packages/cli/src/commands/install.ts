@@ -16,6 +16,7 @@ import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '.
 import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
+import { assertInteractive } from '../lib/confirm.js';
 import {
    installToEditor,
    listConfigInstallEditors,
@@ -683,6 +684,11 @@ export default class Install extends BaseCommand<typeof Install> {
          this.output.info(`Detected editor: ${detected[0]}`);
          return detected;
       }
+
+      assertInteractive(
+         this.error.bind(this),
+         `Several editors were detected (${detected.join(', ')}). Pass --target for each one to install to, or list them under "editors" in ai.json.`,
+      );
 
       const previousEditors = (await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }))
                .filter((editor) => {

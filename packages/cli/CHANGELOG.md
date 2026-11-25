@@ -51,6 +51,9 @@ version may appear here with no changes to this package.
   editor; they printed the failure and exited 0
 - Say so when `aix add` finds no editor to install to, and detect editors for
   `aix add --save` when `ai.json` lists none; both used to install nowhere without a word
+- Name the detected editors and point at `--target` when `aix install` would have to ask
+  which editors to use and there is no terminal; the same for the registry server choice
+  in `aix add mcp`
 
 ## [0.6.0] - 2026-08-12
 
