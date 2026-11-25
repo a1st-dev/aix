@@ -1,4 +1,4 @@
-import { resolve, dirname, join, isAbsolute } from 'pathe';
+import { resolve, dirname, join } from 'pathe';
 import { parseJsonc, detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
 import { withGitDownload, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
@@ -14,6 +14,9 @@ import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from './runtime/index.js';
 import { isRecord } from './type-guards.js';
+
+const SOURCE_REF_SECTIONS = ['skills', 'rules', 'prompts', 'agents'] as const,
+      FILE_PROTOCOL = 'file:';
 
 export interface ResolveOptions {
    baseDir: string;
@@ -282,11 +285,13 @@ function normalizeLocalPaths(
 ): Record<string, unknown> {
    const result = { ...config };
 
-   for (const section of ['skills', 'agents'] as const) {
+   for (const section of SOURCE_REF_SECTIONS) {
       const sources = result[section];
 
       if (isRecord(sources)) {
-         result[section] = normalizeSourcePaths(sources, baseDir);
+         result[section] = Object.fromEntries(Object.entries(sources).map(([name, ref]) => {
+            return [name, rebaseSourceRef(ref, baseDir)];
+         }));
       }
    }
 
@@ -296,32 +301,6 @@ function normalizeLocalPaths(
             return { ...matcher, hooks: matcher.hooks.map((action) => normalizeHookAction(action, baseDir)) };
          })];
       }));
-   }
-
-   // Normalize rules
-   if (result.rules && typeof result.rules === 'object') {
-      result.rules = normalizeRulePaths(result.rules as Record<string, unknown>, baseDir);
-   }
-
-   // Normalize prompts
-   if (result.prompts && typeof result.prompts === 'object') {
-      result.prompts = normalizePromptPaths(result.prompts as Record<string, unknown>, baseDir);
-   }
-
-   return result;
-}
-
-/**
- * Keep file references relative to the config that declared them after inheritance.
- */
-function normalizeSourcePaths(
-   sources: Record<string, unknown>,
-   baseDir: string,
-): Record<string, unknown> {
-   const result: Record<string, unknown> = {};
-
-   for (const [name, ref] of Object.entries(sources)) {
-      result[name] = normalizeSourceRef(ref, baseDir);
    }
 
    return result;
@@ -364,98 +343,31 @@ function normalizeHookCommand(command: string, baseDir: string, powershell: bool
 }
 
 /**
- * Normalize a source reference (skill, rule, prompt) to use absolute paths for local refs.
+ * Rebase the local path of one skill, rule, prompt or agent reference onto `baseDir`, so the
+ * reference still resolves after it is merged into a config in another directory.
  */
-function normalizeSourceRef(ref: unknown, baseDir: string): unknown {
-   if (ref === false || ref === null || ref === undefined) {
+function rebaseSourceRef(ref: unknown, baseDir: string): unknown {
+   if (typeof ref === 'string') {
+      if (!isLocalPath(ref)) {
+         return ref;
+      }
+
+      return resolve(baseDir, ref.startsWith(FILE_PROTOCOL) ? ref.slice(FILE_PROTOCOL.length) : ref);
+   }
+
+   if (!isRecord(ref)) {
       return ref;
    }
 
-   // String shorthand (version range, local path, or git shorthand)
-   if (typeof ref === 'string') {
-      return normalizePathString(ref, baseDir);
+   // A `path` beside `git` or `npm` is a location inside that repository or package.
+   if (typeof ref.path === 'string' && !('git' in ref) && !('npm' in ref)) {
+      return { ...ref, path: resolve(baseDir, ref.path) };
    }
 
-   // Object with path property (local ref)
-   if (typeof ref === 'object' && ref !== null) {
-      const obj = ref as Record<string, unknown>;
-
-      // { path: "./skills/foo" } → { path: "/abs/path/skills/foo" }
-      if ('path' in obj && typeof obj.path === 'string') {
-         return { ...obj, path: normalizePathString(obj.path, baseDir) };
-      }
-
-      // { source: "./skills/foo" } or { source: { path: "..." } }
-      if ('source' in obj) {
-         return { ...obj, source: normalizeSourceRef(obj.source, baseDir) };
-      }
+   // Skills may wrap their reference: { source: "./skills/foo" } or { source: { path: "..." } }
+   if ('source' in ref) {
+      return { ...ref, source: rebaseSourceRef(ref.source, baseDir) };
    }
 
    return ref;
-}
-
-/**
- * Normalize a path string to absolute if it's a local path.
- */
-function normalizePathString(value: string, baseDir: string): string {
-   // Skip if already absolute
-   if (isAbsolute(value)) {
-      return value;
-   }
-
-   // Only normalize local paths (not git refs, npm packages, URLs, etc.)
-   if (!isLocalPath(value)) {
-      return value;
-   }
-
-   return resolve(baseDir, value);
-}
-
-/**
- * Normalize rule paths to absolute paths.
- */
-function normalizeRulePaths(
-   rules: Record<string, unknown>,
-   baseDir: string,
-): Record<string, unknown> {
-   const result: Record<string, unknown> = {};
-
-   for (const [key, value] of Object.entries(rules)) {
-      if (Array.isArray(value)) {
-         // Array of rule strings or paths
-         result[key] = value.map((item) =>
-            typeof item === 'string' ? normalizePathString(item, baseDir) : item,
-         );
-      } else if (typeof value === 'string') {
-         result[key] = normalizePathString(value, baseDir);
-      } else {
-         result[key] = value;
-      }
-   }
-
-   return result;
-}
-
-/**
- * Normalize prompt paths to absolute paths.
- */
-function normalizePromptPaths(
-   prompts: Record<string, unknown>,
-   baseDir: string,
-): Record<string, unknown> {
-   const result: Record<string, unknown> = {};
-
-   for (const [key, value] of Object.entries(prompts)) {
-      if (Array.isArray(value)) {
-         result[key] = value.map((item) =>
-            typeof item === 'string' ? normalizePathString(item, baseDir) : item,
-         );
-      } else if (typeof value === 'string') {
-         result[key] = normalizePathString(value, baseDir);
-      } else {
-         result[key] = value;
-      }
-   }
-
-   return result;
 }

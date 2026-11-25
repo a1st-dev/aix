@@ -234,6 +234,97 @@ describe('resolveExtends', () => {
       expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json');
    });
 
+   describe('local paths in an extended config', () => {
+      const sharedDir = join(testDir, 'shared');
+
+      async function resolveSharedConfig(sharedConfig: Record<string, unknown>): Promise<Record<string, unknown>> {
+         await mkdir(sharedDir, { recursive: true });
+         await writeFile(join(sharedDir, 'ai.json'), JSON.stringify(sharedConfig), 'utf-8');
+
+         return resolveExtends({ extends: './shared/ai.json' }, { baseDir: testDir, projectRoot: testDir });
+      }
+
+      it('rebases object-form rule, prompt and agent paths onto the extended config directory', async () => {
+         const result = await resolveSharedConfig({
+            rules: { style: { path: './rules/style.md', activation: 'always' } },
+            prompts: { review: { path: 'prompts/review.md', description: 'Review' } },
+            agents: { reviewer: { path: '../agents/reviewer.md' } },
+         });
+
+         expect(result.rules).toEqual({
+            style: { path: join(sharedDir, 'rules/style.md'), activation: 'always' },
+         });
+         expect(result.prompts).toEqual({
+            review: { path: join(sharedDir, 'prompts/review.md'), description: 'Review' },
+         });
+         expect(result.agents).toEqual({
+            reviewer: { path: join(testDir, 'agents/reviewer.md') },
+         });
+      });
+
+      it('rebases string-form paths in every section that holds references', async () => {
+         const result = await resolveSharedConfig({
+            skills: { pdf: './skills/pdf' },
+            rules: { style: './rules/style.md', tests: 'file:rules/tests.md' },
+            prompts: { review: 'prompts/review.md' },
+            agents: { reviewer: './agents/reviewer.md' },
+         });
+
+         expect(result.skills).toEqual({ pdf: join(sharedDir, 'skills/pdf') });
+         expect(result.rules).toEqual({
+            style: join(sharedDir, 'rules/style.md'),
+            tests: join(sharedDir, 'rules/tests.md'),
+         });
+         expect(result.prompts).toEqual({ review: join(sharedDir, 'prompts/review.md') });
+         expect(result.agents).toEqual({ reviewer: join(sharedDir, 'agents/reviewer.md') });
+      });
+
+      it('rebases skill paths in object form and inside a source wrapper', async () => {
+         const result = await resolveSharedConfig({
+            skills: {
+               pdf: { path: './skills/pdf' },
+               docs: { source: './skills/docs', enabled: true },
+               charts: { source: { path: 'skills/charts' } },
+            },
+         });
+
+         expect(result.skills).toEqual({
+            pdf: { path: join(sharedDir, 'skills/pdf') },
+            docs: { source: join(sharedDir, 'skills/docs'), enabled: true },
+            charts: { source: { path: join(sharedDir, 'skills/charts') } },
+         });
+      });
+
+      it('leaves a path that points inside a git repository or npm package alone', async () => {
+         const skills = {
+                  remote: { git: 'github:acme/skills', path: 'skills/pdf' },
+                  packaged: { npm: '@acme/skills', path: 'skills/pdf' },
+                  wrapped: { source: { git: 'github:acme/skills', path: 'skills/docs' } },
+               },
+               rules = {
+                  remote: { git: { url: 'github:acme/rules', path: 'rules/style.md' } },
+                  packaged: { npm: { npm: '@acme/rules', path: 'rules/style.md' } },
+               };
+
+         const result = await resolveSharedConfig({ skills, rules });
+
+         expect(result.skills).toEqual(skills);
+         expect(result.rules).toEqual(rules);
+      });
+
+      it('leaves inline content, disabled entries and non-path strings alone', async () => {
+         const config = {
+            skills: { typescript: '^1.0.0', disabled: false },
+            rules: { inline: { content: 'Use ./relative/imports.md wisely' }, remote: 'github:acme/rules' },
+            prompts: { disabled: false },
+         };
+
+         const result = await resolveSharedConfig(config);
+
+         expect(result).toEqual(config);
+      });
+   });
+
    describe('git extends dependencies', () => {
       async function resolveGitExtends(files: Record<string, string>): Promise<string[]> {
          const installedDirs: string[] = [],
