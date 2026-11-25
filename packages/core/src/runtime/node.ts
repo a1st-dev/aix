@@ -69,13 +69,42 @@ function getFileUrlForPath(path: string): string {
    return `${url}/`;
 }
 
+const GIT_AUTH_ENV_VAR = 'GIGET_AUTH',
+      ARBITRARY_URL = /^https?:/i;
+
+/**
+ * Begin a download with the git auth token hidden. giget reads the variable as the call
+ * starts, before its first await, so the token only has to be absent until the call returns
+ * its promise. Downloads that run at the same time are not affected.
+ */
+function startWithoutAuthToken<T>(start: () => Promise<T>): Promise<T> {
+   const { env } = getNodeProcess(),
+         token = env[GIT_AUTH_ENV_VAR];
+
+   delete env[GIT_AUTH_ENV_VAR];
+   try {
+      return start();
+   } finally {
+      if (token !== undefined) {
+         env[GIT_AUTH_ENV_VAR] = token;
+      }
+   }
+}
+
 async function downloadTemplate(
    template: string,
    options: RuntimeGitDownloadOptions,
 ): Promise<RuntimeGitDownloadResult> {
-   const { downloadTemplate: gigetDownload } = await import('giget');
+   const { downloadTemplate: gigetDownload } = await import('giget'),
+         start = (): Promise<RuntimeGitDownloadResult> => {
+            // aix resolves references itself. Without this, a reference that has no provider
+            // prefix is looked up in giget's template registry instead of on GitHub.
+            return gigetDownload(template, { ...options, registry: false });
+         };
 
-   return gigetDownload(template, options);
+   // The token is meant for a git host. giget would send it as a bearer token to any URL, and
+   // a config written by someone else can name any URL.
+   return ARBITRARY_URL.test(template) ? startWithoutAuthToken(start) : start();
 }
 
 const IGNORE_SCRIPTS_ENV_VAR = 'npm_config_ignore_scripts';

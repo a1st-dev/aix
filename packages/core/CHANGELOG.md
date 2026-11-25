@@ -116,6 +116,10 @@ version may appear here with no changes to this package.
 - Let a config that extends another change an inherited item's content source or MCP
   transport; the inherited source was merged in beside the new one and the result failed
   validation
+- Send `GIGET_AUTH` only to git hosts; a source given as an `https://` URL received it as
+  a bearer token
+- Resolve a `user/repo#ref` reference on GitHub, as documented; it was looked up in
+  giget's template registry
 
 ## [0.6.0] - 2026-08-12
 
