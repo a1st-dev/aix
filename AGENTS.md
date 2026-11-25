@@ -3,19 +3,27 @@
 ## Manual testing
 
 Manual testing must never write to the real user config. `aix` resolves the home directory from
-`$HOME` first, then `%USERPROFILE%`, and only then falls back to `os.homedir()`, so pointing
-`HOME` at a throwaway directory is enough to isolate a run:
+`$AIX_USER_HOME` first, then `$HOME`, then `%USERPROFILE%`, and only then falls back to
+`os.homedir()`. Point both `AIX_USER_HOME` and `HOME` at a throwaway directory to isolate a run:
 
 ```bash
-HOME="$(mktemp -d)" node packages/cli/bin/aixd.mjs install
+SANDBOX_HOME="$(mktemp -d)"
+AIX_USER_HOME="$SANDBOX_HOME" HOME="$SANDBOX_HOME" node packages/cli/bin/aixd.mjs install
 ```
 
+* `AIX_USER_HOME` redirects every user-scope path aix reads or writes. `HOME` also keeps the
+  CLI's own cache and the git and npm processes aix spawns out of the real home
+* `--user-home <dir>` is the per-command form of `AIX_USER_HOME`. Each command prints the
+  directory it is using, so check for that line before trusting a run
 * Do this for anything that can touch global config: `~/.claude.json`, `~/.claude/settings.json`,
   `~/.gemini/settings.json`, `~/.config/zed/settings.json`, `~/.config/github-copilot/`,
   `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `.aix/.tmp/backups/`
   directory written beside each edited config file
-* `npm run qa:sandbox` gives you a scratch project and sets `HOME`, `USERPROFILE`, and
-  XDG directories to its temporary home, including for the generated `aix` wrapper
+* User scope is the default for `install`, `add`, `remove`, and `sync`. Running them from this
+  repository without the override installs the root `ai.json` into the real editor config
+* `npm run qa:sandbox` gives you a scratch project and sets `AIX_USER_HOME`, `HOME`,
+  `USERPROFILE`, and XDG directories to its temporary home, including for the generated `aix`
+  wrapper
 * Automated tests use the shared setup below; do not add per-suite home isolation
 * Write to the real user config only when explicitly asked to
 

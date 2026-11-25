@@ -139,6 +139,18 @@ The lockfile records SHA-512 integrity strings and SHA-256 digests for resolved 
 entities. Those hashes detect drift and tampering in the files aix resolves. They do not
 prove who published a remote config or skill.
 
+### Using an alternate home directory
+
+`aix install`, `aix add`, `aix remove`, and `aix sync` target user-level editor config by
+default, such as `~/.claude.json` and `~/.codex/config.toml`. To try a command without
+touching those files, pass `--user-home <dir>` or set `AIX_USER_HOME`. aix then reads and
+writes all user-level config, including its own `~/.aix/` state and backups, under that
+directory:
+
+```bash
+aix install --user-home /tmp/aix-trial
+```
+
 This project is tested with BrowserStack.
 
 ## License

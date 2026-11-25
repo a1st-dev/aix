@@ -1,8 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
-import { getBackupsDir } from '@a1st/aix-core';
+import { getBackupsDir, getRuntimeAdapter } from '@a1st/aix-core';
 import { BaseCommand } from '../base-command.js';
 
 interface BackupInfo {
@@ -83,7 +82,8 @@ When aix modifies editor configuration files (e.g., during install), it automati
 
    async run(): Promise<void> {
       const backups: BackupInfo[] = [],
-            globalBackupDir = join(homedir(), '.aix', 'backups'),
+            userHome = getRuntimeAdapter().os.homedir(),
+            globalBackupDir = join(userHome, '.aix', 'backups'),
             localBackupDir = getBackupsDir(process.cwd()),
             legacyLocalBackupDir = join(process.cwd(), '.aix', 'backups');
 
@@ -166,7 +166,7 @@ When aix modifies editor configuration files (e.g., during install), it automati
       if (backups.length === 0) {
          this.output.info('No backups found');
          this.output.info('Backups are created automatically when aix modifies global config files');
-         this.output.info(`\nBackup locations:\n  Global: ${globalBackupDir.replace(homedir(), '~')}\n  Local:  ${localBackupDir.replace(process.cwd(), '.')}`);
+         this.output.info(`\nBackup locations:\n  Global: ${globalBackupDir.replace(userHome, '~')}\n  Local:  ${localBackupDir.replace(process.cwd(), '.')}`);
          return;
       }
 
@@ -189,7 +189,7 @@ When aix modifies editor configuration files (e.g., during install), it automati
          ],
       });
 
-      this.output.info(`\nBackup directories:\n  Global: ${globalBackupDir.replace(homedir(), '~')}\n  Local:  ${localBackupDir.replace(process.cwd(), '.')}`);
+      this.output.info(`\nBackup directories:\n  Global: ${globalBackupDir.replace(userHome, '~')}\n  Local:  ${localBackupDir.replace(process.cwd(), '.')}`);
    }
 
    private formatDate(date: Date): string {

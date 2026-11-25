@@ -1,9 +1,10 @@
 import { Command, Flags, Interfaces } from '@oclif/core';
 import chalk from 'chalk';
-import { basename } from 'pathe';
+import { basename, resolve } from 'pathe';
 import {
    loadConfig as coreLoadConfig,
    ConfigParseError,
+   USER_HOME_ENV_VAR,
    type LoadedConfig,
    type LockfileMode,
 } from '@a1st/aix-core';
@@ -19,6 +20,10 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          char: 'c',
          description: 'Path to ai.json config file',
          env: 'AI_JSON_CONFIG',
+      }),
+      'user-home': Flags.directory({
+         description: 'Directory to read and write user-scope config in, instead of your home directory',
+         env: USER_HOME_ENV_VAR,
       }),
       quiet: Flags.boolean({
          char: 'q',
@@ -49,6 +54,24 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          quiet: this.flags.quiet,
          json: this.flags.json,
       });
+      this.applyUserHomeOverride();
+   }
+
+   /**
+    * Core resolves the home directory from the environment, so the flag is exported there. That
+    * also hands the same directory to any aix process this command spawns.
+    */
+   private applyUserHomeOverride(): void {
+      const userHome = this.flags['user-home'];
+
+      if (!userHome) {
+         return;
+      }
+
+      const resolvedUserHome = resolve(userHome);
+
+      process.env[USER_HOME_ENV_VAR] = resolvedUserHome;
+      this.output.info(`Using ${resolvedUserHome} in place of your home directory`);
    }
 
    protected async loadConfig(): Promise<LoadedConfig | undefined> {

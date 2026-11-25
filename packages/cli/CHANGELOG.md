@@ -7,6 +7,16 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `--user-home <dir>` flag and `AIX_USER_HOME` environment variable, which move
+  user-scope editor config and aix's `~/.aix/` state to another directory
+
+### Fixed
+
+- Resolve the home directory in `aix backups` and `aix remove skill|rule|prompt|agent` the
+  same way as every other command; they ignored `HOME` on Windows
+
 ## [0.6.0] - 2026-08-12
 
 ### Added

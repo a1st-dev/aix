@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { listBackups, safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..');
@@ -444,6 +444,43 @@ describe('CLI Commands', () => {
          expect(installed.error).toBeUndefined();
          expect(localConfig.editors).toBeUndefined();
          expect(existsSync(join(testDir, '.claude/rules/local.md'))).toStrictEqual(true);
+      });
+   });
+
+   describe('alternate user home', () => {
+      it('installs user-scope config under --user-home and leaves the home directory alone', async () => {
+         const userHome = join(testDir, 'alternate-home'),
+               home = process.env.HOME ?? '';
+
+         await writeValidConfig(join(testDir, 'ai.json'), {
+            mcp: { docs: { command: 'node', args: ['docs.js'] } },
+         });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--user-home', userHome]),
+               claudeConfig = JSON.parse(await readFile(join(userHome, '.claude.json'), 'utf-8'));
+
+         expect(installed.error).toBeUndefined();
+         expect(installed.stdout).toContain(`Using ${userHome} in place of your home directory`);
+         expect(claudeConfig.mcpServers.docs.command).toStrictEqual('node');
+         expect(existsSync(join(userHome, '.aix', 'state.json'))).toStrictEqual(true);
+         expect(existsSync(join(home, '.claude.json'))).toStrictEqual(false);
+         expect(existsSync(join(home, '.aix'))).toStrictEqual(false);
+      });
+
+      it('removes user-scope files from AIX_USER_HOME instead of the home directory', async () => {
+         const userHome = join(testDir, 'alternate-home'),
+               overriddenSkillDir = join(userHome, '.claude', 'skills', 'demo'),
+               homeSkillDir = join(process.env.HOME ?? '', '.claude', 'skills', 'demo');
+
+         await mkdir(overriddenSkillDir, { recursive: true });
+         await mkdir(homeSkillDir, { recursive: true });
+         vi.stubEnv('AIX_USER_HOME', userHome);
+
+         const removed = await runCli(['remove', 'skill', 'demo', '--yes', '--target', 'claude-code']);
+
+         expect(removed.error).toBeUndefined();
+         expect(existsSync(overriddenSkillDir)).toStrictEqual(false);
+         expect(existsSync(homeSkillDir)).toStrictEqual(true);
       });
    });
 

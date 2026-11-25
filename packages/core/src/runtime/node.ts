@@ -1,3 +1,5 @@
+import { resolve } from 'pathe';
+import { USER_HOME_ENV_VAR } from './user-home.js';
 import type {
    RuntimeAdapter,
    RuntimeDirent,
@@ -257,8 +259,12 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    },
    os: {
       homedir: () => {
-         const env = getNodeProcess().env;
+         const env = getNodeProcess().env,
+               userHomeOverride = env[USER_HOME_ENV_VAR];
 
+         if (userHomeOverride) {
+            return resolve(userHomeOverride);
+         }
          if (env.HOME) {
             return env.HOME;
          }

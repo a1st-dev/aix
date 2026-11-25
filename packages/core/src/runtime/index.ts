@@ -4,6 +4,7 @@ import type { RuntimeAdapter } from './types.js';
 let activeRuntimeAdapter: RuntimeAdapter = nodeRuntimeAdapter;
 
 export { nodeRuntimeAdapter };
+export { USER_HOME_ENV_VAR } from './user-home.js';
 export type {
    RuntimeAdapter,
    RuntimeCopyOptions,

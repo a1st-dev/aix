@@ -7,6 +7,11 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `AIX_USER_HOME` environment variable (exported as `USER_HOME_ENV_VAR`), which the
+  Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
+
 ### Fixed
 
 - Keep MCP auth headers when syncing a remote server between editors

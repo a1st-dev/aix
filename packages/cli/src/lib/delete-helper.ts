@@ -1,8 +1,7 @@
 import pMap from 'p-map';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'pathe';
-import { safeRm, type EditorName } from '@a1st/aix-core';
+import { getRuntimeAdapter, safeRm, type EditorName } from '@a1st/aix-core';
 import type { Output } from './output.js';
 
 export type RemovableItemType = 'skill' | 'mcp' | 'agent' | 'rule' | 'prompt';
@@ -35,7 +34,7 @@ export function computeFilesToDelete(
 ): FilesToDelete[] {
    const results: FilesToDelete[] = [],
          targetScope = options.targetScope ?? 'project',
-         installRoot = targetScope === 'user' ? homedir() : options.projectRoot;
+         installRoot = targetScope === 'user' ? getRuntimeAdapter().os.homedir() : options.projectRoot;
 
    for (const editor of editors) {
       const files: string[] = [];

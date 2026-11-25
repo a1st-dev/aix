@@ -51,6 +51,9 @@ try {
          command = process.platform === 'darwin' ? '/usr/bin/sandbox-exec' : process.execPath,
          commandArgs = process.platform === 'darwin' ? ['-p', sandboxProfile, process.execPath, ...args] : args;
 
+   // An inherited override would outrank the per-test HOME that the shared setup assigns.
+   delete environment.AIX_USER_HOME;
+
    mkdirSync(protectedDirectory);
    writeFileSync(protectedPath, 'preserve this file');
    result = spawnSync(command, commandArgs, { env: environment, stdio: 'inherit' });

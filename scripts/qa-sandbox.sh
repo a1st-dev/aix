@@ -60,6 +60,7 @@ cat > "$SANDBOX_DIR/aix" << 'SCRIPT'
 
 AIX_SANDBOX_HOME="$(cd "$(dirname "$0")" && pwd)/home"
 export NODE_PATH="$AIX_PROJECT_ROOT/node_modules:$AIX_PROJECT_ROOT/packages/cli/node_modules"
+export AIX_USER_HOME="$AIX_SANDBOX_HOME"
 export HOME="$AIX_SANDBOX_HOME"
 export USERPROFILE="$AIX_SANDBOX_HOME"
 export XDG_CONFIG_HOME="$AIX_SANDBOX_HOME/.config"
@@ -220,6 +221,7 @@ echo ""
 # Export project root for the aix wrapper
 export AIX_PROJECT_ROOT="$PROJECT_ROOT"
 export AIX_SANDBOX_HOME="$SANDBOX_DIR/home"
+export AIX_USER_HOME="$AIX_SANDBOX_HOME"
 export HOME="$AIX_SANDBOX_HOME"
 export USERPROFILE="$AIX_SANDBOX_HOME"
 export XDG_CONFIG_HOME="$AIX_SANDBOX_HOME/.config"
