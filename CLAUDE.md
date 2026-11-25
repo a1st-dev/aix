@@ -81,8 +81,8 @@ AIX_USER_HOME="$SANDBOX_HOME" HOME="$SANDBOX_HOME" node packages/cli/bin/aixd.mj
   directory it is using, so check for that line before trusting a run
 - Do this for anything that can touch global config: `~/.claude.json`, `~/.claude/settings.json`,
   `~/.gemini/settings.json`, `~/.config/zed/settings.json`, `~/.config/github-copilot/`,
-  `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `.aix/.tmp/backups/`
-  directory written beside each edited config file
+  `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `~/.aix/backups/`
+  store, where aix copies every file before it changes or deletes it
 - User scope is the default for `install`, `add`, `remove`, and `sync`. Running them from this
   repository without the override installs the root `ai.json` into the real editor config
 - `npm run qa:sandbox` gives you a scratch project and sets `AIX_USER_HOME`, `HOME`,
