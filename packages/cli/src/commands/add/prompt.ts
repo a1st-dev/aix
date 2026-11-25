@@ -6,7 +6,7 @@ import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { rejectFlagsWithoutSave, saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadPrompt,
@@ -79,7 +79,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectFlagsWithoutSave(flags, this.error.bind(this));
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }

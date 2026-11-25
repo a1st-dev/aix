@@ -388,6 +388,23 @@ describe('CLI Commands', () => {
          expect(existsSync(join(fakeHome, '.claude.json'))).toBe(false);
       });
 
+      it('refreshes the lockfile beside ai.json when --save changes that ai.json', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               sourcePath = join(testDir, 'source', 'ai.json');
+
+         await mkdir(dirname(sourcePath), { recursive: true });
+         await writeValidConfig(configPath, { rules: { local: { content: 'Local rule.' } } });
+         await writeValidConfig(sourcePath, { rules: { remote: { content: 'Remote rule.' } } });
+         await runCli(['validate', '--config', configPath, '--lock']);
+
+         const installed = await runCli(['install', sourcePath, '--save']),
+               validated = await runCli(['validate', '--config', configPath]);
+
+         expect(installed.error).toBeUndefined();
+         expect(validated.error).toBeUndefined();
+         expect(await readFile(configPath, 'utf-8')).toContain('remote');
+      });
+
       it('refreshes a stale local lockfile when saving a source config with --lock', async () => {
          const configPath = join(testDir, 'ai.json'),
                sourceDir = join(testDir, 'source'),

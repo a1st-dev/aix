@@ -23,6 +23,7 @@ import {
    integrityForBytes,
 } from './entity-hash.js';
 import { getRuntimeAdapter } from './runtime/index.js';
+import type { LoadedConfig } from './loader.js';
 
 export type LockfileMode = 'auto' | 'ignore';
 
@@ -145,6 +146,24 @@ export async function generateLockfile(options: GenerateLockfileOptions): Promis
    };
 }
 
+type LockableConfig = Pick<LoadedConfig, 'path' | 'config' | 'sharedConfig' | 'configBaseDir'>;
+
+/**
+ * Write the lockfile for a loaded config. Every command that writes a lockfile does it here,
+ * so they all leave `ai.local.json` out of it.
+ */
+export function writeLockfileForConfig(loaded: LockableConfig, projectRoot?: string): Promise<{
+   lockfilePath: string;
+   lockfile: AiLockFile;
+}> {
+   return generateAndWriteLockfile({
+      config: loaded.sharedConfig ?? loaded.config,
+      configPath: loaded.path,
+      configBaseDir: loaded.configBaseDir,
+      projectRoot,
+   });
+}
+
 export async function generateAndWriteLockfile(options: GenerateLockfileOptions): Promise<{
    lockfilePath: string;
    lockfile: AiLockFile;
@@ -234,7 +253,9 @@ async function addSkillEntities(
             source: config.skills[name],
             resolved: {
                source: skill.source,
-               basePath: normalizeResolvedPath(skill.basePath, configBaseDir),
+               // A git skill is downloaded into the temporary directory of the operating
+               // system, which is a different path on every machine.
+               ...(skill.source !== 'git' && { basePath: getPortablePath(skill.basePath, configBaseDir) }),
             },
             metadata: skill.frontmatter,
          })] as const;
@@ -269,7 +290,7 @@ async function addRuleEntities(
          section: 'rules',
          content: rule.content,
          source: config.rules[name],
-         resolved: rule.sourcePath ? { sourcePath: normalizeResolvedPath(rule.sourcePath, dirname(basePath)) } : { source: rule.source },
+         resolved: rule.sourcePath ? { sourcePath: getPortablePath(rule.sourcePath, dirname(basePath)) } : { source: rule.source },
          metadata: rule.metadata,
       });
    }
@@ -298,7 +319,7 @@ async function addPromptEntities(
          section: 'prompts',
          content: prompt.content,
          source: config.prompts[name],
-         resolved: prompt.sourcePath ? { sourcePath: normalizeResolvedPath(prompt.sourcePath, dirname(basePath)) } : undefined,
+         resolved: prompt.sourcePath ? { sourcePath: getPortablePath(prompt.sourcePath, dirname(basePath)) } : undefined,
          metadata: {
             argumentHint: prompt.argumentHint,
             description: prompt.description,
@@ -330,7 +351,7 @@ async function addAgentEntities(
          section: 'agents',
          content: agent.content,
          source: config.agents[name],
-         resolved: agent.sourcePath ? { sourcePath: normalizeResolvedPath(agent.sourcePath, dirname(basePath)) } : undefined,
+         resolved: agent.sourcePath ? { sourcePath: getPortablePath(agent.sourcePath, dirname(basePath)) } : undefined,
          metadata: {
             description: agent.description,
             mode: agent.mode,
@@ -463,12 +484,12 @@ function createStaleLockfileError(lockfilePath: string, issues: ConfigParseIssue
    );
 }
 
-function normalizeResolvedPath(path: string, baseDir: string): string {
-   const relativePath = relative(baseDir, path);
-
-   if (!relativePath.startsWith('..') && !isAbsolute(relativePath)) {
-      return relativePath || '.';
-   }
-
-   return path;
+/**
+ * A resolved path as it is on every machine: relative to the directory of ai.json, including
+ * for a file outside that directory. The path is part of the entry's digest, so an absolute
+ * path would make the lockfile match only on the machine that wrote it. An item loaded from
+ * git has a URL here and not a file, and that is already the same everywhere.
+ */
+function getPortablePath(path: string, baseDir: string): string {
+   return isAbsolute(path) ? relative(baseDir, path) || '.' : path;
 }

@@ -137,6 +137,13 @@ version may appear here with no changes to this package.
   discovery reads, and not to `package.local.json`
 - Name `ai.local.json` in the error when that file has a syntax error. The error named
   `ai.json`
+- Compute `ai.lock.json` from the config without `ai.local.json`. The lockfile is
+  committed and the local overrides are not, so a lockfile that covered them matched only
+  on the machine that wrote it. `LoadedConfig.sharedConfig` is the config before the
+  overrides, and `writeLockfileForConfig` writes the lockfile from it
+- Record a file outside the directory of `ai.json` relative to that directory in
+  `ai.lock.json`, and leave out the download directory of a git skill. Both were absolute
+  paths inside the entry digest, so the lockfile did not match on another machine
 
 ## [0.6.0] - 2026-08-12
 

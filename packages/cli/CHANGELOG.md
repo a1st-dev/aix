@@ -129,6 +129,14 @@ version may appear here with no changes to this package.
   printed nothing
 - Stop `aix validate` from running a package manager for a git `extends` that has a
   `package.json`
+- Make `ai.lock.json` match on every machine: it no longer covers `ai.local.json` or
+  absolute paths. Run `aix validate --lock` once to refresh a lockfile that was written
+  with local overrides, a git skill, or a file outside the project
+- Refresh an existing `ai.lock.json` after `aix install <source> --save` changes
+  `ai.json`, as `aix add --save` does. The command used to save `ai.json` and then stop on
+  the lockfile it had just made stale
+- Reject `--lock` combined with `--local` on `aix add` and `aix remove`. The lockfile does
+  not cover `ai.local.json`, and `aix remove` ignored the flag without a message
 
 ## [0.6.0] - 2026-08-12
 

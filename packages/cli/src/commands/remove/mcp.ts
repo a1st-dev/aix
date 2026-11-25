@@ -5,7 +5,7 @@ import { configOnlyFlag } from '../../flags/config-only.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
-import { rejectFlagsWithoutSave, saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
@@ -56,7 +56,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       const targetScope = resolveTargetScope(flags, loaded?.config);
       const targetEditors = resolveTargetEditors(flags.target);
 
-      rejectFlagsWithoutSave(flags, this.error.bind(this));
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if MCP server exists in merged config (if we have one)

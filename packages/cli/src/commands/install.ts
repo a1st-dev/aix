@@ -10,12 +10,13 @@ import {
    showTargetScopeLimitationWarnings,
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
-import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
+import { ConfigParseError, writeLockfileForConfig } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, getFlagScope, resolveTargetScope } from '../flags/scope.js';
 import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
 import { assertInteractive } from '../lib/confirm.js';
+import { shouldRefreshLockfile } from '../lib/lockfile-helper.js';
 import {
    installToEditor,
    listConfigInstallEditors,
@@ -204,7 +205,10 @@ export default class Install extends BaseCommand<typeof Install> {
       const sections = parseSections(this.flags as { only?: string[] }),
             projectRoot = args.source ? process.cwd() : dirname(loaded.path),
             isSaveMode = this.flags.save,
-            isDryRun = this.flags['dry-run'];
+            isDryRun = this.flags['dry-run'],
+            // Saving changes ai.json, so a lockfile beside it is refreshed as `aix add --save`
+            // refreshes it. Checking the changed config against the old lockfile would fail.
+            refreshesLockfile = isSaveMode ? shouldRefreshLockfile(this.flags.lock, join(projectRoot, 'ai.json')) : this.flags.lock;
 
       const targetScope = resolveTargetScope(this.flags, loaded.config);
 
@@ -247,7 +251,7 @@ export default class Install extends BaseCommand<typeof Install> {
          if (!isDryRun) {
             const localLoaded = await loadConfig({
                explicitPath: join(projectRoot, 'ai.json'),
-               lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               lockfileMode: refreshesLockfile ? 'ignore' : 'auto',
                installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
@@ -258,14 +262,14 @@ export default class Install extends BaseCommand<typeof Install> {
 
          // If only saving (no editor installation needed), we're done
          if (!this.flags.target && !loaded.config.editors) {
-            if (this.flags.lock && !isDryRun) {
+            if (refreshesLockfile && !isDryRun) {
                await this.updateLockfile(loaded, projectRoot);
             }
             return;
          }
       }
 
-      if (this.flags.lock && !isDryRun) {
+      if (refreshesLockfile && !isDryRun) {
          loaded = await this.updateLockfile(loaded, projectRoot);
       }
 
@@ -611,12 +615,7 @@ export default class Install extends BaseCommand<typeof Install> {
    }
 
    private async updateLockfile(loaded: LoadedConfig, projectRoot: string): Promise<LoadedConfig> {
-      const written = await generateAndWriteLockfile({
-         config: loaded.config,
-         configPath: loaded.path,
-         configBaseDir: loaded.configBaseDir,
-         projectRoot,
-      });
+      const written = await writeLockfileForConfig(loaded, projectRoot);
 
       this.output.success(`Updated ${written.lockfilePath}`);
 

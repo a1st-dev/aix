@@ -16,11 +16,14 @@ interface SaveDependentFlags {
 }
 
 /**
- * Reject the flags that only say how a config file is changed when `--save` is absent. An
- * add or remove command leaves config files alone without `--save`, so each of them would be
- * ignored without a word.
+ * Reject the combinations of config-file flags that would be ignored without a word. An add or
+ * remove command leaves config files alone without `--save`, so a flag that only says how a
+ * config file is changed does nothing then.
  */
-export function rejectFlagsWithoutSave(flags: SaveDependentFlags, error: (message: string) => never): void {
+export function rejectIneffectiveSaveFlags(flags: SaveDependentFlags, error: (message: string) => never): void {
+   if (flags.local && flags.lock) {
+      error('--lock cannot be combined with --local because ai.lock.json does not cover ai.local.json.');
+   }
    if (flags.save) {
       return;
    }

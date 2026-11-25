@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { describe, expect, it, afterEach } from 'vitest';
 import { parseConfig } from '@a1st/aix-schema';
-import { ConfigParseError, generateAndWriteLockfile, generateLockfile, loadConfig, safeRm } from '../index.js';
+import { ConfigParseError, generateAndWriteLockfile, generateLockfile, loadConfig, safeRm, writeLockfileForConfig } from '../index.js';
 
 const testDirs: string[] = [];
 
@@ -64,6 +64,39 @@ describe('lockfile', () => {
 
       expect(loaded?.lockfilePath).toBe(join(dir, 'ai.lock.json'));
       expect(loaded?.lockfile?.entities.rules.style?.digest).toMatch(/^sha256:/);
+   });
+
+   it('leaves ai.local.json out of the lockfile, so a committed lockfile matches on every machine', async () => {
+      const dir = await createTestDir(),
+            configPath = join(dir, 'ai.json'),
+            config = parseConfig({ rules: { style: { content: 'Use direct language.' } } });
+
+      await writeFile(configPath, JSON.stringify(config), 'utf-8');
+
+      const withoutOverrides = await generateAndWriteLockfile({ config, configPath, configBaseDir: dir });
+
+      await writeFile(join(dir, 'ai.local.json'), JSON.stringify({ mcp: { mine: { command: 'node', args: ['mine.js'] } } }), 'utf-8');
+
+      const loaded = await loadConfig({ explicitPath: configPath }),
+            rewritten = loaded ? await writeLockfileForConfig(loaded) : undefined;
+
+      expect(Object.keys(loaded?.config.mcp ?? {})).to.eql(['mine']);
+      expect(rewritten?.lockfile).to.eql(withoutOverrides.lockfile);
+   });
+
+   it('records a file outside the project relative to ai.json', async () => {
+      const dir = await createTestDir(),
+            configPath = join(dir, 'app', 'ai.json'),
+            config = parseConfig({ rules: { style: '../shared/style.md' } });
+
+      await mkdir(join(dir, 'app'));
+      await mkdir(join(dir, 'shared'));
+      await writeFile(join(dir, 'shared', 'style.md'), 'Use direct language.', 'utf-8');
+      await writeFile(configPath, JSON.stringify(config), 'utf-8');
+
+      const lockfile = await generateLockfile({ config, configPath });
+
+      expect(lockfile.entities.rules.style?.resolved).to.eql({ sourcePath: '../shared/style.md' });
    });
 
    it('names ai.local.json when that is the file that does not parse', async () => {

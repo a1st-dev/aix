@@ -16,7 +16,7 @@ import {
    rollbackImport,
    validateReference,
    buildConfigFromEditorImport,
-   generateAndWriteLockfile,
+   writeLockfileForConfig,
    loadConfig,
    type EditorName,
 } from '@a1st/aix-core';
@@ -117,12 +117,7 @@ export default class Init extends BaseCommand<typeof Init> {
             this.error(`Could not load ${configPath} after creating it.`);
          }
 
-         const written = await generateAndWriteLockfile({
-            config: loaded.config,
-            configPath,
-            configBaseDir: loaded.configBaseDir,
-            projectRoot: process.cwd(),
-         });
+         const written = await writeLockfileForConfig(loaded, process.cwd());
 
          this.output.success(`Created ${written.lockfilePath}`);
       }

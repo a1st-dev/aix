@@ -5,7 +5,7 @@ import { configOnlyFlag } from '../../flags/config-only.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
-import { rejectFlagsWithoutSave, saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
@@ -58,7 +58,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       const marketplaceName = args.name;
       const targetScope = resolveTargetScope(flags, loaded?.config);
 
-      rejectFlagsWithoutSave(flags, this.error.bind(this));
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if marketplace exists in merged config (if we have one)
