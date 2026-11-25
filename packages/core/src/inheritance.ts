@@ -1,5 +1,5 @@
 import { resolve, dirname, join } from 'pathe';
-import { parseJsonc, detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
+import { detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
 import { withGitDownload, createCacheKey, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
 import { parseConfigContent } from './discovery.js';
@@ -165,6 +165,26 @@ function enterExtends(visited: ReadonlySet<string>, source: string): ReadonlySet
 }
 
 /**
+ * Parse the content of an extended config. A failure names that config rather than the one
+ * that extends it, so the error points at the file that has to be fixed.
+ */
+function parseExtendedConfig(content: string, source: string): Record<string, unknown> {
+   let parsed: unknown;
+
+   try {
+      parsed = parseConfigContent(content);
+   } catch (error) {
+      throw new ConfigParseError(error instanceof Error ? error.message : String(error), source);
+   }
+
+   if (!isRecord(parsed)) {
+      throw new ConfigParseError('Expected a JSON object', source);
+   }
+
+   return parsed;
+}
+
+/**
  * Resolve extends from a remote URL (fetch the file directly).
  */
 async function resolveRemoteExtends(
@@ -185,13 +205,7 @@ async function resolveRemoteExtends(
       throw new RemoteFetchError(url, message);
    }
 
-   const result = parseJsonc(content);
-
-   if (result.errors.length > 0) {
-      throw new ConfigParseError(`Parse error: ${result.errors[0]?.message}`, url);
-   }
-
-   const parsed = result.data as Record<string, unknown>,
+   const parsed = parseExtendedConfig(content, url),
          newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
 
    return resolveExtendsChain(parsed, { baseDir: newBaseUrl, context, visited: chain, isRemote: true });
@@ -211,8 +225,7 @@ async function resolveLocalExtends(
       throw new ConfigParseError(`Extended config not found: ${extendPath}`, absolutePath);
    }
 
-   const content = fs.readFileSync(absolutePath, 'utf-8'),
-         parsed = parseConfigContent(content) as Record<string, unknown>,
+   const parsed = parseExtendedConfig(fs.readFileSync(absolutePath, 'utf-8'), absolutePath),
          newBaseDir = dirname(absolutePath),
          resolved = await resolveExtendsChain(parsed, { baseDir: newBaseDir, context, visited: chain, isRemote: false });
 
@@ -243,8 +256,7 @@ async function resolveGitExtends(
          throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
       }
 
-      const content = fs.readFileSync(configPath, 'utf-8'),
-            config = parseConfigContent(content) as Record<string, unknown>;
+      const config = parseExtendedConfig(fs.readFileSync(configPath, 'utf-8'), configPath);
 
       await installExtendsDependencies(dir, permanentDir);
       await fs.mkdir(dirname(permanentDir), { recursive: true });
@@ -300,23 +312,15 @@ async function resolveNpmExtends(
    context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   const chain = enterExtends(visited, packageName);
+   const chain = enterExtends(visited, packageName),
+         { fs, npm } = getRuntimeAdapter();
+
+   let packagePath: string;
 
    try {
-      const packagePath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, context.projectRoot, 'ai.json'),
-            content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
-            parsed = parseConfigContent(content) as Record<string, unknown>,
-            baseDir = dirname(packagePath),
-            resolved = await resolveExtendsChain(parsed, { baseDir, context, visited: chain, isRemote: false });
-
-      // Normalize local paths to absolute so they remain valid after merging into the parent config
-      return normalizeLocalPaths(resolved, baseDir);
+      packagePath = await npm.resolvePackagePath(packageName, context.projectRoot, 'ai.json');
    } catch (error) {
-      if (
-         error instanceof ConfigParseError ||
-         error instanceof CircularDependencyError ||
-         error instanceof UnsupportedRuntimeCapabilityError
-      ) {
+      if (error instanceof UnsupportedRuntimeCapabilityError) {
          throw error;
       }
       throw new ConfigParseError(
@@ -324,6 +328,13 @@ async function resolveNpmExtends(
          packageName,
       );
    }
+
+   const baseDir = dirname(packagePath),
+         parsed = parseExtendedConfig(fs.readFileSync(packagePath, 'utf-8'), packagePath),
+         resolved = await resolveExtendsChain(parsed, { baseDir, context, visited: chain, isRemote: false });
+
+   // Normalize local paths to absolute so they remain valid after merging into the parent config
+   return normalizeLocalPaths(resolved, baseDir);
 }
 
 /**

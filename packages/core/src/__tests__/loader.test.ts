@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { loadConfig, requireConfig } from '../loader.js';
 import { safeRm } from '../fs/safe-rm.js';
-import { ConfigNotFoundError, ConfigValidationError } from '../errors.js';
+import {
+   CircularDependencyError,
+   ConfigNotFoundError,
+   ConfigParseError,
+   ConfigValidationError,
+   RemoteFetchError,
+} from '../errors.js';
+import { nodeRuntimeAdapter, withRuntimeAdapter, type RuntimeAdapter } from '../runtime/index.js';
 
 // Use a temp directory to avoid finding ai.json in parent directories
 const testDir = join(tmpdir(), 'aix-test-loader');
@@ -105,6 +112,65 @@ describe('loadConfig', () => {
          expect(error instanceof ConfigValidationError && error.errors).toEqual([
             { path: 'hooks.pre_command.0.hooks', message: 'Expected array, received string ("not-an-array")' },
          ]);
+      });
+   });
+
+   describe('errors from extended configs', () => {
+      it('reports a circular extends as a circular dependency', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+         await writeFile(join(testDir, 'base.json'), JSON.stringify({ extends: './ai.json' }), 'utf-8');
+
+         await expect(loadConfig({ startDir: testDir })).rejects.toThrow(CircularDependencyError);
+      });
+
+      it('reports a failed download of an extended config as a fetch error', async () => {
+         const adapter: RuntimeAdapter = {
+            ...nodeRuntimeAdapter,
+            network: {
+               ...nodeRuntimeAdapter.network,
+               fetch: async () => {
+                  throw new Error('getaddrinfo ENOTFOUND example.com');
+               },
+            },
+         };
+
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: 'https://example.com/ai.json' }), 'utf-8');
+
+         const error: unknown = await withRuntimeAdapter(adapter, () => {
+            return loadConfig({ startDir: testDir });
+         }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(RemoteFetchError);
+         expect(error instanceof RemoteFetchError && error.url).toBe('https://example.com/ai.json');
+      });
+
+      it('names the extended file, not ai.json, when the extended file has a syntax error', async () => {
+         const basePath = join(testDir, 'base.json');
+
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+         await writeFile(basePath, '{ "skills": ', 'utf-8');
+
+         const error: unknown = await loadConfig({ startDir: testDir }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof ConfigParseError && error.filePath).toBe(basePath);
+      });
+
+      it('names ai.json when ai.json itself has a syntax error', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeFile(configPath, '{ "skills": ', 'utf-8');
+
+         const error: unknown = await loadConfig({ startDir: testDir }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof ConfigParseError && error.filePath).toBe(configPath);
       });
    });
 

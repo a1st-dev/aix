@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'pathe';
 import { createDownloadKey } from '../git-download.js';
 import { resolveExtends } from '../inheritance.js';
-import { CircularDependencyError, RemoteFetchError } from '../errors.js';
+import { CircularDependencyError, ConfigParseError, RemoteFetchError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 import { nodeRuntimeAdapter, withRuntimeAdapter } from '../runtime/index.js';
 import type { RuntimeAdapter } from '../runtime/index.js';
@@ -283,6 +283,70 @@ describe('resolveExtends', () => {
       }
 
       expect(requestedUrls).toEqual(['https://example.com/ai.json']);
+   });
+
+   describe('npm extends', () => {
+      const packageDir = join(testDir, 'node_modules', '@acme', 'ai-config'),
+            packageConfigPath = join(packageDir, 'ai.json');
+
+      function resolveNpmExtends(resolvePackagePath: RuntimeAdapter['npm']['resolvePackagePath']): Promise<unknown> {
+         const adapter: RuntimeAdapter = {
+            ...nodeRuntimeAdapter,
+            npm: { ...nodeRuntimeAdapter.npm, resolvePackagePath },
+         };
+
+         return withRuntimeAdapter(adapter, () => {
+            return resolveExtends({ extends: '@acme/ai-config' }, { baseDir: testDir, projectRoot: testDir });
+         }).catch((caught: unknown) => {
+            return caught;
+         });
+      }
+
+      beforeEach(async () => {
+         await mkdir(packageDir, { recursive: true });
+      });
+
+      it('reports a syntax error in the package config as a parse error in that file', async () => {
+         await writeFile(packageConfigPath, '{ "skills": ', 'utf-8');
+
+         const error = await resolveNpmExtends(async () => {
+            return packageConfigPath;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof ConfigParseError && error.filePath).toBe(packageConfigPath);
+         expect(error instanceof Error && error.message).not.toContain('Failed to resolve npm package');
+      });
+
+      it('reports a package config that is not an object as a parse error in that file', async () => {
+         await writeFile(packageConfigPath, '["skills"]', 'utf-8');
+
+         const error = await resolveNpmExtends(async () => {
+            return packageConfigPath;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof Error && error.message).toContain(`${packageConfigPath}: Expected a JSON object`);
+      });
+
+      it('reports a package that cannot be found as a resolution failure', async () => {
+         const error = await resolveNpmExtends(async () => {
+            throw new Error("Cannot find module '@acme/ai-config/ai.json'");
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof Error && error.message).toContain('Failed to resolve npm package: @acme/ai-config');
+      });
+
+      it('rebases paths in the package config onto the package directory', async () => {
+         await writeFile(packageConfigPath, JSON.stringify({ rules: { style: './rules/style.md' } }), 'utf-8');
+
+         const result = await resolveNpmExtends(async () => {
+            return packageConfigPath;
+         });
+
+         expect(result).toEqual({ rules: { style: join(packageDir, 'rules/style.md') } });
+      });
    });
 
    describe('local paths in an extended config', () => {

@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { discoverConfig, parseConfigContent } from '../discovery.js';
+import { ConfigParseError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 
 // Use a temp directory to avoid finding ai.json in parent directories
@@ -111,6 +112,40 @@ describe('discoverConfig', () => {
       expect(result?.path).toBe(referencedConfigPath);
       expect(result?.localPath).toBe(localJsonPath);
       expect(result?.localContent).toBe(JSON.stringify(localJson));
+   });
+});
+
+describe('discoverConfig with a package.json that does not parse', () => {
+   const packageJsonPath = join(testDir, 'package.json');
+
+   beforeEach(async () => {
+      await safeRm(testDir, { force: true });
+      await mkdir(testDir, { recursive: true });
+      await writeFile(packageJsonPath, '{ "name": "broken", ', 'utf-8');
+   });
+
+   afterEach(async () => {
+      await safeRm(testDir, { force: true });
+   });
+
+   it('names the package.json in the error when it is the only place a config could be', async () => {
+      const error: unknown = await discoverConfig(testDir).catch((caught: unknown) => {
+         return caught;
+      });
+
+      expect(error).toBeInstanceOf(ConfigParseError);
+      expect(error instanceof ConfigParseError && error.filePath).toBe(packageJsonPath);
+   });
+
+   it('still finds the ai.json beside it', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, '{}', 'utf-8');
+
+      const result = await discoverConfig(testDir);
+
+      expect(result?.path).toBe(configPath);
+      expect(result?.packageJsonAlsoHasAi).toStrictEqual(false);
    });
 });
 

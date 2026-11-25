@@ -1,6 +1,8 @@
 import { resolve, dirname, join } from 'pathe';
 import { parseJsonc } from '@a1st/aix-schema';
+import { ConfigParseError } from './errors.js';
 import { getRuntimeAdapter } from './runtime/index.js';
+import { isRecord } from './type-guards.js';
 
 export interface DiscoveryResult {
    path: string;
@@ -38,16 +40,11 @@ export async function discoverConfig(
    while (true) {
       const aiJsonPath = join(currentDir, 'ai.json'),
             packageJsonPath = join(currentDir, 'package.json'),
-            hasAiJson = fs.existsSync(aiJsonPath);
-
-      // Check if package.json has an ai field (for warning detection)
-      let packageJsonHasAi = false;
-      let packageJson: Record<string, unknown> | undefined;
-
-      if (fs.existsSync(packageJsonPath)) {
-         packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as Record<string, unknown>;
-         packageJsonHasAi = packageJson.ai !== undefined;
-      }
+            hasAiJson = fs.existsSync(aiJsonPath),
+            // A package.json beside an ai.json is read only to warn about a duplicate "ai"
+            // field, so one that does not parse must not stop the ai.json from loading.
+            packageJson = fs.existsSync(packageJsonPath) ? readPackageJson(packageJsonPath, hasAiJson) : undefined,
+            packageJsonHasAi = packageJson?.ai !== undefined;
 
       // Check for ai.local.json
       const localJsonPath = join(currentDir, 'ai.local.json'),
@@ -121,6 +118,21 @@ export async function discoverConfig(
    }
 
    return undefined;
+}
+
+function readPackageJson(packageJsonPath: string, isOptional: boolean): Record<string, unknown> | undefined {
+   let parsed: unknown;
+
+   try {
+      parsed = JSON.parse(getRuntimeAdapter().fs.readFileSync(packageJsonPath, 'utf-8'));
+   } catch (error) {
+      if (isOptional) {
+         return undefined;
+      }
+      throw new ConfigParseError(error instanceof Error ? error.message : String(error), packageJsonPath);
+   }
+
+   return isRecord(parsed) ? parsed : undefined;
 }
 
 export function parseConfigContent(content: string): unknown {

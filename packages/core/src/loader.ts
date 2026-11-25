@@ -2,7 +2,7 @@ import { dirname, resolve } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
-import { ConfigNotFoundError, ConfigParseError, ConfigValidationError } from './errors.js';
+import { ConfigError, ConfigNotFoundError, ConfigParseError, ConfigValidationError } from './errors.js';
 import { extractValidationIssues, isZodErrorLike, toConfigValidationError } from './format-error.js';
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
@@ -230,7 +230,9 @@ async function loadFromDiscovered(discovered: {
          ...lockfile,
       };
    } catch (error) {
-      if (error instanceof ConfigParseError || error instanceof ConfigValidationError) {
+      // These already say what went wrong and where (a circular extends, a failed download,
+      // a file other than ai.json that does not parse); relabelling them would hide that.
+      if (error instanceof ConfigError) {
          throw error;
       }
       if (error instanceof Error) {
