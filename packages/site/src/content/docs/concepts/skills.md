@@ -70,7 +70,7 @@ When you run `aix install`, skills are:
    - **Grok CLI**: `.grok/skills/`.
    - **Codex** and **Zed**: `.agents/skills/`, the shared Agent Skills folder convention.
 
-`aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory before saving the reference.
+`aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory.
 
 When you install with `--user`, the canonical managed copy lives under `~/.aix/skills/{name}/` instead of the project-local `.aix/skills/{name}/`.
 
@@ -104,8 +104,12 @@ description: Does x, y, and z
 ...
 ```
 
-3. Add it to `ai.json`:
+3. Save it to `ai.json` and install it:
 
 ```bash
-aix add skill ./skills/my-skill
+aix add skill ./skills/my-skill --save --no-install
+aix install
 ```
+
+`--save` writes the reference to `ai.json`. Without it, `aix add skill` installs the skill into
+your user-scope editor config and leaves `ai.json` unchanged.

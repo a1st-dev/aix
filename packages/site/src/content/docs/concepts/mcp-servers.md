@@ -83,7 +83,21 @@ Use `aix search` to browse the official MCP Registry:
 aix search --type mcp
 ```
 
-This interactive command lets you find servers (like GitHub, Slack, Postgres, Brave Search) and add them to your `ai.json` with one click.
+The search is interactive and needs an `ai.json` in the project, so run `aix init` first.
+Selecting a server saves it to `ai.json` and installs it.
+
+To add a server without the search UI, use `aix add mcp`. On its own it installs the server
+into your user-scope editor config and leaves `ai.json` unchanged. With `--save` it writes the
+server to `ai.json`:
+
+```bash
+# Install into your editors only
+aix add mcp playwright --command "npx @playwright/mcp@latest"
+
+# Save to ai.json, then install from it
+aix add mcp playwright --command "npx @playwright/mcp@latest" --save --no-install
+aix install
+```
 
 You can also install one MCP server without creating `ai.json`:
 

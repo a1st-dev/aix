@@ -19,11 +19,14 @@ aix add hook pre_file_write --matcher "Write|Edit" --command ./scripts/guard.sh
 aix add hook ./hooks/guard.json
 ```
 
-`aix add hook` writes the hook to `ai.json` and installs it, joining whatever is already
-registered for that event. `aix list hooks` shows what is configured, `aix list --all`
-shows what your editors actually hold, and `aix remove hook <event>` takes one back out of
-`ai.json` and your editor config. See [`aix add`](/cli/add/) and [`aix remove`](/cli/remove/)
-for every flag.
+`aix add hook` installs the hook into the user-scope config of the editors it detects,
+alongside whatever is already registered for that event. It does not change `ai.json` unless
+you pass `--save`, and it installs at project scope when you pass `--project`.
+
+`aix list hooks` shows the hooks your editors hold at user scope; add `--project` for project
+scope or `--all` for both. `aix remove hook <event>` removes the event's hooks from your
+editors, and from `ai.json` as well when you pass `--save`. See [`aix add`](/cli/add/) and
+[`aix remove`](/cli/remove/) for every flag.
 
 Or define hooks in `ai.json` directly:
 

@@ -5,6 +5,9 @@ sidebar:
 description: Install the aix CLI and set up your environment.
 ---
 
+aix is a command-line tool distributed on npm as `@a1st/aix`. Install it globally to get the
+`aix` command.
+
 ## Requirements
 
 - **Node.js** ≥ 20.19.0 or ≥ 22.12.0
@@ -42,4 +45,7 @@ aix update
 
 ## What's next
 
-Create your first `ai.json` — follow the [Quick start](/getting-started/quick-start/) guide.
+- New to aix? Read the [Introduction](/getting-started/introduction/) for what it does and
+  where it writes.
+- Follow the [Quick start](/getting-started/quick-start/) to create your first `ai.json`.
+- Already have editor config? [Import it](/getting-started/import-from-editor/).
