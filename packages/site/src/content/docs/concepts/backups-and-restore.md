@@ -18,15 +18,14 @@ aix backs up a file immediately before it writes to it or deletes it. That cover
   `aix remove marketplace` edits.
 - `ai.json` and `ai.local.json`, when `--save` or `aix config set` edits them.
 - The file that `aix backups restore` is about to replace.
+- A rule, prompt, or agent file that `aix remove` deletes.
+- The `ai.json` that `aix init --force` replaces.
 
 No backup is made in these cases:
 
 - A file that aix creates. There was nothing to copy, so undoing it means removing the file.
 - A `--dry-run`, which writes nothing.
 - Directories. A skill is a directory, so replacing or removing one leaves no backup.
-- The files that `aix remove skill`, `aix remove rule`, `aix remove prompt`, and
-  `aix remove agent` delete.
-- `aix init --force`, which overwrites `ai.json` without a backup.
 
 ## Where backups go
 

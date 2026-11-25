@@ -174,7 +174,8 @@ name.
 - `--description <desc>` / `-d`: When this agent should be used.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
-Add one agent per command.
+You can pass several sources at once. `--name`, `--model`, `--tools`, `--description`, and
+`--ref` only work with one source.
 
 **Examples:**
 

@@ -24,7 +24,9 @@ aix remove <type> <name> [flags]
    name. Otherwise it looks in every detected editor, every editor that aix recorded an
    install of this item for, and, with `--save`, every editor listed in `ai.json`.
 2. It prints what it is about to remove from each editor.
-3. It asks for confirmation, unless you pass `--yes`.
+3. It asks for confirmation, unless you pass `--yes`. When `aix remove skill`, `rule`,
+   `prompt`, or `agent` finds no such item and `--save` was not passed, it says so and stops
+   without asking.
 4. It removes the item from the editors, and with `--save` from `ai.json`.
 
 `aix remove` works at user scope unless you pass `--project` or `--scope project`. With
