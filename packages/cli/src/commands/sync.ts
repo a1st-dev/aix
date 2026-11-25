@@ -48,12 +48,13 @@ export default class Sync extends BaseCommand<typeof Sync> {
    static override flags = {
       to: Flags.string({
          char: 't',
+         // `-t` names the editor to write to on every command, so the long name works here too.
+         aliases: ['target'],
          description: 'Destination editor',
          required: true,
          options: VALID_EDITORS,
       }),
       scope: Flags.string({
-         char: 's',
          description: 'Apply the same scope to both source and destination',
          options: ['user', 'project'],
       }),

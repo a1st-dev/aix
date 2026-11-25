@@ -52,7 +52,6 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
          description: 'Marketplace name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Optional description of the marketplace',
       }),
       ...configOnlyFlag,

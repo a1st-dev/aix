@@ -88,7 +88,6 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
          description: 'Timeout in seconds',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Free-form description for the hook group',
       }),
       name: Flags.string({

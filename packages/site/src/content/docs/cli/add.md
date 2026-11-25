@@ -138,7 +138,7 @@ aix add rule <source>... [flags]
 - `--name <name>` / `-n`: Rule name. Inferred from the source when omitted.
 - `--activation <mode>` / `-a`: `always` (the default), `auto`, `glob`, or `manual`.
 - `--globs <patterns>` / `-g`: Comma-separated file patterns for `glob` activation.
-- `--description <desc>` / `-d`: When the rule should apply, for `auto` activation.
+- `--description <desc>`: When the rule should apply, for `auto` activation.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
 `--name`, `--description`, and `--ref` only work with one source.
@@ -154,7 +154,7 @@ aix add prompt <source>... [flags]
 **Flags:**
 
 - `--name <name>` / `-n`: Prompt name. Inferred from the source when omitted.
-- `--description <desc>` / `-d`: Description shown in the editor's command picker.
+- `--description <desc>`: Description shown in the editor's command picker.
 - `--argument-hint <hint>` / `-a`: Hint for the arguments, such as `[file] [message]`.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
@@ -175,7 +175,7 @@ name.
 - `--mode <mode>` / `-m`: `subagent` (the default) or `primary`.
 - `--model <model>`: Model alias or model ID.
 - `--tools <tools>`: Comma-separated list of tools available to the agent.
-- `--description <desc>` / `-d`: When this agent should be used.
+- `--description <desc>`: When this agent should be used.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
 You can pass several sources at once. `--name`, `--model`, `--tools`, `--description`, and
@@ -208,7 +208,7 @@ for that event instead of replacing it.
 - `--type <kind>`: `command`, `http`, `prompt`, or `agent`. Inferred from the flag above when omitted.
 - `--matcher <pattern>` / `-m`: Pattern selecting which tools or actions the hook applies to.
 - `--timeout <seconds>`: Timeout in seconds.
-- `--description <desc>` / `-d`: Free-form description for the hook group.
+- `--description <desc>`: Free-form description for the hook group.
 
 Pass exactly one of `--command`, `--url`, and `--prompt`.
 
@@ -275,7 +275,7 @@ or a local directory.
 **Flags:**
 
 - `--name <name>` / `-n`: Marketplace name. Inferred from the URL or repository when omitted.
-- `--description <desc>` / `-d`: Description of the marketplace.
+- `--description <desc>`: Description of the marketplace.
 
 Both flags only work with one source.
 

@@ -34,7 +34,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       '<%= config.bin %> <%= command.id %> https://github.com/org/prompts/blob/main/review.md --name review',
       '<%= config.bin %> <%= command.id %> "Review code for issues" --name review',
       '<%= config.bin %> <%= command.id %> github:myorg/prompts/code-review.md#main --name code-review',
-      '<%= config.bin %> <%= command.id %> ./review.md --name review -d "Code review checklist" -a "[file]"',
+      '<%= config.bin %> <%= command.id %> ./review.md --name review --description "Code review checklist" -a "[file]"',
       '<%= config.bin %> <%= command.id %> ./review.md --name review --save --config-only',
    ];
 
@@ -56,7 +56,6 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          description: 'Prompt name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Description shown in command picker',
       }),
       'argument-hint': Flags.string({

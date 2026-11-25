@@ -24,7 +24,7 @@ overrides. It does not print the contents.
 
 **Flags:**
 
-- `--resolved` / `-r`: Print the final merged config, after `extends` and `ai.local.json`
+- `--resolved`: Print the final merged config, after `extends` and `ai.local.json`
   have been applied.
 - `--json`: Print the paths and the merged config as one JSON document.
 

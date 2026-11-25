@@ -34,6 +34,11 @@ version may appear here with no changes to this package.
 - Name the flag that changes `ai.json` and leaves the editors alone `--config-only` on
   every `aix add` and `aix remove` command. `--no-install`, `--no-sync`, and `--no-delete`
   are still accepted on all of them
+- Give each short flag one meaning on every command. `-d` is `--dry-run`, `-s` is
+  `--save`, `-t` is the editor to write to, `-p` is `--project`, and `-r` is `--ref`. The
+  other flags that used those letters lost them: `--description` on `aix add`, `--scope`
+  on `aix sync`, `--type` and `--plain` on `aix search`, and `--resolved` on
+  `aix config show`. `aix sync` accepts `--target` as another name for `--to`
 
 ### Removed
 

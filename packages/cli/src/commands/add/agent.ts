@@ -73,7 +73,6 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
          description: 'Comma-separated list of tools available to this agent',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'When this agent should be used',
       }),
       ...configOnlyFlag,

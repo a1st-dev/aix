@@ -11,7 +11,6 @@ export default class ConfigShow extends BaseCommand<typeof ConfigShow> {
 
    static override flags = {
       resolved: Flags.boolean({
-         char: 'r',
          description: 'Show the final merged configuration (after extends and local overrides)',
          default: false,
       }),

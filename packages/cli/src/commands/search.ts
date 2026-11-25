@@ -50,13 +50,11 @@ export default class Search extends BaseCommand<typeof Search> {
 
    static override flags = {
       type: Flags.string({
-         char: 't',
          description: 'Type of resources to search (can be specified multiple times)',
          options: ['skills', 'mcp'],
          multiple: true,
       }),
       plain: Flags.boolean({
-         char: 'p',
          description: 'Force plain text output (non-interactive)',
          default: false,
       }),

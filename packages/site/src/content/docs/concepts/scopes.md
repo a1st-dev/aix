@@ -49,7 +49,7 @@ Every command that reads an `ai.json` resolves its scope the same way: a scope f
 - `--project` (`-p`), which is short for `--scope project`
 
 Only one of the three can be passed at a time. `aix list` also takes `--all`, which reads both
-scopes. `aix sync` takes `--scope` (`-s`) for both editors, or `--from-scope` and `--to-scope`
+scopes. `aix sync` takes `--scope` for both editors, or `--from-scope` and `--to-scope`
 to set them separately.
 
 ### `aix install`

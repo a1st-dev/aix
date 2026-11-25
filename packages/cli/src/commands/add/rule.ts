@@ -57,7 +57,6 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          description: 'Rule name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'When the rule should apply (enables auto activation)',
       }),
       activation: Flags.string({

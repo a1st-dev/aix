@@ -22,21 +22,18 @@ aix sync <from> --to <to> [flags]
 
 ## Flags
 
-| Flag                     | Description                                          |
-| ------------------------ | ---------------------------------------------------- |
-| `--to <editor>` / `-t`   | Destination editor. Required.                        |
-| `--scope <scope>` / `-s` | Apply the same scope to both source and destination. |
-| `--from-scope <scope>`   | Scope to read from on the source editor.             |
-| `--to-scope <scope>`     | Scope to write to on the destination editor.         |
-| `--dry-run` / `-d`       | Preview changes without writing files.               |
+| Flag                   | Description                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| `--to <editor>` / `-t` | Destination editor. Required. `--target` is accepted as well. |
+| `--scope <scope>`      | Apply the same scope to both source and destination.          |
+| `--from-scope <scope>` | Scope to read from on the source editor.                      |
+| `--to-scope <scope>`   | Scope to write to on the destination editor.                  |
+| `--dry-run` / `-d`     | Preview changes without writing files.                        |
 
 Scope values are `user` and `project`. Without a scope flag, sync reads user scope and writes
 user scope. `--from-scope` and `--to-scope` each take precedence over `--scope`. Project
 scope means the editor config in the working directory. See
 [User scope and project scope](/concepts/scopes/).
-
-On this command `-s` is short for `--scope`. On `aix add` and `aix remove` it is short for
-`--save`.
 
 ## Examples
 
