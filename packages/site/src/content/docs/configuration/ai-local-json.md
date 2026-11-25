@@ -5,7 +5,8 @@ title: ai.local.json
 description: Use local configuration overrides for secrets and developer-specific settings.
 ---
 
-`ai.local.json` is a companion file to `ai.json` designed for configuration that should **not** be shared with your team or committed to version control.
+`ai.local.json` is a companion file to `ai.json` for configuration that should not be shared
+with your team or committed to version control.
 
 ## Usage
 
@@ -15,6 +16,8 @@ Create a file named `ai.local.json` in the same directory as your `ai.json`:
 {
    "mcp": {
       "github": {
+         "command": "npx",
+         "args": ["-y", "@modelcontextprotocol/server-github"],
          "env": {
             "GITHUB_TOKEN": "ghp_my_secret_token"
          }
@@ -23,29 +26,44 @@ Create a file named `ai.local.json` in the same directory as your `ai.json`:
 }
 ```
 
-When you run `aix install`, settings in `ai.local.json` are merged **on top** of `ai.json`.
+When aix loads your config, entries in `ai.local.json` are applied on top of `ai.json`.
+
+An entry in `ai.local.json` replaces the entry with the same name in `ai.json` as a whole. The
+two are not merged field by field, so the example above repeats `command` and `args` instead
+of listing only `env`. Setting an entry to `false` removes it.
 
 ## Best practices
 
-### 1. Ignore it in git
+### Ignore it in git
 
-Always add `ai.local.json` to your `.gitignore`:
+Add `ai.local.json` to your `.gitignore`, along with everything in `.aix/` except
+`.aix/imported/`:
 
 ```text
 # .gitignore
 ai.local.json
-.aix/
+.aix/*
+!.aix/imported/
 ```
 
-### 2. Store secrets here
+`.aix/imported/` holds the rule, prompt, and agent files that
+[`aix init --from`](/getting-started/import-from-editor/) creates. `ai.json` refers to them by
+path, so commit that directory or teammates' installs will fail on the missing files.
 
-Do not put API keys or tokens in `ai.json`. Instead, reference environment variables (`${VAR}`) in `ai.json` and set them in your shell, OR define them directly in `ai.local.json`.
+The rest of `.aix/` is rebuilt by aix or is specific to your machine: `.aix/.tmp/` holds
+caches and backups, `.aix/skills/` and `.aix/extends/` hold copies of resolved skills and
+extended configs, and `.aix/state.json` records what aix installed.
 
-### 3. Developer preferences
+### Store secrets here
 
-Use `ai.local.json` to enable or disable tools locally without affecting teammates.
+Do not put API keys or tokens in `ai.json`. Reference environment variables (`${VAR}`) in
+`ai.json` and set them in your shell, or define the values directly in `ai.local.json`.
 
-**Example: turning off a noisy linter rule locally**
+### Developer preferences
+
+Use `ai.local.json` to turn items on or off for yourself without affecting teammates.
+
+This example turns off a shared rule locally:
 
 ```json
 // ai.local.json
@@ -58,16 +76,19 @@ Use `ai.local.json` to enable or disable tools locally without affecting teammat
 
 ## Restrictions
 
-Unlike the main `ai.json`, `ai.local.json` does **not** support the `extends` field. It is designed to be a flat patch file, not part of a complex inheritance chain.
+Unlike `ai.json`, `ai.local.json` does not support the `extends` field. aix rejects a local
+file that contains it.
 
 ## CLI support
 
-Most aix commands support a `--local` (or `-l`) flag to operate on the local config instead of the shared one.
+`aix add` and `aix remove` take a `--local` (or `-l`) flag that makes `--save` write to
+`ai.local.json` instead of `ai.json`. `--local` needs `--save`, and `aix add` rejects it
+otherwise.
 
 ```bash
-# Add an MCP server to local config only
-aix add mcp github --local
+# Save a personal rule to ai.local.json
+aix add rule "Explain changes in plain language" --name my-notes --save --local
 
-# Remove a rule from local config only
-aix remove rule strict-linting --local
+# Remove it from ai.local.json again
+aix remove rule my-notes --save --local
 ```
