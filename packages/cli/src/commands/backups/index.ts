@@ -2,7 +2,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { getBackupsDir, getRuntimeAdapter } from '@a1st/aix-core';
-import { BaseCommand } from '../base-command.js';
+import { BaseCommand } from '../../base-command.js';
 
 interface BackupInfo {
    file: string;
