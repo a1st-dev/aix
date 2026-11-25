@@ -51,8 +51,9 @@ ai.local.json
 path, so commit that directory or teammates' installs will fail on the missing files.
 
 The rest of `.aix/` is rebuilt by aix or is specific to your machine: `.aix/.tmp/` holds
-caches and backups, `.aix/skills/` and `.aix/extends/` hold copies of resolved skills and
-extended configs, and `.aix/state.json` records what aix installed.
+the cache, `.aix/skills/` and `.aix/extends/` hold copies of resolved skills and extended
+configs, and `.aix/installs/` and `.aix/state.json` record what aix installed. See
+[What aix writes and where](/concepts/files-and-directories/).
 
 ### Store secrets here
 

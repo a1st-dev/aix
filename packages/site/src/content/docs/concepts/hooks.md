@@ -69,8 +69,9 @@ copy, even if handlers were grouped differently. Compound commands and unreadabl
 the literal command instead. The output lists the installed native events, such as `Stop`,
 `SubagentStop`, and `PreToolUse`.
 
-Existing hook config files are backed up under `.aix/.tmp/backups/` in the file's
-directory before writes. Invalid JSON stops installation without replacing the file.
+Existing hook config files are backed up to `~/.aix/backups/` before writes. See
+[Backups and restore](/concepts/backups-and-restore/). Invalid JSON stops installation without
+replacing the file.
 
 Hooks are inherited through [`extends`](/configuration/config-inheritance/) like the rest of
 `ai.json`. For inherited configs, aix resolves existing relative script paths in simple
