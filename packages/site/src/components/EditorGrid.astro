@@ -1,10 +1,13 @@
 ---
 /**
- * Horizontal row of supported editor names with a connecting line motif.
- * Icons from simple-icons via astro-icon.
+ * Row of supported editors with a connecting line motif. The row wraps, and drops the
+ * line, when the container is too narrow to hold every editor.
  */
 import { Icon } from 'astro-icon/components';
 import { editorIconNames, editorSupportProfiles, getEditorSupportRoute } from '../lib/editor-support';
+
+const REVEAL_START_SECONDS = 0.3,
+      REVEAL_STAGGER_SECONDS = 0.08;
 
 const editors = editorSupportProfiles.map((editor) => ({
   href: getEditorSupportRoute(editor.id),
@@ -15,35 +18,34 @@ const editors = editorSupportProfiles.map((editor) => ({
 
 <div class="editor-grid">
   <div class="editor-grid__line" aria-hidden="true"></div>
-  <div class="editor-grid__items">
+  <ul class="editor-grid__items">
     {editors.map((editor, i) => (
-      <a
-        href={editor.href}
-        class="editor-grid__item"
-        style={`animation-delay: ${0.3 + i * 0.08}s`}
-      >
-        <span class="editor-grid__icon">
-          <Icon name={editor.icon} />
-        </span>
-        <span class="editor-grid__name">{editor.name}</span>
-        <span class="editor-grid__dot" aria-hidden="true"></span>
-      </a>
+      <li class="reveal" style={`--reveal-delay: ${REVEAL_START_SECONDS + i * REVEAL_STAGGER_SECONDS}s`}>
+        <a href={editor.href} class="editor-grid__item">
+          <span class="editor-grid__icon">
+            <Icon name={editor.icon} aria-hidden="true" />
+          </span>
+          <span class="editor-grid__name">{editor.name}</span>
+          <span class="editor-grid__dot" aria-hidden="true"></span>
+        </a>
+      </li>
     ))}
-  </div>
+  </ul>
 </div>
 
 <style>
   .editor-grid {
+    container-type: inline-size;
     position: relative;
-    padding: 2rem 0;
+    padding-block: 2rem;
     max-width: 720px;
-    margin: 0 auto;
+    margin-inline: auto;
   }
   .editor-grid__line {
+    display: none;
     position: absolute;
     top: 50%;
-    left: 5%;
-    right: 5%;
+    inset-inline: 5%;
     height: 1px;
     background: linear-gradient(
       90deg,
@@ -56,9 +58,11 @@ const editors = editorSupportProfiles.map((editor) => ({
   }
   .editor-grid__items {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 0.5rem;
     position: relative;
+    list-style: none;
   }
   .editor-grid__item {
     display: flex;
@@ -67,8 +71,6 @@ const editors = editorSupportProfiles.map((editor) => ({
     gap: 6px;
     padding: 0.5rem;
     position: relative;
-    opacity: 0;
-    animation: editorReveal 0.5s ease forwards;
     color: inherit;
     text-decoration: none;
   }
@@ -82,26 +84,28 @@ const editors = editorSupportProfiles.map((editor) => ({
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 10px;
     background: var(--sl-color-bg-nav);
-    transition:
-      border-color 0.3s,
-      transform 0.3s;
   }
   .editor-grid__icon :global(svg) {
     width: 24px;
     height: 24px;
   }
-  .editor-grid__item:hover .editor-grid__icon {
+  .editor-grid__item:hover .editor-grid__icon,
+  .editor-grid__item:focus-visible .editor-grid__icon {
     border-color: var(--sl-color-accent);
-    transform: translateY(-3px);
+  }
+  .editor-grid__item:hover .editor-grid__name,
+  .editor-grid__item:focus-visible .editor-grid__name {
+    color: var(--sl-color-white);
   }
   .editor-grid__name {
     font-family: var(--sl-font);
     font-size: 0.75rem;
-    color: var(--sl-color-gray-3);
+    color: var(--aix-text-muted);
     letter-spacing: 0.03em;
     white-space: nowrap;
   }
   .editor-grid__dot {
+    display: none;
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -110,27 +114,27 @@ const editors = editorSupportProfiles.map((editor) => ({
     position: absolute;
     bottom: -14px;
   }
-  @keyframes editorReveal {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
+
+  /* Wide enough for one row: spread the editors out and thread the line through them. */
+  @container (min-width: 44rem) {
+    .editor-grid__items {
+      flex-wrap: nowrap;
+      justify-content: space-between;
     }
-    to {
-      opacity: 1;
-      transform: translateY(0);
+    .editor-grid__line,
+    .editor-grid__dot {
+      display: block;
     }
   }
 
-  @media (max-width: 600px) {
-    .editor-grid__items {
-      flex-wrap: wrap;
-      justify-content: center;
+  @media (prefers-reduced-motion: no-preference) {
+    .editor-grid__icon {
+      transition:
+        border-color 0.3s,
+        transform 0.3s;
     }
-    .editor-grid__line {
-      display: none;
-    }
-    .editor-grid__dot {
-      display: none;
+    .editor-grid__item:hover .editor-grid__icon {
+      transform: translateY(-3px);
     }
   }
 </style>
