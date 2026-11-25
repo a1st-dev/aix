@@ -1,6 +1,6 @@
 /* ============================================
    aix — Editorial Design System
-   Warm dark tones · Serif display · Geometric accents
+   Warm tones · Serif display · Geometric accents
    ============================================ */
 
 /* ----- Starlight Theme Overrides ----- */
@@ -9,6 +9,7 @@
    --sl-font: "Instrument Sans", "Segoe UI", sans-serif;
    --sl-font-system-mono: "SF Mono", "Cascadia Code", "Fira Code", monospace;
 
+   /* Gray 4 and darker are for borders and surfaces. Text uses gray 3 or lighter. */
    --sl-color-white: #f5f0e8;
    --sl-color-gray-1: #e8e0d4;
    --sl-color-gray-2: #c4b9a8;
@@ -16,10 +17,32 @@
    --sl-color-gray-4: #6b6054;
    --sl-color-gray-5: #3d3630;
    --sl-color-gray-6: #252019;
+   --sl-color-black: #1a1715;
 
    --sl-color-accent-low: #2a2318;
    --sl-color-accent: #d4a853;
    --sl-color-accent-high: #f0ddb8;
+
+   /*
+      Starlight colors asides and badges from five named slots. The palette has no blue
+      or purple, so "blue" (note asides) carries the neutral grays and "purple" (tip
+      asides) carries the accent.
+   */
+   --sl-color-blue-low: var(--sl-color-gray-6);
+   --sl-color-blue: var(--sl-color-gray-3);
+   --sl-color-blue-high: var(--sl-color-gray-1);
+   --sl-color-purple-low: var(--sl-color-accent-low);
+   --sl-color-purple: var(--sl-color-accent);
+   --sl-color-purple-high: var(--sl-color-accent-high);
+   --sl-color-green-low: #1f2a1b;
+   --sl-color-green: #8fa582;
+   --sl-color-green-high: #d5e2ca;
+   --sl-color-orange-low: #33200f;
+   --sl-color-orange: #d98a4a;
+   --sl-color-orange-high: #f5d3b5;
+   --sl-color-red-low: #331a18;
+   --sl-color-red: #d0766e;
+   --sl-color-red-high: #f3cdc9;
 
    --sl-color-bg-nav: #1e1a15;
    --sl-color-bg-sidebar: #1a1715;
@@ -27,21 +50,17 @@
    --sl-color-hairline-light: #3d3630;
    --sl-color-hairline-shade: #252019;
 
-   /* Expressive Code Overrides - Dark */
-   --ec-frm-trmBg: var(--sl-color-gray-6);
-   --ec-frm-trmTtbBg: var(--sl-color-gray-6);
-   --ec-frm-edBg: var(--sl-color-gray-6);
-   --ec-frm-edTabBarBg: var(--sl-color-gray-6);
-   --ec-codeBg: var(--sl-color-gray-6);
-   --ec-brdCol: transparent;
-
    /* ----- Shared Design Tokens ----- */
 
    --aix-font-display: "Cormorant Garamond", Georgia, serif;
 
+   /* Secondary text that still meets WCAG AA on every surface below. */
+   --aix-text-muted: var(--sl-color-gray-3);
+
    /* Surface depth levels */
    --aix-surface-deep: #0e0c0a;
    --aix-surface-sunken: #161310;
+   --aix-shadow-raised: 0 4px 24px rgba(0, 0, 0, 0.4);
 
    /* Accent variants */
    --aix-accent-hover: #e0b964;
@@ -50,93 +69,113 @@
    --aix-accent-glow: rgba(212, 168, 83, 0.06);
    --aix-accent-shadow: rgba(212, 168, 83, 0.25);
    --aix-accent-selection: rgba(212, 168, 83, 0.3);
-   --aix-accent-subtle-bg: rgba(212, 168, 83, 0.1);
 
    /* Nav backdrop */
    --aix-nav-bg: rgba(26, 23, 21, 0.85);
    --aix-nav-border: rgba(61, 54, 48, 0.5);
 
    /* Semantic */
-   --aix-success: #7a8c6e;
-   --aix-success-subtle: rgba(122, 140, 110, 0.15);
-   --aix-success-border: rgba(122, 140, 110, 0.25);
-   --aix-error: #c4756e;
-   --aix-error-subtle: rgba(196, 117, 110, 0.1);
-   --aix-error-border: rgba(196, 117, 110, 0.15);
-   --aix-error-muted: rgba(196, 117, 110, 0.4);
+   --aix-success: #8fa582;
+   --aix-success-subtle: rgba(143, 165, 130, 0.15);
+   --aix-success-border: rgba(143, 165, 130, 0.25);
+   --aix-error: #d0766e;
+   --aix-error-subtle: rgba(208, 118, 110, 0.1);
+   --aix-error-border: rgba(208, 118, 110, 0.15);
+   --aix-error-muted: rgba(208, 118, 110, 0.4);
 
    /* Code syntax */
    --aix-code-string: #caa06b;
    --aix-code-number: #8bb19a;
    --aix-code-literal: #9db1d0;
+
+   /* Background pattern strength */
+   --aix-pattern-opacity: 0.04;
 }
 
 :root[data-theme="light"] {
    --sl-color-white: #1a1715;
    --sl-color-gray-1: #3d3630;
-   --sl-color-gray-2: #6b6054;
-   --sl-color-gray-3: #9a8e7d;
-   --sl-color-gray-4: #c4b9a8;
-   --sl-color-gray-5: #e8e0d4;
-   --sl-color-gray-6: #faf7f2;
+   --sl-color-gray-2: #554b41;
+   --sl-color-gray-3: #6b6054;
+   --sl-color-gray-4: #9a8e7d;
+   --sl-color-gray-5: #e0d6c6;
+   --sl-color-gray-6: #ece5d9;
+   --sl-color-gray-7: #f5f0e8;
+   --sl-color-black: #faf7f2;
 
    --sl-color-accent-low: #f5ecd9;
-   --sl-color-accent: #a07b2e;
+   --sl-color-accent: #7f5d12;
    --sl-color-accent-high: #3d2e0f;
+
+   --sl-color-green-low: #e2ecd9;
+   --sl-color-green: #5d7a4e;
+   --sl-color-green-high: #36502a;
+   --sl-color-orange-low: #f8e3d0;
+   --sl-color-orange: #c96f2a;
+   --sl-color-orange-high: #7a3d0c;
+   --sl-color-red-low: #f8dfdb;
+   --sl-color-red: #c4574d;
+   --sl-color-red-high: #8a2f27;
 
    --sl-color-bg-nav: #f5f0e8;
    --sl-color-bg: #faf7f2;
    --sl-color-bg-sidebar: #faf7f2;
 
-   --sl-color-hairline-light: #e8e0d4;
+   --sl-color-hairline-light: #e0d6c6;
    --sl-color-hairline-shade: #c4b9a8;
 
-   /* Expressive Code Overrides - Light */
-   --ec-frm-trmBg: var(--sl-color-gray-6);
-   --ec-frm-trmTtbBg: var(--sl-color-gray-6);
-   --ec-frm-edBg: var(--sl-color-gray-6);
-   --ec-frm-edTabBarBg: var(--sl-color-gray-6);
-   --ec-codeBg: var(--sl-color-gray-6);
-   --ec-brdCol: transparent;
+   --aix-surface-deep: #f0eadf;
+   --aix-surface-sunken: #f5f0e8;
+   --aix-shadow-raised: 0 4px 24px rgba(61, 46, 15, 0.12);
+
+   --aix-accent-hover: #6b4e0e;
+   --aix-accent-subtle: rgba(127, 93, 18, 0.1);
+   --aix-accent-ghost: rgba(127, 93, 18, 0.08);
+   --aix-accent-glow: rgba(127, 93, 18, 0.06);
+   --aix-accent-shadow: rgba(127, 93, 18, 0.25);
+   --aix-accent-selection: rgba(127, 93, 18, 0.25);
+
+   --aix-nav-bg: rgba(250, 247, 242, 0.85);
+   --aix-nav-border: rgba(196, 185, 168, 0.5);
+
+   --aix-success: #4d6340;
+   --aix-success-subtle: rgba(77, 99, 64, 0.12);
+   --aix-success-border: rgba(77, 99, 64, 0.3);
+   --aix-error: #a23f37;
+   --aix-error-subtle: rgba(162, 63, 55, 0.1);
+   --aix-error-border: rgba(162, 63, 55, 0.2);
+   --aix-error-muted: rgba(162, 63, 55, 0.45);
+
+   --aix-code-string: #8a5a1c;
+   --aix-code-number: #3f7059;
+   --aix-code-literal: #48638f;
+
+   --aix-pattern-opacity: 0.05;
 }
 
 /* ---- Headings: Cormorant Garamond ---- */
-starlight-content h1,
-starlight-content h2,
-starlight-content h3,
-starlight-content h4,
+.content-panel h1,
 .sl-markdown-content h1,
 .sl-markdown-content h2,
 .sl-markdown-content h3,
 .sl-markdown-content h4 {
-   font-family: "Cormorant Garamond", Georgia, serif;
+   font-family: var(--aix-font-display);
    font-weight: 600;
    letter-spacing: -0.02em;
-}
-
-.sl-markdown-content h1 {
-   font-size: 2.5rem;
-   line-height: 1.15;
-   margin-top: 0;
 }
 
 .sl-markdown-content h2 {
    font-size: 1.75rem;
    line-height: 1.25;
-   padding-bottom: 0.5rem;
-   border-bottom: 1px solid var(--sl-color-hairline-light);
+   padding-block-end: 0.5rem;
+   border-block-end: 1px solid var(--sl-color-hairline-light);
 }
 
 .sl-markdown-content h3 {
    font-size: 1.35rem;
 }
 
-/* ---- Code blocks ---- */
-.sl-markdown-content pre {
-   border: 1px solid var(--sl-color-hairline-light);
-   border-radius: 8px;
-}
-
+/* ---- Inline code ---- */
 .sl-markdown-content code:not(pre code) {
    background: var(--sl-color-accent-low);
    color: var(--sl-color-accent-high);
@@ -153,13 +192,11 @@ starlight-content h4,
    text-decoration-thickness: 0.08em;
 }
 
-/* ---- Sidebar refinements ---- */
-nav.sidebar .top-level > li > details > summary,
-nav.sidebar .top-level > li > a {
+/* ---- Sidebar group labels ---- */
+nav.sidebar .top-level > li > details > summary .large {
    font-family: var(--sl-font-system-mono);
-   font-weight: 400;
-   font-size: 0.7rem;
-   letter-spacing: 0.14em;
+   font-size: var(--sl-text-xs);
+   letter-spacing: 0.12em;
    text-transform: uppercase;
 }
 
@@ -170,11 +207,7 @@ nav.sidebar .top-level > li > a {
 }
 
 .sl-markdown-content th {
-   font-family: "Cormorant Garamond", Georgia, serif;
    font-weight: 600;
-   text-transform: uppercase;
-   font-size: 0.85rem;
-   letter-spacing: 0.06em;
 }
 
 .sl-markdown-content th,
@@ -187,14 +220,11 @@ nav.sidebar .top-level > li > a {
    background: var(--aix-accent-glow);
 }
 
-/* ---- Aside/callout accent ---- */
-.starlight-aside--tip {
-   border-color: var(--sl-color-accent);
-}
-
 /* ---- Smooth scrolling ---- */
-html {
-   scroll-behavior: smooth;
+@media (prefers-reduced-motion: no-preference) {
+   html {
+      scroll-behavior: smooth;
+   }
 }
 
 /* ---- Selection color ---- */
@@ -205,7 +235,7 @@ html {
 
 /* ---- Background Pattern ---- */
 html {
-   background-color: var(--sl-color-bg, #1a1715);
+   background-color: var(--sl-color-bg);
 }
 
 body {
@@ -216,25 +246,50 @@ body::after {
    content: "";
    display: block;
    position: fixed;
-   top: 0;
-   left: 0;
-   width: 100vw;
-   height: 100vh;
+   inset: 0;
    pointer-events: none;
    z-index: -1;
 
    background-image: url("/pattern.svg");
    background-repeat: repeat;
    background-size: 600px;
-   opacity: 0.04;
+   opacity: var(--aix-pattern-opacity);
 }
 
-.highlight {
-   background: var(--aix-accent-subtle-bg);
-   color: var(--sl-color-accent);
-   padding-inline: 0.25em;
+/* ---- Shared component utilities ---- */
+
+/*
+   Starlight adds a 1rem top margin between adjacent content siblings. Flex and grid
+   containers that space their children with `gap` opt out with this class.
+*/
+.sl-markdown-content .aix-layout > * {
+   margin-block-start: 0;
 }
 
-a:hover:not([class*="cta"]) {
-   text-decoration: underline;
+.aix-card {
+   padding: 1rem 1.15rem;
+   border: 1px solid var(--sl-color-hairline-light);
+   border-radius: 0.75rem;
+   background: color-mix(in srgb, var(--sl-color-bg) 88%, var(--sl-color-accent-low));
+}
+
+.aix-eyebrow {
+   color: var(--aix-text-muted);
+   font-size: var(--sl-text-xs);
+   font-weight: 600;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+}
+
+/* Link lists that flow into as many columns as fit. */
+.sl-markdown-content .aix-columns {
+   columns: 16rem;
+   column-gap: 2rem;
+}
+
+/* Starlight's gap between list items would push the second column down. */
+.sl-markdown-content .aix-columns > li {
+   padding-block: 0.125rem;
+   margin-block-start: 0;
+   break-inside: avoid;
 }

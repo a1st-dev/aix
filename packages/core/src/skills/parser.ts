@@ -1,9 +1,7 @@
 import { join, basename } from 'pathe';
 import { skillFrontmatterSchema, type ParsedSkill, type SkillFrontmatter } from '@a1st/aix-schema';
-import { parseAllFrontmatter } from '../frontmatter-utils.js';
+import { extractFrontmatter, parseAllFrontmatter } from '../frontmatter-utils.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
-
-const FRONTMATTER_REGEX = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
 
 /**
  * Parse a SKILL.md file from a skill directory. Frontmatter is optional - if missing, the entire
@@ -22,28 +20,16 @@ export async function parseSkillMd(
       );
    }
 
-   const content = await getRuntimeAdapter().fs.readFile(skillMdPath, 'utf-8'),
-         match = content.match(FRONTMATTER_REGEX),
+   const rawContent = await getRuntimeAdapter().fs.readFile(skillMdPath, 'utf-8'),
+         { frontmatter: yamlContent, content } = extractFrontmatter(rawContent),
+         body = content.trim(),
          folderName = basename(skillPath);
 
-   // No frontmatter - treat entire content as body, use folder name
-   if (!match) {
+   // No frontmatter, or an empty block - treat the content as the body and use the folder name
+   if (!yamlContent.trim()) {
       return {
          frontmatter: { name: folderName },
-         body: content.trim(),
-         basePath: skillPath,
-         source,
-      };
-   }
-
-   const yamlContent = match[1],
-         body = match[2];
-
-   // Empty frontmatter block (---\n---) - treat as no frontmatter
-   if (!yamlContent?.trim()) {
-      return {
-         frontmatter: { name: folderName },
-         body: (body ?? '').trim(),
+         body,
          basePath: skillPath,
          source,
       };
@@ -55,7 +41,7 @@ export async function parseSkillMd(
 
    return {
       frontmatter,
-      body: (body ?? '').trim(),
+      body,
       basePath: skillPath,
       source,
    };

@@ -6,10 +6,17 @@ import {
    type SearchType,
 } from '../lib/search/index.js';
 import { getSkillInstallRequest } from '../lib/search/skill-install.js';
-import { renderSearchUI, type InstallItem } from '../ui/search/index.js';
-import { addSkill, addMcp, removeSkill, removeMcp, findConfigPath } from '../lib/add-helper.js';
+import { renderSearchUI, type ActionOutcome, type InstallItem } from '../ui/search/index.js';
+import { addSkill, addMcp, removeSkill, removeMcp, findProjectConfig } from '../lib/add-helper.js';
 
 type OutputMode = 'interactive' | 'plain' | 'json';
+
+/** The registry's own name for a search result, which identifies it where a short name cannot. */
+function getRegistryServerName(result: SearchResult): string | undefined {
+   const fullName = result.meta?.fullName;
+
+   return typeof fullName === 'string' ? fullName : undefined;
+}
 
 function getOutputMode(flags: { json: boolean; plain: boolean }): OutputMode {
    if (flags.json) {
@@ -113,10 +120,14 @@ export default class Search extends BaseCommand<typeof Search> {
       types: SearchType[],
       initialQuery?: string,
    ): Promise<void> {
-      let configPath: string | null = null;
+      let configPath: string | null = null,
+          declaredNames = new Set<string>();
 
       try {
-         configPath = await findConfigPath();
+         const projectConfig = await findProjectConfig();
+
+         configPath = projectConfig?.path ?? null;
+         declaredNames = projectConfig?.declaredNames ?? declaredNames;
          if (!configPath) {
             this.output.warn('No ai.json found. Run "aix init" first to create one.');
             this.output.info('Falling back to preview mode (no installation).');
@@ -137,7 +148,7 @@ export default class Search extends BaseCommand<typeof Search> {
          return;
       }
 
-      const handleInstall = async (item: InstallItem): Promise<boolean> => {
+      const handleInstall = async (item: InstallItem): Promise<ActionOutcome> => {
          const itemName = item.result.name,
                skillInstallRequest =
                   item.type === 'skills' ? await getSkillInstallRequest(item.result) : undefined,
@@ -146,19 +157,18 @@ export default class Search extends BaseCommand<typeof Search> {
          if (!configPath) {
             const cmd = item.type === 'skills' ? 'skill' : 'mcp';
 
-            this.output.info(`Would run: aix add ${cmd} ${source}`);
-            return false;
+            return { success: false, error: `No ai.json here. Run \`aix init\`, or install it with: aix add ${cmd} ${source}` };
          }
 
          const result =
             item.type === 'skills'
                ? await addSkill({ configPath, name: skillInstallRequest?.name ?? itemName, source })
-               : await addMcp({ configPath, name: itemName });
+               : await addMcp({ configPath, name: itemName, serverName: getRegistryServerName(item.result) });
 
-         return result.success;
+         return result;
       };
 
-      const handleUninstall = async (item: InstallItem): Promise<boolean> => {
+      const handleUninstall = async (item: InstallItem): Promise<ActionOutcome> => {
          const itemName = item.result.name,
                skillInstallRequest =
                   item.type === 'skills' ? await getSkillInstallRequest(item.result) : undefined;
@@ -166,8 +176,7 @@ export default class Search extends BaseCommand<typeof Search> {
          if (!configPath) {
             const cmd = item.type === 'skills' ? 'skill' : 'mcp';
 
-            this.output.info(`Would run: aix remove ${cmd} ${itemName}`);
-            return false;
+            return { success: false, error: `No ai.json here. Remove it with: aix remove ${cmd} ${itemName}` };
          }
 
          const result =
@@ -175,7 +184,7 @@ export default class Search extends BaseCommand<typeof Search> {
                ? await removeSkill({ configPath, name: skillInstallRequest?.name ?? itemName })
                : await removeMcp({ configPath, name: itemName });
 
-         return result.success;
+         return result;
       };
 
       const { installedItems } = await renderSearchUI({
@@ -187,6 +196,7 @@ export default class Search extends BaseCommand<typeof Search> {
          },
          onInstall: handleInstall,
          onUninstall: handleUninstall,
+         alreadyInstalled: declaredNames,
       });
 
       // Print summary of installed items
@@ -228,13 +238,13 @@ export default class Search extends BaseCommand<typeof Search> {
 
       const totalResults = searchResults.reduce((sum, r) => sum + r.results.length, 0);
 
-      if (totalResults === 0) {
-         this.output.info('No results found matching your query.');
+      if (this.flags.json) {
+         this.output.json(resultsByType);
          return;
       }
 
-      if (this.flags.json) {
-         this.output.json(resultsByType);
+      if (totalResults === 0) {
+         this.output.info('No results found matching your query.');
          return;
       }
 

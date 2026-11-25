@@ -194,6 +194,30 @@ Content.`;
          expect(result.metadata.activation).toBe('always');
       });
 
+      it('handles a byte order mark before the opening ---', () => {
+         const content = '\uFEFF---\ntrigger: always_on\n---\n\nContent.',
+               result = parseRuleFrontmatter(content);
+
+         expect(result.content).toBe('Content.');
+         expect(result.metadata.activation).toBe('always');
+      });
+
+      it('reads unquoted glob patterns from front-matter with Windows line endings', () => {
+         const content = '---\r\ndescription: TypeScript files\r\nglobs: *.ts\r\nalwaysApply: false\r\n---\r\n\r\nContent.',
+               result = parseRuleFrontmatter(content);
+
+         expect(result.content).toBe('Content.');
+         expect(result.metadata).toEqual({ activation: 'glob', description: 'TypeScript files', globs: ['*.ts'] });
+      });
+
+      it('does not treat a line that only starts with --- as the closing delimiter', () => {
+         const content = '---\ndescription: Dashes\n---not the end\ntrigger: always_on\n---\n\nContent.',
+               result = parseRuleFrontmatter(content);
+
+         expect(result.content).toBe('Content.');
+         expect(result.metadata.activation).toBe('always');
+      });
+
       it('handles front-matter with no trailing newline after closing ---', () => {
          const content = `---
 trigger: always_on

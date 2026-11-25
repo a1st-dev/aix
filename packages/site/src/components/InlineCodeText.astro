@@ -1,15 +1,27 @@
 ---
-const { text } = Astro.props as {
+/**
+ * Renders the two inline Markdown marks the generated data uses: backticks become
+ * `<code>` and double asterisks become `<strong>`. Everything else is plain text.
+ */
+interface Props {
    text: string;
-};
+}
 
-const parts = text.split(/(`[^`]+`)/).filter(Boolean);
+const { text } = Astro.props;
+
+const CODE_MARK = '`',
+      STRONG_MARK = '**';
+
+const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/).filter(Boolean);
 ---
 
 <span class="inline-code-text">
    {parts.map((part) => {
-      if (part.startsWith('`') && part.endsWith('`')) {
-         return <code>{part.slice(1, -1)}</code>;
+      if (part.startsWith(CODE_MARK) && part.endsWith(CODE_MARK)) {
+         return <code>{part.slice(CODE_MARK.length, -CODE_MARK.length)}</code>;
+      }
+      if (part.startsWith(STRONG_MARK) && part.endsWith(STRONG_MARK)) {
+         return <strong>{part.slice(STRONG_MARK.length, -STRONG_MARK.length)}</strong>;
       }
 
       return part;

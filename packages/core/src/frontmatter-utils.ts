@@ -6,6 +6,13 @@
 
 import { parse as parseYaml } from 'yaml';
 
+// Editors on Windows save files with a byte order mark and CRLF line endings, and a file may
+// end at its closing delimiter. The body between the delimiters is optional so that an empty
+// block is still recognized as frontmatter.
+const BYTE_ORDER_MARK = '\uFEFF',
+      FRONTMATTER_BLOCK = /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/,
+      LINE_BREAK = /\r?\n/;
+
 /**
  * Result of extracting frontmatter from content.
  */
@@ -31,15 +38,16 @@ export function quoteYamlString(value: string): string {
  * @returns Extracted frontmatter and remaining content
  */
 export function extractFrontmatter(rawContent: string): ExtractedFrontmatter {
-   const frontmatterMatch = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+   const content = rawContent.startsWith(BYTE_ORDER_MARK) ? rawContent.slice(BYTE_ORDER_MARK.length) : rawContent,
+         frontmatterMatch = content.match(FRONTMATTER_BLOCK);
 
    if (!frontmatterMatch) {
-      return { frontmatter: '', content: rawContent, hasFrontmatter: false };
+      return { frontmatter: '', content, hasFrontmatter: false };
    }
 
    return {
-      frontmatter: frontmatterMatch[1]!,
-      content: rawContent.slice(frontmatterMatch[0].length).trim(),
+      frontmatter: frontmatterMatch[1] ?? '',
+      content: content.slice(frontmatterMatch[0].length).trim(),
       hasFrontmatter: true,
    };
 }
@@ -95,7 +103,7 @@ export function parseAllFrontmatter(frontmatter: string): Record<string, unknown
  */
 function parseSimpleFrontmatter(frontmatter: string): Record<string, unknown> {
    const result: Record<string, unknown> = {},
-         lines = frontmatter.split('\n');
+         lines = frontmatter.split(LINE_BREAK);
 
    let currentKey: string | null = null,
        arrayValues: string[] = [];

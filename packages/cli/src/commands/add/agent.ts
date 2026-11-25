@@ -102,7 +102,7 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
       rejectMultiSourceFlags({
          sources,
          flags,
-         disallowedFlags: ['name', 'ref', 'mode', 'model', 'tools', 'description'],
+         disallowedFlags: ['name', 'ref', 'model', 'tools', 'description'],
          error: this.error.bind(this),
       });
 

@@ -10,7 +10,6 @@ export {
 export {
    interpolateRule,
    interpolateRules,
-   hasUnresolvedVariables,
    extractVariableNames,
    type InterpolationContext,
 } from './interpolate.js';

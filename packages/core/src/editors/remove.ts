@@ -1,10 +1,12 @@
-import { dirname, join } from 'pathe';
+import { basename, join } from 'pathe';
 import { isRecord } from '../type-guards.js';
-import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import { parseToml, updateToml } from '../toml.js';
+import { applyFileChanges } from './apply-file-changes.js';
 import { getAdapter } from './install.js';
+import { importFromEditor } from './import.js';
 import type { EditorName } from './types.js';
 import { normalizeEditorName, normalizeEditorNames } from './types.js';
 import type { HooksStrategy, McpStrategy } from './strategies/types.js';
@@ -52,6 +54,39 @@ export interface RemovePluginFromEditorResult {
    errors: string[];
 }
 
+/** Sections whose items each live in their own native file or directory. */
+export type NativeFileSection = 'skills' | 'rules' | 'prompts' | 'agents';
+
+export interface FindNativeItemPathOptions {
+   editor: EditorName;
+   section: NativeFileSection;
+   name: string;
+   scope: ConfigScope;
+   projectRoot: string;
+}
+
+/**
+ * Find the native file or directory that holds one named item. The editor's importer is the
+ * source of truth for where items live, so a name it does not report resolves to nothing. That
+ * covers names that are not items at all, such as `..`, without validating them here.
+ */
+export async function findNativeItemPath(options: FindNativeItemPathOptions): Promise<string | undefined> {
+   const { editor, section, name, scope, projectRoot } = options,
+         imported = await importFromEditor(editor, { projectRoot, scope }),
+         paths = imported.paths[section];
+
+   if (!Object.hasOwn(paths, name)) {
+      return undefined;
+   }
+
+   const path = paths[name],
+         fileName = path === undefined ? '' : basename(path);
+
+   // An importer may report several items from one shared file. Only a path named after the
+   // item belongs to that item alone.
+   return fileName === name || fileName.startsWith(`${name}.`) ? path : undefined;
+}
+
 interface RemoveMcpFromEditorOptions {
    targetScope?: ConfigScope;
 }
@@ -71,12 +106,14 @@ function getMcpConfigPath(
 ): string | undefined {
    const globalPath = strategy.getGlobalMcpConfigPath();
 
-   if (strategy.isGlobalOnly?.()) {
+   if (targetScope === 'user') {
       return globalPath ? join(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
    }
 
-   if (targetScope === 'user' && globalPath) {
-      return join(getRuntimeAdapter().os.homedir(), globalPath);
+   // An editor that keeps MCP servers only in the home directory has nothing at project scope.
+   // A project-scope install writes nothing there, so a project-scope removal must not either.
+   if (strategy.isGlobalOnly?.()) {
+      return undefined;
    }
 
    return join(strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir), strategy.getConfigPath());
@@ -108,7 +145,7 @@ function removeFromJsonMcpConfig(content: string, serverName: string): string | 
 }
 
 function removeFromTomlMcpConfig(content: string, serverName: string): string | undefined {
-   const config = parseTOML(content) as Record<string, unknown>,
+   const config = parseToml(content),
          servers = config.mcp_servers;
 
    if (!isRecord(servers) || !(serverName in servers)) {
@@ -118,7 +155,7 @@ function removeFromTomlMcpConfig(content: string, serverName: string): string | 
    delete servers[serverName];
    config.mcp_servers = servers;
 
-   return stringifyTOML(config);
+   return updateToml(content, config);
 }
 
 export async function removeMcpFromEditor(
@@ -160,8 +197,7 @@ export async function removeMcpFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.mkdir(dirname(configPath), { recursive: true });
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {
@@ -312,7 +348,7 @@ export async function removeHookFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, next.content, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: next.content }]);
 
       return { ...result, removed: true, removedCount: next.removedCount };
    } catch (error) {
@@ -413,7 +449,7 @@ export async function removeMarketplaceFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {
@@ -523,7 +559,7 @@ export async function removePluginFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {

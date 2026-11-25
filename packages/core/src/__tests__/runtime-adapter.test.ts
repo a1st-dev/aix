@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { resolve } from 'pathe';
 import {
    discoverConfig,
@@ -6,6 +6,7 @@ import {
    nodeRuntimeAdapter,
    resetRuntimeAdapter,
    setRuntimeAdapter,
+   USER_HOME_ENV_VAR,
    withRuntimeAdapter,
    type RuntimeAdapter,
 } from '../index.js';
@@ -68,6 +69,32 @@ describe('runtime adapter management', () => {
          source: 'file',
          packageJsonAlsoHasAi: false,
       });
+   });
+});
+
+describe('home directory resolution', () => {
+   it('prefers AIX_USER_HOME over HOME', () => {
+      const userHome = resolve('/alternate/home');
+
+      vi.stubEnv('HOME', resolve('/real/home'));
+      vi.stubEnv(USER_HOME_ENV_VAR, userHome);
+
+      expect(nodeRuntimeAdapter.os.homedir()).toStrictEqual(userHome);
+   });
+
+   it('resolves a relative AIX_USER_HOME against the working directory', () => {
+      vi.stubEnv(USER_HOME_ENV_VAR, 'alternate-home');
+
+      expect(nodeRuntimeAdapter.os.homedir()).toStrictEqual(resolve(process.cwd(), 'alternate-home'));
+   });
+
+   it('falls back to HOME when AIX_USER_HOME is empty', () => {
+      const home = resolve('/real/home');
+
+      vi.stubEnv('HOME', home);
+      vi.stubEnv(USER_HOME_ENV_VAR, '');
+
+      expect(nodeRuntimeAdapter.os.homedir()).toStrictEqual(home);
    });
 });
 

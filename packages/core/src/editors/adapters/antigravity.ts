@@ -48,7 +48,7 @@ export class AntigravityAdapter extends BaseEditorAdapter {
             '.gemini/config',
             '.gemini/antigravity',
             '.antigravity',
-            '/Applications/Antigravity.app',
+            'Library/Application Support/Antigravity',
          ],
          linux: [
             '.gemini/config',

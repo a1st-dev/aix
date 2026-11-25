@@ -108,6 +108,66 @@ describe('resolveGit', () => {
       });
    });
 
+   it('downloads different repositories on the same host into different directories', async () => {
+      const targets: string[] = [],
+            adapter = createRuntimeAdapter(async (_source, options) => {
+               const target = options.dir ?? testTmpDir;
+
+               targets.push(target);
+               await writeRepo(target, ROOT_REPO);
+
+               return { dir: target };
+            }, testTmpDir);
+
+      await withRuntimeAdapter(adapter, async () => {
+         await resolveGit({ type: 'git', url: 'https://github.com/acme/first-skill' });
+         await resolveGit({ type: 'git', url: 'https://github.com/acme/second-skill' });
+      });
+
+      expect(targets).toHaveLength(2);
+      expect(targets[0]).not.toBe(targets[1]);
+   });
+
+   it('downloads different refs and paths of one repository into different directories', async () => {
+      const url = 'https://github.com/acme/skills',
+            targets: string[] = [],
+            adapter = createRuntimeAdapter(async (_source, options) => {
+               const target = options.dir ?? testTmpDir;
+
+               targets.push(target);
+               await writeRepo(target, ROOT_REPO);
+
+               return { dir: target };
+            }, testTmpDir);
+
+      await withRuntimeAdapter(adapter, async () => {
+         await resolveGit({ type: 'git', url });
+         await resolveGit({ type: 'git', url, ref: 'v2' });
+         await resolveGit({ type: 'git', url, path: 'skills/pdf' });
+         await resolveGit({ type: 'git', url, ref: 'v2', path: 'skills/pdf' });
+      });
+
+      expect(new Set(targets).size).toBe(4);
+   });
+
+   it('asks for a clean extraction so a stale cache cannot leak files into the download', async () => {
+      const forceCleanValues: Array<boolean | undefined> = [],
+            adapter = createRuntimeAdapter(async (_source, options) => {
+               const target = options.dir ?? testTmpDir;
+
+               forceCleanValues.push(options.forceClean);
+               await writeRepo(target, ROOT_REPO);
+
+               return { dir: target };
+            }, testTmpDir);
+
+      await withRuntimeAdapter(adapter, async () => {
+         await resolveGit({ type: 'git', url: 'https://github.com/acme/root-skill' });
+      });
+
+      expect(forceCleanValues).toEqual([true]);
+   });
+
    it('throws when no SKILL.md exists in the repo', async () => {
       const adapter = createRuntimeAdapter(async (_source, options) => {
          const target = options.dir ?? testTmpDir;

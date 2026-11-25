@@ -1,6 +1,7 @@
-import { join, dirname } from 'pathe';
+import { join } from 'pathe';
 import type { ConfigScope } from '@a1st/aix-schema';
 import type { StateFile, StateSection, InstalledItemMeta, InstalledItems } from './types.js';
+import { replaceFile } from '../fs/replace-file.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface TrackInstallOptions {
@@ -70,16 +71,12 @@ export async function readState(scope: ConfigScope, projectRoot?: string): Promi
       return createEmptyState(scope);
    }
    try {
-      const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8');
+      const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8'),
+            parsed = JSON.parse(raw) as StateFile,
+            empty = createEmptyState(scope);
 
-      const parsed = JSON.parse(raw) as StateFile;
-
-      parsed.installed.agents ??= {};
-      parsed.installed.hooks ??= {};
-      parsed.installed.plugins ??= {};
-      parsed.installed.marketplaces ??= {};
-
-      return parsed;
+      // A file written by an older version, or by hand, may lack sections added since.
+      return { ...empty, ...parsed, installed: { ...empty.installed, ...parsed.installed } };
    } catch {
       return createEmptyState(scope);
    }
@@ -95,8 +92,7 @@ export async function writeState(
 ): Promise<void> {
    const path = getStatePath(scope, projectRoot);
 
-   await getRuntimeAdapter().fs.mkdir(dirname(path), { recursive: true });
-   await getRuntimeAdapter().fs.writeFile(path, JSON.stringify(state, null, 2) + '\n', 'utf-8');
+   await replaceFile(path, JSON.stringify(state, null, 2) + '\n');
 }
 
 /**
@@ -122,18 +118,48 @@ export async function trackInstall(...args: TrackInstallArgs): Promise<void> {
    await writeState(state, scope, projectRoot);
 }
 
-/**
- * Record that an item was removed.
- */
-export async function trackRemoval(
-   scope: ConfigScope,
-   section: StateSection,
-   name: string,
-   projectRoot?: string,
-): Promise<void> {
-   const state = await readState(scope, projectRoot);
+export interface TrackRemovalOptions {
+   scope: ConfigScope;
+   section: StateSection;
+   name: string;
+   projectRoot?: string;
+   /** Editors the item was removed from. Omit when it was removed from every editor. */
+   editors?: readonly string[];
+}
 
-   delete state.installed[section][name];
+/**
+ * Record that an item was removed. The entry survives for as long as another editor still has
+ * the item, so a targeted removal does not make the remaining copies look untracked.
+ */
+export async function trackRemoval(options: TrackRemovalOptions): Promise<void> {
+   const { scope, section, name, projectRoot, editors } = options,
+         state = await readState(scope, projectRoot),
+         existing = state.installed[section][name];
+
+   if (!existing) {
+      return;
+   }
+
+   const isStillInstalled = (editor: string): boolean => {
+      return editors !== undefined && !editors.includes(editor);
+   };
+
+   existing.editors = existing.editors.filter(isStillInstalled);
+   if (existing.sources) {
+      existing.sources = Object.fromEntries(
+         Object.entries(existing.sources)
+            .map(([ source, sourceEditors ]): [string, string[]] => {
+               return [ source, sourceEditors.filter(isStillInstalled) ];
+            })
+            .filter(([ , sourceEditors ]) => {
+               return sourceEditors.length > 0;
+            }),
+      );
+   }
+   if (existing.editors.length === 0) {
+      delete state.installed[section][name];
+   }
+
    await writeState(state, scope, projectRoot);
 }
 

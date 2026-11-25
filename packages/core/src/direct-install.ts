@@ -483,30 +483,37 @@ function getMcpName(options: ResolveDirectInstallOptions, source: string | undef
    return assertName(undefined, 'mcp');
 }
 
+/**
+ * Pick one server out of a map of servers: the only one it holds, or the one called `name`.
+ */
+function selectMcpServer(name: string, servers: Record<string, unknown>): McpServerConfig {
+   const enabledServers = Object.values(servers).filter((server) => {
+            return server !== false;
+         }),
+         [onlyServer] = enabledServers,
+         namedServer = servers[name];
+
+   if (enabledServers.length === 1 && isMcpServerConfig(onlyServer)) {
+      return onlyServer;
+   }
+   if (isMcpServerConfig(namedServer)) {
+      return namedServer;
+   }
+   if (enabledServers.length > 1) {
+      throw new Error('MCP config contains multiple servers. Provide --name to select one.');
+   }
+   throw new Error('MCP config does not contain a server with a command or url.');
+}
+
 function parseMcpJson(name: string, parsed: unknown): McpServerConfig {
    if (isMcpServerConfig(parsed)) {
       return parsed;
    }
    if (isRecord(parsed) && isRecord(parsed.mcp)) {
-      const entries = Object.entries(parsed.mcp).filter(([, value]) => value !== false);
-
-      if (entries.length === 1) {
-         const [, value] = entries[0]!;
-
-         if (isMcpServerConfig(value)) {
-            return value;
-         }
-      }
-      if (name in parsed.mcp && isMcpServerConfig(parsed.mcp[name])) {
-         return parsed.mcp[name];
-      }
-      throw new Error('MCP config contains multiple servers. Provide --name to select one.');
+      return selectMcpServer(name, parsed.mcp);
    }
    if (isRecord(parsed) && isRecord(parsed.mcpServers)) {
-      if (name in parsed.mcpServers && isMcpServerConfig(parsed.mcpServers[name])) {
-         return parsed.mcpServers[name];
-      }
-      throw new Error('MCP config contains multiple servers. Provide --name to select one.');
+      return selectMcpServer(name, parsed.mcpServers);
    }
    throw new Error('MCP source must contain a server config, mcp object, or mcpServers object.');
 }

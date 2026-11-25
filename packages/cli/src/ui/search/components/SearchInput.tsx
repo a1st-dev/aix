@@ -7,8 +7,6 @@ interface SearchInputProps {
    onChange: (value: string) => void;
    loading?: boolean;
    placeholder?: string;
-   /** When true, space key is used for selection and should not modify the query */
-   blockSpace?: boolean;
 }
 
 export function SearchInput({
@@ -16,22 +14,13 @@ export function SearchInput({
    onChange,
    loading,
    placeholder,
-   blockSpace,
 }: SearchInputProps): React.ReactElement {
-   const handleChange = (newValue: string): void => {
-      // When blockSpace is true, strip any spaces that were just added (space is used for selection)
-      if (blockSpace && newValue.length > value.length && newValue.endsWith(' ')) {
-         return;
-      }
-      onChange(newValue);
-   };
-
    return (
       <Box>
          <Text>🔍 </Text>
          <TextInput
             value={value}
-            onChange={handleChange}
+            onChange={onChange}
             placeholder={placeholder ?? 'Search skills and MCP servers...'}
          />
          {loading && <Text color="yellow"> ⏳</Text>}

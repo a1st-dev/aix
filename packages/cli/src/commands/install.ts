@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { checkbox } from '@inquirer/prompts';
@@ -12,10 +11,11 @@ import {
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
 import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
-import { onlyFlag, parseSections, configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { onlyFlag, parseSections, configScopeFlags, getFlagScope, resolveTargetScope } from '../flags/scope.js';
 import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
+import { assertInteractive } from '../lib/confirm.js';
 import {
    installToEditor,
    listConfigInstallEditors,
@@ -25,6 +25,9 @@ import {
    mergeConfigs,
    filterConfigBySections,
    cleanStaleCache,
+   clearCache,
+   replaceFile,
+   discoverConfig,
    localizeRemoteConfig,
    commitImport,
    rollbackImport,
@@ -133,15 +136,15 @@ export default class Install extends BaseCommand<typeof Install> {
          default: false,
       }),
       overwrite: Flags.boolean({
-         description: 'Overwrite existing local ai.json instead of merging (only with --save)',
+         description: 'Replace the local ai.json with the remote config instead of merging (requires --save)',
          default: false,
       }),
       clean: Flags.boolean({
-         description: 'Clear .aix content before installing, preserving install receipts for cleanup',
+         description: "Clear aix's cache (.aix/.tmp) first, so remote sources are downloaded again",
          default: false,
       }),
       copy: Flags.boolean({
-         description: 'Copy files to .aix/imported/ instead of using git references (with --save)',
+         description: 'Copy files to .aix/imported/ instead of using git references (requires --save)',
          default: false,
       }),
       lock: Flags.boolean({
@@ -154,8 +157,23 @@ export default class Install extends BaseCommand<typeof Install> {
       return this.flags.lock ? 'ignore' : 'auto';
    }
 
+   protected override installsExtendsDependencies(): boolean {
+      return !this.flags['dry-run'];
+   }
+
    async run(): Promise<void> {
       const { args } = await this.parse(Install);
+
+      // oclif's `dependsOn` treats a boolean flag with a default as always provided.
+      for (const flag of [ 'overwrite', 'copy' ] as const) {
+         if (this.flags[flag] && !this.flags.save) {
+            this.error(`--${flag} only applies to the ai.json that --save writes. Pass --save as well.`);
+         }
+      }
+
+      if (this.flags.clean && !this.flags['dry-run']) {
+         await this.clearCacheBeforeLoading(this.flags.type ? undefined : args.source);
+      }
 
       if (this.flags.type) {
          await this.runDirectInstall(args.source);
@@ -173,6 +191,7 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await loadConfig({
             remoteSource: args.source,
             lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            installExtendsDependencies: this.installsExtendsDependencies(),
          });
 
          if (!result) {
@@ -188,13 +207,9 @@ export default class Install extends BaseCommand<typeof Install> {
             isSaveMode = this.flags.save,
             isDryRun = this.flags['dry-run'];
 
-      // Resolve target scope: CLI flags override ai.json scope
-      const flagScope = resolveConfigScope(this.flags as { scope?: string; user?: boolean; project?: boolean }, undefined),
-            targetScope: ConfigScope = flagScope ?? 'user';
+      const targetScope = resolveTargetScope(this.flags, loaded.config);
 
-      if (flagScope) {
-         this.output.info(`Scope override: installing to ${targetScope} scope`);
-      }
+      this.announceScope(targetScope, projectRoot);
 
       // When installing from a remote source, check local ai.json for editor preferences
       let localEditors: AiJsonConfig['editors'] | undefined;
@@ -206,6 +221,7 @@ export default class Install extends BaseCommand<typeof Install> {
             const localLoaded = await loadConfig({
                explicitPath: localConfigPath,
                lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
             localEditors = localLoaded?.config.editors;
@@ -233,6 +249,7 @@ export default class Install extends BaseCommand<typeof Install> {
             const localLoaded = await loadConfig({
                explicitPath: join(projectRoot, 'ai.json'),
                lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
             if (localLoaded) {
@@ -291,7 +308,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await this.installToSingleEditor(editor, loaded.config, projectRoot, {
             isDryRun,
             sections,
-            clean: this.flags.clean,
             configBaseDir: loaded.configBaseDir,
             configSource: loaded.path,
             targetScope,
@@ -498,11 +514,11 @@ export default class Install extends BaseCommand<typeof Install> {
       const type = this.flags.type as DirectInstallType,
             isDryRun = this.flags['dry-run'],
             editors = resolveTargetEditors(this.flags.target) ?? [],
-            targetScope = resolveConfigScope(
-               this.flags as { scope?: string; user?: boolean; project?: boolean },
-               'project',
-            );
+            // A direct install has no config to read a scope from, and the item usually belongs
+            // to the project the command runs in.
+            targetScope = getFlagScope(this.flags) ?? 'project';
 
+      this.announceScope(targetScope, process.cwd());
       if (this.flags.lock) {
          this.error('--lock requires a local ai.json and cannot be used with direct installs');
       }
@@ -563,7 +579,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await this.installToSingleEditor(editor, direct.config, process.cwd(), {
             isDryRun,
             sections,
-            clean: this.flags.clean,
             configSource: `direct:${type}:${source ?? this.flags.name ?? type}`,
             targetScope,
          });
@@ -613,6 +628,29 @@ export default class Install extends BaseCommand<typeof Install> {
       };
    }
 
+   /** Say where this install writes before it writes, since the default is the home directory. */
+   private announceScope(targetScope: ConfigScope, projectRoot: string): void {
+      const location = targetScope === 'user'
+         ? 'editor config in your home directory. Pass --project to keep it in this project'
+         : `editor config in ${projectRoot}`;
+
+      this.output.info(`Installing to ${targetScope} scope: ${location}`);
+   }
+
+   /**
+    * `.aix/.tmp` holds only what aix can download or build again. Clearing it before the config
+    * loads is what makes the load fetch every remote source afresh.
+    */
+   private async clearCacheBeforeLoading(remoteSource: string | undefined): Promise<void> {
+      const discovered = remoteSource ? undefined : await discoverConfig(process.cwd(), this.flags.config),
+            projectRoot = discovered ? dirname(discovered.path) : process.cwd(),
+            cleared = await clearCache(projectRoot);
+
+      if (cleared.deletedPaths.length > 0) {
+         this.output.info(`Cleared the aix cache in ${join(projectRoot, '.aix', '.tmp')}`);
+      }
+   }
+
    /**
     * Resolve which editors to install to based on flags, config, and detection. When several
     * editors are detected, the prompt preselects the editors this config was last installed to,
@@ -651,6 +689,11 @@ export default class Install extends BaseCommand<typeof Install> {
          return detected;
       }
 
+      assertInteractive(
+         this.error.bind(this),
+         `Several editors were detected (${detected.join(', ')}). Pass --target for each one to install to, or list them under "editors" in ai.json.`,
+      );
+
       const previousEditors = (await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }))
                .filter((editor) => {
                   return detected.includes(editor);
@@ -678,13 +721,12 @@ export default class Install extends BaseCommand<typeof Install> {
       options: {
          isDryRun: boolean;
          sections: ConfigSection[];
-         clean?: boolean;
          configBaseDir?: string;
          configSource?: string;
          targetScope?: ConfigScope;
       },
    ): Promise<ApplyResult> {
-      const { isDryRun, sections, clean, configBaseDir, configSource, targetScope } = options;
+      const { isDryRun, sections, configBaseDir, configSource, targetScope } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
@@ -692,11 +734,12 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await installToEditor(editor, config, projectRoot, {
             dryRun: isDryRun,
             scopes: sections,
-            overwrite: this.flags.overwrite,
-            clean,
             configBaseDir,
             configSource,
             targetScope,
+            // A project-scope install must leave the home directory alone. Config an editor only
+            // accepts globally is reported as skipped.
+            strictTargetScope: targetScope === 'project',
          });
 
          this.handleInstallResult(editor, result, isDryRun, targetScope ?? 'project');
@@ -706,6 +749,7 @@ export default class Install extends BaseCommand<typeof Install> {
          const message = error instanceof Error ? error.message : String(error);
 
          this.output.error(message);
+         this.markFailed();
          return { editor, success: false, changes: [], errors: [message] };
       }
    }
@@ -774,6 +818,7 @@ export default class Install extends BaseCommand<typeof Install> {
          for (const err of result.errors) {
             this.output.error(err);
          }
+         this.markFailed();
          return;
       }
 
@@ -805,18 +850,6 @@ export default class Install extends BaseCommand<typeof Install> {
             blankAfterEachGroup: false,
             finalBlank: true,
          });
-      }
-
-      // Show Codex-specific usage instructions when MCP flags were generated
-      if (editor === 'codex') {
-         const hasCodexFlags = result.changes.some(
-            (c) => c.action !== 'unchanged' && c.path.endsWith('codex-flags'),
-         );
-
-         if (hasCodexFlags) {
-            this.output.info('MCP servers configured via CLI flags.');
-            this.output.info('Usage: .aix/codex [prompt]');
-         }
       }
 
       showWarnings();
@@ -950,7 +983,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
       // Write the final config
       try {
-         await writeFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n', 'utf-8');
+         await replaceFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n');
          // Commit the imported files (only if we copied files, not for git refs)
          if (configBaseDir && !useGitRefs) {
             await commitImport(projectRoot);

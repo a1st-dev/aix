@@ -11,6 +11,7 @@ import {
 } from '../import-writer.js';
 import type { GitSourceInfo } from '../remote-loader.js';
 import { safeRm } from '../fs/safe-rm.js';
+import { nodeRuntimeAdapter, withRuntimeAdapter, type RuntimeAdapter } from '../runtime/index.js';
 
 const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'import-writer');
 
@@ -155,28 +156,75 @@ describe('import-writer', () => {
          expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toBe(false);
       });
 
-      it('backs up and replaces existing import', async () => {
-         // Create existing import
-         const existingDir = join(testDir, '.aix', 'imported', 'rules');
+      it('keeps the files of an earlier import that the new import does not replace', async () => {
+         const rulesDir = join(testDir, '.aix', 'imported', 'rules');
 
-         await mkdir(existingDir, { recursive: true });
-         await writeFile(join(existingDir, 'old-rule.md'), '# Old Rule', 'utf-8');
-
-         // Stage new import
-         const content = { rules: [{ content: '# New Rule', name: 'new-rule' }], prompts: {} };
-
-         await writeImportedContent(testDir, content);
+         await writeImportedContent(testDir, { rules: [{ content: '# First', name: 'first-rule' }], prompts: {} });
+         await commitImport(testDir);
+         await writeImportedContent(testDir, { rules: [{ content: '# Second', name: 'second-rule' }], prompts: {} });
          await commitImport(testDir);
 
-         // Final location should have new files only
-         const files = await readdir(existingDir);
+         const files = await readdir(rulesDir);
 
-         expect(files).toHaveLength(1);
-         expect(files).toContain('new-rule.md');
-         expect(files).not.toContain('old-rule.md');
+         expect(files.toSorted()).toEqual(['first-rule.md', 'second-rule.md']);
+         expect(await readFile(join(rulesDir, 'first-rule.md'), 'utf-8')).toBe('# First');
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-backup'))).toStrictEqual(false);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toStrictEqual(false);
+      });
 
-         // Backup should be cleaned up
-         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-backup'))).toBe(false);
+      it('replaces a file that is imported again under the same name', async () => {
+         const rulePath = join(testDir, '.aix', 'imported', 'rules', 'style.md');
+
+         await writeImportedContent(testDir, { rules: [{ content: '# Old', name: 'style' }], prompts: {} });
+         await commitImport(testDir);
+         await writeImportedContent(testDir, { rules: [{ content: '# New', name: 'style' }], prompts: {} });
+         await commitImport(testDir);
+
+         expect(await readFile(rulePath, 'utf-8')).toBe('# New');
+      });
+
+      it('replaces a re-imported skill directory without keeping files its new version dropped', async () => {
+         const remoteDir = join(testDir, 'remote'),
+               remoteSkillDir = join(remoteDir, 'skills', 'pdf'),
+               importedSkillDir = join(testDir, '.aix', 'imported', 'skills', 'pdf'),
+               config = { skills: { pdf: { path: './skills/pdf' } } };
+
+         await mkdir(remoteSkillDir, { recursive: true });
+         await writeFile(join(remoteSkillDir, 'SKILL.md'), '# PDF', 'utf-8');
+         await writeFile(join(remoteSkillDir, 'dropped.md'), '# Dropped later', 'utf-8');
+         await localizeRemoteConfig(config, remoteDir, testDir);
+         await commitImport(testDir);
+         await safeRm(join(remoteSkillDir, 'dropped.md'), { force: true });
+         await localizeRemoteConfig(config, remoteDir, testDir);
+         await commitImport(testDir);
+
+         expect(await readdir(importedSkillDir)).toEqual(['SKILL.md']);
+      });
+
+      it('leaves a backup that rollbackImport restores when the merge fails', async () => {
+         const rulesDir = join(testDir, '.aix', 'imported', 'rules'),
+               failingAdapter: RuntimeAdapter = {
+                  ...nodeRuntimeAdapter,
+                  fs: {
+                     ...nodeRuntimeAdapter.fs,
+                     rename: async () => {
+                        throw new Error('rename failed');
+                     },
+                  },
+               };
+
+         await writeImportedContent(testDir, { rules: [{ content: '# Old', name: 'style' }], prompts: {} });
+         await commitImport(testDir);
+         await writeImportedContent(testDir, { rules: [{ content: '# New', name: 'style' }], prompts: {} });
+
+         await expect(withRuntimeAdapter(failingAdapter, () => {
+            return commitImport(testDir);
+         })).rejects.toThrow('rename failed');
+
+         await rollbackImport(testDir);
+
+         expect(await readFile(join(rulesDir, 'style.md'), 'utf-8')).toBe('# Old');
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging'))).toStrictEqual(false);
       });
    });
 
@@ -341,7 +389,7 @@ describe('import-writer', () => {
          const result = await localizeRemoteConfig(config, remoteDir, testDir);
 
          expect(result.config.prompts?.['code-review']).toEqual({
-            path: './.aix/imported/prompts/review.md',
+            path: './.aix/imported/prompts/code-review.md',
          });
          expect(result.filesCopied).toBe(1);
       });
@@ -371,6 +419,73 @@ describe('import-writer', () => {
 
          expect(existsSync(join(stagingSkillDir, 'SKILL.md'))).toBe(true);
          expect(existsSync(join(stagingSkillDir, 'search.md'))).toBe(true);
+      });
+
+      it('copies a skill written as a string and points the config at the copy', async () => {
+         const remoteDir = join(testDir, 'remote');
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+         await writeFile(join(remoteDir, 'skills', 'pdf', 'SKILL.md'), '# PDF', 'utf-8');
+
+         const result = await localizeRemoteConfig({ skills: { pdf: './skills/pdf' } }, remoteDir, testDir);
+
+         expect(result.config.skills?.pdf).toEqual({ path: './.aix/imported/skills/pdf' });
+         expect(result.filesCopied).toBe(1);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'skills', 'pdf', 'SKILL.md'))).toStrictEqual(true);
+      });
+
+      it('copies a skill wrapped in a source object and keeps its other settings', async () => {
+         const remoteDir = join(testDir, 'remote');
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+         await writeFile(join(remoteDir, 'skills', 'pdf', 'SKILL.md'), '# PDF', 'utf-8');
+
+         const config = { skills: { pdf: { source: './skills/pdf', enabled: true } } },
+               result = await localizeRemoteConfig(config, remoteDir, testDir);
+
+         expect(result.config.skills?.pdf).toEqual({ source: { path: './.aix/imported/skills/pdf' }, enabled: true });
+         expect(result.filesCopied).toBe(1);
+      });
+
+      it('does not treat a path inside a git or npm skill as a local directory', async () => {
+         const remoteDir = join(testDir, 'remote'),
+               skills = {
+                  remote: { git: 'github:acme/skills', path: './skills/pdf' },
+                  packaged: '@acme/skills',
+               };
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+
+         const result = await localizeRemoteConfig({ skills }, remoteDir, testDir);
+
+         expect(result.config.skills).toEqual(skills);
+         expect(result.filesCopied).toBe(0);
+      });
+
+      it('keeps both files when two rules point at files with the same name', async () => {
+         const remoteDir = join(testDir, 'remote'),
+               stagingRulesDir = join(testDir, '.aix', '.tmp', 'import-staging', 'rules');
+
+         await mkdir(join(remoteDir, 'frontend'), { recursive: true });
+         await mkdir(join(remoteDir, 'backend'), { recursive: true });
+         await writeFile(join(remoteDir, 'frontend', 'style.md'), '# Frontend', 'utf-8');
+         await writeFile(join(remoteDir, 'backend', 'style.md'), '# Backend', 'utf-8');
+
+         const config = {
+            rules: {
+               'frontend-style': './frontend/style.md',
+               'backend-style': { path: './backend/style.md', activation: 'always' as const },
+            },
+         };
+
+         const result = await localizeRemoteConfig(config, remoteDir, testDir);
+
+         expect(result.config.rules).toEqual({
+            'frontend-style': { path: './.aix/imported/rules/frontend-style.md' },
+            'backend-style': { path: './.aix/imported/rules/backend-style.md', activation: 'always' },
+         });
+         expect(await readFile(join(stagingRulesDir, 'frontend-style.md'), 'utf-8')).toBe('# Frontend');
+         expect(await readFile(join(stagingRulesDir, 'backend-style.md'), 'utf-8')).toBe('# Backend');
       });
 
       it('warns when source file not found', async () => {

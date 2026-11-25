@@ -5,6 +5,7 @@
 import { join } from 'pathe';
 import type { GitSource } from '@a1st/aix-schema';
 import { parseGitHubBlobUrl } from './url-parsing.js';
+import { createCacheKey } from './git-download.js';
 import { getRuntimeAdapter } from './runtime/index.js';
 
 export interface GitLoadOptions {
@@ -44,9 +45,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
    filePath = filePath ?? defaultFilePath;
    ref = ref ?? 'main';
 
-   // Create cache key from URL + ref + path
-   const cacheKey = getRuntimeAdapter().crypto.base64url(`${url}:${ref}:${filePath}`).slice(0, 32),
-         cachePath = join(cacheDir, cacheKey);
+   const cachePath = join(cacheDir, createCacheKey(url, ref, filePath));
 
    // Build giget source string
    let source = url;
@@ -78,6 +77,7 @@ export async function loadFromGit(options: GitLoadOptions): Promise<GitLoadResul
    const { dir } = await getRuntimeAdapter().git.downloadTemplate(source, {
       dir: cachePath,
       force: true,
+      forceClean: true,
    });
 
    const content = await getRuntimeAdapter().fs.readFile(join(dir, filePath), 'utf-8');

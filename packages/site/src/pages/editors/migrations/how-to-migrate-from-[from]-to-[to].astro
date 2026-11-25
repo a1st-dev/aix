@@ -1,22 +1,31 @@
 ---
+import { Code } from '@astrojs/starlight/components';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import type { SupportedEditorName } from '@a1st/aix-schema';
 import ScopeSupportDetails from '../../../components/ScopeSupportDetails.astro';
+import SectionHeading from '../../../components/SectionHeading.astro';
 import SupportLegend from '../../../components/SupportLegend.astro';
 import {
    describeTransition,
    getEditorById,
    getEditorSupportRoute,
    getFeatureConceptRoute,
+   getFeatureProseLabel,
    getMigrationDescription,
    getMigrationHeadline,
    getMigrationRoute,
    getMigrationRows,
+   getMigrationTitle,
    isIndexableMigrationPair,
+   listChangedMigrationRows,
    listMigrationPairs,
-   managedEditorFeatures,
 } from '../../../lib/editor-support';
-import { docsSidebar } from '../../../starlight-sidebar.js';
+import { migrationGuideSections } from '../../../lib/editor-pages';
+
+interface Props {
+   from: SupportedEditorName;
+   to: SupportedEditorName;
+}
 
 export function getStaticPaths() {
    return listMigrationPairs().map(({ from, to }) => ({
@@ -25,23 +34,16 @@ export function getStaticPaths() {
    }));
 }
 
-const { from, to } = Astro.props as {
-   from: SupportedEditorName;
-   to: SupportedEditorName;
-};
+const { from, to } = Astro.props;
 
 const fromProfile = getEditorById(from),
       toProfile = getEditorById(to),
       rows = getMigrationRows(from, to),
-      changedRows = rows.filter((row) => row.changeType !== 'same'),
-      notableChanges = changedRows.slice(0, 4),
+      changedRows = listChangedMigrationRows(rows),
       isIndexable = isIndexableMigrationPair(from, to),
-      conceptFeatures = managedEditorFeatures.filter(
-         (featureDefinition) =>
-            Boolean(getFeatureConceptRoute(featureDefinition.id)) &&
-            changedRows.some((row) => row.feature.id === featureDefinition.id),
-      ),
-      title = `How to migrate from ${fromProfile.name} to ${toProfile.name}`,
+      sides = [ fromProfile, toProfile ],
+      syncCommand = `aix sync ${fromProfile.id} --to ${toProfile.id}`,
+      title = getMigrationTitle(fromProfile, toProfile),
       description = getMigrationDescription(fromProfile, toProfile, rows);
 ---
 
@@ -50,137 +52,97 @@ const fromProfile = getEditorById(from),
       title,
       description,
       editUrl: false,
+      // Only the featured pairs are offered to search engines and to site search. The other
+      // generated pairs would fill both with near-identical results.
+      pagefind: isIndexable,
       head: isIndexable
          ? []
          : [{ tag: 'meta', attrs: { name: 'robots', content: 'noindex, follow' } }],
    }}
-   sidebar={docsSidebar}
+   headings={Object.values(migrationGuideSections)}
 >
    <p>
       aix is a CLI for defining, installing, and syncing AI editor configuration. If you are moving
-      from {fromProfile.name} to {toProfile.name}, this guide shows what aix can carry over, what the
-      destination editor calls each feature, and where the destination config lands.
+      from {fromProfile.name} to {toProfile.name}, this guide shows what aix can carry over, what
+      {toProfile.name} calls each feature, and where the config ends up.
    </p>
 
+   <SectionHeading heading={migrationGuideSections.run} />
+   <ol>
+      <li>
+         Preview the migration. Nothing is written, and <code>aix sync</code> reads and writes user-scope
+         config unless you say otherwise:
+         <Code code={`${syncCommand} --dry-run`} lang="sh" />
+      </li>
+      <li>
+         Read the preview for skipped or converted features, then run it for real:
+         <Code code={syncCommand} lang="sh" />
+      </li>
+      <li>
+         Open the files {toProfile.name} now has and check them against the paths in the comparison below.
+         Add <code>--scope project</code> to both commands when the config you are moving lives in the project.
+      </li>
+   </ol>
+
+   <SectionHeading heading={migrationGuideSections.attention} />
+   {changedRows.length > 0 ? (
+      <ul>
+         {changedRows.map((row) => (
+            <li><strong>{row.feature.label}:</strong> {describeTransition(fromProfile, toProfile, row)}</li>
+         ))}
+      </ul>
+   ) : (
+      <p>Nothing changes between these two editors. Check the destination paths below before you run the command.</p>
+   )}
+
+   <SectionHeading heading={migrationGuideSections.comparison} />
    <p>
-      When you are ready to run the move, <code>aix sync {fromProfile.id} --to {toProfile.id}</code>
-      copies the supported config from {fromProfile.name} into {toProfile.name}. Use the comparison
-      below first so you know which names, paths, and support differences to expect.
+      {getMigrationHeadline(rows)} Each feature shows {fromProfile.name} first and {toProfile.name}
+      second, with what the editor supports and what aix writes at project and user scope.
    </p>
-
-   {conceptFeatures.length > 0 && (
-      <p>
-         If you want the aix-side definitions first, review{' '}
-         {conceptFeatures.map((featureDefinition, index) => {
-            const conceptRoute = getFeatureConceptRoute(featureDefinition.id);
-
-            return (
-               <>
-                  {index > 0 && ', '}
-                  <a href={conceptRoute}>{featureDefinition.label.toLowerCase()}</a>
-               </>
-            );
-         })}
-         .
-      </p>
-   )}
-
-   {isIndexable && (
-      <>
-         <h2>Run this migration</h2>
-         <ol>
-            <li>
-               Preview the user-scope migration before writing files:
-               <pre><code>aix sync {fromProfile.id} --to {toProfile.id} --dry-run</code></pre>
-            </li>
-            <li>
-               Read the preview for skipped or converted features, then run:
-               <pre><code>aix sync {fromProfile.id} --to {toProfile.id}</code></pre>
-            </li>
-            <li>
-               Open {toProfile.name}'s generated files and compare them with the destination details below.
-               Use <code>--scope project</code> when the source config is project-scoped.
-            </li>
-         </ol>
-
-         <h2>What needs attention</h2>
-         {notableChanges.length > 0 ? (
-            <ul>
-               {notableChanges.map((row) => (
-                  <li><strong>{row.feature.label}:</strong> {describeTransition(fromProfile, toProfile, row)}</li>
-               ))}
-            </ul>
-         ) : (
-            <p>The supported feature surface is the same. Review the destination paths in the table before you run the command.</p>
-         )}
-      </>
-   )}
-
-   <h2>How to use this guide</h2>
-   <ul>
-      <li>Read across a row to compare the source and destination terms, support, and targets.</li>
-      <li>Each scope line shows both what the editor supports and what aix writes today.</li>
-      <li>Open the destination editor page at the end if you need every path, note, and terminology detail.</li>
-   </ul>
-
-   <p>{getMigrationHeadline(rows)}</p>
 
    <SupportLegend />
 
-   <h2>Feature comparison</h2>
-   <div class="migration-guide__table-wrap">
-   <table class="migration-guide__table">
-      <caption>Feature-by-feature differences from {fromProfile.name} to {toProfile.name}.</caption>
-      <thead>
-         <tr>
-            <th scope="col">Feature</th>
-            <th scope="col">{fromProfile.name}</th>
-            <th scope="col">{toProfile.name}</th>
-         </tr>
-      </thead>
-      <tbody>
-         {managedEditorFeatures.map((featureDefinition) => {
-            const row = rows.find((candidate) => candidate.feature.id === featureDefinition.id);
+   <div class="migration-guide__features aix-layout">
+      {rows.map((row) => {
+         const conceptRoute = getFeatureConceptRoute(row.feature.id),
+               headingID = `feature-${row.feature.id}`;
 
-            if (!row) {
-               return null;
-            }
+         return (
+            <section class="migration-guide__feature aix-card aix-layout" aria-labelledby={headingID}>
+               <h3 id={headingID}>{row.feature.label}</h3>
+               <p class="migration-guide__summary">
+                  {describeTransition(fromProfile, toProfile, row)}
+                  {conceptRoute && (
+                     <>
+                        {' '}
+                        <a href={conceptRoute}>How aix handles {getFeatureProseLabel(row.feature)}</a>
+                     </>
+                  )}
+               </p>
 
-            return (
-               <tr>
-                  <th scope="row">
-                     {getFeatureConceptRoute(featureDefinition.id) ? (
-                        <a href={getFeatureConceptRoute(featureDefinition.id)}>{featureDefinition.label}</a>
-                     ) : (
-                        featureDefinition.label
-                     )}
-                  </th>
-                  <td>
-                     <p class="migration-guide__term">
-                        <strong>{row.fromSupport.terminology}</strong>
-                     </p>
-                     <dl class="migration-guide__scope-list">
-                        <ScopeSupportDetails compact label="Project" scope={row.fromSupport.project} />
-                        <ScopeSupportDetails compact label="User" scope={row.fromSupport.user} />
-                     </dl>
-                  </td>
-                  <td>
-                     <p class="migration-guide__term">
-                        <strong>{row.toSupport.terminology}</strong>
-                     </p>
-                     <dl class="migration-guide__scope-list">
-                        <ScopeSupportDetails compact label="Project" scope={row.toSupport.project} />
-                        <ScopeSupportDetails compact label="User" scope={row.toSupport.user} />
-                     </dl>
-                  </td>
-               </tr>
-           );
-          })}
-      </tbody>
-   </table>
+               <div class="migration-guide__sides aix-layout">
+                  {sides.map((profile) => {
+                     const support = profile.features[row.feature.id];
+
+                     return (
+                        <div class="migration-guide__side aix-layout">
+                           <p class="aix-eyebrow">{profile.name}</p>
+                           <p class="migration-guide__term">{support.terminology}</p>
+                           <dl class="migration-guide__scope-list aix-layout">
+                              <ScopeSupportDetails label="Project" scope={support.project} />
+                              <ScopeSupportDetails label="User" scope={support.user} />
+                           </dl>
+                        </div>
+                     );
+                  })}
+               </div>
+            </section>
+         );
+      })}
    </div>
 
-   <h2>Recommended follow-up links</h2>
+   <SectionHeading heading={migrationGuideSections.links} />
    <ul>
       <li>
          <a href={getEditorSupportRoute(fromProfile.id)}>{fromProfile.name} support details</a>
@@ -189,40 +151,54 @@ const fromProfile = getEditorById(from),
          <a href={getEditorSupportRoute(toProfile.id)}>{toProfile.name} support details</a>
       </li>
       <li>
-         <a href={`/editors/migrations/#${fromProfile.id}`}>All guides that start from {fromProfile.name}</a>
+         <a href={getMigrationRoute(to, from)}>{getMigrationTitle(toProfile, fromProfile)}</a>
       </li>
       <li>
-         <a href={getMigrationRoute(to, from)}>{toProfile.name} to {fromProfile.name}</a>
+         <a href={`/editors/migrations/#${fromProfile.id}`}>All guides that start from {fromProfile.name}</a>
       </li>
    </ul>
 
    <style>
-      .migration-guide__table-wrap {
-         overflow-x: auto;
+      .migration-guide__features {
+         display: grid;
+         grid-template-columns: minmax(0, 1fr);
+         gap: 1.25rem;
       }
 
-      .migration-guide__table {
-         table-layout: fixed;
+      .migration-guide__feature {
+         display: grid;
+         grid-template-columns: minmax(0, 1fr);
+         gap: 0.75rem;
       }
 
-      .migration-guide__table th,
-      .migration-guide__table td {
-         vertical-align: top;
+      .migration-guide__summary {
+         color: var(--sl-color-gray-2);
       }
 
-      .migration-guide__table th:first-child {
-         min-inline-size: 12rem;
+      /* The two editors sit side by side when there is room and stack when there is not. */
+      .migration-guide__sides {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 1rem 2rem;
+      }
+
+      .migration-guide__side {
+         display: grid;
+         flex: 1 1 16rem;
+         grid-template-columns: minmax(0, 1fr);
+         gap: 0.35rem;
+         align-content: start;
+         min-inline-size: 0;
       }
 
       .migration-guide__term {
-         margin: 0 0 0.75rem;
          color: var(--sl-color-white);
+         font-weight: 600;
       }
 
       .migration-guide__scope-list {
          display: grid;
-         gap: 0.7rem;
-         margin: 0;
+         grid-template-columns: minmax(0, 1fr);
       }
    </style>
 </StarlightPage>

@@ -181,9 +181,12 @@ function matchesPattern(path: string, pattern: string): boolean {
  * them, since a server definition from aix should completely override any existing definition with
  * the same name.
  *
- * Works with both standard MCP format (`mcpServers.*`) and Zed format (`context_servers.*`).
+ * Covers the key each editor keeps its servers under: `mcpServers` (most editors),
+ * `context_servers` (Zed), `mcp_servers` (Codex and Grok), and `mcp` (OpenCode).
  */
 export const mcpConfigMergeResolver: MergeResolver = createPathResolver({
    'mcpServers.*': 'replace',
    'context_servers.*': 'replace',
+   'mcp_servers.*': 'replace',
+   'mcp.*': 'replace',
 });

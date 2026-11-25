@@ -86,46 +86,6 @@ export function filterMcpConfig(mcp: AiJsonConfig['mcp']): Record<string, McpSer
 }
 
 
-function looksLikeFlatMcpServer(value: unknown): value is Record<string, unknown> {
-   return (
-      isRecord(value) &&
-      (
-         typeof value.command === 'string' ||
-         typeof value.url === 'string' ||
-         (
-            (value.type === 'local' || value.type === 'stdio' || value.type === 'http') &&
-            (typeof value.command === 'string' || typeof value.url === 'string')
-         )
-      )
-   );
-}
-
-function normalizeFlatMcpConfigForMerge(config: Record<string, unknown>): Record<string, unknown> {
-   if (config.mcpServers || config.servers || config.context_servers || config.mcp_servers || config.mcp) {
-      return config;
-   }
-
-   const mcpServers: Record<string, unknown> = {},
-         otherEntries: Record<string, unknown> = {};
-
-   for (const [key, value] of Object.entries(config)) {
-      if (looksLikeFlatMcpServer(value)) {
-         mcpServers[key] = value;
-      } else {
-         otherEntries[key] = value;
-      }
-   }
-
-   if (Object.keys(mcpServers).length === 0) {
-      return config;
-   }
-
-   return {
-      ...otherEntries,
-      mcpServers,
-   };
-}
-
 /**
  * Base class for editor adapters providing common functionality for detecting editor config
  * directories, writing files atomically, and managing backups. Subclasses provide strategies for
@@ -212,11 +172,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'plugins', 'marketplaces', 'editors'];
 
       try {
-         // Clean the .aix folder if requested (ensures exact match with ai.json)
-         if (options.clean && !options.dryRun) {
-            await this.cleanAixFolder(projectRoot, options.targetScope);
-         }
-
          // Generate file changes
          const planned = await this.planChanges(editorConfig, projectRoot, scopes, options),
                reconciled = await planInstallReceipt({
@@ -244,31 +199,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       return result;
-   }
-
-   /**
-    * Remove the .aix folder to ensure a clean install state.
-    * Preserves .aix/.tmp if it exists (for temporary files).
-    */
-   protected async cleanAixFolder(
-      projectRoot: string,
-      targetScope: 'project' | 'user' = 'project',
-   ): Promise<void> {
-      const aixPath = join(targetScope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot, '.aix');
-
-      if (!getRuntimeAdapter().fs.existsSync(aixPath)) {
-         return;
-      }
-
-      // Clear generated content while retaining ownership records for reconciliation.
-      const entries = await getRuntimeAdapter().fs.readdir(aixPath);
-
-      // Receipts must survive cleanup so stale editor entries can still be removed.
-      await Promise.all(entries.filter((entry) => {
-         return entry !== 'installs';
-      }).map((entry) => {
-         return getRuntimeAdapter().fs.rm(join(aixPath, entry), { recursive: true, force: true });
-      }));
    }
 
    /**
@@ -406,7 +336,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          }
       }
 
-      // MCP config (JSON file - merge by default unless overwrite is set)
+      // MCP config (JSON file - merged into the existing file)
       // Skip for global-only strategies (e.g., Windsurf) - they're handled separately
       if (
          scopes.includes('mcp') &&
@@ -427,11 +357,9 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
             // Only merge JSON files that we directly write to (MCP config files)
             if (this.isJsonFile(mcpPath)) {
-               const change = await this.planJsonFileChange(
-                  mcpPath,
-                  this.mcpStrategy.formatConfig(editorConfig.mcp),
-                  options,
-               );
+               const change = await this.planJsonFileChange(mcpPath, this.mcpStrategy.formatConfig(editorConfig.mcp), {
+                  normalizeExisting: this.mcpStrategy.normalizeExistingConfig?.bind(this.mcpStrategy),
+               });
 
                changes.push({ ...change, category: 'mcp', items: mcpEntries });
             } else {
@@ -567,7 +495,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       const uniqueHooks = await preserveNativeHooks({ hooks: {} }, parsedHooks),
             content = JSON.stringify(uniqueHooks, null, 2) + '\n',
-            change = await this.planJsonFileChange(hooksPath, content, options);
+            change = await this.planJsonFileChange(hooksPath, content);
 
       changes.push({ ...change, category: 'hook', items: Object.keys(parsedHooks.hooks) });
 
@@ -621,7 +549,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             existingInChanges = existingChanges.find((c) => c.path === pluginsPath),
             baseContent = existingInChanges ? existingInChanges.content : undefined;
 
-      const change = await this.planJsonFileChange(pluginsPath, formatted, options, baseContent);
+      const change = await this.planJsonFileChange(pluginsPath, formatted, { baseContent });
 
       if (existingInChanges) {
          existingInChanges.content = change.content;
@@ -684,7 +612,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             existingInChanges = existingChanges.find((c) => c.path === marketplacesPath),
             baseContent = existingInChanges ? existingInChanges.content : undefined;
 
-      const change = await this.planJsonFileChange(marketplacesPath, formatted, options, baseContent);
+      const change = await this.planJsonFileChange(marketplacesPath, formatted, { baseContent });
 
       if (existingInChanges) {
          existingInChanges.content = change.content;
@@ -708,21 +636,22 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
    }
 
    /**
-    * Plan a change for a JSON file, merging with existing content unless overwrite is set.
+    * Plan a change for a JSON file by merging the new content into whatever the file already
+    * holds. `baseContent` stands in for the file when an earlier planned change already rewrote
+    * it. `normalizeExisting` lets a strategy reshape a legacy layout before the merge.
     */
    protected async planJsonFileChange(
       filePath: string,
       newContent: string,
-      options: ApplyOptions = {},
-      baseContent?: string | null,
+      options: {
+         baseContent?: string | null;
+         normalizeExisting?: (config: Record<string, unknown>) => Record<string, unknown>;
+      } = {},
    ): Promise<FileChange> {
-      const existing = baseContent !== undefined ? baseContent : await this.readExisting(filePath);
+      const existing = options.baseContent !== undefined ? options.baseContent : await this.readExisting(filePath);
 
-      // If overwrite mode or file doesn't exist, use new content directly
-      if (options.overwrite || existing === null) {
-         const action = this.determineAction(existing, newContent);
-
-         return { path: filePath, action, content: newContent, managedContent: newContent };
+      if (existing === null) {
+         return { path: filePath, action: this.determineAction(existing, newContent), content: newContent, managedContent: newContent };
       }
 
       // Merge existing JSON with new JSON. Use parseJsonc so files with comments or
@@ -735,7 +664,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       try {
-         const existingJson = normalizeFlatMcpConfigForMerge(existingParseResult.data),
+         const existingJson = options.normalizeExisting?.(existingParseResult.data) ?? existingParseResult.data,
                newJson = await preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
 
          let mergedContent: string;

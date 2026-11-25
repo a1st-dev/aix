@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { loadRule, loadRules } from '../../rules/loader.js';
+import type { RuleObject } from '@a1st/aix-schema';
+import { loadRule, loadRules, type LoadedRule } from '../../rules/loader.js';
 import { safeRm } from '../../fs/safe-rm.js';
 
 const testDir = join(tmpdir(), 'aix-test-rules-loader');
@@ -45,6 +46,41 @@ describe('loadRule', () => {
       expect(result.content).toBe('# Code Style\n\nUse 2-space indentation.');
       expect(result.source).toBe('file');
       expect(result.sourcePath).toContain('style.md');
+   });
+
+   describe('activation of a rule file with frontmatter', () => {
+      const MANUAL_RULE = '---\ntrigger: manual\n---\n\nOnly on request.';
+
+      async function loadRuleFile(fileContent: string, rule: Partial<RuleObject> = {}): Promise<LoadedRule> {
+         await writeFile(join(testDir, 'rule.md'), fileContent, 'utf-8');
+
+         return loadRule('file-rule', { path: './rule.md', ...rule }, join(testDir, 'ai.json'));
+      }
+
+      it('lets an explicit "always" in ai.json override the frontmatter', async () => {
+         const result = await loadRuleFile(MANUAL_RULE, { activation: 'always' });
+
+         expect(result.metadata.activation).toBe('always');
+         expect(result.content).toBe('Only on request.');
+      });
+
+      it('uses the frontmatter when ai.json sets no activation', async () => {
+         const result = await loadRuleFile(MANUAL_RULE);
+
+         expect(result.metadata.activation).toBe('manual');
+      });
+
+      it('lets any other explicit activation override the frontmatter', async () => {
+         const result = await loadRuleFile(MANUAL_RULE, { activation: 'auto', description: 'When asked' });
+
+         expect(result.metadata.activation).toBe('auto');
+      });
+
+      it('defaults to "always" when neither ai.json nor the file sets an activation', async () => {
+         const result = await loadRuleFile('No frontmatter here.');
+
+         expect(result.metadata.activation).toBe('always');
+      });
    });
 
    it('loads rule with auto activation and description', async () => {

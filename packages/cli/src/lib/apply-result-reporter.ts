@@ -6,6 +6,7 @@ import type {
    TargetScopeLimitations,
    UnsupportedFeatures,
 } from '@a1st/aix-core';
+import { formatDisplayPath } from './display-path.js';
 import type { Output } from './output.js';
 
 const CHANGE_CATEGORY_ORDER: Array<{ key: FileChangeCategory; label: string }> = [
@@ -212,9 +213,7 @@ export function displayFileChanges(options: DisplayFileChangesOptions): void {
       for (const change of categoryChanges) {
          if ((key === 'mcp' || key === 'hook') && change.items && change.items.length > 0) {
             for (const item of change.items) {
-               const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
-
-               output.log(`    ${getChangePrefix(output, change.action)} ${item}${action}`);
+               output.log(`    ${getChangePrefix(output, change.action)} ${item}${describeTarget(output, change, showAction)}`);
             }
          } else {
             const name = key === 'skill'
@@ -229,9 +228,7 @@ export function displayFileChanges(options: DisplayFileChangesOptions): void {
                seenNames.add(name);
             }
 
-            const action = showAction ? ` ${output.dim(`(${change.action})`)}` : '';
-
-            output.log(`    ${getChangePrefix(output, change.action)} ${name}${action}`);
+            output.log(`    ${getChangePrefix(output, change.action)} ${name}${describeTarget(output, change, showAction)}`);
          }
       }
 
@@ -279,7 +276,7 @@ export function displayGlobalChanges(options: DisplayGlobalChangesOptions): void
       output.log(output.cyan(`  ${label}`));
 
       for (const change of applied) {
-         output.log(`    ${output.green('✓')} ${change.name}`);
+         output.log(`    ${output.green('✓')} ${change.name} ${output.dim(formatDisplayPath(change.globalPath))}`);
       }
 
       for (const change of skipped) {
@@ -300,6 +297,16 @@ export function displayGlobalChanges(options: DisplayGlobalChangesOptions): void
    if (finalBlank && (renderedGroup || globalChanges.warnings.length > 0)) {
       output.log('');
    }
+}
+
+/**
+ * The path a change lands on, and the action when asked for. The path is what tells a reader
+ * whether a line touches the project or their home directory.
+ */
+function describeTarget(output: Output, change: FileChange, showAction: boolean): string {
+   const action = showAction ? ` (${change.action})` : '';
+
+   return ` ${output.dim(`${formatDisplayPath(change.path)}${action}`)}`;
 }
 
 function getChangePrefix(output: Output, action: FileChange['action']): string {

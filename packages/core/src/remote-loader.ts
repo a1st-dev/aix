@@ -50,7 +50,8 @@ export interface RemoteLoadResult {
 const FETCH_TIMEOUT_MS = 30000;
 
 /**
- * Fetch content from a URL with timeout.
+ * Fetch content from a URL. The timeout covers the whole exchange, not only the wait for the
+ * response headers, so a server that stalls while sending the body cannot hang the caller.
  */
 export async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string> {
    const controller = getRuntimeAdapter().network.createAbortController(),
@@ -62,7 +63,9 @@ export async function fetchWithTimeout(url: string, timeoutMs = FETCH_TIMEOUT_MS
       if (!response.ok) {
          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      return response.text();
+
+      // Awaited here so the timer in `finally` stays armed until the body has been read.
+      return await response.text();
    } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
          throw new Error(`Request timed out after ${timeoutMs}ms`, { cause: error });

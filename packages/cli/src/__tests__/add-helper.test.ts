@@ -2,9 +2,9 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { safeRm } from '@a1st/aix-core';
-import { addSkill, removeSkill } from '../lib/add-helper.js';
+import { addMcp, addSkill, findProjectConfig, removeMcp, removeSkill } from '../lib/add-helper.js';
 
 function createTestDir(): string {
    return join(tmpdir(), `aix-add-helper-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -124,6 +124,7 @@ describe('removeSkill helper', () => {
          JSON.stringify(
             {
                $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+               scope: 'project',
                skills: { 'demo-skill': './skills/demo-skill' },
                mcp: {},
                rules: {},
@@ -168,6 +169,7 @@ description: Demo skill
          JSON.stringify(
             {
                $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+               scope: 'project',
                skills: {
                   'react-components': {
                      git: 'https://github.com/google-labs-code/stitch-skills',
@@ -201,5 +203,117 @@ description: Demo skill
       expect(existsSync(join(testDir, '.aix', 'skills', 'react-components'))).toBe(false);
       expect(existsSync(join(testDir, '.github', 'skills', 'react-components'))).toBe(false);
       await expect(readFile(configPath, 'utf-8')).resolves.not.toContain('react-components');
+   });
+});
+
+function registryServer(name: string, identifier: string): object {
+   return {
+      server: {
+         name,
+         description: name,
+         version: '1.0.0',
+         packages: [ { registryType: 'npm', identifier, version: '1.0.0', transport: { type: 'stdio' } } ],
+      },
+   };
+}
+
+describe('addMcp helper', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   it('adds the server the caller selected, not the first search result', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json'),
+            servers = [
+               registryServer('io.github.someone/filesystem', 'someone-filesystem'),
+               registryServer('io.github.official/filesystem', 'official-filesystem'),
+            ];
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+      await writeFile(configPath, JSON.stringify({ mcp: {} }));
+      vi.stubGlobal('fetch', async () => {
+         return new Response(JSON.stringify({ servers, metadata: { count: servers.length } }), {
+            headers: { 'content-type': 'application/json' },
+         });
+      });
+
+      const result = await addMcp({
+               configPath,
+               name: 'filesystem',
+               serverName: 'io.github.official/filesystem',
+               skipInstall: true,
+            }),
+            config = JSON.parse(await readFile(configPath, 'utf-8'));
+
+      vi.unstubAllGlobals();
+
+      expect(result).toEqual({ success: true, name: 'filesystem' });
+      expect(config.mcp.filesystem.command).toContain('official-filesystem');
+   });
+});
+
+describe('removeMcp helper', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   it('removes the server from the editor as well as from ai.json', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json'),
+            editorConfigPath = join(testDir, '.mcp.json'),
+            server = { command: 'node', args: [ 'docs.js' ] };
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+      await writeFile(configPath, JSON.stringify({ scope: 'project', editors: [ 'claude-code' ], mcp: { docs: server } }));
+      await writeFile(editorConfigPath, JSON.stringify({ mcpServers: { docs: server, mine: server } }));
+
+      const result = await removeMcp({ configPath, name: 'docs' }),
+            config = JSON.parse(await readFile(configPath, 'utf-8')),
+            editorConfig = JSON.parse(await readFile(editorConfigPath, 'utf-8'));
+
+      expect(result).toEqual({ success: true, name: 'docs' });
+      expect(config.mcp.docs).toBeUndefined();
+      expect(Object.keys(editorConfig.mcpServers)).toEqual([ 'mine' ]);
+   });
+});
+
+describe('findProjectConfig', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   it('reports the skills and MCP servers ai.json declares, leaving out disabled ones', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json');
+
+      testDirs.push(testDir);
+      await mkdir(join(testDir, 'nested'), { recursive: true });
+      await writeFile(configPath, JSON.stringify({
+         skills: { review: './skills/review', disabled: false },
+         mcp: { docs: { command: 'node' }, off: false },
+      }));
+
+      const found = await findProjectConfig(join(testDir, 'nested'));
+
+      expect(found?.path).toStrictEqual(configPath);
+      expect([ ...found?.declaredNames ?? [] ].toSorted()).toEqual([ 'docs', 'review' ]);
+   });
+
+   it('finds nothing where there is no ai.json', async () => {
+      const testDir = createTestDir();
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+
+      expect(await findProjectConfig(testDir)).toBeNull();
    });
 });

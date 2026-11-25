@@ -2,9 +2,11 @@
 import { Icon } from 'astro-icon/components';
 
 /**
- * Visual before/after strip showing config file consolidation.
- * "6 files → 1 file" reduction message.
+ * Before and after lists showing several per-editor config files replaced by one.
  */
+const REVEAL_START_SECONDS = 0.2,
+      REVEAL_STAGGER_SECONDS = 0.06;
+
 const beforeFiles = [
   '.cursor/rules',
   '.github/copilot-instructions.md',
@@ -15,59 +17,61 @@ const beforeFiles = [
 ];
 ---
 
-<div class="comparison-strip">
-  <div class="comparison-strip__before">
-    <span class="comparison-strip__heading">Before</span>
-    <div class="comparison-strip__files">
-      {beforeFiles.map((f, i) => (
-        <span
-          class="comparison-strip__file comparison-strip__file--old"
-          style={`animation-delay: ${0.6 + i * 0.06}s`}
-        >
-          {f}
-        </span>
-      ))}
+<div class="comparison-strip-container">
+  <div class="comparison-strip reveal">
+    <div class="comparison-strip__before">
+      <p class="comparison-strip__heading">Before</p>
+      <ul class="comparison-strip__files">
+        {beforeFiles.map((f, i) => (
+          <li
+            class="comparison-strip__file comparison-strip__file--old reveal"
+            style={`--reveal-delay: ${REVEAL_START_SECONDS + i * REVEAL_STAGGER_SECONDS}s`}
+          >
+            {f}
+          </li>
+        ))}
+      </ul>
     </div>
-  </div>
 
-  <div class="comparison-strip__arrow" aria-hidden="true">
-    <Icon name="lucide:arrow-right" />
-  </div>
+    <div class="comparison-strip__arrow" aria-hidden="true">
+      <Icon name="lucide:arrow-right" />
+    </div>
 
-  <div class="comparison-strip__after">
-    <span class="comparison-strip__heading">After</span>
-    <div class="comparison-strip__files">
-      <span class="comparison-strip__file comparison-strip__file--new">
-        ai.json
-      </span>
+    <div class="comparison-strip__after">
+      <p class="comparison-strip__heading">After</p>
+      <ul class="comparison-strip__files">
+        <li class="comparison-strip__file comparison-strip__file--new">ai.json</li>
+      </ul>
     </div>
   </div>
 </div>
 
 <style>
+  .comparison-strip-container {
+    container-type: inline-size;
+    max-width: 760px;
+    margin-inline: auto;
+  }
   .comparison-strip {
+    --reveal-distance: 0.5rem;
+
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
+    gap: 1.2rem;
     padding: 2.5rem 1.5rem;
     background: var(--aix-surface-sunken);
     border: 1px solid var(--sl-color-hairline-shade);
     border-radius: 12px;
-    max-width: 760px;
-    margin: 0 auto;
-    opacity: 0;
-    animation: stripReveal 0.6s ease 0.8s forwards;
   }
   .comparison-strip__heading {
-    display: block;
     font-family: var(--sl-font-system-mono);
     font-size: 0.7rem;
-    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: var(--sl-color-gray-4);
-    margin-bottom: 0.6rem;
+    color: var(--aix-text-muted);
+    margin-block-end: 0.6rem;
     text-align: center;
   }
   .comparison-strip__files {
@@ -75,16 +79,18 @@ const beforeFiles = [
     flex-direction: column;
     gap: 4px;
     align-items: center;
+    list-style: none;
   }
   .comparison-strip__file {
+    --reveal-distance: 0.25rem;
+
     font-family: var(--sl-font-system-mono);
     font-size: 0.72rem;
     padding: 3px 10px;
     border-radius: 4px;
-    white-space: nowrap;
-    opacity: 0;
-    animation: fileReveal 0.3s ease forwards;
+    overflow-wrap: anywhere;
   }
+  /* The strike-through is what marks these as replaced; the color only reinforces it. */
   .comparison-strip__file--old {
     background: var(--aix-error-subtle);
     color: var(--aix-error);
@@ -99,53 +105,23 @@ const beforeFiles = [
     font-size: 0.95rem;
     font-weight: 600;
     padding: 8px 20px;
-    animation-delay: 1s;
   }
   .comparison-strip__arrow {
     flex-shrink: 0;
     width: 40px;
     height: 24px;
     color: var(--sl-color-accent);
-    opacity: 0;
-    animation: arrowReveal 0.4s ease 0.9s forwards;
+    rotate: 90deg;
   }
 
-  @keyframes stripReveal {
-    from {
-      opacity: 0;
-      transform: scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-  @keyframes fileReveal {
-    from {
-      opacity: 0;
-      transform: translateX(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  @keyframes arrowReveal {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @media (max-width: 600px) {
+  /* Wide enough for both lists side by side: point the arrow across. */
+  @container (min-width: 34rem) {
     .comparison-strip {
-      flex-direction: column;
-      gap: 1.2rem;
+      flex-direction: row;
+      gap: 2rem;
     }
     .comparison-strip__arrow {
-      transform: rotate(90deg);
+      rotate: none;
     }
   }
 </style>

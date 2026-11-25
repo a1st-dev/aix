@@ -10,25 +10,33 @@
 ```bash
 # Create a local ai.json file for storing your config
 aix init
+# Save an MCP server from the official registry to ai.json.
+# --save writes to ai.json. --no-install leaves your editors alone until `aix install`.
+aix add mcp playwright --save --no-install
+# Save a skill from GitHub, a repo path, a local path, or an installed npm package
+aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md --save --no-install
+# Save a rule from GitHub, local path, or npm package
+aix add rule ../rules/typescript-rules.md --save --no-install
+# Save a prompt (also known as a workflow or slash command)
+aix add prompt ../prompts/review.md --save --no-install
+# Save a hook that runs on an editor lifecycle event
+aix add hook pre_command --command "npm run lint" --save --no-install
 # Optionally create ai.lock.json for reproducible installs
-aix init --lock
-# Add config for an MCP server from the official registry
-aix add mcp playwright
-# Add a skill from GitHub, a repo path, a local path, or an installed npm package
-aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md
-# Add a rule from GitHub, local path, or npm package
-aix add rule ../rules/typescript-rules.md
-# Add a prompt (also known as a workflow or slash command)
-aix add prompt ../prompts/review.md
-# Add a hook that runs on an editor lifecycle event
-aix add hook pre_command --command "npm run lint"
-# Install all of the above to any supported editor. Outputs workspace-specific config
-aix install --target claude-code --target cursor
+aix validate --lock
+# Install everything in ai.json into this project's config for the named editors
+aix install --project --target claude-code --target cursor
 # Install one item directly without creating ai.json
 aix install playwright --type mcp --target claude-code --user
 # Sync supported config directly from one editor to another
 aix sync cursor --to claude-code
 ```
+
+Without `--save`, `aix add` installs the item into your editors and does not touch `ai.json`.
+
+`aix install` writes at user scope (editor config under your home directory, such as
+`~/.claude.json`) unless you pass `--project` or `ai.json` sets `"scope": "project"`. It
+prints the scope before it writes, and `aix install --dry-run` lists every file it would
+change.
 
 Supported editors:
 
@@ -58,7 +66,7 @@ Standardize your AI config. Share it with your team. Check it into version contr
 - **Share team standards** — Extend configs from GitHub, GitLab, npm, or local files
 - **Install configs instantly** — `aix install github:company/ai-config` pulls and merges remote configs
 - **Move between editors without pairwise converters** — `aix sync` reads one editor into aix's normalized bridge format, then installs what the destination can represent
-- **Safe updates** — Atomic writes with automatic backup and rollback
+- **Safe updates** — Files are replaced through a temporary file, every changed file is backed up to `~/.aix/backups`, and `aix backups restore` puts one back
 - **Optional lockfiles** — Use `ai.lock.json` when you want aix to detect config drift before installing
 
 ## Quick Start
@@ -73,7 +81,7 @@ aix init
 aix init --from <editor>
 
 # Or sync supported config directly from one editor to another.
-# By default, sync reads user-level config and writes user-level config.
+# By default, sync reads user scope and writes user scope.
 aix sync <from> --to <to>
 ```
 
@@ -90,28 +98,34 @@ aix install github:org/config         # Install remote config
 aix install playwright --type mcp --target claude-code --user # Direct install
 aix install --lock                    # Refresh ai.lock.json, then install
 aix install github:org/config --save --only mcp # Merge specific sections from remote
-aix add skill ./skills/custom         # Add a skill and install to editors
-aix add skill github/awesome-copilot/typescript-mcp-server-generator # Add from a repo path
-aix add mcp playwright                # Add MCP server from registry
+aix add skill ./skills/custom         # Install a skill to your editors
+aix add skill ./skills/custom --save  # Also save it to ai.json
+aix add skill github/awesome-copilot/typescript-mcp-server-generator # Install from a repo path
+aix add mcp playwright                # Install an MCP server from the registry
 aix add mcp github --command "npx @modelcontextprotocol/server-github" # Manual config
-aix add rule ./rules/typescript.md    # Add a rule from file or URL
-aix add prompt ./prompts/review.md    # Add a prompt/command from file or URL
-aix add agent ./agents/reviewer.md    # Add an agent from markdown file
-aix add hook pre_command --command "npm run lint" # Add a hook on a lifecycle event
-aix add hook ./hooks/guard.json       # Add a hook from a JSON fragment
-aix add plugin skill-creator@claude-plugins-official # Add a plugin
-aix add marketplace https://github.com/my-org/market --name team-market # Add marketplace
-aix remove skill typescript           # Remove a skill and uninstall from editors
+aix add rule ./rules/typescript.md    # Install a rule from file or URL
+aix add prompt ./prompts/review.md    # Install a prompt/command from file or URL
+aix add agent ./agents/reviewer.md    # Install an agent from markdown file
+aix add hook pre_command --command "npm run lint" # Install a hook on a lifecycle event
+aix add hook ./hooks/guard.json       # Install a hook from a JSON fragment
+aix add plugin skill-creator@claude-plugins-official # Install a plugin
+aix add marketplace https://github.com/my-org/market --name team-market # Register a marketplace
+aix remove skill typescript           # Remove a skill from your editors
+aix remove rule typescript            # Remove a rule
+aix remove prompt review              # Remove a prompt
 aix remove mcp playwright             # Remove an MCP server
 aix remove agent reviewer             # Remove an agent
-aix remove hook pre_command           # Remove a hook and uninstall from editors
-aix list:skills                       # List installed skills (or mcp, rules, prompts, agents, hooks, editors)
+aix remove hook pre_command           # Remove a hook from your editors
+aix remove mcp playwright --save      # Also remove it from ai.json
+aix list skills                       # List installed skills (or mcp, rules, prompts, agents, hooks, plugins, marketplaces, editors)
 aix list --only skills                # Filter list output by section
-aix list --scope user                 # List user-scoped config only
-aix list --all --target copilot       # Show actual editor config, including externally managed items
+aix list --scope user                 # List user-scope config only
+aix list --all --target copilot       # Show both scopes for one editor
 ```
 
-Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to target user-level or project-level config.
+Use `--scope user` / `-u` or `--scope project` / `-p` on `add`, `remove`, `install`, and `list` to choose user scope or project scope. `add`, `remove`, and `list` use user scope when you pass no flag. `install` uses the `scope` field of `ai.json`, and user scope when the file has none.
+
+`add` and `remove` change `ai.json` only with `--save`. `remove` asks for confirmation unless you pass `--yes`.
 
 Use `aix init --from <editor>` when you want to create `ai.json` from an editor. Use
 `aix sync <from> --to <to>` when you want to copy supported config between editors without
@@ -122,9 +136,10 @@ stopping at `ai.json`.
 ```bash
 aix validate                          # Validate ai.json configuration
 aix validate --lock                   # Validate and refresh ai.lock.json
-aix config show                       # Show current CLI configuration
-aix backups                           # List configuration backups
-aix cache clear                       # Clear the local cache
+aix config show                       # Show which ai.json and ai.local.json are in use
+aix backups                           # List the backups aix made before changing files
+aix backups restore <backup file>     # Copy a backup over the file it was taken from
+aix cache clear                       # Delete downloaded sources in .aix/.tmp
 ```
 
 ## Other Notes
@@ -139,8 +154,21 @@ The lockfile records SHA-512 integrity strings and SHA-256 digests for resolved 
 entities. Those hashes detect drift and tampering in the files aix resolves. They do not
 prove who published a remote config or skill.
 
+### Using an alternate home directory
+
+`aix add`, `aix remove`, and `aix sync` work at user scope unless you pass a scope flag, and
+so does `aix install` unless `ai.json` sets a `scope`. User scope means editor config under
+your home directory, such as `~/.claude.json` and `~/.codex/config.toml`. To try a command
+without touching those files, pass `--user-home <dir>` or set `AIX_USER_HOME`. aix then reads
+and writes all user-scope config, including its own `~/.aix/` state and backups, under that
+directory:
+
+```bash
+aix install --user-home /tmp/aix-trial
+```
+
 This project is tested with BrowserStack.
 
 ## License
 
-MIT
+[MIT](LICENSE)

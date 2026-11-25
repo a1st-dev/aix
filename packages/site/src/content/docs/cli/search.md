@@ -1,11 +1,12 @@
 ---
 sidebar:
-   order: 4
+   order: 8
 title: aix search
-description: Find skills and MCP servers.
+description: Find skills and MCP servers, and install them from the results.
 ---
 
-Interactive search tool for discovering capabilities across the skills.sh library and the [official MCP Registry](https://registry.modelcontextprotocol.io).
+Searches the [skills.sh](https://skills.sh) library for skills and the
+[official MCP Registry](https://registry.modelcontextprotocol.io) for MCP servers.
 
 ## Usage
 
@@ -13,33 +14,74 @@ Interactive search tool for discovering capabilities across the skills.sh librar
 aix search [query] [flags]
 ```
 
-Without arguments, it opens an interactive TUI (Terminal User Interface).
+In a terminal, the command opens an interactive search. With `--plain` or `--json`, or when
+its output is piped, it prints the results and exits. That mode needs a `query`.
 
-## Interactive Mode
+## Interactive mode
 
 ```bash
 aix search
+aix search playwright
 ```
 
-- **Up/Down**: Navigate results
-- **Enter**: Select/Install
-- **Tab**: Switch between Skills and MCP tabs
-- **Ctrl+C**: Exit
+Type to change the query. The results update as you type.
+
+| Key      | Action                                                                  |
+| -------- | ----------------------------------------------------------------------- |
+| Up, Down | Move the selection.                                                     |
+| Enter    | Install the highlighted item, or uninstall it if you just installed it. |
+| Tab      | Switch between the Skills and MCP tabs.                                 |
+| Esc      | Clear the query. With an empty query, exit.                             |
+| `?`      | Show or hide the list of keys.                                          |
+| Ctrl+R   | Run the search again after it failed.                                   |
+
+Only the arrow keys move the selection and only Enter installs. Letters and the space bar are
+ordinary characters and go into the query. `?` is the one character a query cannot contain.
+
+### Installing from the results
+
+Installing needs an `ai.json` in the working directory or a parent directory. Without one,
+aix prints a warning, and Enter installs nothing. Run [`aix init`](/cli/init/) first.
+
+When you press Enter on a result, aix:
+
+1. Saves the item to `ai.json`. A skill is saved as a reference to its repository path. An
+   MCP server is saved as the server you highlighted, with the `npx` command for its npm
+   package.
+2. Installs that section of `ai.json` to the editors listed in its `editors` field, or to
+   every detected editor when it lists none.
+
+The install uses the scope in the `scope` field of `ai.json`, or user scope when the file
+has no such field, the same as `aix install`.
+
+An installed item gets a check mark. If the install fails, for example because no editor
+received the item, the status line says why and the item gets no check mark. The entry stays
+in `ai.json`.
+
+Pressing Enter on an item you installed in this session takes it out of `ai.json` and out of
+the editors it was installed to.
+
+When you exit, aix prints the items you installed.
 
 ## Flags
 
-| Flag                      | Description                             |
-| ------------------------- | --------------------------------------- |
-| `--type <type>` / `-t`    | Filter by type: `skills`, `mcp`.        |
-| `--plain` / `-p`          | Output as plain text (non-interactive). |
-| `--registry <url>` / `-r` | Custom npm registry URL.                |
+| Flag                      | Description                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| `--type <type>` / `-t`    | Search only `skills` or only `mcp`. Repeatable. The default is both.             |
+| `--plain` / `-p`          | Print the results as text and exit.                                              |
+| `--json`                  | Print the results as JSON and exit.                                              |
+| `--registry <url>` / `-r` | Accepted, but it has no effect. Skills come from skills.sh, not an npm registry. |
 
-## JSON Output
-
-Use with `--plain --json` for scripts:
+## Plain and JSON output
 
 ```bash
-aix search react --type skills --plain --json
+aix search react --type skills --plain
+aix search react --type skills --json
 ```
 
-Interactive skill installs resolve Skills Library results to concrete repo paths, then call `aix add skill`, so search installs are saved and installed through the same native aix skill flow as manual adds.
+Plain output lists each result with its description. JSON output is an object with a
+`skills` array, an `mcp` array, or both, depending on `--type`. When nothing matches, JSON
+mode prints nothing.
+
+To install a result from this mode, pass its name to [`aix add skill`](/cli/add/) or
+[`aix add mcp`](/cli/add/).

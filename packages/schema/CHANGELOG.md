@@ -7,6 +7,33 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Export `editorNames`, `editorAliasNames`, and `editorInputNames` as the one list of
+  editors, which core now reuses
+- Declare the MIT license in `package.json`
+
+### Changed
+
+- Record any scope passed to `createEmptyConfig`, not only `user`
+
+### Removed
+
+- Remove `resolveScope`, whose project default disagreed with what `aix install` does
+
+### Fixed
+
+- Accept the `{ "npm", "path", "version" }` object form for skill and plugin sources
+- Describe the `scope` field as the scope `aix install` targets, with user scope as the
+  default
+- Accept `codex` in the `editors` array shorthand and reject `neovim`, which aix cannot
+  install to
+- Reject plugin names made only of dots, such as `..`, which resolved to a parent
+  directory when the name was used as a skill directory
+- Correct the editor support data for Claude Code user-scope rules
+  (`~/.claude/rules/*.md`) and for the name of a prompt installed as a skill
+- Note Zed's Windows config location in the editor support data
+
 ## [0.6.0] - 2026-08-12
 
 ### Added

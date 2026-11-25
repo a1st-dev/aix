@@ -52,14 +52,8 @@ export interface GlobalChangeResult {
  * Options for processing global changes.
  */
 export interface GlobalChangeOptions {
-   /** If true, skip all global changes without prompting */
+   /** If true, skip all global changes */
    skipGlobal?: boolean;
    /** Optional reason to use when global changes are skipped intentionally */
    skipGlobalReason?: string;
-   /** If true, apply all global changes without prompting (for testing) */
-   autoConfirm?: boolean;
-   /** Project root path for tracking */
-   projectPath: string;
-   /** Dry run - don't actually write files */
-   dryRun?: boolean;
 }

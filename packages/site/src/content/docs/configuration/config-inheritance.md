@@ -1,11 +1,13 @@
 ---
 sidebar:
    order: 3
-title: Config Inheritance
+title: Config inheritance
 description: Share and layer configurations using the extends field.
 ---
 
-aix allows you to inherit configuration from other sources using the `extends` field in `ai.json`. This enables organizations to maintain shared "base" configurations (with standard rules, skills, and MCP servers) while allowing individual projects to add their own.
+The `extends` field in `ai.json` inherits configuration from other sources. A team can keep a
+shared base config with its standard rules, skills, and MCP servers, and each project can add
+to it or override parts of it.
 
 ## Usage
 
@@ -34,9 +36,10 @@ Multiple sources are supported. They are processed in order, with later configur
 }
 ```
 
-The final configuration is the result of merging all extended configs into your project's `ai.json`.
+The final configuration is the result of merging all extended configs and then your project's
+`ai.json`.
 
-## Source Types
+## Source types
 
 aix supports extending from:
 
@@ -46,7 +49,8 @@ aix supports extending from:
 { "extends": "@company/aix-config" }
 ```
 
-The package must export an `ai.json` (or have one in its root).
+The package must have an `ai.json` at its root and must already be installed in the project.
+aix does not install it for you.
 
 ### Git repositories
 
@@ -62,11 +66,20 @@ You can target a specific branch, tag, or commit hash:
 { "extends": "github:company/repo#v2.0.0" }
 ```
 
-If the config file is not at the root of the repo, use the `path` query param (not supported in shorthand yet, so use full URL or ensure it's at root/`ai.json` for now).
+The repository must have an `ai.json` at its root. To use a config in a subdirectory, add the
+directory to the shorthand, as in `github:company/repo/configs/web`. That directory must then
+contain the `ai.json`.
+
+aix keeps a copy of the repository under `.aix/extends/`, and installed hooks run their scripts
+from that copy. If the repository has a `package.json`, `aix install` installs its dependencies
+there with npm, without running the packages' lifecycle scripts. Commands that only read the
+config, such as `aix validate` and `aix install --dry-run`, never run npm. When the extended
+config has changed in a way that needs an install, they keep reading the copy that is already
+installed until the next `aix install`.
 
 ### URLs
 
-Direct HTTP/HTTPS URLs to a JSON file:
+Direct HTTPS URLs to a JSON file. Plain HTTP is rejected.
 
 ```json
 { "extends": "https://raw.githubusercontent.com/user/repo/main/ai.json" }
@@ -80,19 +93,36 @@ Relative paths to other JSON files:
 { "extends": "../shared/ai.json" }
 ```
 
-## Merge Logic
+## Merge logic
 
-When merging configurations:
+aix deep-merges the extended configs in order and then merges your `ai.json` on top:
 
-1. **Object maps**: `skills`, `mcp`, `rules`, and `prompts` are merged by key. Keys in your `ai.json` overwrite keys from `extends`.
-2. **Editors**: Normalized to object form and deep-merged. Remote editor settings are merged into local ones per editor key.
-3. **Metadata**: `$schema` and `extends` from the remote config win.
-4. **Disabling**: You can disable an inherited item by setting it to `false`.
-5. **Not inherited**: `hooks` and `aix` settings are not inherited from extended configs.
+- **Objects are merged key by key, at every level.** Every section is inherited this way:
+  `skills`, `mcp`, `rules`, `prompts`, `agents`, `hooks`, `plugins`, `marketplaces`,
+  `editors`, and `aix`. An item you do not mention is kept as the extended config defines it.
+- **An item with the same name is merged field by field.** If a base config defines an MCP
+  server and your `ai.json` sets only its `env`, the server keeps the base `command` and
+  `args`.
+- **Choosing a different source replaces the inherited one.** A rule, prompt, or agent has one
+  content source (`content`, `path`, `git`, or `npm`), and an MCP server has one transport
+  (`command` or `url`). If your `ai.json` sets a different one for an inherited item, the
+  inherited source is dropped and the item's other fields are kept.
+- **Arrays and plain values are replaced.** Your `args` array replaces the inherited one. The
+  same goes for the list of hooks under one event: defining `pre_tool_use` in your `ai.json`
+  replaces the inherited `pre_tool_use` hooks, while inherited hooks for other events stay.
+- **`false` disables an inherited item.** Set a skill, rule, prompt, agent, MCP server, plugin,
+  or marketplace to `false` to turn it off.
+- **`editors` merges per editor in object form.** If either side uses the array form, your
+  value replaces the inherited one.
 
-**Example: Disabling an inherited rule**
+Relative paths in an extended config are resolved against that config's own location, so a
+rule such as `"./rules/style.md"` in a shared config still points at the shared file. The
+same applies to script paths in simple hook commands, such as `node ./hooks/check.mjs`.
 
-Base config (`github:company/base`):
+This is different from [`ai.local.json`](/configuration/ai-local-json/), where an entry
+replaces the entry with the same name as a whole.
+
+This example disables an inherited rule. The base config (`github:company/base`) defines it:
 
 ```json
 {
@@ -102,7 +132,7 @@ Base config (`github:company/base`):
 }
 ```
 
-Your config:
+Your config turns it off:
 
 ```json
 {
@@ -113,14 +143,17 @@ Your config:
 }
 ```
 
-## Resolution Process
+## Resolution process
 
-1. references in `extends` are resolved and downloaded (cached in `.aix/cache`).
-2. Configs are loaded in order.
-3. Recursive `extends` are resolved (a config can extend another config).
-4. All configs are merged into a single "resolved" configuration.
-5. Your local `ai.json` is applied last.
-6. `ai.local.json` (if present) is applied on top.
+1. Each entry in `extends` is loaded in order. If an extended config has its own `extends`,
+   that is resolved first. A config that ends up extending itself is an error.
+2. The loaded configs are merged in order.
+3. Your `ai.json` is merged on top.
+4. `ai.local.json`, if present, is applied last.
+
+Git sources are downloaded each time aix loads the config. aix keeps a copy of each one under
+`.aix/extends/` so that the files it refers to stay available, and rebuilds that directory on
+every load.
 
 To see the final result of this process, run:
 

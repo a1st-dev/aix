@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Box, useApp, useStdout } from 'ink';
 import { SearchInput } from './SearchInput.js';
 import { ResultsList } from './ResultsList.js';
@@ -10,6 +10,7 @@ import { useKeyboard } from '../hooks/use-keyboard.js';
 import { useInstall } from '../hooks/use-install.js';
 import type { SearchUIProps } from '../types.js';
 import type { SearchType } from '../../../lib/search/types.js';
+import { normalizeSkillName } from '../../../lib/skill-source.js';
 
 const MIN_WIDTH_FOR_SPLIT = 80,
       MIN_WIDTH_FOR_DETAILS = 40,
@@ -39,8 +40,18 @@ export function SearchApp({
          [selectedIndex, setSelectedIndex] = useState(0),
          [showHelp, setShowHelp] = useState(false);
 
-   const { installedItems, installingItem, uninstallingItem, installedRef, installItem, uninstallItem } = useInstall({
-      alreadyInstalled,
+   // ai.json stores a skill under a normalized name, while a result carries the name its
+   // source gave it. Match on both, and hand the hook the names as the results spell them.
+   const alreadyInstalledResults = useMemo(() => {
+      return new Set([ ...results.skills, ...results.mcp ].map((result) => {
+         return result.name;
+      }).filter((name) => {
+         return alreadyInstalled.has(name) || alreadyInstalled.has(normalizeSkillName(name));
+      }));
+   }, [results, alreadyInstalled]);
+
+   const { installedItems, installingItem, uninstallingItem, actionError, installedRef, installItem, uninstallItem } = useInstall({
+      alreadyInstalled: alreadyInstalledResults,
       onInstall,
       onUninstall,
    });
@@ -56,6 +67,11 @@ export function SearchApp({
          isCurrentInstalled = currentResult ? installedItems.has(currentResult.name) : false,
          isCurrentInstalling = currentResult ? installingItem === currentResult.name : false,
          isCurrentUninstalling = currentResult ? uninstallingItem === currentResult.name : false;
+
+   // "?" toggles the help, and the text input sees the same keypress.
+   const handleQueryChange = useCallback((value: string) => {
+      setQuery(value.replaceAll('?', ''));
+   }, [setQuery]);
 
    const handleExit = useCallback(() => {
       onExit(installedRef.current);
@@ -92,9 +108,8 @@ export function SearchApp({
       <Box flexDirection="column" width={columns}>
          <SearchInput
             value={query}
-            onChange={setQuery}
+            onChange={handleQueryChange}
             loading={loading}
-            blockSpace={currentResults.length > 0}
          />
          {hasMultipleTabs && (
             <TabBar
@@ -132,7 +147,7 @@ export function SearchApp({
             </Box>
          )}
          <Box marginTop={1}>
-            <StatusBar error={error} showHelp={showHelp} showTabHint={hasMultipleTabs} />
+            <StatusBar error={error} actionError={actionError} showHelp={showHelp} showTabHint={hasMultipleTabs} />
          </Box>
       </Box>
    );

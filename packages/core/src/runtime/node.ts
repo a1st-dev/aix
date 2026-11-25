@@ -1,3 +1,5 @@
+import { resolve } from 'pathe';
+import { USER_HOME_ENV_VAR } from './user-home.js';
 import type {
    RuntimeAdapter,
    RuntimeDirent,
@@ -67,25 +69,98 @@ function getFileUrlForPath(path: string): string {
    return `${url}/`;
 }
 
+const GIT_AUTH_ENV_VAR = 'GIGET_AUTH',
+      ARBITRARY_URL = /^https?:/i;
+
+/**
+ * Begin a download with the git auth token hidden. giget reads the variable as the call
+ * starts, before its first await, so the token only has to be absent until the call returns
+ * its promise. Downloads that run at the same time are not affected.
+ */
+function startWithoutAuthToken<T>(start: () => Promise<T>): Promise<T> {
+   const { env } = getNodeProcess(),
+         token = env[GIT_AUTH_ENV_VAR];
+
+   delete env[GIT_AUTH_ENV_VAR];
+   try {
+      return start();
+   } finally {
+      if (token !== undefined) {
+         env[GIT_AUTH_ENV_VAR] = token;
+      }
+   }
+}
+
 async function downloadTemplate(
    template: string,
    options: RuntimeGitDownloadOptions,
 ): Promise<RuntimeGitDownloadResult> {
-   const { downloadTemplate: gigetDownload } = await import('giget');
+   const { downloadTemplate: gigetDownload } = await import('giget'),
+         start = (): Promise<RuntimeGitDownloadResult> => {
+            // aix resolves references itself. Without this, a reference that has no provider
+            // prefix is looked up in giget's template registry instead of on GitHub.
+            return gigetDownload(template, { ...options, registry: false });
+         };
 
-   return gigetDownload(template, options);
+   // The token is meant for a git host. giget would send it as a bearer token to any URL, and
+   // a config written by someone else can name any URL.
+   return ARBITRARY_URL.test(template) ? startWithoutAuthToken(start) : start();
+}
+
+const IGNORE_SCRIPTS_ENV_VAR = 'npm_config_ignore_scripts';
+
+let activeConfigInstalls = 0,
+    ignoreScriptsBeforeInstalls: string | undefined;
+
+/**
+ * Run a package install on behalf of a config. The packages and the directory come from a
+ * config that may have been downloaded, so nothing in them is allowed to pick what runs:
+ * callers pin the package manager to npm (nypm would otherwise take the command name from
+ * the directory's `packageManager` field or lockfiles) and no lifecycle script is run.
+ *
+ * nypm cannot pass flags or an environment to the package manager, so the setting goes into
+ * this process's environment, which the child inherits. Installs can overlap, so the previous
+ * value is restored only when the last one finishes.
+ */
+async function withLifecycleScriptsIgnored<T>(install: () => Promise<T>): Promise<T> {
+   const env = getNodeProcess().env;
+
+   if (activeConfigInstalls === 0) {
+      ignoreScriptsBeforeInstalls = env[IGNORE_SCRIPTS_ENV_VAR];
+   }
+
+   activeConfigInstalls += 1;
+   env[IGNORE_SCRIPTS_ENV_VAR] = 'true';
+
+   try {
+      return await install();
+   } finally {
+      activeConfigInstalls -= 1;
+
+      if (activeConfigInstalls === 0 && ignoreScriptsBeforeInstalls === undefined) {
+         delete env[IGNORE_SCRIPTS_ENV_VAR];
+      } else if (activeConfigInstalls === 0) {
+         env[IGNORE_SCRIPTS_ENV_VAR] = ignoreScriptsBeforeInstalls;
+      }
+   }
 }
 
 async function ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void> {
-   const { ensureDependencyInstalled: nypmEnsureInstalled } = await import('nypm');
+   const { addDependency } = await import('nypm');
 
-   await nypmEnsureInstalled(packageSpec, { cwd });
+   // nypm's own ensureDependencyInstalled cannot pin the package manager, and its "already
+   // installed" check never matches a spec that carries a version, so it always added anyway.
+   await withLifecycleScriptsIgnored(() => {
+      return addDependency(packageSpec, { cwd, packageManager: 'npm' });
+   });
 }
 
 async function installDependencies(cwd: string): Promise<void> {
    const { installDependencies: nypmInstallDependencies } = await import('nypm');
 
-   await nypmInstallDependencies({ cwd, silent: true });
+   await withLifecycleScriptsIgnored(() => {
+      return nypmInstallDependencies({ cwd, silent: true, packageManager: 'npm' });
+   });
 }
 
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
@@ -257,8 +332,12 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    },
    os: {
       homedir: () => {
-         const env = getNodeProcess().env;
+         const env = getNodeProcess().env,
+               userHomeOverride = env[USER_HOME_ENV_VAR];
 
+         if (userHomeOverride) {
+            return resolve(userHomeOverride);
+         }
          if (env.HOME) {
             return env.HOME;
          }

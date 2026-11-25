@@ -1,8 +1,9 @@
+import { setMaxBackupsPerFile } from './backup.js';
 import { dirname, resolve } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
-import { ConfigNotFoundError, ConfigParseError } from './errors.js';
+import { ConfigError, ConfigNotFoundError, ConfigParseError, ConfigValidationError } from './errors.js';
 import { extractValidationIssues, isZodErrorLike, toConfigValidationError } from './format-error.js';
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
@@ -49,6 +50,11 @@ export interface LoadConfigOptions {
    startDir?: string;
    /** Controls ai.lock.json autodetection. Defaults to auto. */
    lockfileMode?: LockfileMode;
+   /**
+    * Whether a git `extends` may run a package manager for the packages its hook scripts import.
+    * Defaults to true. Pass false when the config is only being read.
+    */
+   installExtendsDependencies?: boolean;
 }
 
 /**
@@ -78,43 +84,44 @@ export async function loadConfig(
       remoteSource,
       startDir: cwd = getRuntimeAdapter().process.cwd(),
       lockfileMode = 'auto',
+      installExtendsDependencies = true,
    } = opts;
 
-   // If remoteSource is provided, load from URL/git/path
-   if (remoteSource) {
-      return loadFromRemoteSource(remoteSource, cwd);
-   }
+   const discovered = remoteSource ? undefined : await discoverConfig(cwd, explicitPath);
 
-   // Existing discovery behavior
-   const discovered = await discoverConfig(cwd, explicitPath);
-
-   if (!discovered) {
+   if (!remoteSource && !discovered) {
       return undefined;
    }
 
-   return loadFromDiscovered(discovered, lockfileMode);
+   const loaded = discovered
+      ? await loadFromDiscovered(discovered, { lockfileMode, installExtendsDependencies })
+      : await loadFromRemoteSource(remoteSource ?? '', cwd, installExtendsDependencies);
+
+   // Backups are made far from here, by code that never sees the config.
+   setMaxBackupsPerFile(loaded.config.aix?.cache?.maxBackups);
+
+   return loaded;
 }
 
 /**
  * Load config from a remote source (URL, git shorthand, or local path).
  */
-async function loadFromRemoteSource(source: string, cwd: string): Promise<LoadedConfig> {
+async function loadFromRemoteSource(source: string, cwd: string, installDependencies: boolean): Promise<LoadedConfig> {
    const remote = await loadFromSource(source, cwd),
          resolved = await resolveExtends(remote.content, {
             baseDir: remote.baseUrl,
             projectRoot: cwd,
             isRemote: remote.isRemote,
+            installDependencies,
          });
 
    let validated: AiJsonConfig;
 
    try {
-      validated = parseConfig(resolved);
+      validated = parseResolvedConfig(resolved);
    } catch (error) {
-      const validationError = toConfigValidationError(error);
-
-      if (validationError) {
-         throw validationError;
+      if (error instanceof ConfigValidationError) {
+         throw error;
       }
       throw new ConfigParseError(error instanceof Error ? error.message : String(error), source);
    }
@@ -129,6 +136,14 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
       configBaseDir: remote.baseUrl,
       gitSource: remote.gitSource,
    };
+}
+
+function parseResolvedConfig(resolved: unknown): AiJsonConfig {
+   try {
+      return parseConfig(resolved);
+   } catch (error) {
+      throw toConfigValidationError(error, resolved) ?? error;
+   }
 }
 
 /**
@@ -172,13 +187,15 @@ async function loadFromDiscovered(discovered: {
    packageJsonAlsoHasAi?: boolean;
    localPath?: string;
    localContent?: string;
-}, lockfileMode: LockfileMode): Promise<LoadedConfig> {
+}, options: { lockfileMode: LockfileMode; installExtendsDependencies: boolean }): Promise<LoadedConfig> {
+   const { lockfileMode, installExtendsDependencies: installDependencies } = options;
+
    try {
       const parsed = parseConfigContent(discovered.content) as Record<string, unknown>,
             baseDir = dirname(discovered.path),
-            resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir });
+            resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir, installDependencies });
 
-      let validated = parseConfig(resolved);
+      let validated = parseResolvedConfig(resolved);
 
       const warnings: string[] = [];
 
@@ -224,14 +241,10 @@ async function loadFromDiscovered(discovered: {
          ...lockfile,
       };
    } catch (error) {
-      if (error instanceof ConfigParseError) {
+      // These already say what went wrong and where (a circular extends, a failed download,
+      // a file other than ai.json that does not parse); relabelling them would hide that.
+      if (error instanceof ConfigError) {
          throw error;
-      }
-
-      const validationError = toConfigValidationError(error);
-
-      if (validationError) {
-         throw validationError;
       }
       if (error instanceof Error) {
          throw new ConfigParseError(error.message, discovered.path);

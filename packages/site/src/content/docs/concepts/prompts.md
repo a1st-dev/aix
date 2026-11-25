@@ -1,11 +1,11 @@
 ---
 sidebar:
-   order: 3
+   order: 30
 title: Prompts
 description: Reusable slash commands and workflows.
 ---
 
-**Prompts** are pre-defined commands or workflows that you can invoke in your editor, typically via a slash command (e.g., `/refactor`, `/review`).
+**Prompts** are predefined commands or workflows that you invoke in your editor, usually as a slash command such as `/refactor` or `/review`.
 
 ## Usage
 
@@ -27,25 +27,31 @@ Define prompts in `ai.json`:
 }
 ```
 
-## Editor Support
+## Editor support
 
-aix maps these prompts to the native feature in each editor when one exists:
+aix writes a prompt in the editor's own prompt format when the editor has one, and converts it
+to a skill when it does not:
 
-- **Cursor**: Maps to `.cursor/prompts/` (accessible via `/`).
-- **Claude Code**: Maps to `.claude/commands/`.
-- **GitHub Copilot**: Project installs map to `.github/prompts/*.prompt.md`, with native
-  prompt-file frontmatter for `name`, `description`, and `argument-hint`. User-scope installs
-  are converted into Copilot skills under `~/.config/github-copilot/skills/`.
-- **Windsurf**: Maps to Cascade commands.
-- **Codex**: Prompts are deprecated and unsupported natively. aix converts them to instruction-only Agent Skills during install.
-- **Antigravity**: Standalone workflows are deprecated upstream; aix converts prompts to instruction-only Agent Skills in `.agents/skills/` during install.
-- **OpenCode**: Maps to markdown command files in `.opencode/commands/` or `~/.config/opencode/commands/`.
-- **Grok CLI**: Prompts are converted to instruction-only Agent Skills in `.grok/skills/`.
-- **Zed**: Not supported.
+- **Native prompt files**: Cursor and Claude Code (commands), Windsurf (workflows), OpenCode
+  (commands), and GitHub Copilot at project scope (prompt files).
+- **Converted to skills**: Zed, Codex, Google Antigravity, and Grok CLI, plus GitHub Copilot at
+  user scope. See [Conversion to skills](#conversion-to-skills).
 
-## Prompt Files
+The [support matrix](/editors/supported-editors/) shows the current status for every editor.
+Each editor page lists the exact project and user paths:
+[Cursor](/editors/cursor/#cursor-feature-prompts),
+[GitHub Copilot](/editors/copilot/#copilot-feature-prompts),
+[Claude Code](/editors/claude-code/#claude-code-feature-prompts),
+[Windsurf](/editors/windsurf/#windsurf-feature-prompts),
+[Zed](/editors/zed/#zed-feature-prompts),
+[Codex](/editors/codex/#codex-feature-prompts),
+[Google Antigravity](/editors/antigravity/#antigravity-feature-prompts),
+[OpenCode](/editors/opencode/#opencode-feature-prompts), and
+[Grok CLI](/editors/grok/#grok-feature-prompts).
 
-Prompt files are standard markdown. Markdown is preserved as-is.
+## Prompt files
+
+Prompt files are standard markdown. aix keeps the markdown as written.
 
 ### Example `prompts/review.md`
 
@@ -61,7 +67,7 @@ Provide the output in markdown format with code blocks for suggested fixes.
 
 ## Arguments
 
-Some prompts take arguments. Use the `argumentHint` property to explicitly tell the user what to provide.
+Some prompts take arguments. Use the `argumentHint` property to tell the user what to provide.
 
 ```json
 "refactor": {
@@ -69,18 +75,26 @@ Some prompts take arguments. Use the `argumentHint` property to explicitly tell 
 }
 ```
 
-The content of the prompt will be prefixed to the user's input.
+The content of the prompt is prefixed to the user's input.
 
-To install one prompt without creating `ai.json`, use direct install:
+## Install one prompt without ai.json
+
+`aix install --type prompt` installs a single prompt file into one editor:
 
 ```bash
 aix install ./prompts/review.md --type prompt --name review --target claude-code --user
 ```
 
-## Codex and Antigravity conversion
+## Conversion to skills
 
-Editors like Codex and Antigravity use [Agent Skills][agent-skills] for reusable workflows (with Antigravity having deprecated standalone `.agents/workflows/` files in favor of skills). When you install an `ai.json` that contains prompts to Codex or Antigravity, aix converts each prompt into an instruction-only skill and links it into `.agents/skills/`. The generated skill keeps the prompt content as instructions and includes the prompt description as the skill description.
+Zed, Codex, Google Antigravity, and Grok CLI use [Agent Skills][agent-skills] for reusable
+workflows and have no separate prompt files. When you install prompts to one of these editors,
+aix converts each prompt into an instruction-only skill and installs it where the editor reads
+skills. GitHub Copilot gets the same treatment at user scope. The generated skill keeps the
+prompt content as its instructions and uses the prompt description as the skill description.
 
-Name conflicts are resolved in favor of real skills. If `skills.review` and `prompts.review` are both present, aix installs the configured skill as `review` and installs the converted prompt as `prompt-review`. If that name is already taken, aix adds a numeric suffix.
+Name conflicts are resolved in favor of real skills. If `skills.review` and `prompts.review`
+are both present, aix installs the configured skill as `review` and the converted prompt as
+`prompt-review`. If that name is also taken, aix adds a numeric suffix.
 
 [agent-skills]: https://agentskills.io

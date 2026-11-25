@@ -1,4 +1,4 @@
-import { join, basename, resolve, dirname } from 'pathe';
+import { join, resolve, dirname, extname } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import {
    getImportedDir,
@@ -8,6 +8,9 @@ import {
 import { safeRm } from './fs/safe-rm.js';
 import type { GitSourceInfo } from './remote-loader.js';
 import { getRuntimeAdapter } from './runtime/index.js';
+import { isRecord } from './type-guards.js';
+
+type SkillValue = NonNullable<AiJsonConfig['skills']>[string];
 
 export interface WrittenImports {
    rules: Record<string, string>;
@@ -132,15 +135,45 @@ export async function writeImportedContent(
 }
 
 /**
- * Commit staged import: backup existing, move staging to final location, cleanup.
- * This should be called after ai.json has been successfully written.
+ * Move every staged entry into the imported directory. An entry (one rule, prompt or agent
+ * file, or one skill directory) replaces an existing entry of the same name as a whole, so a
+ * re-imported skill does not keep files its new version dropped. Entries that were not
+ * staged are left alone: ai.json may still reference them from an earlier import.
+ */
+async function mergeStagedImport(stagingDir: string, finalDir: string): Promise<void> {
+   const { fs } = getRuntimeAdapter(),
+         sections = (await fs.readdir(stagingDir, { withFileTypes: true })).filter((section) => {
+            return section.isDirectory();
+         });
+
+   await Promise.all(sections.map(async (section) => {
+      const stagedSectionDir = join(stagingDir, section.name),
+            finalSectionDir = join(finalDir, section.name),
+            entryNames = await fs.readdir(stagedSectionDir);
+
+      await fs.mkdir(finalSectionDir, { recursive: true });
+
+      await Promise.all(entryNames.map(async (entryName) => {
+         const finalPath = join(finalSectionDir, entryName);
+
+         await safeRm(finalPath, { force: true });
+         await fs.rename(join(stagedSectionDir, entryName), finalPath);
+      }));
+   }));
+}
+
+/**
+ * Commit staged import: backup existing, merge staging into the final location, cleanup.
+ * This should be called after ai.json has been successfully written. If it throws, call
+ * `rollbackImport` to restore the imported directory from the backup taken here.
  *
  * @param projectRoot - The project root directory
  */
 export async function commitImport(projectRoot: string): Promise<void> {
    const stagingDir = getImportStagingDir(projectRoot),
          finalDir = getImportedDir(projectRoot),
-         backupDir = getImportBackupDir(projectRoot);
+         backupDir = getImportBackupDir(projectRoot),
+         { fs } = getRuntimeAdapter();
 
    // If staging directory doesn't exist, nothing was staged - skip commit
    if (!(await dirExists(stagingDir))) {
@@ -150,17 +183,16 @@ export async function commitImport(projectRoot: string): Promise<void> {
    // Clean any existing backup
    await safeRm(backupDir, { force: true });
 
-   // If final directory exists, move it to backup
+   // The backup is a copy, not a move: the existing files stay in place to be merged into.
    if (await dirExists(finalDir)) {
-      await getRuntimeAdapter().fs.mkdir(dirname(backupDir), { recursive: true });
-      await getRuntimeAdapter().fs.rename(finalDir, backupDir);
+      await fs.mkdir(dirname(backupDir), { recursive: true });
+      await fs.cp(finalDir, backupDir, { recursive: true });
    }
 
-   // Move staging to final location
-   await getRuntimeAdapter().fs.mkdir(join(projectRoot, '.aix'), { recursive: true });
-   await getRuntimeAdapter().fs.rename(stagingDir, finalDir);
+   await mergeStagedImport(stagingDir, finalDir);
 
-   // Clean up backup (success path)
+   // Clean up (success path)
+   await safeRm(stagingDir, { force: true });
    await safeRm(backupDir, { force: true });
 }
 
@@ -206,9 +238,23 @@ interface CopyTask {
    type: 'file' | 'directory';
    src: string;
    dest: string;
-   name: string;
-   newPath: string;
-   itemRef: Record<string, unknown>;
+}
+
+interface CopyPlan {
+   tasks: CopyTask[];
+   warnings: string[];
+}
+
+interface LocalPathEntry {
+   path: string;
+}
+
+interface FileSection<T extends object> {
+   /** Singular label used in warnings, e.g. "Rule" */
+   label: string;
+   /** Directory name under `.aix/imported/` */
+   directory: string;
+   entries: Record<string, T | LocalPathEntry | string | false> | undefined;
 }
 
 /**
@@ -221,150 +267,112 @@ function getRelativePath(item: unknown): string | undefined {
       return isRelativePath(item) ? item : undefined;
    }
    // Object form: { path: "./rules/general.md" }
-   if (typeof item !== 'object' || item === null || !('path' in item)) {
+   if (!isRecord(item)) {
       return undefined;
    }
-   const path = (item as { path: unknown }).path;
 
-   return typeof path === 'string' && isRelativePath(path) ? path : undefined;
+   return typeof item.path === 'string' && isRelativePath(item.path) ? item.path : undefined;
 }
 
 /**
- * Build copy tasks for rules, prompts, agents, and skills with relative paths.
+ * Extract the relative directory of a local skill reference. A skill can also wrap its
+ * reference as `{ source: ... }`, and a `path` beside `git` or `npm` is a location inside
+ * that repository or package rather than a local directory.
+ */
+function getRelativeSkillPath(skill: unknown): string | undefined {
+   if (!isRecord(skill)) {
+      return getRelativePath(skill);
+   }
+   if ('source' in skill) {
+      return getRelativeSkillPath(skill.source);
+   }
+   if ('git' in skill || 'npm' in skill) {
+      return undefined;
+   }
+
+   return getRelativePath(skill);
+}
+
+function withLocalPath<T extends object>(entry: T | string | false, path: string): (T & LocalPathEntry) | LocalPathEntry {
+   if (typeof entry === 'object') {
+      return { ...entry, path };
+   }
+
+   return { path };
+}
+
+function withLocalSkillPath(skill: SkillValue, path: string): SkillValue {
+   if (typeof skill === 'object' && 'source' in skill) {
+      return { ...skill, source: { path } };
+   }
+
+   return withLocalPath(skill, path);
+}
+
+/**
+ * Plan the copy of every file a section references by relative path, and point each of those
+ * entries at its imported copy. Each file is staged under its config key rather than its
+ * original file name: keys are unique within a section, while two entries may point at files
+ * with the same name in different directories.
+ */
+function stageSectionFiles<T extends object>(section: FileSection<T>, configBaseDir: string, stagingDir: string, plan: CopyPlan): void {
+   const { label, directory, entries = {} } = section;
+
+   for (const [name, entry] of Object.entries(entries)) {
+      const relativePath = getRelativePath(entry);
+
+      if (!relativePath) {
+         continue;
+      }
+
+      const src = resolve(configBaseDir, relativePath),
+            fileName = `${name}${extname(src)}`;
+
+      if (!getRuntimeAdapter().fs.existsSync(src)) {
+         plan.warnings.push(`${label} "${name}": source file not found: ${relativePath}`);
+         continue;
+      }
+
+      plan.tasks.push({ type: 'file', src, dest: join(stagingDir, directory, fileName) });
+      entries[name] = withLocalPath(entry, `./.aix/imported/${directory}/${fileName}`);
+   }
+}
+
+/**
+ * Plan the copies for rules, prompts, agents, and skills with relative paths, and point each
+ * of those entries in `config` at its imported copy.
  */
 function buildCopyTasks(
    config: Partial<AiJsonConfig>,
    configBaseDir: string,
    stagingDir: string,
-): { tasks: CopyTask[]; warnings: string[] } {
-   const tasks: CopyTask[] = [],
-         warnings: string[] = [],
-         stagingRulesDir = join(stagingDir, 'rules'),
-         stagingPromptsDir = join(stagingDir, 'prompts'),
-         stagingAgentsDir = join(stagingDir, 'agents'),
-         stagingSkillsDir = join(stagingDir, 'skills');
+): CopyPlan {
+   const plan: CopyPlan = { tasks: [], warnings: [] },
+         { skills = {} } = config;
 
-   // Process rules
-   if (config.rules && typeof config.rules === 'object') {
-      for (const [name, rule] of Object.entries(config.rules)) {
-         const relativePath = getRelativePath(rule);
+   stageSectionFiles({ label: 'Rule', directory: 'rules', entries: config.rules }, configBaseDir, stagingDir, plan);
+   stageSectionFiles({ label: 'Prompt', directory: 'prompts', entries: config.prompts }, configBaseDir, stagingDir, plan);
+   stageSectionFiles({ label: 'Agent', directory: 'agents', entries: config.agents }, configBaseDir, stagingDir, plan);
 
-         if (!relativePath) {
-            continue;
-         }
-         const srcPath = resolve(configBaseDir, relativePath),
-               fileName = basename(srcPath);
+   for (const [name, skill] of Object.entries(skills)) {
+      const relativePath = getRelativeSkillPath(skill);
 
-         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
-            warnings.push(`Rule "${name}": source file not found: ${relativePath}`);
-            continue;
-         }
-
-         // Convert string shorthand to object form if needed
-         if (typeof rule === 'string') {
-            config.rules[name] = { path: rule };
-         }
-
-         tasks.push({
-            type: 'file',
-            src: srcPath,
-            dest: join(stagingRulesDir, fileName),
-            name,
-            newPath: `./.aix/imported/rules/${fileName}`,
-            itemRef: config.rules[name] as Record<string, unknown>,
-         });
+      if (!relativePath) {
+         continue;
       }
+
+      const src = resolve(configBaseDir, relativePath);
+
+      if (!getRuntimeAdapter().fs.existsSync(src)) {
+         plan.warnings.push(`Skill "${name}": source directory not found: ${relativePath}`);
+         continue;
+      }
+
+      plan.tasks.push({ type: 'directory', src, dest: join(stagingDir, 'skills', name) });
+      skills[name] = withLocalSkillPath(skill, `./.aix/imported/skills/${name}`);
    }
 
-   // Process prompts
-   if (config.prompts && typeof config.prompts === 'object') {
-      for (const [name, prompt] of Object.entries(config.prompts)) {
-         const relativePath = getRelativePath(prompt);
-
-         if (!relativePath) {
-            continue;
-         }
-         const srcPath = resolve(configBaseDir, relativePath),
-               fileName = basename(srcPath);
-
-         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
-            warnings.push(`Prompt "${name}": source file not found: ${relativePath}`);
-            continue;
-         }
-
-         // Convert string shorthand to object form if needed
-         if (typeof prompt === 'string') {
-            config.prompts[name] = { path: prompt };
-         }
-
-         tasks.push({
-            type: 'file',
-            src: srcPath,
-            dest: join(stagingPromptsDir, fileName),
-            name,
-            newPath: `./.aix/imported/prompts/${fileName}`,
-            itemRef: config.prompts[name] as Record<string, unknown>,
-         });
-      }
-   }
-
-   // Process agents
-   if (config.agents && typeof config.agents === 'object') {
-      for (const [name, agent] of Object.entries(config.agents)) {
-         const relativePath = getRelativePath(agent);
-
-         if (!relativePath) {
-            continue;
-         }
-         const srcPath = resolve(configBaseDir, relativePath),
-               fileName = basename(srcPath);
-
-         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
-            warnings.push(`Agent "${name}": source file not found: ${relativePath}`);
-            continue;
-         }
-
-         if (typeof agent === 'string') {
-            config.agents[name] = { path: agent };
-         }
-
-         tasks.push({
-            type: 'file',
-            src: srcPath,
-            dest: join(stagingAgentsDir, fileName),
-            name,
-            newPath: `./.aix/imported/agents/${fileName}`,
-            itemRef: config.agents[name] as Record<string, unknown>,
-         });
-      }
-   }
-
-   // Process skills
-   if (config.skills && typeof config.skills === 'object') {
-      for (const [name, skill] of Object.entries(config.skills)) {
-         const relativePath = getRelativePath(skill);
-
-         if (!relativePath) {
-            continue;
-         }
-         const srcPath = resolve(configBaseDir, relativePath);
-
-         if (!getRuntimeAdapter().fs.existsSync(srcPath)) {
-            warnings.push(`Skill "${name}": source directory not found: ${relativePath}`);
-            continue;
-         }
-         tasks.push({
-            type: 'directory',
-            src: srcPath,
-            dest: join(stagingSkillsDir, name),
-            name,
-            newPath: `./.aix/imported/skills/${name}`,
-            itemRef: skill as Record<string, unknown>,
-         });
-      }
-   }
-
-   return { tasks, warnings };
+   return plan;
 }
 
 /**
@@ -407,11 +415,6 @@ export async function localizeRemoteConfig(
    // Copy directories sequentially (recursive operations)
    for (const task of dirTasks) {
       await copyDirectory(task.src, task.dest); // eslint-disable-line no-await-in-loop -- Recursive dir copy
-   }
-
-   // Update paths in the cloned config
-   for (const task of tasks) {
-      task.itemRef.path = task.newPath;
    }
 
    return { config: localizedConfig, filesCopied: tasks.length, warnings };

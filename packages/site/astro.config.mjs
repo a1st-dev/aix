@@ -5,7 +5,14 @@ import vercel from "@astrojs/vercel";
 import icon from "astro-icon";
 import umami from "@yeskunall/astro-umami";
 import astroLlmsTxt from "@4hse/astro-llms-txt";
-import { isIndexableMigrationSitemapURL } from "./src/lib/editor-support";
+import {
+  editorSupportProfiles,
+  formatEditorNameList,
+  getEditorSupportRoute,
+  getMigrationRoute,
+  indexableMigrationPairs,
+  isIndexableMigrationSitemapURL,
+} from "./src/lib/editor-support";
 import { docsSidebar } from "./src/starlight-sidebar.js";
 
 const umamiWebsiteId = process.env.UMAMI_WEBSITE_ID;
@@ -14,6 +21,20 @@ const isVercelProduction = process.env.VERCEL_ENV === "production";
 if (isVercelProduction && !umamiWebsiteId) {
   throw new Error("UMAMI_WEBSITE_ID must be set for production deployments.");
 }
+
+const siteDescription = `One config file for every AI editor. Define skills, rules, prompts, MCP servers, hooks, agents, and plugins in ai.json, then install them to ${formatEditorNameList(editorSupportProfiles)}.`;
+
+// The llms.txt integration matches page paths without a leading slash.
+const toLlmsPath = (route) => route.replace(/^\//, "");
+
+// Only the featured migration guides go into llms-full.txt. The other generated pairs
+// repeat the same comparison data, and the editor changelog is a release log, not docs.
+const llmsEditorPages = [
+  "editors/supported-editors/",
+  "editors/migrations/",
+  ...editorSupportProfiles.map((profile) => toLlmsPath(getEditorSupportRoute(profile.id))),
+  ...indexableMigrationPairs.map((pair) => toLlmsPath(getMigrationRoute(pair.from, pair.to))),
+];
 
 export default defineConfig({
   site: "https://aix.a1st.dev",
@@ -26,7 +47,7 @@ export default defineConfig({
     ...(umamiWebsiteId ? [umami({ id: umamiWebsiteId })] : []),
     astroLlmsTxt({
       title: "aix",
-      description: "One config file for every AI editor. Define skills, rules, prompts, and MCP servers in ai.json.",
+      description: siteDescription,
       docSet: [
         {
           title: "Complete documentation",
@@ -42,16 +63,14 @@ export default defineConfig({
             "configuration/**",
             "getting-started/",
             "getting-started/**",
-            "editors/",
-            "editors/**",
+            ...llmsEditorPages,
           ],
         },
       ],
     }),
     starlight({
       title: "aix",
-      description:
-        "One config file. Every AI editor. Define skills, rules, prompts, and MCP servers in ai.json — install to Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, and Codex.",
+      description: siteDescription,
       logo: {
         light: "./src/assets/logo-light.svg",
         dark: "./src/assets/logo-dark.svg",
@@ -64,17 +83,15 @@ export default defineConfig({
           href: "https://github.com/a1st-dev/aix",
         },
       ],
-      customCss: [
-        "@fontsource/cormorant-garamond/400.css",
-        "@fontsource/cormorant-garamond/500.css",
-        "@fontsource/cormorant-garamond/600.css",
-        "@fontsource/cormorant-garamond/700.css",
-        "@fontsource/instrument-sans/400.css",
-        "@fontsource/instrument-sans/500.css",
-        "@fontsource/instrument-sans/600.css",
-        "@fontsource/instrument-sans/700.css",
-        "./src/styles/theme.css",
-      ],
+      customCss: ["./src/styles/fonts.css", "./src/styles/theme.css"],
+      expressiveCode: {
+        themes: ["vitesse-dark", "vitesse-light"],
+        useStarlightUiThemeColors: true,
+        styleOverrides: {
+          borderRadius: "0.5rem",
+          borderColor: "var(--sl-color-hairline-light)",
+        },
+      },
       components: {
         Head: './src/components/Head.astro',
       },

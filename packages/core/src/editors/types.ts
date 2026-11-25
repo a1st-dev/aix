@@ -6,6 +6,7 @@ import type {
    PluginsConfig,
    MarketplacesConfig,
 } from '@a1st/aix-schema';
+import { editorAliasNames, editorInputNames, editorNames } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
 import type { ManagedSectionMerge } from './section-managed-markdown.js';
 import type { EditorStrategyBundle, UnsupportedHookField } from './strategies/types.js';
@@ -79,34 +80,13 @@ export interface TargetScopeLimitations {
    };
 }
 
-export const editorNames = [
-   'windsurf',
-   'cursor',
-   'claude-code',
-   'copilot',
-   'zed',
-   'codex',
-   'antigravity',
-   'opencode',
-   'grok',
-] as const;
+export { editorNames, editorAliasNames, editorInputNames };
 
 export type EditorName = (typeof editorNames)[number];
-
-export const editorAliasNames = [
-   'devin',
-   'agy',
-   'grok-cli',
-] as const;
 
 export type EditorAliasName = (typeof editorAliasNames)[number];
 
 export type EditorInputName = EditorName | EditorAliasName;
-
-export const editorInputNames = [
-   ...editorNames,
-   ...editorAliasNames,
-] as const;
 
 export function normalizeEditorName(editor: string): EditorName {
    switch (editor.toLowerCase()) {
@@ -212,26 +192,10 @@ export interface ApplyOptions {
    /** Whether to target project-local or user-level editor config where supported. */
    targetScope?: 'project' | 'user';
    /**
-    * If true, overwrite existing JSON config files entirely instead of merging. Default is false,
-    * which means JSON files in editor config folders are recursively merged with existing content.
-    * Markdown files are always overwritten regardless of this setting.
-    */
-   overwrite?: boolean;
-   /**
     * If true, skip all global configuration changes (for editors with global-only features).
     * Useful in CI environments or when user doesn't want to modify global config.
     */
    skipGlobal?: boolean;
-   /**
-    * If true, automatically confirm global changes without prompting.
-    * Used for testing or non-interactive environments.
-    */
-   autoConfirmGlobal?: boolean;
-   /**
-    * If true, remove the .aix folder before installing to ensure a clean state.
-    * This ensures the folder contents exactly match what ai.json declares.
-    */
-   clean?: boolean;
    /**
     * Base directory/URL for resolving relative paths in the config (skills, rules, etc.). When
     * installing from a remote URL, this is the remote URL directory. When installing from a local

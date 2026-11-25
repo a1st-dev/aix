@@ -2,7 +2,7 @@ import pMap from 'p-map';
 import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
-import { parseTOML, stringifyTOML } from 'confbox';
+import { stringifyTOML } from 'confbox';
 import { parseJsonc, modifyJsonc } from '@a1st/aix-schema';
 import { isRecord } from '../type-guards.js';
 import { planInstallReceipt } from './install-receipts.js';
@@ -27,7 +27,8 @@ import {
    OpenCodeAdapter,
    GrokAdapter,
 } from './adapters/index.js';
-import { analyzeGlobalChanges, applyGlobalChanges } from '../global/processor.js';
+import { analyzeGlobalChanges, planGlobalChanges } from '../global/processor.js';
+import { parseToml, updateToml } from '../toml.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
@@ -80,7 +81,9 @@ export function getAcceptedEditorNames(): EditorInputName[] {
 }
 
 /**
- * Check if an editor is installed globally on the system by looking for its config/data directory.
+ * Check if an editor is installed by looking for its config or data directory under the home
+ * directory. Every path is relative to home on purpose: detection then follows an alternate
+ * home (`AIX_USER_HOME`), and a run pointed at a throwaway home finds no editors.
  */
 async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
    assertGlobalHomeAccess('detecting globally installed editors');
@@ -251,7 +254,7 @@ function stripTargetScopeLimitedFeatures(
 
 /**
  * Process global-only features for an editor.
- * Analyzes what global changes are needed and applies them (with user confirmation in CLI).
+ * Analyzes what global changes are needed and plans them as file changes.
  */
 async function processGlobalFeatures(
    adapter: EditorAdapter,
@@ -280,13 +283,9 @@ async function processGlobalFeatures(
    // Analyze what global changes are needed
    const changes = await analyzeGlobalChanges(adapter.name, globalConfig, mcpStrategy, promptsStrategy);
 
-   // Apply the changes (respecting skipGlobal and autoConfirmGlobal options)
-   const globalResult = await applyGlobalChanges(changes, {
+   const globalResult = await planGlobalChanges(changes, {
       skipGlobal: options?.skipGlobal,
       skipGlobalReason: options?.skipGlobalReason,
-      autoConfirm: options?.autoConfirmGlobal,
-      projectPath: projectRoot,
-      dryRun: true,
    });
 
    let receiptChanges: FileChange[] = [];
@@ -296,7 +295,8 @@ async function processGlobalFeatures(
                return change.configsMatch;
             })],
             nativeChanges: FileChange[] = [],
-            contents = new Map<string, string>();
+            contents = new Map<string, string>(),
+            onDisk = new Map<string, string | null>();
 
       for (const change of installed) {
          const { fs } = getRuntimeAdapter(),
@@ -306,6 +306,7 @@ async function processGlobalFeatures(
          if (content === undefined) {
             // eslint-disable-next-line no-await-in-loop -- Changes sharing one global file must be planned in order.
             content = exists ? await fs.readFile(change.globalPath, 'utf-8') : '{}';
+            onDisk.set(change.globalPath, exists ? content : null);
             if (!exists && change.format === 'toml') {
                content = '';
             }
@@ -315,7 +316,7 @@ async function processGlobalFeatures(
              managedContent = change.promptContent;
 
          if (change.type === 'mcp') {
-            const parsed: unknown = change.format === 'toml' ? parseTOML(content) : parseJsonc(content).data,
+            const parsed: unknown = change.format === 'toml' ? parseToml(content) : parseJsonc(content).data,
                   key = change.format === 'toml' ? 'mcp_servers' : 'mcpServers',
                   servers = isRecord(parsed) ? parsed[key] : undefined,
                   entry = change.mcpEntry ?? (isRecord(servers) ? servers[change.name] : undefined);
@@ -331,13 +332,16 @@ async function processGlobalFeatures(
                   merged = deepMergeJson(parsed, contribution, { resolver: mcpConfigMergeResolver });
 
             managedContent = change.format === 'toml' ? stringifyTOML(contribution) : JSON.stringify(contribution);
-            desiredContent = change.format === 'toml' ? stringifyTOML(merged) : modifyJsonc(content, [key, change.name], entry);
+            desiredContent = change.format === 'toml' ? updateToml(content, merged) : modifyJsonc(content, [key, change.name], entry);
             if (change.configsMatch) {
                desiredContent = content;
             }
          }
 
-         const action = getFileChangeAction(exists ? content : null, desiredContent);
+         // Several servers can share one file, and the last change planned for a path is the one
+         // applied. Compare with the file on disk, not with the content an earlier server in this
+         // loop produced, or an unchanged server planned last would cancel the write.
+         const action = getFileChangeAction(onDisk.get(change.globalPath) ?? null, desiredContent);
 
          contents.set(change.globalPath, desiredContent);
          nativeChanges.push({
@@ -404,8 +408,10 @@ export async function installToEditors(
    projectRoot: string,
    options?: ApplyOptions,
 ): Promise<ApplyResult[]> {
+   // One editor at a time: editors share files such as .mcp.json, AGENTS.md, and the .aix skill
+   // copies, and each install reads a file, plans against it, and writes it back.
    return pMap(normalizeEditorNames(editors), (editor) => installToEditor(editor, config, projectRoot, options), {
-      concurrency: 2,
+      concurrency: 1,
    });
 }
 

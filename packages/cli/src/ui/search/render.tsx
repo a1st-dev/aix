@@ -2,10 +2,7 @@ import { render } from 'ink';
 import { SearchApp } from './components/SearchApp.js';
 import type { SearchUIProps, InstallItem } from './types.js';
 
-export interface RenderSearchUIOptions extends Omit<SearchUIProps, 'onExit'> {
-   onInstall: (item: InstallItem) => Promise<boolean>;
-   onUninstall?: (item: InstallItem) => Promise<boolean>;
-}
+export type RenderSearchUIOptions = Omit<SearchUIProps, 'onExit'>;
 
 export interface RenderSearchUIResult {
    /** Items installed during the search session */

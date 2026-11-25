@@ -11,7 +11,7 @@ export interface ClearCacheResult {
 
 /**
  * Clear all cache and temporary content from .aix/.tmp/ directory.
- * Also cleans up legacy directories (.aix/backups, .aix/cache, .aix/node_modules).
+ * Also cleans up legacy directories (.aix/cache, .aix/node_modules).
  */
 export async function clearCache(projectRoot: string): Promise<ClearCacheResult> {
    const aixDir = join(projectRoot, '.aix'),
@@ -35,7 +35,8 @@ export async function clearCache(projectRoot: string): Promise<ClearCacheResult>
    }
 
    // Legacy cleanup: remove old top-level directories if they exist
-   const legacyDirs = ['backups', 'cache', 'node_modules'],
+   // `.aix/backups` is deliberately absent: under the home directory it is the backup store.
+   const legacyDirs = ['cache', 'node_modules'],
          legacyPaths = legacyDirs.map((dir) => join(aixDir, dir)).filter((path) => getRuntimeAdapter().fs.existsSync(path));
 
    await Promise.all(legacyPaths.map((path) => safeRm(path, { force: true })));

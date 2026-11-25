@@ -5,7 +5,10 @@ import { getRulesCacheDir } from '../cache/paths.js';
 import { loadFromGit } from '../git-loader.js';
 import { resolveNpmPath } from '../npm/resolve.js';
 import { parseRuleFrontmatter } from '../frontmatter-parser.js';
+import type { ParsedRuleFrontmatter } from '../editors/strategies/types.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
+
+const DEFAULT_ACTIVATION: ActivationMode = 'always';
 
 export interface LoadedRule {
    name: string;
@@ -20,6 +23,19 @@ export interface LoadedRule {
 }
 
 /**
+ * Combine the metadata set on a rule in ai.json with the frontmatter of its file. A value
+ * set in ai.json wins, including an explicit `"activation": "always"`; the default applies
+ * only when neither side sets an activation.
+ */
+function mergeRuleMetadata(rule: RuleObject, frontmatter: ParsedRuleFrontmatter['metadata']): LoadedRule['metadata'] {
+   return {
+      description: rule.description ?? frontmatter.description,
+      activation: rule.activation ?? frontmatter.activation ?? DEFAULT_ACTIVATION,
+      globs: rule.globs ?? frontmatter.globs,
+   };
+}
+
+/**
  * Load a single rule from any source.
  * @param name - The rule name (key from the rules object)
  * @param value - The rule value (string shorthand or object)
@@ -28,11 +44,6 @@ export interface LoadedRule {
 export async function loadRule(name: string, value: RuleValue, basePath: string): Promise<LoadedRule> {
    // Normalize string shorthand transparently
    const ruleObj: RuleObject = typeof value === 'string' ? normalizeSourceRef(value) : value;
-   const metadata = {
-      description: ruleObj.description,
-      activation: (ruleObj.activation ?? 'always') as ActivationMode,
-      globs: ruleObj.globs,
-   };
 
    // Inline content
    if (ruleObj.content) {
@@ -40,7 +51,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
          name,
          content: ruleObj.content,
          source: 'inline',
-         metadata,
+         metadata: mergeRuleMetadata(ruleObj, {}),
       };
    }
 
@@ -55,11 +66,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
          content: parsed.content,
          source: 'file',
          sourcePath: fullPath,
-         metadata: {
-            description: metadata.description ?? parsed.metadata.description,
-            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
-            globs: metadata.globs ?? parsed.metadata.globs,
-         },
+         metadata: mergeRuleMetadata(ruleObj, parsed.metadata),
       };
    }
 
@@ -78,11 +85,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
          content: parsed.content,
          source: 'git',
          sourcePath: result.sourcePath,
-         metadata: {
-            description: metadata.description ?? parsed.metadata.description,
-            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
-            globs: metadata.globs ?? parsed.metadata.globs,
-         },
+         metadata: mergeRuleMetadata(ruleObj, parsed.metadata),
       };
    }
 
@@ -102,11 +105,7 @@ export async function loadRule(name: string, value: RuleValue, basePath: string)
          content: parsed.content,
          source: 'npm',
          sourcePath: filePath,
-         metadata: {
-            description: metadata.description ?? parsed.metadata.description,
-            activation: metadata.activation !== 'always' ? metadata.activation : (parsed.metadata.activation ?? metadata.activation),
-            globs: metadata.globs ?? parsed.metadata.globs,
-         },
+         metadata: mergeRuleMetadata(ruleObj, parsed.metadata),
       };
    }
 

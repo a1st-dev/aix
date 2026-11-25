@@ -41,13 +41,6 @@ export function resolveEnvObject(
 }
 
 /**
- * Check if a string contains unresolved ${VAR} references
- */
-export function hasUnresolvedEnvVars(value: string): boolean {
-   return ENV_VAR_PATTERN.test(value);
-}
-
-/**
  * Extract all ${VAR} variable names from a string
  */
 export function extractEnvVarNames(value: string): string[] {

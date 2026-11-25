@@ -1,6 +1,7 @@
 import { basename, dirname, isAbsolute, join, relative } from 'pathe';
 import {
    aiLockFileSchema,
+   lockEntitySectionSchema,
    type AiJsonConfig,
    type AiLockFile,
    type LockedConfig,
@@ -415,10 +416,10 @@ function compareLockedEntities(
    locked: LockedEntities,
    expected: LockedEntities,
 ): ConfigParseIssue[] {
-   const issues: ConfigParseIssue[] = [],
-         sections = ['skills', 'rules', 'prompts', 'mcp', 'hooks', 'editors', 'aix'] as const;
+   const issues: ConfigParseIssue[] = [];
 
-   for (const section of sections) {
+   // Taken from the schema so a section added there cannot be left out of the comparison.
+   for (const section of lockEntitySectionSchema.options) {
       const lockedSection = locked[section],
             expectedSection = expected[section],
             names = [...new Set([...Object.keys(lockedSection), ...Object.keys(expectedSection)])].toSorted();

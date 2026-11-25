@@ -1,9 +1,9 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
-import { addLockFlag } from '../../flags/lock.js';
+import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
@@ -22,7 +22,7 @@ import {
 } from '@a1st/aix-schema';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
-import { confirm } from '@inquirer/prompts';
+import { confirmAction } from '../../lib/confirm.js';
 import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
@@ -43,7 +43,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
    };
 
    static override flags = {
-      ...addLockFlag,
+      ...removeLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...saveFlag,
@@ -63,7 +63,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       const { args, flags } = await this.parse(RemoveHook),
             loaded = flags.save ? await this.loadConfig() : undefined,
             targetEditors = resolveTargetEditors(flags.target),
-            targetScope = resolveConfigScope(flags);
+            targetScope = resolveTargetScope(flags, loaded?.config);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
@@ -115,7 +115,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
          await this.removeFromEditorConfigs(editors, event, projectRoot, targetScope);
       }
 
-      await trackRemoval(targetScope, 'hooks', event, process.cwd());
+      await trackRemoval({ scope: targetScope, section: 'hooks', name: event, projectRoot, editors: targetEditors });
 
       if (this.flags.json) {
          this.output.json({
@@ -137,12 +137,10 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       local: boolean,
    ): Promise<boolean> {
       const targetFile = local ? 'ai.local.json' : 'ai.json',
-            confirmed = await confirm({
-               message: hasConfig
-                  ? `Remove hook "${event}" from ${targetFile} and every matching entry in your editor configs?`
-                  : `Remove every "${event}" entry from your editor configs?`,
-               default: false,
-            });
+            message = hasConfig
+               ? `Remove hook "${event}" from ${targetFile} and every matching entry in your editor configs?`
+               : `Remove every "${event}" entry from your editor configs?`,
+            confirmed = await confirmAction(message, this.error.bind(this));
 
       if (!confirmed) {
          this.output.info('Cancelled');
@@ -172,6 +170,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
             this.output.error(
                `Failed to remove "${event}" from ${result.editor}: ${result.errors.join(', ')}`,
             );
+            this.markFailed();
             continue;
          }
 

@@ -39,7 +39,8 @@ export class OpenCodeAdapter extends BaseEditorAdapter {
       return {
          darwin: ['.config/opencode'],
          linux: ['.config/opencode'],
-         win32: ['AppData/Roaming/opencode'],
+         // OpenCode keeps its config in ~/.config/opencode on every platform.
+         win32: ['.config/opencode', 'AppData/Roaming/opencode'],
       };
    }
 

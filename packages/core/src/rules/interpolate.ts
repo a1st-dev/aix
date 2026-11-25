@@ -51,13 +51,6 @@ export function interpolateRules(rules: string[], context: InterpolationContext)
 }
 
 /**
- * Check if content has unresolved variables
- */
-export function hasUnresolvedVariables(content: string): boolean {
-   return VARIABLE_PATTERN.test(content);
-}
-
-/**
  * Extract all variable names from content
  */
 export function extractVariableNames(content: string): string[] {

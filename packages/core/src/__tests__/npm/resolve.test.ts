@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { join } from 'pathe';
 import { UnsupportedRuntimeCapabilityError } from '../../errors.js';
 import { safeRm } from '../../fs/safe-rm.js';
@@ -82,27 +82,67 @@ describe('resolveNpmPath', () => {
       ).rejects.toThrow('add a "version" field to auto-install');
    });
 
-   it('installs a versioned package through the runtime adapter and returns the cache path', async () => {
-      const ensureDependencyInstalled = vi.fn(async () => {
-               return undefined;
-            }),
-            adapter = createRuntimeAdapter({
-               npm: {
-                  ...nodeRuntimeAdapter.npm,
-                  ensureDependencyInstalled,
-               },
-            });
+   describe('with a version', () => {
+      let tempProjectRoot: string;
 
-      const result = await withRuntimeAdapter(adapter, async () => {
-         return resolveNpmPath({
-            packageName: '@company/rules',
-            version: '^1.0.0',
-            projectRoot,
-         });
+      beforeEach(async () => {
+         tempProjectRoot = join(tmpdir(), `aix-test-npm-resolve-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+         await mkdir(tempProjectRoot, { recursive: true });
       });
 
-      expect(ensureDependencyInstalled).toHaveBeenCalledWith('@company/rules@^1.0.0', join(projectRoot, '.aix'));
-      expect(result).toBe(join(projectRoot, '.aix', '.tmp', 'node_modules', '@company/rules'));
+      afterEach(async () => {
+         await safeRm(tempProjectRoot, { force: true });
+      });
+
+      function resolveVersioned(ensureDependencyInstalled: RuntimeAdapter['npm']['ensureDependencyInstalled']): Promise<string> {
+         const adapter = createRuntimeAdapter({
+            npm: { ...nodeRuntimeAdapter.npm, ensureDependencyInstalled },
+         });
+
+         return withRuntimeAdapter(adapter, async () => {
+            return resolveNpmPath({
+               packageName: '@company/rules',
+               subpath: 'rules/style.md',
+               version: '^1.0.0',
+               projectRoot: tempProjectRoot,
+            });
+         });
+      }
+
+      it('installs the package in the directory it is then read from', async () => {
+         const installs: Array<{ packageSpec: string; cwd: string }> = [];
+
+         const result = await resolveVersioned(async (packageSpec, cwd) => {
+            installs.push({ packageSpec, cwd });
+         });
+
+         expect(installs).toEqual([{ packageSpec: '@company/rules@^1.0.0', cwd: join(tempProjectRoot, '.aix', '.tmp') }]);
+         expect(result).toBe(join(installs[0]?.cwd ?? '', 'node_modules', '@company/rules', 'rules/style.md'));
+      });
+
+      it('gives the install directory its own package.json so npm does not install into the project', async () => {
+         let packageJsonAtInstall = '';
+
+         await resolveVersioned(async (_packageSpec, cwd) => {
+            packageJsonAtInstall = await readFile(join(cwd, 'package.json'), 'utf-8');
+         });
+
+         expect(JSON.parse(packageJsonAtInstall)).toEqual({ private: true });
+      });
+
+      it('keeps the package.json that an earlier install updated', async () => {
+         const installRoot = join(tempProjectRoot, '.aix', '.tmp'),
+               existing = '{ "private": true, "dependencies": { "@company/prompts": "^2.0.0" } }';
+
+         await mkdir(installRoot, { recursive: true });
+         await writeFile(join(installRoot, 'package.json'), existing, 'utf-8');
+
+         await resolveVersioned(async () => {
+            return undefined;
+         });
+
+         expect(await readFile(join(installRoot, 'package.json'), 'utf-8')).toBe(existing);
+      });
    });
 
    it('preserves unsupported runtime capability errors', async () => {

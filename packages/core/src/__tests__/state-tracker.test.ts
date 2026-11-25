@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm, readFile } from 'node:fs/promises';
+import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
@@ -161,6 +161,21 @@ describe('trackInstall', () => {
    });
 });
 
+describe('readState', () => {
+   it('fills in sections that an older state file does not have', async () => {
+      const statePath = join(testDir, '.aix', 'state.json');
+
+      await mkdir(join(testDir, '.aix'), { recursive: true });
+      await writeFile(statePath, JSON.stringify({ version: 1, scope: 'project', installed: { skills: {} } }));
+
+      const state = await readState('project', testDir);
+
+      expect(Object.keys(state.installed).toSorted()).toEqual(
+         [ 'agents', 'hooks', 'marketplaces', 'mcp', 'plugins', 'prompts', 'rules', 'skills' ],
+      );
+   });
+});
+
 describe('trackRemoval', () => {
    it('removes a tracked entry', async () => {
       await trackInstall({
@@ -170,7 +185,7 @@ describe('trackRemoval', () => {
          editors: ['claude-code'],
          projectRoot: testDir,
       });
-      await trackRemoval('project', 'mcp', 'my-server', testDir);
+      await trackRemoval({ scope: 'project', section: 'mcp', name: 'my-server', projectRoot: testDir });
 
       const state = await readState('project', testDir);
 
@@ -178,11 +193,37 @@ describe('trackRemoval', () => {
    });
 
    it('is a no-op for untracked items', async () => {
-      await trackRemoval('project', 'mcp', 'nonexistent', testDir);
+      await trackRemoval({ scope: 'project', section: 'mcp', name: 'nonexistent', projectRoot: testDir });
 
       const state = await readState('project', testDir);
 
       expect(state.installed.mcp).toEqual({});
+   });
+
+   it('keeps the entry for editors the item was not removed from', async () => {
+      await trackInstall({
+         scope: 'project',
+         section: 'mcp',
+         name: 'my-server',
+         editors: ['claude-code', 'cursor'],
+         projectRoot: testDir,
+      });
+
+      await trackRemoval({ scope: 'project', section: 'mcp', name: 'my-server', projectRoot: testDir, editors: ['cursor'] });
+
+      const state = await readState('project', testDir);
+
+      expect(state.installed.mcp['my-server']?.editors).toEqual(['claude-code']);
+   });
+
+   it('drops the entry once the last editor is removed', async () => {
+      await trackInstall({ scope: 'project', section: 'mcp', name: 'my-server', editors: ['cursor'], projectRoot: testDir });
+
+      await trackRemoval({ scope: 'project', section: 'mcp', name: 'my-server', projectRoot: testDir, editors: ['cursor'] });
+
+      const state = await readState('project', testDir);
+
+      expect(state.installed.mcp['my-server']).toBeUndefined();
    });
 });
 

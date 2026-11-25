@@ -3,16 +3,19 @@ import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import type { SupportedEditorName } from '@a1st/aix-schema';
 import EditorFeatureDetails from '../../components/EditorFeatureDetails.astro';
 import InlineCodeText from '../../components/InlineCodeText.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
 import SupportLegend from '../../components/SupportLegend.astro';
 import {
-   editorFeatureDefinitions,
    editorSupportProfiles,
    getEditorById,
-   getFeatureConceptRoute,
    getMigrationRoute,
+   listMigrationPairsForEditor,
 } from '../../lib/editor-support';
-import { getEditorSupportPage } from '../../lib/editor-pages';
-import { docsSidebar } from '../../starlight-sidebar.js';
+import { editorSupportSections, getEditorSupportHeadings, getEditorSupportPage } from '../../lib/editor-pages';
+
+interface Props {
+   editor: SupportedEditorName;
+}
 
 export function getStaticPaths() {
    return editorSupportProfiles.map((profile) => ({
@@ -21,48 +24,29 @@ export function getStaticPaths() {
    }));
 }
 
-const { editor } = Astro.props as {
-   editor: SupportedEditorName;
-};
+const { editor } = Astro.props;
 
 const profile = getEditorById(editor),
       { title, description } = getEditorSupportPage(profile),
-      defaultCompareEditor = profile.id === 'cursor' ? getEditorById('copilot') : getEditorById('cursor');
+      migrationPairs = listMigrationPairsForEditor(profile.id);
 ---
 
 <StarlightPage
    frontmatter={{ title, description, editUrl: false }}
-   sidebar={docsSidebar}
+   headings={getEditorSupportHeadings(profile)}
 >
    <p>{profile.summary}</p>
 
    <p>{profile.migrationPitch}</p>
 
    <p>
-      Start on <a href="/editors/supported-editors/">the full support matrix</a> when you need to compare
-      every editor at once. Use this page when you want the exact terms, support details, and project/user
-      targets for {` ${profile.name}`}.
-   </p>
-
-   <p>
-      Related aix concepts: {editorFeatureDefinitions
-         .filter((featureDefinition) => Boolean(getFeatureConceptRoute(featureDefinition.id)))
-         .map((featureDefinition, index) => {
-            const conceptRoute = getFeatureConceptRoute(featureDefinition.id);
-
-            return (
-               <>
-                  {index > 0 && ', '}
-                  <a href={conceptRoute}>{featureDefinition.label.toLowerCase()}</a>
-               </>
-            );
-         })}
-      .
+      This page lists the terms, support level, and project and user paths aix uses for {profile.name}.
+      To compare every editor at once, see <a href="/editors/supported-editors/">the support matrix</a>.
    </p>
 
    {profile.notes.length > 0 && (
       <>
-         <h2>Editor-specific notes</h2>
+         <SectionHeading heading={editorSupportSections.notes} />
          <ul>
             {profile.notes.map((note) => (
                <li>
@@ -73,24 +57,20 @@ const profile = getEditorById(editor),
       </>
    )}
 
-   <h2>Feature details</h2>
+   <SectionHeading heading={editorSupportSections.features} />
    <SupportLegend />
    <EditorFeatureDetails profile={profile} />
 
-   <h2>Related guides</h2>
-   <ul>
-      <li>
-         <a href={getMigrationRoute(profile.id, defaultCompareEditor.id)}>
-            {profile.name} to {defaultCompareEditor.name}
-         </a>
-      </li>
-      <li>
-         <a href={getMigrationRoute(defaultCompareEditor.id, profile.id)}>
-            {defaultCompareEditor.name} to {profile.name}
-         </a>
-      </li>
-      <li>
-         <a href={`/editors/migrations/#${profile.id}`}>All migration guides that start from {profile.name}</a>
-      </li>
+   <SectionHeading heading={editorSupportSections.guides} />
+   <p>Each guide compares {profile.name} with one other editor and gives the <code>aix sync</code> command for the move.</p>
+   <ul class="aix-columns">
+      {migrationPairs.map(({ from, to }) => (
+         <li>
+            <a href={getMigrationRoute(from, to)}>
+               {getEditorById(from).name} to {getEditorById(to).name}
+            </a>
+         </li>
+      ))}
    </ul>
+
 </StarlightPage>

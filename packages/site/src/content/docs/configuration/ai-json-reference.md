@@ -1,11 +1,12 @@
 ---
 sidebar:
    order: 1
-title: ai.json Reference
+title: ai.json reference
 description: Complete reference for every field in the ai.json configuration file.
 ---
 
-`ai.json` is the single configuration file that aix uses to sync your AI editor settings. It supports JSONC (comments and trailing commas).
+`ai.json` is the file aix reads to configure your editors. It supports JSONC (comments and
+trailing commas).
 
 ## Lockfiles
 
@@ -26,7 +27,7 @@ content matches the lockfile. They do not prove publisher identity.
 
 ## Schema
 
-Add the `$schema` field for IDE autocompletion and inline validation:
+Add the `$schema` field to get autocompletion and inline validation while you edit the file:
 
 ```json
 {
@@ -36,35 +37,44 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 
 ## Top-level fields
 
-| Field          | Type                 | Description                                                                      |
-| -------------- | -------------------- | -------------------------------------------------------------------------------- |
-| `$schema`      | `string`             | JSON Schema URL for IDE validation                                               |
-| `scope`        | `string`             | `"project"` (default) or `"user"`. Sets whether this is a project or user config |
-| `extends`      | `string \| string[]` | Inherit from other configs                                                       |
-| `skills`       | `object`             | Map of skill names to skill references                                           |
-| `mcp`          | `object`             | Map of server names to MCP server configs                                        |
-| `rules`        | `object`             | Map of rule names to rule definitions                                            |
-| `prompts`      | `object`             | Map of prompt names to prompt definitions                                        |
-| `agents`       | `object`             | Map of agent names to agent definitions                                          |
-| `editors`      | `object \| string[]` | Editor targeting and editor-specific settings                                    |
-| `hooks`        | `object`             | Lifecycle hooks for AI agent events                                              |
-| `plugins`      | `object`             | Map of plugin names to plugin configurations                                     |
-| `marketplaces` | `object`             | Map of marketplace names to marketplace sources                                  |
-| `aix`          | `object`             | aix tool settings (cache, backups)                                               |
+| Field          | Type                 | Description                                                                |
+| -------------- | -------------------- | -------------------------------------------------------------------------- |
+| `$schema`      | `string`             | JSON Schema URL for validation                                             |
+| `scope`        | `string`             | `"user"` or `"project"`. The scope `aix install` uses without a scope flag |
+| `extends`      | `string \| string[]` | Inherit from other configs                                                 |
+| `skills`       | `object`             | Map of skill names to skill references                                     |
+| `mcp`          | `object`             | Map of server names to MCP server configs                                  |
+| `rules`        | `object`             | Map of rule names to rule definitions                                      |
+| `prompts`      | `object`             | Map of prompt names to prompt definitions                                  |
+| `agents`       | `object`             | Map of agent names to agent definitions                                    |
+| `editors`      | `object \| string[]` | Editor targeting and editor-specific rules                                 |
+| `hooks`        | `object`             | Lifecycle hooks for editor events                                          |
+| `plugins`      | `object`             | Map of plugin names to plugin configurations                               |
+| `marketplaces` | `object`             | Map of marketplace names to marketplace sources                            |
+| `aix`          | `object`             | aix tool settings (cache, backups)                                         |
 
 ---
 
 ## `scope`
 
-Sets whether this config manages project-level or user-level AI configuration. Defaults to `"project"` when omitted.
+The scope `aix install` writes to when you pass no scope flag: `"user"` for the editor config
+under your home directory, or `"project"` for the editor config inside the project.
 
 ```json
 {
-   "scope": "user"
+   "scope": "project"
 }
 ```
 
-When `scope` is `"user"`, aix writes to user-level editor config locations (e.g., global MCP settings). When `"project"` (or omitted), aix writes to project-local config files.
+`aix install` picks its scope in this order: a scope flag on the command line (`--scope`,
+`--user`, or `--project`), then this field, then user scope. A file without the field is
+therefore installed at user scope.
+
+`aix init` writes the scope you pass it: `--user` gives `"scope": "user"` and `--project` gives
+`"scope": "project"`. With no scope flag it writes no `scope` field.
+
+`aix add --save`, `aix remove --save`, and installs from `aix search` follow this field the
+same way. See [User scope and project scope](/concepts/scopes/).
 
 ---
 
@@ -91,7 +101,7 @@ Source types:
 - **URL**: `"https://raw.githubusercontent.com/..."`
 - **Local path**: `"./configs/base.json"`
 
-See [Config Inheritance](/configuration/config-inheritance/) for merge semantics.
+See [Config inheritance](/configuration/config-inheritance/) for merge semantics.
 
 ---
 
@@ -145,7 +155,7 @@ Map of skill names to skill references. Skill names must be lowercase alphanumer
 
 ## `mcp`
 
-Map of server names to MCP server configurations. See [MCP Servers](/concepts/mcp-servers/) for the full concept.
+Map of server names to MCP server configurations. See [MCP servers](/concepts/mcp-servers/) for the full concept.
 
 ### Stdio transport
 
@@ -365,7 +375,7 @@ Map of specialized agent names to agent definitions. See [Agents](/concepts/agen
 
 ## `editors`
 
-Configure which editors to install to and provide editor-specific settings.
+Configure which editors to install to and give an editor its own rules.
 
 ### Array shorthand
 
@@ -386,31 +396,27 @@ Configure which editors to install to and provide editor-specific settings.
             "cursor-only": {
                "content": "Cursor-specific instructions here"
             }
-         },
-         "aiSettings": {}
-      },
-      "windsurf": {
-         "enabled": true,
-         "cascadeSettings": {}
+         }
       },
       "claude-code": {
-         "enabled": true,
-         "permissions": {}
-      },
-      "opencode": {
          "enabled": true
+      },
+      "windsurf": {
+         "enabled": false
       }
    }
 }
 ```
 
-If `editors` is omitted, aix auto-detects installed editors at install time. See [Editor Configuration](/configuration/editor-configuration/).
+If `editors` is omitted, aix detects installed editors at install time. `enabled` and `rules`
+are the settings aix reads for each editor. See
+[Editor configuration](/configuration/editor-configuration/).
 
 ---
 
 ## `hooks`
 
-Lifecycle hooks for AI agent events. See [Hooks](/concepts/hooks/).
+Lifecycle hooks for editor events. See [Hooks](/concepts/hooks/).
 
 ```json
 {
@@ -435,7 +441,7 @@ Lifecycle hooks for AI agent events. See [Hooks](/concepts/hooks/).
 
 ## `plugins`
 
-Map of plugin names to plugin configurations. See [Plugins & Marketplaces](/concepts/plugins/) for architecture and conflict resolution rules.
+Map of plugin names to plugin configurations. See [Plugins and marketplaces](/concepts/plugins/) for architecture and conflict resolution rules.
 
 ```json
 {
@@ -449,21 +455,21 @@ Map of plugin names to plugin configurations. See [Plugins & Marketplaces](/conc
 }
 ```
 
-Supports boolean enablement, string sources, or structured configuration objects with `source`, `enabled`, and options.
+A plugin value is `true` or `false`, a source string, or an object with `source`, `enabled`,
+and `options`.
 
 ---
 
 ## `marketplaces`
 
-Map of marketplace names to marketplace sources. See [Plugins & Marketplaces](/concepts/plugins/).
+Map of marketplace names to marketplace sources. See [Plugins and marketplaces](/concepts/plugins/).
 
 ```json
 {
    "marketplaces": {
       "claude-plugins-official": "https://github.com/anthropics/claude-plugins-official",
       "internal-market": {
-         "source": "https://github.com/my-org/marketplace",
-         "type": "git"
+         "source": "https://github.com/my-org/marketplace"
       }
    }
 }
@@ -487,8 +493,11 @@ Settings for the aix tool itself. These don't affect AI editor behavior.
 }
 ```
 
-| Field                    | Type     | Default | Range | Description                   |
-| ------------------------ | -------- | ------- | ----- | ----------------------------- |
-| `cache.maxBackups`       | `number` | `5`     | 1–100 | Max backup files to keep      |
-| `cache.maxBackupAgeDays` | `number` | `30`    | 1–365 | Max backup age before cleanup |
-| `cache.maxCacheAgeDays`  | `number` | `7`     | 1–365 | Max cache age before cleanup  |
+| Field                    | Type     | Default | Range | Description                                                                    |
+| ------------------------ | -------- | ------- | ----- | ------------------------------------------------------------------------------ |
+| `cache.maxBackups`       | `number` | `5`     | 1–100 | How many backups of one file or directory aix keeps; older ones are deleted    |
+| `cache.maxBackupAgeDays` | `number` | `30`    | 1–365 | Backups older than this many days are deleted after a successful install       |
+| `cache.maxCacheAgeDays`  | `number` | `7`     | 1–365 | Cache entries older than this many days are deleted after a successful install |
+
+Backups are kept in `~/.aix/backups/` and the cache in `.aix/.tmp/` inside the project. See
+[Backups and restore](/concepts/backups-and-restore/) and [`aix cache`](/cli/cache/).

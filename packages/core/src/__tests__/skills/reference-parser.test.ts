@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { parseConfig } from '@a1st/aix-schema';
 import { parseSkillRef } from '../../skills/reference-parser.js';
 
 describe('parseSkillRef', () => {
@@ -184,6 +185,21 @@ describe('parseSkillRef', () => {
             type: 'npm',
             packageName: '@a1st/skills',
             path: 'skills/tdd',
+         });
+      });
+
+      it('parses an npm object the same way after the config has been validated', () => {
+         const config = parseConfig({
+            skills: { debug: { npm: '@company/tools', path: 'skills/debug', version: '^1.0.0' } },
+         });
+
+         const ref = parseSkillRef('debug', config.skills.debug);
+
+         expect(ref).toEqual({
+            type: 'npm',
+            packageName: '@company/tools',
+            path: 'skills/debug',
+            version: '^1.0.0',
          });
       });
 

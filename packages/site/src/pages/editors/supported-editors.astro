@@ -1,45 +1,95 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
-import { editorSupportProfiles, formatEditorNameList } from '../../lib/editor-support';
+import {
+   editorFeatureDefinitions,
+   editorSupportProfiles,
+   formatEditorNameList,
+   getFeatureConceptRoute,
+} from '../../lib/editor-support';
 import { supportedEditorsPage } from '../../lib/editor-pages';
 import EditorSupportMatrix from '../../components/EditorSupportMatrix.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
 import SupportLegend from '../../components/SupportLegend.astro';
-import { docsSidebar } from '../../starlight-sidebar.js';
 
-const { title, description } = supportedEditorsPage;
+const { title, description, sections } = supportedEditorsPage;
+
+const promptToSkillEditors = editorSupportProfiles.filter((profile) => {
+   return profile.features.prompts.summary === 'shim';
+});
 ---
 
 <StarlightPage
    frontmatter={{ title, description, editUrl: false }}
-   sidebar={docsSidebar}
+   headings={Object.values(sections)}
 >
    <p>
-      aix currently supports {editorSupportProfiles.length} editors: {formatEditorNameList(editorSupportProfiles)}.
+      aix supports {editorSupportProfiles.length} editors: {formatEditorNameList(editorSupportProfiles)}.
+      Open an editor's name in the matrix for its install paths, scope behavior, terminology, and notes.
    </p>
 
-   <p>
-      Use the matrix for the fast comparison, then open an editor name for install paths, scope behavior,
-      terminology, and editor-specific notes.
-   </p>
-
-   <EditorSupportMatrix profiles={editorSupportProfiles} />
+   <SectionHeading heading={sections.matrix} />
 
    <SupportLegend />
 
+   <EditorSupportMatrix profiles={editorSupportProfiles} />
+
+   <SectionHeading heading={sections.features} />
+   <dl class="feature-glossary aix-layout">
+      {editorFeatureDefinitions.map((feature) => {
+         const conceptRoute = getFeatureConceptRoute(feature.id);
+
+         return (
+            <div class="feature-glossary__item aix-layout">
+               <dt>{conceptRoute ? <a href={conceptRoute}>{feature.label}</a> : feature.label}</dt>
+               <dd>{feature.shortDescription}</dd>
+            </div>
+         );
+      })}
+   </dl>
    <p>
-      Need the aix-side definitions first? Review <a href="/concepts/rules/">rules</a>,{' '}
-      <a href="/concepts/prompts/">prompts</a>, <a href="/concepts/mcp-servers/">MCP servers</a>,{' '}
-      <a href="/concepts/skills/">skills</a>, and <a href="/concepts/hooks/">hooks</a>.
+      The last two columns are conventions shared between editors, not things you define in
+      <code>ai.json</code>. <strong>AGENTS.md</strong> shows whether the editor reads a repository
+      <code>AGENTS.md</code> instruction file, and <strong>.agents/skills</strong> shows whether it
+      reads skills from the shared <code>.agents/skills/</code> folder.
    </p>
 
-   <h2>Sync behavior</h2>
+   <SectionHeading heading={sections.sync} />
    <p>
       <code>aix sync</code> reads supported config from one editor and writes the supported equivalent
       to another. It reports anything the destination editor or requested scope cannot represent.
    </p>
    <ul>
       <li>A destination may support a feature in general, but not at the requested scope.</li>
-      <li>Global-only features are reported as skipped project writes instead of hard failures.</li>
-      <li>Codex prompts become skills, and Zed skills become pointer rules.</li>
+      <li>A feature that exists only at user scope is reported as a skipped project write, not as a failure.</li>
+      <li>
+         Prompts are converted to skills on {formatEditorNameList(promptToSkillEditors)}.
+      </li>
    </ul>
+   <p>
+      The <a href="/editors/migrations/">migration guides</a> compare any two editors feature by feature.
+   </p>
+
+   <style>
+      .feature-glossary {
+         display: grid;
+         gap: 0.5rem;
+      }
+
+      /* Term and description share a row when there is room and stack when there is not. */
+      .feature-glossary__item {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 0 1rem;
+      }
+
+      .feature-glossary__item dt {
+         flex: 0 0 8rem;
+         font-weight: 600;
+      }
+
+      .feature-glossary__item dd {
+         flex: 1 1 16rem;
+         margin: 0;
+      }
+   </style>
 </StarlightPage>

@@ -52,12 +52,13 @@ export function useKeyboard(options: UseKeyboardOptions): void {
          return;
       }
 
-      // Navigation
-      if (key.downArrow || input === 'j') {
+      // Letters and the space bar belong to the query, which always has focus, so navigation
+      // and installing use keys that cannot be part of a search.
+      if (key.downArrow) {
          setSelectedIndex((i) => Math.min(i + 1, currentResults.length - 1));
          return;
       }
-      if (key.upArrow || input === 'k') {
+      if (key.upArrow) {
          setSelectedIndex((i) => Math.max(i - 1, 0));
          return;
       }
@@ -73,8 +74,8 @@ export function useKeyboard(options: UseKeyboardOptions): void {
          return;
       }
 
-      // Install/uninstall current item with Space or Enter (only when there are results)
-      if ((input === ' ' || key.return) && currentResult && currentResults.length > 0) {
+      // Install/uninstall current item with Enter (only when there are results)
+      if (key.return && currentResult && currentResults.length > 0) {
          if (isCurrentInstalled && !isCurrentUninstalling) {
             uninstallItem(currentResult, activeTab);
          } else if (!isCurrentInstalled && !isCurrentInstalling) {
@@ -83,8 +84,8 @@ export function useKeyboard(options: UseKeyboardOptions): void {
          return;
       }
 
-      // Retry
-      if (input === 'r' && error) {
+      // Retry. A plain "r" is part of the query.
+      if (key.ctrl && input === 'r' && error) {
          retry();
          return;
       }

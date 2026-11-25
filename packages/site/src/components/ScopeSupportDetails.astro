@@ -9,11 +9,12 @@ import {
    isEditorSupported,
 } from '../lib/editor-support';
 
-const { compact = false, label, scope } = Astro.props as {
-   compact?: boolean;
+interface Props {
    label: string;
    scope: EditorScopeSupport;
-};
+}
+
+const { label, scope } = Astro.props;
 
 const editorSupported = isEditorSupported(scope),
       targets = getScopeTargets(scope),
@@ -21,91 +22,96 @@ const editorSupported = isEditorSupported(scope),
       aixNote = scope.note;
 ---
 
-<dt class="scope-support-details__label">{label}</dt>
-<dd class:list={[ 'scope-support-details__value', compact && 'scope-support-details__value--compact' ]}>
-   <div class="scope-support-details__status-row">
-      <span class="scope-support-details__support-group">
-         <span class="scope-support-details__support-label">Editor</span>
-         <SupportAvailabilityBadge supported={editorSupported} />
-      </span>
-      <span class="scope-support-details__support-group">
-         <span class="scope-support-details__support-label">aix</span>
-         <SupportStatusBadge compact={compact} status={scope.status} />
-      </span>
-   </div>
-
-   {targets.length > 0 && (
-      <div class="scope-support-details__targets">
-         {targets.map((target) => (
-            <span class="scope-support-details__path">
-               <span class="scope-support-details__path-label">{target.label}</span>
-               <code>{target.path}</code>
-            </span>
-         ))}
+<div class="scope-support-details aix-layout">
+   <dt class="scope-support-details__label">{label}</dt>
+   <dd class="scope-support-details__value aix-layout">
+      <div class="scope-support-details__status-row">
+         <span class="scope-support-details__support-group">
+            <span class="scope-support-details__support-label">Editor</span>
+            <SupportAvailabilityBadge compact supported={editorSupported} />
+         </span>
+         <span class="scope-support-details__support-group">
+            <span class="scope-support-details__support-label">aix</span>
+            <SupportStatusBadge compact status={scope.status} />
+         </span>
       </div>
-   )}
 
-   {(editorNote || aixNote) && (
-      <div class="scope-support-details__notes">
-         {editorNote && (
-            <span class="scope-support-details__note">
-               <strong>Editor:</strong> <InlineCodeText text={editorNote} />
-            </span>
-         )}
-         {aixNote && (
-            <span class="scope-support-details__note">
-               <strong>aix:</strong> <InlineCodeText text={aixNote} />
-            </span>
-         )}
-      </div>
-   )}
-</dd>
+      {targets.map((target) => (
+         <div class="scope-support-details__path">
+            <span class="scope-support-details__support-label">{target.label}</span>
+            <code>{target.path}</code>
+         </div>
+      ))}
+
+      {editorNote && (
+         <p class="scope-support-details__note">
+            <strong>Editor:</strong> <InlineCodeText text={editorNote} />
+         </p>
+      )}
+      {aixNote && (
+         <p class="scope-support-details__note">
+            <strong>aix:</strong> <InlineCodeText text={aixNote} />
+         </p>
+      )}
+   </dd>
+</div>
 
 <style>
+   /* The label sits beside the value when there is room and above it when there is not. */
+   .scope-support-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.9rem;
+      padding-block: 0.7rem;
+      border-block-start: 1px solid var(--sl-color-hairline-light);
+   }
+
    .scope-support-details__label {
+      flex: 0 0 4rem;
       font-weight: 600;
    }
 
    .scope-support-details__value {
       display: grid;
-      gap: 0.55rem;
-      margin: 0;
-      padding: 0.7rem 0.8rem;
-      border: 1px solid var(--sl-color-hairline-light);
-      border-radius: 0.8rem;
-      background: color-mix(in srgb, var(--sl-color-bg) 88%, var(--sl-color-accent-low));
-   }
-
-   .scope-support-details__value--compact {
-      padding: 0.6rem 0.7rem;
+      flex: 1 1 14rem;
       gap: 0.45rem;
+      min-inline-size: 0;
+      margin: 0;
    }
 
-   .scope-support-details__status-row,
-   .scope-support-details__targets,
-   .scope-support-details__notes {
+   .scope-support-details__status-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
+      gap: 0.45rem 0.9rem;
    }
 
-   .scope-support-details__support-group,
-   .scope-support-details__path {
+   .scope-support-details__support-group {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.4rem;
    }
 
-   .scope-support-details__support-label,
-   .scope-support-details__path-label {
-      color: var(--sl-color-gray-3);
+   .scope-support-details__support-label {
+      color: var(--aix-text-muted);
       font-size: 0.82rem;
       font-weight: 600;
-      white-space: nowrap;
+   }
+
+   .scope-support-details__path {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.2rem 0.45rem;
+   }
+
+   .scope-support-details__path code,
+   .scope-support-details__note {
+      overflow-wrap: anywhere;
    }
 
    .scope-support-details__note {
       color: var(--sl-color-gray-2);
       font-size: 0.94em;
+      line-height: 1.55;
    }
 </style>

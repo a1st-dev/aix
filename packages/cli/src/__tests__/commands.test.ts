@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { listBackups, safeRm } from '@a1st/aix-core';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const testDirname = dirname(fileURLToPath(import.meta.url)),
       root = join(testDirname, '../..');
@@ -37,7 +37,6 @@ function runCli(args: string[], _unused?: unknown): Promise<CommandResult> {
                AIX_CACHE_DIR: join(process.cwd(), '.oclif', 'cache'),
                AIX_CONFIG_DIR: join(process.cwd(), '.oclif', 'config'),
                AIX_DATA_DIR: join(process.cwd(), '.oclif', 'data'),
-               AIX_DISABLE_AUTOUPDATE: '1',
                NODE_ENV: 'production',
             },
             maxBuffer,
@@ -175,6 +174,13 @@ describe('CLI Commands', () => {
    });
 
    describe('validate', () => {
+      it('prints one JSON document when there is no config to validate', async () => {
+         const { error, stdout } = await runCli(['validate', '--json']);
+
+         expect(error).toBeDefined();
+         expect(JSON.parse(stdout)).toEqual({ valid: false, error: 'No ai.json found. Run `aix init` to create one.' });
+      });
+
       it('validates a correct config file', async () => {
          const configPath = join(testDir, 'ai.json');
 
@@ -447,6 +453,321 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install without a terminal', () => {
+      it('names the detected editors and how to choose between them, rather than prompting', async () => {
+         const home = process.env.HOME ?? '';
+
+         await mkdir(join(home, '.claude'), { recursive: true });
+         await mkdir(join(home, '.codex'), { recursive: true });
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { style: { content: 'Be brief.' } } });
+
+         const installed = await runCli(['install', '--dry-run']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('claude-code, codex');
+         expect(installed.stderr).toContain('--target');
+         expect(installed.stderr).not.toContain('ExitPromptError');
+      });
+   });
+
+   describe('small command fixes', () => {
+      it('adds several agents in one command', async () => {
+         await writeFile(join(testDir, 'reviewer.md'), 'Review the change.');
+         await writeFile(join(testDir, 'planner.md'), 'Plan the change.');
+
+         const added = await runCli(['add', 'agent', './reviewer.md', './planner.md', '--project', '--target', 'claude-code']);
+
+         expect(added.error).toBeUndefined();
+         expect(existsSync(join(testDir, '.claude', 'agents', 'reviewer.md'))).toStrictEqual(true);
+         expect(existsSync(join(testDir, '.claude', 'agents', 'planner.md'))).toStrictEqual(true);
+      });
+
+      it('says that there is nothing to remove instead of asking to confirm', async () => {
+         const removed = await runCli(['remove', 'rule', 'missing', '--project', '--target', 'claude-code']);
+
+         expect(removed.error).toBeUndefined();
+         expect(removed.stdout).toContain('No rule named "missing" found at project scope in: claude-code');
+      });
+
+      it('backs up a hand-written skill directory before deleting it', async () => {
+         const skillDir = join(testDir, '.claude', 'skills', 'pdf');
+
+         await writeSkillDir(join(testDir, '.claude'), 'pdf');
+         await writeFile(join(skillDir, 'notes.txt'), 'my notes');
+
+         await runCli(['remove', 'skill', 'pdf', '--yes', '--project', '--target', 'claude-code']);
+
+         const backups = await listBackups(skillDir);
+
+         expect(existsSync(skillDir)).toStrictEqual(false);
+         expect(backups).toHaveLength(1);
+         expect(await readFile(join(backups[0]?.path ?? '', 'notes.txt'), 'utf-8')).toStrictEqual('my notes');
+      });
+
+      it('keeps the number of backups that aix.cache.maxBackups asks for', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, { aix: { cache: { maxBackups: 1 } } });
+         await runCli(['config', 'set', 'aix.cache.maxBackupAgeDays', '10']);
+         await runCli(['config', 'set', 'aix.cache.maxBackupAgeDays', '20']);
+
+         expect(await listBackups(configPath)).toHaveLength(1);
+      });
+
+      it('backs up a rule file before deleting it', async () => {
+         const ruleFile = join(testDir, '.claude', 'rules', 'style.md');
+
+         await mkdir(dirname(ruleFile), { recursive: true });
+         await writeFile(ruleFile, 'Be brief.');
+
+         await runCli(['remove', 'rule', 'style', '--yes', '--project', '--target', 'claude-code']);
+
+         expect(existsSync(ruleFile)).toStrictEqual(false);
+         expect(await listBackups(ruleFile)).toHaveLength(1);
+      });
+
+      it('backs up the ai.json that init --force replaces', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, { rules: { style: { content: 'Be brief.' } } });
+
+         await runCli(['init', '--force']);
+
+         expect(await listBackups(configPath)).toHaveLength(1);
+      });
+
+      it('lists subcommands the way they are typed', async () => {
+         const { stdout } = await runCli(['list', '--help']);
+
+         expect(stdout).toContain('list skills');
+         expect(stdout).not.toContain('list:skills');
+         expect(stdout).not.toMatch(/list skills.*alias: ls/);
+      });
+   });
+
+   describe('exit status', () => {
+      it('is non-zero when an editor could not be installed to, after the others were', async () => {
+         // Project-scope files, because aix leaves user-level config alone when it runs in CI.
+         await writeFile(join(testDir, '.mcp.json'), '{ "mcpServers": ');
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp: { docs: { command: 'node', args: ['docs.js'] } } });
+
+         const installed = await runCli(['install', '--project', '--target', 'claude-code', '--target', 'cursor']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stdout + installed.stderr).toContain('Failed to install to claude-code');
+         expect(existsSync(join(testDir, '.cursor', 'mcp.json'))).toStrictEqual(true);
+      });
+   });
+
+   describe('add without an editor to install to', () => {
+      it('says that nothing was installed', async () => {
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js']);
+
+         expect(added.error).toBeUndefined();
+         expect(added.stdout + added.stderr).toContain('Not installed to any editor');
+      });
+   });
+
+   describe('install scope', () => {
+      const mcp = { docs: { command: 'node', args: ['docs.js'] } };
+
+      it('installs into the project when ai.json declares project scope', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { scope: 'project', mcp });
+
+         const installed = await runCli(['install', '--target', 'claude-code']);
+
+         expect(installed.error).toBeUndefined();
+         expect(installed.stdout).toContain('Installing to project scope');
+         expect(existsSync(join(testDir, '.mcp.json'))).toStrictEqual(true);
+         expect(existsSync(join(process.env.HOME ?? '', '.claude.json'))).toStrictEqual(false);
+      });
+
+      it('says that it writes to the home directory, and where, when it defaults to user scope', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--dry-run']);
+
+         expect(installed.stdout).toContain('Installing to user scope');
+         expect(installed.stdout).toContain('Pass --project');
+         expect(installed.stdout).toContain('~/.claude.json');
+      });
+
+      it('records the scope in ai.json when init is given one, so install follows it', async () => {
+         await runCli(['init', '--project']);
+
+         const withFlag = JSON.parse(await readFile(join(testDir, 'ai.json'), 'utf-8'));
+
+         await runCli(['init', '--force']);
+
+         const withoutFlag = JSON.parse(await readFile(join(testDir, 'ai.json'), 'utf-8'));
+
+         expect(withFlag.scope).toStrictEqual('project');
+         expect(withoutFlag.scope).toBeUndefined();
+      });
+
+      it('follows the scope ai.json declares when adding with --save', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { scope: 'project' });
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--save', '--target', 'claude-code']);
+
+         expect(added.error).toBeUndefined();
+         expect(existsSync(join(testDir, '.mcp.json'))).toStrictEqual(true);
+         expect(existsSync(join(process.env.HOME ?? '', '.claude.json'))).toStrictEqual(false);
+      });
+
+      it('leaves global-only editor config alone when adding or removing at project scope', async () => {
+         const globalMcpPath = join(process.env.HOME ?? '', '.codeium', 'windsurf', 'mcp_config.json'),
+               existing = JSON.stringify({ mcpServers: { docs: { command: 'node' } } });
+
+         await mkdir(dirname(globalMcpPath), { recursive: true });
+         await writeFile(globalMcpPath, existing);
+
+         const added = await runCli(['add', 'mcp', 'other', '--command', 'node other.js', '--project', '--target', 'windsurf']),
+               removed = await runCli(['remove', 'mcp', 'docs', '--yes', '--project', '--target', 'windsurf']);
+
+         expect(added.error).toBeUndefined();
+         expect(removed.error).toBeUndefined();
+         expect(await readFile(globalMcpPath, 'utf-8')).toStrictEqual(existing);
+      });
+
+      it('leaves global-only editor config alone in a project-scope install', async () => {
+         const globalMcpPath = join(process.env.HOME ?? '', '.codeium', 'windsurf', 'mcp_config.json'),
+               existing = JSON.stringify({ mcpServers: { mine: { command: 'node' } } });
+
+         await mkdir(dirname(globalMcpPath), { recursive: true });
+         await writeFile(globalMcpPath, existing);
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp, rules: { style: { content: 'Be brief.' } } });
+
+         const installed = await runCli(['install', '--target', 'windsurf', '--project']);
+
+         expect(installed.error).toBeUndefined();
+         expect(await readFile(globalMcpPath, 'utf-8')).toStrictEqual(existing);
+         expect(installed.stdout + installed.stderr).toContain('did not write global-only config');
+         expect(existsSync(join(testDir, '.windsurf', 'rules', 'style.md'))).toStrictEqual(true);
+      });
+   });
+
+   describe('backups', () => {
+      const original = JSON.stringify({ numStartups: 7, mcpServers: { mine: { command: 'node', args: ['mine.js'] } } }, null, 2);
+      let claudeConfigPath: string;
+
+      beforeEach(async () => {
+         claudeConfigPath = join(process.env.HOME ?? '', '.claude.json');
+         await writeFile(claudeConfigPath, original);
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp: { docs: { command: 'node', args: ['docs.js'] } } });
+         await runCli(['install', '--target', 'claude-code', '--user']);
+      });
+
+      it('lists the backup of a user-level file from any directory and restores it', async () => {
+         const listed = await runCli(['backups', '--json']),
+               backups = JSON.parse(listed.stdout);
+
+         expect(backups).toHaveLength(1);
+         expect(backups[0].originalPath).toStrictEqual(claudeConfigPath);
+         expect(await readFile(claudeConfigPath, 'utf-8')).toContain('docs');
+
+         const restored = await runCli(['backups', 'restore', backups[0].path, '--yes']);
+
+         expect(restored.error).toBeUndefined();
+         expect(await readFile(claudeConfigPath, 'utf-8')).toStrictEqual(original);
+      });
+
+      it('survives clearing the cache from the home directory', async () => {
+         process.chdir(process.env.HOME ?? '');
+         await mkdir(join(process.cwd(), '.aix', '.tmp', 'cache'), { recursive: true });
+         await writeFile(join(process.cwd(), '.aix', '.tmp', 'cache', 'entry'), 'cached');
+
+         await runCli(['cache', 'clear']);
+
+         expect(await listBackups(claudeConfigPath)).toHaveLength(1);
+      });
+
+      it('backs up an editor config before removing a server from it', async () => {
+         const removed = await runCli(['remove', 'mcp', 'mine', '--yes', '--user', '--target', 'claude-code']),
+               backups = await listBackups(claudeConfigPath),
+               newest = await readFile(backups[0]?.path ?? '', 'utf-8');
+
+         expect(removed.error).toBeUndefined();
+         expect(backups).toHaveLength(2);
+         expect(newest).toContain('"mine"');
+         expect(await readFile(claudeConfigPath, 'utf-8')).not.toContain('"mine"');
+      });
+   });
+
+   describe('install --clean', () => {
+      it('clears the project cache and keeps skills, imported content, and the user config', async () => {
+         const home = process.env.HOME ?? '',
+               staleCacheEntry = join(testDir, '.aix', '.tmp', 'cache', 'rules', 'stale'),
+               kept = [
+                  join(home, '.aix', 'ai.json'),
+                  join(home, '.aix', 'skills', 'other', 'SKILL.md'),
+                  join(testDir, '.aix', 'imported', 'rules', 'imported.md'),
+               ];
+
+         await writeSkillDir(join(home, '.aix'), 'other');
+         await mkdir(dirname(staleCacheEntry), { recursive: true });
+         await mkdir(join(testDir, '.aix', 'imported', 'rules'), { recursive: true });
+         await writeFile(staleCacheEntry, 'stale');
+         await writeFile(join(home, '.aix', 'ai.json'), createValidConfig({ scope: 'user' }));
+         await writeFile(join(testDir, '.aix', 'imported', 'rules', 'imported.md'), 'Imported rule.');
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { imported: './.aix/imported/rules/imported.md' } });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--clean']);
+
+         expect(installed.error).toBeUndefined();
+         expect(existsSync(staleCacheEntry)).toStrictEqual(false);
+         expect(kept.filter(existsSync)).toEqual(kept);
+      });
+   });
+
+   describe('install --overwrite', () => {
+      it('is rejected without --save because it only replaces the saved ai.json', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'));
+
+         const { error, stderr } = await runCli(['install', '--target', 'claude-code', '--project', '--overwrite']);
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('--save');
+      });
+   });
+
+   describe('alternate user home', () => {
+      it('installs user-scope config under --user-home and leaves the home directory alone', async () => {
+         const userHome = join(testDir, 'alternate-home'),
+               home = process.env.HOME ?? '';
+
+         await writeValidConfig(join(testDir, 'ai.json'), {
+            mcp: { docs: { command: 'node', args: ['docs.js'] } },
+         });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--user-home', userHome]),
+               claudeConfig = JSON.parse(await readFile(join(userHome, '.claude.json'), 'utf-8'));
+
+         expect(installed.error).toBeUndefined();
+         expect(installed.stdout).toContain(`Using ${userHome} in place of your home directory`);
+         expect(claudeConfig.mcpServers.docs.command).toStrictEqual('node');
+         expect(existsSync(join(userHome, '.aix', 'state.json'))).toStrictEqual(true);
+         expect(existsSync(join(home, '.claude.json'))).toStrictEqual(false);
+         expect(existsSync(join(home, '.aix'))).toStrictEqual(false);
+      });
+
+      it('removes user-scope files from AIX_USER_HOME instead of the home directory', async () => {
+         const userHome = join(testDir, 'alternate-home'),
+               overriddenSkillDir = join(userHome, '.claude', 'skills', 'demo'),
+               homeSkillDir = join(process.env.HOME ?? '', '.claude', 'skills', 'demo');
+
+         await writeSkillDir(join(userHome, '.claude'), 'demo');
+         await writeSkillDir(join(process.env.HOME ?? '', '.claude'), 'demo');
+         vi.stubEnv('AIX_USER_HOME', userHome);
+
+         const removed = await runCli(['remove', 'skill', 'demo', '--yes', '--target', 'claude-code']);
+
+         expect(removed.error).toBeUndefined();
+         expect(existsSync(overriddenSkillDir)).toStrictEqual(false);
+         expect(existsSync(homeSkillDir)).toStrictEqual(true);
+      });
+   });
+
    describe('install state tracking', () => {
       it('reconciles changed hooks from the same ai.json and previews removal without writing', async () => {
          const configPath = join(testDir, 'ai.json'),
@@ -635,6 +956,24 @@ describe('CLI Commands', () => {
          const state = JSON.parse(await readFile(join(testDir, '.aix', 'state.json'), 'utf-8'));
 
          expect(Object.keys(state.installed.mcp).toSorted()).toEqual(['demo', 'other']);
+      });
+   });
+
+   describe('add without --save', () => {
+      it('keeps what an earlier add and an earlier install put in the same editor config', async () => {
+         const mcpPath = join(testDir, '.mcp.json');
+
+         await writeValidConfig(join(testDir, 'ai.json'), {
+            mcp: { fromconfig: { command: 'node', args: ['config.js'] } },
+         });
+         await runCli(['install', '--project', '--target', 'claude-code']);
+         await runCli(['add', 'mcp', 'alpha', '--command', 'node alpha.js', '--project', '--target', 'claude-code']);
+
+         const second = await runCli(['add', 'mcp', 'beta', '--command', 'node beta.js', '--project', '--target', 'claude-code']),
+               servers = JSON.parse(await readFile(mcpPath, 'utf-8')).mcpServers;
+
+         expect(second.error).toBeUndefined();
+         expect(Object.keys(servers).toSorted()).toEqual(['alpha', 'beta', 'fromconfig']);
       });
    });
 
@@ -1895,6 +2234,58 @@ describe('CLI Commands', () => {
    });
 
    describe('remove skill', () => {
+      it.each([ '..', '.', '../rules' ])('deletes nothing when asked to remove the path-like name "%s"', async (name) => {
+         const claudeDir = join(testDir, '.claude');
+
+         await writeSkillDir(claudeDir, 'keep');
+         await mkdir(join(claudeDir, 'rules'), { recursive: true });
+         await writeFile(join(claudeDir, 'settings.json'), '{}');
+         await writeSkillDir(join(testDir, '.aix'), 'keep');
+
+         const { error } = await runCli(['remove', 'skill', name, '--yes', '--project', '--target', 'claude-code']);
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(claudeDir, 'settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(claudeDir, 'rules'))).toStrictEqual(true);
+         expect(existsSync(join(claudeDir, 'skills', 'keep', 'SKILL.md'))).toStrictEqual(true);
+         expect(existsSync(join(testDir, '.aix', 'skills', 'keep', 'SKILL.md'))).toStrictEqual(true);
+      });
+
+      it('keeps the shared skill copy while another editor still links to it', async () => {
+         const sharedCopy = join(testDir, '.aix', 'skills', 'demo'),
+               claudeLink = join(testDir, '.claude', 'skills', 'demo'),
+               cursorLink = join(testDir, '.cursor', 'skills', 'demo'),
+               statePath = join(testDir, '.aix', 'state.json'),
+               installed = { installedAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', editors: ['claude-code', 'cursor'] };
+
+         await writeSkillDir(join(testDir, '.aix'), 'demo');
+         await mkdir(dirname(claudeLink), { recursive: true });
+         await mkdir(dirname(cursorLink), { recursive: true });
+         await symlink(join('..', '..', '.aix', 'skills', 'demo'), claudeLink);
+         await symlink(join('..', '..', '.aix', 'skills', 'demo'), cursorLink);
+         await writeFile(statePath, JSON.stringify({ version: 1, scope: 'project', installed: { skills: { demo: installed } } }));
+
+         const { error } = await runCli(['remove', 'skill', 'demo', '--yes', '--project', '--target', 'cursor']),
+               state = JSON.parse(await readFile(statePath, 'utf-8'));
+
+         expect(error).toBeUndefined();
+         expect(existsSync(cursorLink)).toStrictEqual(false);
+         expect(existsSync(join(claudeLink, 'SKILL.md'))).toStrictEqual(true);
+         expect(existsSync(sharedCopy)).toStrictEqual(true);
+         expect(state.installed.skills.demo.editors).toEqual(['claude-code']);
+      });
+
+      it('explains how to confirm when there is no terminal to prompt on', async () => {
+         await writeSkillDir(join(testDir, '.claude'), 'demo');
+
+         const { error, stderr } = await runCli(['remove', 'skill', 'demo', '--project', '--target', 'claude-code']);
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Pass --yes to confirm');
+         expect(stderr).not.toContain('ExitPromptError');
+         expect(existsSync(join(testDir, '.claude', 'skills', 'demo', 'SKILL.md'))).toStrictEqual(true);
+      });
+
       it('removes a skill from config', async () => {
          const configPath = join(testDir, 'ai.json');
 
@@ -1963,6 +2354,18 @@ description: Demo skill
    });
 
    describe('remove rule', () => {
+      it('deletes a Copilot rule, whose file name carries the .instructions.md suffix', async () => {
+         const installedRuleFile = join(testDir, '.github', 'instructions', 'coding.instructions.md');
+
+         await mkdir(dirname(installedRuleFile), { recursive: true });
+         await writeFile(installedRuleFile, 'Keep functions small.');
+
+         const { error } = await runCli(['remove', 'rule', 'coding', '--yes', '--project', '--target', 'copilot']);
+
+         expect(error).toBeUndefined();
+         expect(existsSync(installedRuleFile)).toStrictEqual(false);
+      });
+
       it('removes a rule from config and deletes the installed rule file from editors', async () => {
          const configPath = join(testDir, 'ai.json'),
                rulesDir = join(testDir, 'rules'),
@@ -2655,7 +3058,6 @@ You debug issues.
                               cwd: testDir,
                               env: {
                                  ...process.env,
-                                 AIX_DISABLE_AUTOUPDATE: '1',
                                  NODE_ENV: 'development',
                               },
                            },

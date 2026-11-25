@@ -7,6 +7,46 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `AIX_USER_HOME` environment variable (exported as `USER_HOME_ENV_VAR`), which the
+  Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
+- Add `findNativeItemPath`, which locates the native file for a named skill, rule, prompt,
+  or agent through the editor's importer
+- Add `listAllBackups`, `pruneBackups`, and `getBackupStoreDir`; `restoreBackup` can now
+  find the original path itself and backs up the file it replaces
+- Declare the MIT license in `package.json`
+- Export `replaceFile`
+- Add the `installExtendsDependencies` load option (`installDependencies` on
+  `resolveExtends`), which lets a caller that only reads a config skip the package install
+  for a git `extends`
+- Back up whole directories: `createBackup` copies a directory, `restoreBackup` puts it
+  back without files added since, and `listAllBackups` reports `isDirectory`
+
+### Changed
+
+- Change `trackRemoval` to take an options object; with `editors` it removes only those
+  editors from the state entry
+- Keep every backup in one store at `~/.aix/backups`, keyed by the original file's path;
+  backups were written to a `.aix/.tmp/backups` directory beside each edited file,
+  including inside editor config directories
+- Require the parsed input as the second argument of `toConfigValidationError`
+
+### Removed
+
+- Remove the `overwrite` apply option, which replaced whole editor config files rather
+  than merging into them
+- Remove the `clean` apply option; clear the cache with `clearCache` before loading a
+  config
+- Remove `getBackupsDir` and the `backups` category of `getCacheStatus`; backups are no
+  longer cache content
+- Remove the unused `hasUnresolvedEnvVars` and `hasUnresolvedVariables` exports, and
+  `ResolveOptions.visited`
+- Remove `applyGlobalChanges`, `removeFromGlobalMcpConfig`, `summarizeGlobalChanges`, and
+  the `autoConfirmGlobal` apply option. Their write paths were unreachable from an install
+  and overwrote a global config file that failed to parse. `planGlobalChanges` replaces
+  the first
+
 ### Fixed
 
 - Keep MCP auth headers when syncing a remote server between editors
@@ -17,6 +57,78 @@ version may appear here with no changes to this package.
   `bearer_token_env_var` instead of dropping it
 - Keep a disabled server in the Codex and Windsurf configs, marked disabled,
   rather than removing it from the file
+- Keep top-level settings that hold a `command` or `url`, such as Claude Code's
+  `statusLine`, in place when merging hooks, plugins, or marketplaces into a JSON config
+- Refuse to install into a Grok `config.toml` that cannot be parsed rather than replacing
+  it
+- Refuse to delete an editor config directory or a `.aix` directory itself in `safeRm`,
+  and stop treating any directory named `opencode` or `github-copilot` as editor config
+- Match the Windows system-directory blocklist in `safeRm`, which compared backslash paths
+  against forward-slash ones
+- Refuse to install a skill over an existing editor skill directory that aix did not
+  create; it used to delete the directory and replace it with a link
+- Back up an editor config file before `removeMcpFromEditor`, `removeHookFromEditor`,
+  `removePluginFromEditor`, or `removeMarketplaceFromEditor` rewrites it
+- Stop importing path-scoped Claude Code rules from `~/.claude/CLAUDE.md`; the import
+  loaded every rule in every session, so a rule's `paths` had no effect
+- Key git caches and download directories by a hash of the full URL, ref, and path; every
+  GitHub skill shared one cache directory, and a rule's cache ignored its ref and path
+- Allow extended configs to share a base config without reporting a circular dependency
+- Rebase object-form rule, prompt, agent, and skill paths from extended configs
+- Detect changed agents when checking `ai.lock.json`
+- Copy string-form skills and same-named rule files when saving a remote config with
+  `--copy`; name imported files after their config key
+- Merge a new import into `.aix/imported` instead of replacing earlier imports
+- Show the received value in `ai.json` validation errors
+- Parse frontmatter with CRLF line endings, a byte order mark, or no trailing newline
+- Time out stalled remote config and `extends` downloads
+- Install git `extends` dependencies with npm and without lifecycle scripts, and only when
+  their manifests change
+- Keep the existing `.aix/extends` copy when a download or install fails
+- Change only the updated entries when writing `ai.json` and `ai.local.json`; unknown keys
+  were deleted and empty sections added
+- Report circular `extends`, failed downloads, and syntax errors in extended configs with
+  their own error type and file
+- Install versioned npm sources into `.aix/.tmp` instead of the project's `node_modules`
+- Let an explicit `"activation": "always"` override rule frontmatter
+- Keep the ref when normalizing a GitHub tree URL for `--extends`
+- Accept a single-server `mcpServers` file without `--name`
+- Apply `ai.local.json` when the config path is given explicitly
+- Write a new global-only MCP server when the same file already holds one from an earlier
+  install; it was reported as installed and never written
+- Replace a Codex, Grok, or OpenCode MCP server whose definition changed rather than
+  merging the old and new fields into one entry
+- Keep a Codex rule glob such as `../../other/**` from writing `AGENTS.md` outside the
+  project, and stop treating a glob that names one file as a directory
+- Remove `astro`, `@astrojs/starlight`, `@astrojs/vercel`, `vitest`, `c12`, and `defu`
+  from the runtime dependencies; none is imported
+- Keep the comments, key order, and formatting of `~/.codex/config.toml` and Grok's
+  `config.toml` when adding, changing, or removing an MCP server; every write used to
+  re-serialize the whole file
+- Write editor config, aix state, and `ai.json` through a temporary file that is renamed
+  into place, so an interrupted write cannot leave a truncated file. The file keeps its
+  permissions, and a symlinked config is written through, not replaced
+- Name a damaged install receipt and how to recover from it; a receipt that was not valid
+  JSON failed every install with a bare parse error
+- Read a state file that lacks sections added in later versions without failing
+- Install editors one at a time in `installToEditors`; two at once raced on files that
+  editors share
+- Do not edit home-directory MCP config when `removeMcpFromEditor` targets project scope,
+  or project config when it targets user scope for an editor with no user-level path
+- Let a config that extends another change an inherited item's content source or MCP
+  transport; the inherited source was merged in beside the new one and the result failed
+  validation
+- Send `GIGET_AUTH` only to git hosts; a source given as an `https://` URL received it as
+  a bearer token
+- Resolve a `user/repo#ref` reference on GitHub, as documented; it was looked up in
+  giget's template registry
+- Honor `aix.cache.maxBackups`, which the schema accepted and nothing read. Loading a
+  config sets the limit, and `setMaxBackupsPerFile` sets it directly
+- Write Zed user-scope config to `%APPDATA%\Zed` on Windows, where Zed reads it; aix
+  wrote `~/.config/zed` on every platform
+- Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and
+  Antigravity on macOS by its application support directory; its list held an absolute
+  `/Applications` path that was joined onto the home directory and never matched
 
 ## [0.6.0] - 2026-08-12
 

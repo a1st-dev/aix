@@ -8,6 +8,8 @@ export interface RuntimeDirent {
 }
 
 export interface RuntimeStats {
+   /** File type and permission bits, as in `fs.Stats`. */
+   mode: number;
    mtime: Date;
    mtimeMs: number;
    size: number;

@@ -1,21 +1,24 @@
 ---
 sidebar:
-   order: 4
-title: MCP Servers
+   order: 40
+title: MCP servers
 description: Extend your AI with Model Context Protocol servers.
 ---
 
-[Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open standard that enables AI models to interact with external tools and data sources.
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open standard that lets
+AI models use external tools and data sources.
 
-aix provides first-class support for configuring MCP servers and syncing that configuration to any editor that supports MCP (Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, Antigravity, OpenCode, Grok CLI).
+You define MCP servers once in `ai.json`, and aix writes them into the MCP config of each
+editor you install to. Every [supported editor](/editors/supported-editors/) has MCP support.
 
-## Configuring Servers
+## Configuring servers
 
 Define servers in the `mcp` object in `ai.json`. There are two ways to connect to an MCP server:
 
-### 1. Stdio (Local Process)
+### Stdio (local process)
 
-Run a local command (like `npx` or a python script) that speaks MCP over standard input/output.
+Run a local command, such as `npx` or a Python script, that speaks MCP over standard input and
+output.
 
 ```json
 {
@@ -31,7 +34,7 @@ Run a local command (like `npx` or a python script) that speaks MCP over standar
 }
 ```
 
-### 2. HTTP (Streamable HTTP)
+### HTTP (Streamable HTTP)
 
 Connect to a remote MCP server over HTTP.
 
@@ -45,9 +48,9 @@ Connect to a remote MCP server over HTTP.
 }
 ```
 
-## Tool & Resource Filtering
+## Tool and resource filtering
 
-You can restrict which tools and resources an MCP server exposes to the AI.
+You can restrict which tools and resources an MCP server exposes to the model.
 
 ```json
 {
@@ -65,17 +68,31 @@ You can restrict which tools and resources an MCP server exposes to the AI.
 }
 ```
 
-## Global vs. Project Config
+## User scope and project scope
 
-Some editors (Windsurf and Codex in aix's current adapter) use global MCP configuration, while others (Cursor, GitHub Copilot, Claude Code, Zed, Antigravity, OpenCode, Grok CLI) support project-specific config.
+At user scope, `aix install` writes each editor's user-scope MCP config, for example
+`~/.claude.json` for Claude Code. At project scope, it writes the editor's project MCP file
+instead, for example `.mcp.json`. [User scope and project scope](/concepts/scopes/) explains
+how the scope is chosen.
 
-aix handles this complexity for you:
+Windsurf and Codex are exceptions. aix has no project MCP file to write for them, so their
+servers only go to the user-scope file (`~/.codeium/windsurf/mcp_config.json` and
+`~/.codex/config.toml`). A project-scope `aix install` leaves those files alone and lists the
+servers as skipped, and so does `aix sync --scope project`. A user-scope install writes them
+and lists them separately in its output, unless aix detects a CI environment.
 
-- For project-specific editors, it writes to the project config.
-- For global-only editors, it **merges** your project's MCP config into the global config and tracks which project added which server.
-- When you remove a server or delete the project, aix automatically cleans up the global config using its state tracking system.
+Each editor page lists its MCP paths:
+[Cursor](/editors/cursor/#cursor-feature-mcp),
+[GitHub Copilot](/editors/copilot/#copilot-feature-mcp),
+[Claude Code](/editors/claude-code/#claude-code-feature-mcp),
+[Windsurf](/editors/windsurf/#windsurf-feature-mcp),
+[Zed](/editors/zed/#zed-feature-mcp),
+[Codex](/editors/codex/#codex-feature-mcp),
+[Google Antigravity](/editors/antigravity/#antigravity-feature-mcp),
+[OpenCode](/editors/opencode/#opencode-feature-mcp), and
+[Grok CLI](/editors/grok/#grok-feature-mcp).
 
-## Finding Servers
+## Finding servers
 
 Use `aix search` to browse the official MCP Registry:
 
@@ -83,9 +100,26 @@ Use `aix search` to browse the official MCP Registry:
 aix search --type mcp
 ```
 
-This interactive command lets you find servers (like GitHub, Slack, Postgres, Brave Search) and add them to your `ai.json` with one click.
+The search is interactive. Installing from it needs an `ai.json` in the project, so run
+`aix init` first. Pressing Enter on a server saves it to `ai.json` and installs it to your
+editors. See [`aix search`](/cli/search/).
 
-You can also install one MCP server without creating `ai.json`:
+To add a server without the search UI, use `aix add mcp`. On its own it installs the server
+into your user-scope editor config and leaves `ai.json` unchanged. With `--save` it writes the
+server to `ai.json`:
+
+```bash
+# Install into your editors only
+aix add mcp playwright --command "npx @playwright/mcp@latest"
+
+# Save to ai.json, then install from it
+aix add mcp playwright --command "npx @playwright/mcp@latest" --save --no-install
+aix install
+```
+
+## Install one server without ai.json
+
+`aix install --type mcp` installs a single server into one editor:
 
 ```bash
 aix install playwright --type mcp --target claude-code --user

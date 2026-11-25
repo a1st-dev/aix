@@ -1,144 +1,87 @@
 import pMap from 'p-map';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, lstatSync } from 'node:fs';
 import { join } from 'pathe';
-import { safeRm, type EditorName } from '@a1st/aix-core';
+import {
+   createBackup,
+   findNativeItemPath,
+   getInstalledItem,
+   getRuntimeAdapter,
+   getSkillsDir,
+   readState,
+   safeRm,
+   type EditorName,
+   type NativeFileSection,
+} from '@a1st/aix-core';
+import type { ConfigScope } from '@a1st/aix-schema';
 import type { Output } from './output.js';
+import { isValidSkillName } from './skill-source.js';
 
-export type RemovableItemType = 'skill' | 'mcp' | 'agent' | 'rule' | 'prompt';
+/** Where a group of files lives: one editor's native config, or aix's own `.aix` directory. */
+export type DeleteGroup = EditorName | 'aix';
 
 export interface FilesToDelete {
-   editor: EditorName;
+   editor: DeleteGroup;
    files: string[];
 }
 
 export interface DeleteResult {
-   editor: EditorName;
+   editor: DeleteGroup;
    deleted: string[];
    alreadyMissing: string[];
    errors: string[];
 }
 
-export interface DeleteTargetOptions {
+export interface FindFilesToDeleteOptions {
+   editors: readonly EditorName[];
+   section: NativeFileSection;
+   name: string;
+   scope: ConfigScope;
    projectRoot: string;
-   targetScope?: 'project' | 'user';
 }
 
 /**
- * Compute files that would be deleted for a given item removal.
+ * Editors link to one copy of each skill under `.aix/skills`. That copy can go only when no
+ * editor outside this removal still has the skill installed.
  */
-export function computeFilesToDelete(
-   editors: EditorName[],
-   itemType: RemovableItemType,
-   itemName: string,
-   options: DeleteTargetOptions,
-): FilesToDelete[] {
-   const results: FilesToDelete[] = [],
-         targetScope = options.targetScope ?? 'project',
-         installRoot = targetScope === 'user' ? homedir() : options.projectRoot;
+async function findUnusedSkillCopy(options: FindFilesToDeleteOptions): Promise<string | undefined> {
+   const { editors, name, scope, projectRoot } = options;
 
-   for (const editor of editors) {
-      const files: string[] = [];
-
-      if (itemType === 'skill') {
-         const skillDir = join(installRoot, '.aix', 'skills', itemName);
-
-         files.push(skillDir);
-
-         const editorSkillDirs: Record<EditorName, { project: string; user: string }> = {
-            windsurf: { project: '.windsurf/skills', user: '.windsurf/skills' },
-            cursor: { project: '.cursor/skills', user: '.cursor/skills' },
-            'claude-code': { project: '.claude/skills', user: '.claude/skills' },
-            copilot: { project: '.github/skills', user: '.github/skills' },
-            zed: { project: '.zed/skills', user: '.zed/skills' },
-            codex: { project: '.agents/skills', user: '.codex/skills' },
-            antigravity: { project: '.agents/skills', user: '.gemini/config/skills' },
-            opencode: { project: '.opencode/skills', user: '.config/opencode/skills' },
-            grok: { project: '.grok/skills', user: '.grok/skills' },
-         };
-
-         const skillDirConfig = editorSkillDirs[editor];
-
-         if (skillDirConfig) {
-            files.push(join(installRoot, targetScope === 'user' ? skillDirConfig.user : skillDirConfig.project, itemName));
-         }
-      } else if (itemType === 'agent') {
-         if (editor === 'copilot') {
-            const projectDir = join(installRoot, '.github', 'agents'),
-                  userDir = join(installRoot, '.config', 'github-copilot', 'agents'),
-                  altUserDir = join(installRoot, '.copilot', 'agents'),
-                  targetDir = targetScope === 'user' ? userDir : projectDir;
-
-            files.push(join(targetDir, `${itemName}.agent.md`));
-            files.push(join(targetDir, `${itemName}.md`));
-            if (targetScope === 'user') {
-               files.push(join(altUserDir, `${itemName}.agent.md`));
-               files.push(join(altUserDir, `${itemName}.md`));
-            }
-         } else {
-            const editorAgentDirs: Partial<Record<EditorName, { project: string; user: string }>> = {
-               'claude-code': { project: '.claude/agents', user: '.claude/agents' },
-               cursor: { project: '.cursor/agents', user: '.cursor/agents' },
-               antigravity: { project: '.agents/agents', user: '.gemini/config/agents' },
-               opencode: { project: '.opencode/agents', user: '.config/opencode/agents' },
-            };
-
-            const agentDirConfig = editorAgentDirs[editor];
-
-            if (agentDirConfig) {
-               const dir = targetScope === 'user' ? agentDirConfig.user : agentDirConfig.project;
-
-               files.push(join(installRoot, dir, `${itemName}.md`));
-            }
-         }
-      } else if (itemType === 'rule') {
-         const editorRuleDirs: Partial<Record<EditorName, { project: string; user: string; ext: string }>> = {
-            'claude-code': { project: '.claude/rules', user: '.claude/rules', ext: '.md' },
-            cursor: { project: '.cursor/rules', user: '.cursor/rules', ext: '.mdc' },
-            windsurf: { project: '.windsurf/rules', user: '.windsurf/rules', ext: '.md' },
-            copilot: { project: '.github/instructions', user: '.config/github-copilot/instructions', ext: '.md' },
-            zed: { project: '.zed/rules', user: '.zed/rules', ext: '.md' },
-            codex: { project: '.codex/rules', user: '.codex/rules', ext: '.md' },
-            antigravity: { project: '.gemini/rules', user: '.gemini/rules', ext: '.md' },
-            opencode: { project: '.opencode/rules', user: '.config/opencode/rules', ext: '.md' },
-            grok: { project: '.grok/rules', user: '.grok/rules', ext: '.md' },
-         };
-
-         const ruleDirConfig = editorRuleDirs[editor];
-
-         if (ruleDirConfig) {
-            const dir = targetScope === 'user' ? ruleDirConfig.user : ruleDirConfig.project;
-
-            files.push(join(installRoot, dir, `${itemName}${ruleDirConfig.ext}`));
-         }
-      } else if (itemType === 'prompt') {
-         const editorPromptDirs: Partial<Record<EditorName, { project: string; user: string; ext: string }>> = {
-            'claude-code': { project: '.claude/commands', user: '.claude/commands', ext: '.md' },
-            cursor: { project: '.cursor/commands', user: '.cursor/commands', ext: '.md' },
-            windsurf: { project: '.windsurf/workflows', user: '.windsurf/workflows', ext: '.md' },
-            copilot: { project: '.github/prompts', user: '.config/github-copilot/prompts', ext: '.prompt.md' },
-            zed: { project: '.zed/prompts', user: '.zed/prompts', ext: '.md' },
-            codex: { project: '.codex/prompts', user: '.codex/prompts', ext: '.md' },
-            antigravity: { project: '.gemini/commands', user: '.gemini/commands', ext: '.md' },
-            opencode: { project: '.opencode/commands', user: '.config/opencode/commands', ext: '.md' },
-            grok: { project: '.grok/commands', user: '.grok/commands', ext: '.md' },
-         };
-
-         const promptDirConfig = editorPromptDirs[editor];
-
-         if (promptDirConfig) {
-            const dir = targetScope === 'user' ? promptDirConfig.user : promptDirConfig.project;
-
-            files.push(join(installRoot, dir, `${itemName}${promptDirConfig.ext}`));
-         }
-      }
-
-      if (files.length > 0) {
-         results.push({ editor, files });
-      }
+   if (!isValidSkillName(name)) {
+      return undefined;
    }
 
-   return results;
+   const installRoot = scope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot,
+         skillCopy = join(getSkillsDir(installRoot), name),
+         removedEditors = new Set<string>(editors),
+         installedEditors = getInstalledItem(await readState(scope, projectRoot), 'skills', name)?.editors ?? [],
+         isStillLinked = installedEditors.some((editor) => {
+            return !removedEditors.has(editor);
+         });
+
+   return existsSync(skillCopy) && !isStillLinked ? skillCopy : undefined;
+}
+
+/**
+ * Find the native files that removing one item would delete. Paths come from each editor's
+ * importer, so this reports what is on disk, never a path built from the item name.
+ */
+export async function findFilesToDelete(options: FindFilesToDeleteOptions): Promise<FilesToDelete[]> {
+   const { editors, section, name, scope, projectRoot } = options,
+         located = await pMap(
+            editors,
+            async (editor): Promise<FilesToDelete> => {
+               const path = await findNativeItemPath({ editor, section, name, scope, projectRoot });
+
+               return { editor, files: path ? [ path ] : [] };
+            },
+            { concurrency: 3 },
+         ),
+         results = located.filter(({ files }) => {
+            return files.length > 0;
+         }),
+         skillCopy = section === 'skills' ? await findUnusedSkillCopy(options) : undefined;
+
+   return skillCopy ? [ ...results, { editor: 'aix', files: [ skillCopy ] } ] : results;
 }
 
 /**
@@ -149,6 +92,10 @@ async function deleteFile(
 ): Promise<{ file: string; status: 'deleted' | 'missing' | 'error'; error?: string }> {
    try {
       if (existsSync(file)) {
+         // A link holds nothing of its own, and what it points at is not being deleted.
+         if (!lstatSync(file).isSymbolicLink()) {
+            await createBackup(file);
+         }
          await safeRm(file, { force: true });
          return { file, status: 'deleted' };
       }
@@ -180,22 +127,6 @@ export async function deleteFiles(filesToDelete: FilesToDelete[]): Promise<Delet
       },
       { concurrency: 3 },
    );
-}
-
-/**
- * Get all files that exist from the computed list.
- */
-export function getExistingFiles(filesToDelete: FilesToDelete[]): string[] {
-   const existing: string[] = [];
-
-   for (const { files } of filesToDelete) {
-      for (const file of files) {
-         if (existsSync(file)) {
-            existing.push(file);
-         }
-      }
-   }
-   return existing;
 }
 
 export function printRemovalPreview(

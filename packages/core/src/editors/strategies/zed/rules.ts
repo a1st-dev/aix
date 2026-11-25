@@ -3,6 +3,7 @@ import type { ImportedRulesResult, RulesStrategy } from '../types.js';
 import type { EditorRule } from '../../types.js';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 import { formatPlainMarkdownRule } from '../shared/rule-utils.js';
+import { getGlobalZedDir } from './paths.js';
 
 /**
  * Zed rules strategy. Uses a single `.rules` file at project root (plain markdown, no frontmatter).
@@ -20,8 +21,8 @@ export class ZedRulesStrategy implements RulesStrategy {
    }
 
    getGlobalRulesPath(): string | null {
-      // Zed 1.4.2+ uses ~/.config/zed/AGENTS.md for user-scope rules.
-      return '.config/zed/AGENTS.md';
+      // Zed 1.4.2+ reads user-scope rules from AGENTS.md in its config directory.
+      return `${getGlobalZedDir()}/AGENTS.md`;
    }
 
    parseGlobalRules(_content: string): { rules: string[]; warnings: string[] } {

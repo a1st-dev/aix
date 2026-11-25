@@ -1,6 +1,7 @@
 import pMap from 'p-map';
 import { join } from 'pathe';
-import { getCacheDir, getBackupsDir } from './paths.js';
+import { getCacheDir } from './paths.js';
+import { pruneBackups } from '../backup.js';
 import { safeRm } from '../fs/safe-rm.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
@@ -38,17 +39,10 @@ export async function cleanStaleCache(
       concurrency: 2,
    });
 
-   // Clean old backups (beyond maxBackupAgeDays) - both new and legacy paths
-   const backupDirs = [
-      getBackupsDir(projectRoot),
-      join(projectRoot, '.aix', 'backups'), // legacy
-   ].filter((path) => getRuntimeAdapter().fs.existsSync(path));
+   const prunedBackups = await pruneBackups({ maxAgeDays: maxBackupAgeDays });
 
-   const backupMaxAge = maxBackupAgeDays * 24 * 60 * 60 * 1000;
-
-   await pMap(backupDirs, (dir) => cleanOldEntries(dir, now - backupMaxAge, result), {
-      concurrency: 2,
-   });
+   result.deletedPaths.push(...prunedBackups.deletedPaths);
+   result.freedBytes += prunedBackups.freedBytes;
 
    return result;
 }

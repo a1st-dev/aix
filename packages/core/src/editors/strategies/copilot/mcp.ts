@@ -49,6 +49,32 @@ export class CopilotMcpStrategy implements McpStrategy {
       return JSON.stringify({ mcpServers }, null, 2) + '\n';
    }
 
+   /**
+    * Copilot also reads a legacy layout with the servers as top-level keys. Move those under
+    * `mcpServers` so a merge does not leave the same server in both places.
+    */
+   normalizeExistingConfig(config: Record<string, unknown>): Record<string, unknown> {
+      if (config.mcpServers || config.servers) {
+         return config;
+      }
+
+      const entries = Object.entries(config),
+            mcpServers = Object.fromEntries(entries.filter(([, value]) => {
+               return isFlatServerEntry(value);
+            }));
+
+      if (Object.keys(mcpServers).length === 0) {
+         return config;
+      }
+
+      return {
+         ...Object.fromEntries(entries.filter(([, value]) => {
+            return !isFlatServerEntry(value);
+         })),
+         mcpServers,
+      };
+   }
+
    parseGlobalMcpConfig(content: string): {
       mcp: Record<string, McpServerConfig>;
       warnings: string[];
@@ -76,6 +102,10 @@ export class CopilotMcpStrategy implements McpStrategy {
 
       return { mcp, warnings };
    }
+}
+
+function isFlatServerEntry(value: unknown): value is Record<string, unknown> {
+   return isRecord(value) && (typeof value.command === 'string' || typeof value.url === 'string');
 }
 
 function parseJsonObject(content: string): Record<string, unknown> {

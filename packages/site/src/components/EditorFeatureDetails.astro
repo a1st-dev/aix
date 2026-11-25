@@ -4,60 +4,53 @@ import {
    editorFeatureDefinitions,
    getFeatureAnchor,
    getFeatureConceptRoute,
+   getFeatureProseLabel,
 } from '../lib/editor-support';
 import InlineCodeText from './InlineCodeText.astro';
 import ScopeSupportDetails from './ScopeSupportDetails.astro';
 import SupportStatusBadge from './SupportStatusBadge.astro';
 
-const { profile } = Astro.props as {
+interface Props {
    profile: EditorSupportProfile;
-};
+}
+
+const { profile } = Astro.props;
 ---
 
-<div class="editor-feature-details">
+<div class="editor-feature-details aix-layout">
    {editorFeatureDefinitions.map((featureDefinition) => {
       const feature = profile.features[featureDefinition.id],
-            conceptRoute = getFeatureConceptRoute(featureDefinition.id);
+            conceptRoute = getFeatureConceptRoute(featureDefinition.id),
+            anchor = getFeatureAnchor(profile.id, featureDefinition.id);
 
       return (
-         <section class="editor-feature-details__feature" id={getFeatureAnchor(profile.id, featureDefinition.id)}>
-            <h3>
-               {featureDefinition.label}
+         <section class="editor-feature-details__feature aix-card aix-layout" aria-labelledby={anchor}>
+            <div class="editor-feature-details__header aix-layout">
+               <h3 id={anchor}>{featureDefinition.label}</h3>
+               <SupportStatusBadge status={feature.summary} />
+            </div>
+
+            <p class="editor-feature-details__summary">
+               <InlineCodeText text={feature.implementation} />
+            </p>
+
+            <p class="editor-feature-details__meta">
+               {profile.name} calls this <strong>{feature.terminology}</strong>.
                {conceptRoute && (
                   <>
                      {' '}
-                     <span class="editor-feature-details__concept-link">
-                        <a href={conceptRoute}>Learn the concept</a>
-                     </span>
+                     <a href={conceptRoute}>How aix handles {getFeatureProseLabel(featureDefinition)}</a>
                   </>
                )}
-            </h3>
+            </p>
 
-            <div class="editor-feature-details__intro">
-               <p class="editor-feature-details__summary">
-                  <InlineCodeText text={feature.implementation} />
-               </p>
-
-               <div class="editor-feature-details__meta">
-                  <div class="editor-feature-details__meta-item">
-                     <span class="editor-feature-details__meta-label">{profile.name} calls this</span>
-                     <strong>{feature.terminology}</strong>
-                  </div>
-
-                  <div class="editor-feature-details__meta-item">
-                     <span class="editor-feature-details__meta-label">aix support</span>
-                     <SupportStatusBadge status={feature.summary} />
-                  </div>
-               </div>
-            </div>
-
-            <dl class="editor-feature-details__scope-list">
+            <dl class="editor-feature-details__scope-list aix-layout">
                <ScopeSupportDetails label="Project" scope={feature.project} />
                <ScopeSupportDetails label="User" scope={feature.user} />
             </dl>
 
             {feature.supportedValues && feature.supportedValues.length > 0 && (
-               <p>
+               <p class="editor-feature-details__values">
                   <strong>Supported metadata:</strong>{' '}
                   {feature.supportedValues.map((value, index) => (
                      <>
@@ -69,7 +62,7 @@ const { profile } = Astro.props as {
             )}
 
             {feature.notes && feature.notes.length > 0 && (
-               <ul>
+               <ul class="editor-feature-details__notes">
                   {feature.notes.map((note) => (
                      <li>
                         <InlineCodeText text={note} />
@@ -85,61 +78,40 @@ const { profile } = Astro.props as {
 <style>
    .editor-feature-details {
       display: grid;
-      gap: 1.5rem;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.25rem;
    }
 
    .editor-feature-details__feature {
-      border: 1px solid var(--sl-color-gray-5);
-      border-radius: 0.9rem;
-      padding: 1.2rem;
-      background: color-mix(in srgb, var(--sl-color-bg) 90%, var(--sl-color-accent-low));
-   }
-
-   .editor-feature-details__concept-link {
-      font-size: 0.82rem;
-      font-weight: 500;
-   }
-
-   .editor-feature-details__intro {
       display: grid;
-      gap: 0.85rem;
-      margin-block-end: 0.95rem;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.75rem;
    }
 
-   .editor-feature-details__summary {
-      margin: 0;
-      max-width: 65ch;
-      color: var(--sl-color-gray-2);
+   .editor-feature-details__header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem 1rem;
+   }
+
+   .editor-feature-details__summary,
+   .editor-feature-details__meta {
+      max-inline-size: 65ch;
    }
 
    .editor-feature-details__meta {
-      display: grid;
-      gap: 0.75rem;
-      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-   }
-
-   .editor-feature-details__meta-item {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      padding: 0.75rem 0.85rem;
-      border: 1px solid var(--sl-color-hairline-light);
-      border-radius: 0.8rem;
-      background: color-mix(in srgb, var(--sl-color-bg) 82%, var(--sl-color-accent-low));
-   }
-
-   .editor-feature-details__meta-label {
-      color: var(--sl-color-gray-3);
-      font-size: 0.82rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      color: var(--sl-color-gray-2);
    }
 
    .editor-feature-details__scope-list {
       display: grid;
-      grid-template-columns: max-content 1fr;
-      gap: 0.7rem 0.9rem;
-      margin: 0;
+      grid-template-columns: minmax(0, 1fr);
+   }
+
+   .editor-feature-details__values,
+   .editor-feature-details__notes {
+      overflow-wrap: anywhere;
    }
 </style>

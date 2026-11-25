@@ -1,5 +1,6 @@
 import { Args, Flags } from '@oclif/core';
 import { select } from '@inquirer/prompts';
+import { assertInteractive } from '../../lib/confirm.js';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
 import { addLockFlag } from '../../flags/lock.js';
@@ -224,6 +225,12 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          selected = results[0] as ServerResponse;
          this.output.info(`Using: ${selected.server.name}`);
       } else {
+         assertInteractive(
+            this.error.bind(this),
+            `Several registry servers match: ${results.map((result) => {
+               return result.server.name;
+            }).join(', ')}. Pass the full name of the one you want.`,
+         );
          selected = await select<ServerResponse>({
             message: 'Multiple servers found. Which one do you want to add?',
             choices: results.map((r) => ({

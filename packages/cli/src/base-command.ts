@@ -1,9 +1,10 @@
 import { Command, Flags, Interfaces } from '@oclif/core';
 import chalk from 'chalk';
-import { basename } from 'pathe';
+import { basename, resolve } from 'pathe';
 import {
    loadConfig as coreLoadConfig,
    ConfigParseError,
+   USER_HOME_ENV_VAR,
    type LoadedConfig,
    type LockfileMode,
 } from '@a1st/aix-core';
@@ -19,6 +20,10 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          char: 'c',
          description: 'Path to ai.json config file',
          env: 'AI_JSON_CONFIG',
+      }),
+      'user-home': Flags.directory({
+         description: 'Directory to read and write user-scope config in, instead of your home directory',
+         env: USER_HOME_ENV_VAR,
       }),
       quiet: Flags.boolean({
          char: 'q',
@@ -49,6 +54,24 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          quiet: this.flags.quiet,
          json: this.flags.json,
       });
+      this.applyUserHomeOverride();
+   }
+
+   /**
+    * Core resolves the home directory from the environment, so the flag is exported there. That
+    * also hands the same directory to any aix process this command spawns.
+    */
+   private applyUserHomeOverride(): void {
+      const userHome = this.flags['user-home'];
+
+      if (!userHome) {
+         return;
+      }
+
+      const resolvedUserHome = resolve(userHome);
+
+      process.env[USER_HOME_ENV_VAR] = resolvedUserHome;
+      this.output.info(`Using ${resolvedUserHome} in place of your home directory`);
    }
 
    protected async loadConfig(): Promise<LoadedConfig | undefined> {
@@ -59,6 +82,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       const result = await coreLoadConfig({
          explicitPath: this.flags.config,
          lockfileMode: this.getLockfileMode(),
+         installExtendsDependencies: this.installsExtendsDependencies(),
       });
 
       if (result) {
@@ -84,6 +108,15 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       return 'auto';
    }
 
+   /**
+    * Whether loading the config may install packages for a git `extends`. Hook scripts in an
+    * extended config need them, so a command that installs hooks says yes. A command that
+    * only reads the config must not run a package manager as a side effect.
+    */
+   protected installsExtendsDependencies(): boolean {
+      return false;
+   }
+
    /** Log formatted install results */
    protected logInstallResults(results: Array<{ message: string; success: boolean }>): void {
       for (const r of results) {
@@ -93,6 +126,15 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
             this.output.warn(r.message);
          }
       }
+   }
+
+   /**
+    * Make the process exit non-zero once the command returns. A command that works through
+    * several editors keeps going after one fails, so it cannot throw, but a script or CI job
+    * still has to see that something did not happen.
+    */
+   protected markFailed(): void {
+      process.exitCode = 1;
    }
 
    /** Log delete operation results */
@@ -105,6 +147,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          }
          for (const err of result.errors) {
             this.output.warn(`Failed to delete: ${err}`);
+            this.markFailed();
          }
       }
    }

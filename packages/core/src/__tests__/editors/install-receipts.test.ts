@@ -222,7 +222,7 @@ describe('editor install receipts', () => {
       expect(content).toContain('@rules/second.md');
    });
 
-   it('retains receipts across --clean so removed skill links and hooks can still be reconciled', async () => {
+   it('removes the skill links and hooks of a config that no longer declares them', async () => {
       const skillPath = join(projectRoot, 'source-skill'),
             config: AiJsonConfig = {
                ...createEmptyConfig(), skills: { managed: skillPath },
@@ -232,13 +232,26 @@ describe('editor install receipts', () => {
       await mkdir(skillPath);
       await writeFile(join(skillPath, 'SKILL.md'), '---\nname: managed\ndescription: Test skill\n---\nManaged skill.\n');
       await installToEditor('claude-code', config, projectRoot);
-      const result = await installToEditor('claude-code', createEmptyConfig(), projectRoot, { clean: true });
+      const result = await installToEditor('claude-code', createEmptyConfig(), projectRoot);
 
       expect(result.errors).toEqual([]);
       expect(JSON.parse(await readFile(join(projectRoot, '.claude', 'settings.json'), 'utf-8')).hooks.Stop).toEqual([]);
       expect(result.changes).toContainEqual(expect.objectContaining({
          path: join(projectRoot, '.claude', 'skills', 'managed'), action: 'delete', isDirectory: true,
       }));
+   });
+
+   it('names a damaged receipt and how to recover, rather than failing with a parse error', async () => {
+      const receiptPath = join(projectRoot, '.aix', 'installs', 'damaged.json');
+
+      await mkdir(dirname(receiptPath), { recursive: true });
+      await writeFile(receiptPath, '{ "version": 1, "files": [');
+
+      const result = await installToEditor('claude-code', { ...createEmptyConfig(), mcp: { docs: { command: 'server' } } }, projectRoot);
+
+      expect(result.success).toStrictEqual(false);
+      expect(result.errors.join('\n')).toContain(receiptPath);
+      expect(result.errors.join('\n')).toContain('Delete that file to continue');
    });
 
    it('previews cleanup without advancing receipts or removing other sections', async () => {
@@ -295,7 +308,7 @@ describe('editor install receipts', () => {
 
    it('reconciles global-only Codex MCP entries when their source config changes', async () => {
       const config: AiJsonConfig = { ...createEmptyConfig(), mcp: { managed: { command: 'server' } } },
-            options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
+            options = { targetScope: 'user' as const, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
 
       vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);
@@ -308,7 +321,7 @@ describe('editor install receipts', () => {
 
    it('rolls back global MCP changes when their receipt cannot be written', async () => {
       const config: AiJsonConfig = { ...createEmptyConfig(), mcp: { managed: { command: 'original' } } },
-            options = { targetScope: 'user' as const, autoConfirmGlobal: true, scopes: ['mcp'] as const },
+            options = { targetScope: 'user' as const, scopes: ['mcp'] as const },
             path = join(homedir(), '.codex', 'config.toml');
 
       vi.spyOn(ciEnvironment, 'isCI').mockResolvedValue(false);

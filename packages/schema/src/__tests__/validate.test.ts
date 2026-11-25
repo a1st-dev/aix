@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateConfig, parseConfig } from '../validate.js';
 import { aiJsonConfigSchema } from '../config.js';
+import { editorInputNames } from '../editors.js';
 
 describe('validateConfig', () => {
    it('validates a minimal valid config', () => {
@@ -149,6 +150,19 @@ describe('validateConfig', () => {
       expect(result.success).toBe(true);
    });
 
+   it('accepts every editor aix installs to, and every alias, in the array shorthand', () => {
+      const result = validateConfig({ editors: [ ...editorInputNames ] });
+
+      expect(editorInputNames).toContain('codex');
+      expect(result.success).toStrictEqual(true);
+   });
+
+   it('rejects an editor aix cannot install to', () => {
+      const result = validateConfig({ editors: [ 'neovim' ] });
+
+      expect(result.success).toStrictEqual(false);
+   });
+
    it('validates devin as a Windsurf alias', () => {
       const config = {
          editors: ['devin'],
@@ -228,6 +242,48 @@ describe('parseConfig', () => {
       };
 
       expect(() => parseConfig(config)).toThrow();
+   });
+});
+
+describe('parseConfig with skill references in object form', () => {
+   it('keeps the package name of an npm reference that has a path', () => {
+      const skill = { npm: '@acme/skills', path: 'skills/pdf', version: '^1.0.0' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('keeps the package name of an npm reference that has only a version', () => {
+      const skill = { npm: 'aix-skill-pdf', version: '^1.0.0' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('keeps an npm reference inside a source wrapper', () => {
+      const skill = { source: { npm: '@acme/skills', path: 'skills/pdf' }, enabled: true },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('still reads a git reference with a path as a git reference', () => {
+      const skill = { git: 'github:acme/skills', ref: 'main', path: 'skills/pdf' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('still reads an object with only a path as a local reference', () => {
+      const parsed = parseConfig({ skills: { pdf: { path: './skills/pdf' } } });
+
+      expect(parsed.skills.pdf).toEqual({ path: './skills/pdf' });
+   });
+
+   it('rejects an npm reference whose package name is not a string', () => {
+      expect(() => {
+         return parseConfig({ skills: { pdf: { npm: 42 } } });
+      }).toThrow();
    });
 });
 

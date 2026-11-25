@@ -41,7 +41,9 @@ export type ConfigScope = z.infer<typeof configScopeSchema>;
 export const configMetaSchema = z.object({
    $schema: z.string().url().optional().describe('URL to JSON Schema for validation'),
    extends: extendsSchema,
-   scope: configScopeSchema.optional().describe('Config scope: "project" (default) or "user"'),
+   scope: configScopeSchema
+      .optional()
+      .describe('Scope `aix install` targets when no scope flag is passed. Without it, install targets user scope'),
 });
 
 export { SCHEMA_BASE_URL };

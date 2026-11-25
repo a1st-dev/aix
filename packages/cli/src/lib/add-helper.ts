@@ -1,10 +1,11 @@
-import { updateConfig, loadConfig, type EditorName } from '@a1st/aix-core';
+import { detectEditors, loadConfig, removeMcpFromEditors, updateConfig, type EditorName } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
-import { normalizeEditors, resolveScope, type ConfigScope } from '@a1st/aix-schema';
+import { normalizeEditors, type ConfigScope } from '@a1st/aix-schema';
 import { dirname } from 'pathe';
+import { resolveTargetScope } from '../flags/scope.js';
 import { installAfterAdd } from './install-helper.js';
 import { isValidSkillName, normalizeSkillName, parseSkillSource } from './skill-source.js';
-import { computeFilesToDelete, deleteFiles } from './delete-helper.js';
+import { deleteFiles, findFilesToDelete } from './delete-helper.js';
 import { buildMcpServerConfig, findCompatibleNpmPackage } from './add-command-helper.js';
 
 export interface AddSkillOptions {
@@ -17,7 +18,10 @@ export interface AddSkillOptions {
 
 export interface AddMcpOptions {
    configPath: string;
+   /** Text to search the registry for. */
    name: string;
+   /** Registry name of the server to add. Without it, the first search result is used. */
+   serverName?: string;
    skipInstall?: boolean;
 }
 
@@ -56,11 +60,10 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
          },
       }));
 
-      if (!skipInstall) {
-         await installAfterAdd({
-            configPath,
-            sections: ['skills'],
-         });
+      const installError = skipInstall ? undefined : await installAddedSection(configPath, 'skills');
+
+      if (installError) {
+         return { success: false, name: skillName, error: installError };
       }
 
       return { success: true, name: skillName };
@@ -74,27 +77,49 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
 }
 
 /**
+ * Install one section after an item was saved to it. Returns what went wrong, so the caller
+ * does not report an item as installed when no editor received it.
+ */
+async function installAddedSection(configPath: string, section: 'skills' | 'mcp'): Promise<string | undefined> {
+   const installed = await installAfterAdd({ configPath, sections: [ section ] }),
+         failures = installed.results.filter((result) => {
+            return !result.success;
+         });
+
+   if (!installed.installed) {
+      return 'Saved to ai.json, but no editor was found to install to';
+   }
+
+   return failures.length === 0 ? undefined : failures.map((failure) => {
+      return `${failure.editor}: ${failure.errors.join(', ')}`;
+   }).join('; ');
+}
+
+/**
  * Add an MCP server to ai.json programmatically by searching the MCP Registry.
  */
 export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
-   const { configPath, name, skipInstall } = options;
+   const { configPath, name, serverName, skipInstall } = options;
 
    try {
       const client = new McpRegistryClient(),
-            response = await client.search(name),
-            results = response.servers ?? [];
+            response = await client.search(serverName ?? name),
+            results: ServerResponse[] = response.servers ?? [],
+            selected = serverName
+               ? results.find((result) => {
+                  return result.server.name === serverName;
+               })
+               : results[0];
 
-      if (results.length === 0) {
+      if (!selected) {
          return {
             success: false,
             name,
-            error: `No MCP servers found matching "${name}"`,
+            error: `No MCP servers found matching "${serverName ?? name}"`,
          };
       }
 
-      // Use the first result
-      const selected = results[0] as ServerResponse,
-            pkg = findCompatibleNpmPackage(selected.server.packages);
+      const pkg = findCompatibleNpmPackage(selected.server.packages);
 
       if (!pkg) {
          return {
@@ -116,11 +141,10 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
          },
       }));
 
-      if (!skipInstall) {
-         await installAfterAdd({
-            configPath,
-            sections: ['mcp'],
-         });
+      const installError = skipInstall ? undefined : await installAddedSection(configPath, 'mcp');
+
+      if (installError) {
+         return { success: false, name: friendlyName, error: installError };
       }
 
       return { success: true, name: friendlyName };
@@ -133,13 +157,30 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
    }
 }
 
-/**
- * Find the config path by searching up from cwd.
- */
-export async function findConfigPath(): Promise<string | null> {
-   const loaded = await loadConfig({ startDir: process.cwd() });
+export interface ProjectConfigSummary {
+   path: string;
+   /** Names of the skills and MCP servers the config declares and has not disabled. */
+   declaredNames: Set<string>;
+}
 
-   return loaded?.path ?? null;
+/** Find the ai.json a search installs into, searching up from the working directory. */
+export async function findProjectConfig(startDir: string = process.cwd()): Promise<ProjectConfigSummary | null> {
+   const loaded = await loadConfig({ startDir, installExtendsDependencies: false });
+
+   if (!loaded) {
+      return null;
+   }
+
+   const declared = [ ...Object.entries(loaded.config.skills ?? {}), ...Object.entries(loaded.config.mcp ?? {}) ];
+
+   return {
+      path: loaded.path,
+      declaredNames: new Set(declared.filter(([ , value ]) => {
+         return value !== false;
+      }).map(([ name ]) => {
+         return name;
+      })),
+   };
 }
 
 export interface RemoveResult {
@@ -158,9 +199,12 @@ async function cleanupRemovedSkill(
       return;
    }
 
-   const filesToDelete = computeFilesToDelete(editors, 'skill', name, {
+   const filesToDelete = await findFilesToDelete({
+      editors,
+      section: 'skills',
+      name,
+      scope,
       projectRoot: dirname(configPath),
-      targetScope: scope,
    });
 
    await deleteFiles(filesToDelete);
@@ -180,7 +224,7 @@ export async function removeSkill(options: { configPath: string; name: string })
 
    try {
       const loaded = await loadConfig(configPath),
-            scope = loaded ? resolveScope(loaded.config) : 'user',
+            scope = resolveTargetScope({}, loaded?.config),
             normalizedName = isValidSkillName(name) ? name : normalizeSkillName(name),
             editors = loaded?.config.editors
                ? (Object.keys(normalizeEditors(loaded.config.editors)) as EditorName[])
@@ -217,11 +261,34 @@ export async function removeMcp(options: { configPath: string; name: string }): 
    const { configPath, name } = options;
 
    try {
+      const loaded = await loadConfig(configPath),
+            projectRoot = dirname(configPath),
+            configuredEditors = loaded?.config.editors ? Object.keys(normalizeEditors(loaded.config.editors)) : [],
+            editors = configuredEditors.length > 0 ? configuredEditors : await detectEditors(projectRoot);
+
       await updateConfig(configPath, (config) => {
          const { [name]: _, ...remainingMcp } = config.mcp ?? {};
 
          return { ...config, mcp: remainingMcp };
       });
+
+      // The entry in ai.json is only half of it: the editors still have the server.
+      const removals = await removeMcpFromEditors(editors, name, projectRoot, {
+               targetScope: resolveTargetScope({}, loaded?.config),
+            }),
+            failures = removals.filter((removal) => {
+               return !removal.success;
+            });
+
+      if (failures.length > 0) {
+         return {
+            success: false,
+            name,
+            error: failures.map((failure) => {
+               return `${failure.editor}: ${failure.errors.join(', ')}`;
+            }).join('; '),
+         };
+      }
 
       return { success: true, name };
    } catch (error) {

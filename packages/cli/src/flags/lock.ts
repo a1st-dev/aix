@@ -6,3 +6,10 @@ export const addLockFlag = {
       default: false,
    }),
 };
+
+export const removeLockFlag = {
+   lock: Flags.boolean({
+      description: 'Create or refresh ai.lock.json after removing',
+      default: false,
+   }),
+};

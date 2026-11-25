@@ -1,51 +1,107 @@
 ---
 sidebar:
-   order: 8
+   order: 7
 title: aix list
-description: List configured or installed AI configuration items.
+description: List the AI configuration your editors hold.
 ---
 
-Display the configuration that is actually installed in detected editors. The default scope is
-`user`; `ai.json` is optional and is not the source of the listing.
+Shows the configuration that is in your editors' own config files. The listing comes from
+those files, not from `ai.json`, so it includes items you added by hand or with another tool.
 
 ## Usage
 
 ```bash
-aix list [subcommand]
+aix list [section] [flags]
 ```
 
-## Commands
+Alias: `aix ls`
 
-- `aix list:skills` (or `aix list --only skills`): Show configured skills.
-- `aix list:mcp` (or `aix list --only mcp`): Show configured MCP servers and their status.
-- `aix list:rules` (or `aix list --only rules`): Show active rules and activation modes.
-- `aix list:prompts` (or `aix list --only prompts`): Show configured prompts.
-- `aix list:agents` (or `aix list --only agents`): Show configured agents, their modes, models, and references.
-- `aix list:hooks` (or `aix list --only hooks`): Show configured hooks, their matchers, and what each one runs.
-- `aix list:plugins` (or `aix list --only plugins`): Show installed plugins.
-- `aix list:marketplaces` (or `aix list --only marketplaces`): Show registered plugin marketplaces.
-- `aix list:editors` (or `aix list --only editors`): Show detected/configured editors.
+Without a section, the command lists every kind of item. It reads user scope unless you pass
+a scope flag.
+
+## Sections
+
+Name a section after `aix list` to see only that kind of item:
+
+- `aix list skills`: skills.
+- `aix list mcp`: MCP servers. `aix list mcps` does the same.
+- `aix list rules`: rules.
+- `aix list prompts`: prompts.
+- `aix list agents`: agents.
+- `aix list hooks`: hooks, by event name.
+- `aix list plugins`: plugins.
+- `aix list marketplaces`: plugin marketplaces.
+- `aix list editors`: the names of the editors that have any configuration at the chosen
+  scope.
+
+`aix list --only <section>` is the same filter as a flag, and it can be repeated to show
+several sections.
 
 ## Flags
 
-| Flag                                                     | Description                                                                                                                  |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--only <field>`                                         | Filter by section: `rules`, `prompts`, `mcp`, `skills`, `agents`, `hooks`, `plugins`, `marketplaces`, `editors`. Repeatable. |
-| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Select user or project editor config. The default is user.                                                                   |
-| `--all`                                                  | List both user and project editor config.                                                                                    |
-| `--target <name>` / `-t`                                 | Limit output to specific editors. Repeatable.                                                                                |
-| `--json`                                                 | Output as JSON.                                                                                                              |
+| Flag                                                     | Description                                                                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--only <section>`                                       | Show only this section: `rules`, `prompts`, `mcp`, `skills`, `agents`, `hooks`, `plugins`, `marketplaces`, `editors`. Repeatable. |
+| `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Read user scope or project scope. The default is user scope.                                                                      |
+| `--all`                                                  | Read both scopes. Cannot be combined with a scope flag.                                                                           |
+| `--target <editor>` / `-t`                               | Show only this editor. Repeatable. `--editor` and `-e` are accepted as other names for this flag.                                 |
+| `--json`                                                 | Print the listing as JSON.                                                                                                        |
 
-Every list command scans native editor files. This includes items installed by hand or another
-tool, symlinked skills, MCP servers, rules, prompts, agents, hooks, plugins, and marketplaces.
-Section subcommands use the same rows and JSON schema as `aix list`; they only filter `type`.
+Without `--target`, aix reads every supported editor. Project scope means the editor config
+in the working directory.
 
-`aix list --all` reports hooks alongside the other item types, listed by event name.
+## Output
 
-Every item is marked `aix` or `external`. `aix install`, `aix add`, and `aix sync` record
-what they wrote in `.aix/state.json` (or `~/.aix/state.json` for user scope), and anything
-found in an editor's config that is not in that record is `external` — put there by hand or
-by another tool. Dropping an item from `ai.json` and installing again stops it being
-tracked, so it shows as `external` until you remove it from the editor too. Text output uses
-green for aix-managed sources, blue for external sources, yellow for disabled items, magenta
-for item types, and cyan for names.
+Each row shows the item's type, scope, source, status, name, and path. The source is `aix` or
+`external`:
+
+- `aix` means aix installed the item. `aix install`, `aix add`, and `aix sync` record what
+  they wrote in `.aix/state.json` (`~/.aix/state.json` for user scope).
+- `external` means the item is in the editor's config and not in that record. It was put
+  there by hand or by another tool.
+
+Text output uses green for `aix` sources, blue for `external` sources, yellow for disabled
+items, magenta for item types, and cyan for names.
+
+### JSON output
+
+`--json` prints one document. Section commands use the same shape and only filter `items`.
+`aix list --target claude-code --json` prints a document like this:
+
+```json
+{
+   "version": 1,
+   "scope": "user",
+   "targets": ["claude-code"],
+   "items": [
+      {
+         "editor": "claude-code",
+         "type": "mcp",
+         "name": "playwright",
+         "source": "aix",
+         "status": "enabled",
+         "scope": "user",
+         "path": "/Users/me/.claude.json"
+      }
+   ],
+   "warnings": []
+}
+```
+
+`targets` lists the editors that were read, which is every supported editor without
+`--target`. `scope` at the top level is `all` with `--all`. `aix list editors --json` adds an
+`editors` array with the names of the editors that have configuration and leaves `items`
+empty.
+
+## Examples
+
+```bash
+# Everything at user scope
+aix list
+
+# Project-scope MCP servers
+aix list mcp --project
+
+# Rules and hooks at both scopes, for Codex only
+aix list --all --only rules --only hooks --target codex
+```

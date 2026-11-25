@@ -7,15 +7,9 @@ const editorDetailLinks = editorSupportProfiles.map((profile) => ({
 
 export const docsSidebar = [
    {
-      label: 'Getting Started',
+      label: 'Getting started',
       items: [
          { autogenerate: { directory: 'getting-started' } },
-      ],
-   },
-   {
-      label: 'Configuration',
-      items: [
-         { autogenerate: { directory: 'configuration' } },
       ],
    },
    {
@@ -25,7 +19,13 @@ export const docsSidebar = [
       ],
    },
    {
-      label: 'CLI Reference',
+      label: 'Configuration',
+      items: [
+         { autogenerate: { directory: 'configuration' } },
+      ],
+   },
+   {
+      label: 'CLI reference',
       items: [
          { autogenerate: { directory: 'cli' } },
       ],
@@ -34,20 +34,20 @@ export const docsSidebar = [
       label: 'Editors',
       items: [
          {
-            label: 'Supported Editors',
+            label: 'Supported editors',
             link: '/editors/supported-editors/',
-         },
-         {
-            label: 'Editor Changelog',
-            link: '/editors/changelog/',
          },
          {
             label: 'By editor',
             items: editorDetailLinks,
          },
          {
-            label: 'Migration Guides',
+            label: 'Migration guides',
             link: '/editors/migrations/',
+         },
+         {
+            label: 'Editor changelog',
+            link: '/editors/changelog/',
          },
       ],
    },

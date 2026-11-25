@@ -1,0 +1,17 @@
+---
+/**
+ * Renders a heading from the same object that is passed to `StarlightPage` as `headings`,
+ * so the "On this page" links always have a matching target.
+ */
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+   heading: MarkdownHeading;
+}
+
+const { heading } = Astro.props;
+
+const Tag = `h${heading.depth}`;
+---
+
+<Tag id={heading.slug}>{heading.text}</Tag>

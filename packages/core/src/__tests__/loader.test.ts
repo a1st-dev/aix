@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { loadConfig, requireConfig } from '../loader.js';
 import { safeRm } from '../fs/safe-rm.js';
-import { ConfigNotFoundError } from '../errors.js';
+import {
+   CircularDependencyError,
+   ConfigNotFoundError,
+   ConfigParseError,
+   ConfigValidationError,
+   RemoteFetchError,
+} from '../errors.js';
+import { nodeRuntimeAdapter, withRuntimeAdapter, type RuntimeAdapter } from '../runtime/index.js';
 
 // Use a temp directory to avoid finding ai.json in parent directories
 const testDir = join(tmpdir(), 'aix-test-loader');
@@ -62,6 +69,108 @@ describe('loadConfig', () => {
       expect(result?.config.skills).toEqual({
          typescript: '^1.0.0',
          react: '^1.0.0',
+      });
+   });
+
+   describe('validation errors', () => {
+      async function getLoadError(options: Parameters<typeof loadConfig>[0]): Promise<unknown> {
+         return loadConfig(options).catch((error: unknown) => {
+            return error;
+         });
+      }
+
+      it('reports the received value for a wrong-typed field in a discovered config', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ skills: 'not-an-object' }), 'utf-8');
+
+         const error = await getLoadError({ startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof ConfigValidationError && error.errors).toEqual([
+            { path: 'skills', message: 'Expected object, received string ("not-an-object")' },
+         ]);
+      });
+
+      it('reports the received value for a wrong-typed field in a config loaded by source', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ mcp: { docs: 42 } }), 'utf-8');
+
+         const error = await getLoadError({ remoteSource: './ai.json', startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof Error && error.message).toContain('received number (42)');
+         expect(error instanceof Error && error.message).not.toContain('received undefined');
+      });
+
+      it('reports invalid hooks in an extended config with their full path', async () => {
+         const baseConfig = { hooks: { pre_command: [{ hooks: 'not-an-array' }] } };
+
+         await writeFile(join(testDir, 'base.json'), JSON.stringify(baseConfig), 'utf-8');
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+
+         const error = await getLoadError({ startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof ConfigValidationError && error.errors).toEqual([
+            { path: 'hooks.pre_command.0.hooks', message: 'Expected array, received string ("not-an-array")' },
+         ]);
+      });
+   });
+
+   describe('errors from extended configs', () => {
+      it('reports a circular extends as a circular dependency', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+         await writeFile(join(testDir, 'base.json'), JSON.stringify({ extends: './ai.json' }), 'utf-8');
+
+         await expect(loadConfig({ startDir: testDir })).rejects.toThrow(CircularDependencyError);
+      });
+
+      it('reports a failed download of an extended config as a fetch error', async () => {
+         const adapter: RuntimeAdapter = {
+            ...nodeRuntimeAdapter,
+            network: {
+               ...nodeRuntimeAdapter.network,
+               fetch: async () => {
+                  throw new Error('getaddrinfo ENOTFOUND example.com');
+               },
+            },
+         };
+
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: 'https://example.com/ai.json' }), 'utf-8');
+
+         const error: unknown = await withRuntimeAdapter(adapter, () => {
+            return loadConfig({ startDir: testDir });
+         }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(RemoteFetchError);
+         expect(error instanceof RemoteFetchError && error.url).toBe('https://example.com/ai.json');
+      });
+
+      it('names the extended file, not ai.json, when the extended file has a syntax error', async () => {
+         const basePath = join(testDir, 'base.json');
+
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+         await writeFile(basePath, '{ "skills": ', 'utf-8');
+
+         const error: unknown = await loadConfig({ startDir: testDir }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof ConfigParseError && error.filePath).toBe(basePath);
+      });
+
+      it('names ai.json when ai.json itself has a syntax error', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeFile(configPath, '{ "skills": ', 'utf-8');
+
+         const error: unknown = await loadConfig({ startDir: testDir }).catch((caught: unknown) => {
+            return caught;
+         });
+
+         expect(error).toBeInstanceOf(ConfigParseError);
+         expect(error instanceof ConfigParseError && error.filePath).toBe(configPath);
       });
    });
 

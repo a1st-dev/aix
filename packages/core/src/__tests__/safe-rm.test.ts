@@ -73,6 +73,33 @@ describe('safeRm', () => {
       expect(existsSync(target)).toBe(false);
    });
 
+   it.each([ '.claude', '.aix', '.config/opencode' ])('refuses to remove the %s directory itself', async (dirName) => {
+      const target = join(fixtureRoot, dirName);
+
+      await mkdir(join(target, 'skills'), { recursive: true });
+
+      await expect(safeRm(target, { force: true })).rejects.toBeInstanceOf(UnsafePathError);
+      expect(existsSync(target)).toStrictEqual(true);
+   });
+
+   it('refuses a path that reaches an editor directory through ".."', async () => {
+      const target = join(fixtureRoot, '.claude', 'skills', '..');
+
+      await mkdir(join(fixtureRoot, '.claude', 'skills'), { recursive: true });
+
+      await expect(safeRm(target, { force: true })).rejects.toBeInstanceOf(UnsafePathError);
+      expect(existsSync(join(fixtureRoot, '.claude'))).toStrictEqual(true);
+   });
+
+   it('does not treat an unrelated directory named opencode as editor config', async () => {
+      const target = join(fixtureRoot, 'code', 'opencode', 'src');
+
+      await mkdir(target, { recursive: true });
+
+      await expect(safeRm(target, { force: true })).rejects.toBeInstanceOf(UnsafePathError);
+      expect(existsSync(target)).toStrictEqual(true);
+   });
+
    it('still rejects unrelated project paths', async () => {
       const target = join(fixtureRoot, 'project', 'skills', 'demo-skill');
 

@@ -24,9 +24,6 @@ export const editorIconNames: Record<SupportedEditorName, string> = {
 };
 
 export const managedEditorFeatures = editorFeatureDefinitions.filter((feature) => feature.kind === 'managed');
-export const compatibilityEditorFeatures = editorFeatureDefinitions.filter(
-   (feature) => feature.kind === 'compatibility',
-);
 
 export const indexableMigrationPairs = [
    { from: 'cursor', to: 'claude-code' },
@@ -42,7 +39,10 @@ export const featureConceptRoutes: Partial<Record<EditorFeatureId, string>> = Ob
    prompts: '/concepts/prompts/',
    mcp: '/concepts/mcp-servers/',
    skills: '/concepts/skills/',
+   agents: '/concepts/agents/',
    hooks: '/concepts/hooks/',
+   plugins: '/concepts/plugins/',
+   marketplaces: '/concepts/plugins/',
 });
 
 export interface MigrationFeatureRow {
@@ -60,20 +60,25 @@ const supportRank: Record<EditorSupportStatus, number> = {
    native: 2,
 };
 
+const listFormatter = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' });
+
+/** Joins items as an English list: "a", "a and b", "a, b, and c". */
+export function formatList(items: readonly string[]): string {
+   return listFormatter.format(items);
+}
+
 export function formatEditorNameList(editors: readonly Pick<EditorSupportProfile, 'name'>[]): string {
-   if (editors.length === 0) {
-      return '';
-   }
-   if (editors.length === 1) {
-      return editors[0].name;
-   }
-   if (editors.length === 2) {
-      return `${editors[0].name} and ${editors[1].name}`;
-   }
+   return formatList(editors.map((editor) => {
+      return editor.name;
+   }));
+}
 
-   const names = editors.map((editor) => editor.name);
-
-   return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+/**
+ * The feature label as it reads mid-sentence. Plain words are lowercased ("Rules" becomes
+ * "rules"); acronyms and file names such as "MCP" and "AGENTS.md" keep their casing.
+ */
+export function getFeatureProseLabel(feature: Pick<(typeof editorFeatureDefinitions)[number], 'label'>): string {
+   return /^[A-Z][a-z]+$/u.test(feature.label) ? feature.label.toLowerCase() : feature.label;
 }
 
 export function getStatusLabel(status: EditorSupportStatus): string {
@@ -100,12 +105,22 @@ export function isEditorSupported(scope: EditorScopeSupport): boolean {
    return scope.editorSupported ?? scope.status !== 'unsupported';
 }
 
+export function getAvailabilityLabel(supported: boolean): string {
+   return supported ? 'Supported' : 'No support';
+}
+
+export function getAvailabilityDescription(supported: boolean): string {
+   return supported
+      ? 'The editor exposes this feature at this scope.'
+      : 'The editor does not expose this feature at this scope.';
+}
+
 export function getEditorSupportDescription(scope: EditorScopeSupport): string | undefined {
    if (scope.editorNote) {
       return scope.editorNote;
    }
 
-   return isEditorSupported(scope) ? undefined : 'The editor does not expose this feature at this scope.';
+   return isEditorSupported(scope) ? undefined : getAvailabilityDescription(false);
 }
 
 export function getScopeTargets(scope: EditorScopeSupport): Array<{ label: string; path: string }> {
@@ -199,16 +214,29 @@ export function getMigrationRows(
    });
 }
 
+const LEADING_FEATURE_COUNT = 3;
+
+function listLeadingFeatureLabels(rows: readonly MigrationFeatureRow[]): string[] {
+   return rows.slice(0, LEADING_FEATURE_COUNT).map((row) => {
+      return getFeatureProseLabel(row.feature);
+   });
+}
+
 export function getMigrationHeadline(rows: readonly MigrationFeatureRow[]): string {
    const changed = rows.filter((row) => row.changeType !== 'same');
 
    if (changed.length === 0) {
-      return 'The destination keeps the same high-level support surface.';
+      return 'aix supports the same features in the same way on both editors.';
    }
 
-   const changedFeatures = changed.slice(0, 3).map((row) => row.feature.label.toLowerCase());
+   return `The biggest changes are in ${formatList(listLeadingFeatureLabels(changed))}.`;
+}
 
-   return `The biggest changes are in ${changedFeatures.join(', ')}.`;
+export function getMigrationTitle(
+   fromProfile: Pick<EditorSupportProfile, 'name'>,
+   toProfile: Pick<EditorSupportProfile, 'name'>,
+): string {
+   return `How to migrate from ${fromProfile.name} to ${toProfile.name}`;
 }
 
 export function getMigrationDescription(
@@ -216,10 +244,9 @@ export function getMigrationDescription(
    toProfile: EditorSupportProfile,
    rows: readonly MigrationFeatureRow[],
 ): string {
-   const changedFeatures = rows
-      .filter((row) => row.changeType !== 'same')
-      .slice(0, 3)
-      .map((row) => row.feature.label.toLowerCase());
+   const changedFeatures = listLeadingFeatureLabels(rows.filter((row) => {
+      return row.changeType !== 'same';
+   }));
 
    if (changedFeatures.length === 0) {
       return [
@@ -230,56 +257,8 @@ export function getMigrationDescription(
 
    return [
       `Migrate aix configuration from ${fromProfile.name} to ${toProfile.name}.`,
-      `Preview ${changedFeatures.join(', ')} differences before you sync.`,
+      `Preview ${formatList(changedFeatures)} differences before you sync.`,
    ].join(' ');
-}
-
-function describeEditorScope(
-   editorName: string,
-   scopeName: 'project' | 'user',
-   scope: EditorScopeSupport,
-): string {
-   if (scope.status === 'unsupported') {
-      const unsupportedMessage = `${editorName} has no ${scopeName}-scope target in aix.`;
-
-      return scope.note ? `${unsupportedMessage} ${scope.note}` : unsupportedMessage;
-   }
-
-   const adapterText = scope.status === 'shim' ? ' through an aix adapter' : '',
-         pathText = scope.path ? ` at ${scope.path}` : '',
-         baseMessage = `${editorName} writes ${scopeName}-scope config${adapterText}${pathText}.`;
-
-   return scope.note ? `${baseMessage} ${scope.note}` : baseMessage;
-}
-
-export function describeScopeChange(
-   fromProfile: EditorSupportProfile,
-   toProfile: EditorSupportProfile,
-   row: MigrationFeatureRow,
-): string {
-   const parts: string[] = [];
-
-   if (
-      row.fromSupport.project.status !== row.toSupport.project.status ||
-      row.fromSupport.project.path !== row.toSupport.project.path ||
-      row.fromSupport.project.note !== row.toSupport.project.note
-   ) {
-      parts.push(
-         `Project scope: ${describeEditorScope(fromProfile.name, 'project', row.fromSupport.project)} ${describeEditorScope(toProfile.name, 'project', row.toSupport.project)}`,
-      );
-   }
-
-   if (
-      row.fromSupport.user.status !== row.toSupport.user.status ||
-      row.fromSupport.user.path !== row.toSupport.user.path ||
-      row.fromSupport.user.note !== row.toSupport.user.note
-   ) {
-      parts.push(
-         `User scope: ${describeEditorScope(fromProfile.name, 'user', row.fromSupport.user)} ${describeEditorScope(toProfile.name, 'user', row.toSupport.user)}`,
-      );
-   }
-
-   return parts.join(' ');
 }
 
 export function describeTransition(
@@ -287,20 +266,44 @@ export function describeTransition(
    toProfile: EditorSupportProfile,
    row: MigrationFeatureRow,
 ): string {
+   const featureLabel = getFeatureProseLabel(row.feature);
+
    if (row.changeType === 'gain') {
-      return `${toProfile.name} keeps ${row.feature.label.toLowerCase()} more directly than ${fromProfile.name}.`;
+      return `${toProfile.name} keeps ${featureLabel} more directly than ${fromProfile.name}.`;
    }
    if (row.changeType === 'tradeoff') {
-      return `${toProfile.name} loses part of the ${row.feature.label.toLowerCase()} surface that ${fromProfile.name} has today.`;
+      return `${toProfile.name} loses part of the ${featureLabel} support that ${fromProfile.name} has today.`;
    }
    if (row.terminologyChanged) {
       return `${fromProfile.name} calls this "${row.fromSupport.terminology}", while ${toProfile.name} calls it "${row.toSupport.terminology}".`;
    }
    if (row.scopeChanged) {
-      return `${fromProfile.name} and ${toProfile.name} put ${row.feature.label.toLowerCase()} in different project or user targets.`;
+      return `${fromProfile.name} and ${toProfile.name} put ${featureLabel} in different project or user targets.`;
    }
 
-   return `${fromProfile.name} and ${toProfile.name} handle ${row.feature.label.toLowerCase()} the same way.`;
+   return `${fromProfile.name} and ${toProfile.name} handle ${featureLabel} the same way.`;
+}
+
+const attentionOrder: Record<MigrationFeatureRow['changeType'], number> = {
+   tradeoff: 0,
+   gain: 1,
+   difference: 2,
+   same: 3,
+};
+
+/**
+ * The rows that differ between the two editors, with the ones a reader most needs to know
+ * about first: features the destination supports less well, then ones it supports better,
+ * then ones that only change name or location.
+ */
+export function listChangedMigrationRows(rows: readonly MigrationFeatureRow[]): MigrationFeatureRow[] {
+   return rows
+      .filter((row) => {
+         return row.changeType !== 'same';
+      })
+      .toSorted((left, right) => {
+         return attentionOrder[left.changeType] - attentionOrder[right.changeType];
+      });
 }
 
 export function getEditorById(editor: SupportedEditorName): EditorSupportProfile {
@@ -309,6 +312,20 @@ export function getEditorById(editor: SupportedEditorName): EditorSupportProfile
 
 export function listMigrationPairs(): ReturnType<typeof listOrderedEditorPairs> {
    return listOrderedEditorPairs();
+}
+
+/** Every migration pair that starts from or ends at the given editor, outgoing pairs first. */
+export function listMigrationPairsForEditor(editor: SupportedEditorName): ReturnType<typeof listOrderedEditorPairs> {
+   const pairs = listOrderedEditorPairs();
+
+   return [
+      ...pairs.filter((pair) => {
+         return pair.from === editor;
+      }),
+      ...pairs.filter((pair) => {
+         return pair.to === editor;
+      }),
+   ];
 }
 
 export function getFeatureAnchor(editor: SupportedEditorName, featureId: EditorFeatureId): string {

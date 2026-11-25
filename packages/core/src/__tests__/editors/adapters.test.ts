@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'pathe';
@@ -22,7 +22,9 @@ import {
    importFromEditor,
    installToEditor,
 } from '../../editors/index.js';
+import { nodeRuntimeAdapter } from '../../runtime/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
+import { getGlobalZedDir } from '../../editors/strategies/zed/paths.js';
 import { isCI } from '../../env/index.js';
 import { safeRm } from '../../fs/safe-rm.js';
 import { AIX_SECTION_BEGIN, AIX_SECTION_END } from '../../editors/section-managed-markdown.js';
@@ -433,6 +435,57 @@ describe('Editor Adapters', () => {
          expect(adapter.configDir).toBe('.claude');
       });
 
+      describe('a skill whose name is already taken in the editor', () => {
+         const config = createConfig({ skills: { pdf: './skills/pdf' } }),
+               skillFile = (dir: string): string => {
+                  return join(dir, 'SKILL.md');
+               };
+
+         beforeEach(async () => {
+            await mkdir(join(testDir, 'skills', 'pdf'), { recursive: true });
+            await writeFile(skillFile(join(testDir, 'skills', 'pdf')), '---\nname: pdf\ndescription: From ai.json\n---\nFROM CONFIG\n');
+         });
+
+         it('refuses to replace a directory that aix did not create', async () => {
+            const handWritten = join(testDir, '.claude', 'skills', 'pdf');
+
+            await mkdir(handWritten, { recursive: true });
+            await writeFile(skillFile(handWritten), 'HAND WRITTEN');
+
+            await expect(installToEditor('claude-code', config, testDir, { scopes: ['skills'] }))
+               .rejects.toThrow('already exists and was not created by aix');
+            expect(await readFile(skillFile(handWritten), 'utf-8')).toStrictEqual('HAND WRITTEN');
+         });
+
+         it('replaces the link from its own earlier install', async () => {
+            await installToEditor('claude-code', config, testDir, { scopes: ['skills'] });
+
+            const result = await installToEditor('claude-code', config, testDir, { scopes: ['skills'] });
+
+            expect(result.errors).toEqual([]);
+            expect(await readFile(skillFile(join(testDir, '.claude', 'skills', 'pdf')), 'utf-8')).toContain('FROM CONFIG');
+         });
+      });
+
+      it('leaves top-level settings that hold a command where they are when adding a hook', async () => {
+         const settingsPath = join(testDir, '.claude', 'settings.json'),
+               statusLine = { type: 'command', command: '~/.claude/statusline.sh' },
+               config = createConfig({ hooks: { agent_stop: [{ hooks: [{ command: 'echo done' }] }] } });
+
+         await mkdir(dirname(settingsPath), { recursive: true });
+         await writeFile(settingsPath, `{\n  // my status line\n  "statusLine": ${JSON.stringify(statusLine)}\n}\n`);
+
+         await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+
+         const content = await readFile(settingsPath, 'utf-8'),
+               settings = parseJsonc<Record<string, unknown>>(content).data;
+
+         expect(content).toContain('// my status line');
+         expect(settings?.statusLine).toEqual(statusLine);
+         expect(settings?.mcpServers).toBeUndefined();
+         expect(settings?.hooks).toBeDefined();
+      });
+
       describe('hook content deduplication', () => {
          it('replaces duplicate script copies with the incoming registration and keeps unrelated hooks', async () => {
             const oldPath = join(testDir, 'old.mjs'),
@@ -564,7 +617,7 @@ describe('Editor Adapters', () => {
          expect(mcpConfig.mcpServers.server).toBeDefined();
       });
 
-      it('writes user-scope rules as separate files imported from CLAUDE.md', async () => {
+      it('writes user-scope rules as separate files and imports only the ones without paths from CLAUDE.md', async () => {
          const fakeHome = join(testDir, 'fake-home');
 
          process.env.HOME = fakeHome;
@@ -608,13 +661,37 @@ describe('Editor Adapters', () => {
          expect(claudeContent).toContain('Keep this user-authored note.');
          expect(claudeContent).toContain(AIX_SECTION_BEGIN);
          expect(claudeContent).toContain('## aix rules');
-         expect(claudeContent).toContain('@rules/typescript.md');
+         expect(claudeContent).not.toContain('@rules/typescript.md');
          expect(claudeContent).toContain('@rules/testing.md');
          expect(claudeContent).toContain(AIX_SECTION_END);
          expect(claudeContent).not.toContain('Use TypeScript carefully.');
          expect(typescriptContent).toContain('paths:');
          expect(typescriptContent).toContain('Use TypeScript carefully.');
          expect(testingContent).toContain('Run relevant tests.');
+      });
+
+      it('drops the CLAUDE.md import list once every user-scope rule is limited to paths', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               claudePath = join(fakeHome, '.claude/CLAUDE.md'),
+               pathScopedOnly = createConfig({
+                  rules: { swift: { activation: 'glob', globs: ['**/*.swift'], content: 'Prefer value types.' } },
+               }),
+               withUnscopedRule = createConfig({
+                  rules: { ...pathScopedOnly.rules, general: { activation: 'always', content: 'Be direct.' } },
+               });
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(claudePath, '# Personal Claude rules\n', 'utf-8');
+         await installToEditor('claude-code', withUnscopedRule, testDir, { targetScope: 'user', scopes: ['rules'] });
+
+         await installToEditor('claude-code', pathScopedOnly, testDir, { targetScope: 'user', scopes: ['rules'] });
+
+         const claudeContent = await readFile(claudePath, 'utf-8');
+
+         expect(claudeContent).toContain('# Personal Claude rules');
+         expect(claudeContent).not.toContain('@rules/');
+         expect(await readFile(join(fakeHome, '.claude/rules/swift.md'), 'utf-8')).toContain('paths:');
       });
 
       it('detects Claude Code when .claude directory exists', async () => {
@@ -1188,10 +1265,12 @@ description: Demo skill
 
          await installToEditor('zed', config, testDir, { targetScope: 'user' });
 
-         expect(existsSync(join(testDir, '.rules'))).toBe(false);
-         expect(existsSync(join(testDir, '.config', 'zed', 'AGENTS.md'))).toBe(true);
+         const userAgentsPath = join(testDir, getGlobalZedDir(), 'AGENTS.md');
 
-         const agentsContent = await readFile(join(testDir, '.config', 'zed', 'AGENTS.md'), 'utf-8');
+         expect(existsSync(join(testDir, '.rules'))).toBe(false);
+         expect(existsSync(userAgentsPath)).toBe(true);
+
+         const agentsContent = await readFile(userAgentsPath, 'utf-8');
 
          expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
          expect(agentsContent).toContain('my-rule');
@@ -1727,39 +1806,6 @@ Skill instructions.
          expect(mcpConfig.mcpServers.github.args).toEqual(['--new-arg']);
       });
 
-      it('overwrites entire file with --overwrite flag', async () => {
-         // First install with server A
-         const config1 = createConfig({
-            mcp: {
-               serverA: createMcpServer('cmd-a'),
-            },
-         });
-
-         await installToEditor('cursor', config1, testDir);
-
-         // Verify server A was written
-         const mcpContentBefore = await readFile(join(testDir, '.cursor/mcp.json'), 'utf-8');
-         const mcpConfigBefore = JSON.parse(mcpContentBefore);
-
-         expect(mcpConfigBefore.mcpServers.serverA).toBeDefined();
-
-         // Second install with server B and overwrite flag
-         const config2 = createConfig({
-            mcp: {
-               serverB: createMcpServer('cmd-b'),
-            },
-         });
-
-         await installToEditor('cursor', config2, testDir, { overwrite: true });
-
-         // Verify only server B is present (server A was removed)
-         const mcpContent = await readFile(join(testDir, '.cursor/mcp.json'), 'utf-8');
-         const mcpConfig = JSON.parse(mcpContent);
-
-         expect(mcpConfig.mcpServers.serverA).toBeUndefined();
-         expect(mcpConfig.mcpServers.serverB).toBeDefined();
-      });
-
       it('preserves user-added keys in MCP config', async () => {
          // Manually create an MCP config with user-added content
          const userConfig = {
@@ -2001,6 +2047,76 @@ Skill instructions.
          // Global changes should be present (skipped due to skipGlobal option)
          expect(result.globalChanges).toBeDefined();
          expect(result.globalChanges?.skipped.length).toBeGreaterThan(0);
+      });
+
+      it('writes a new global-only MCP server beside one that is already installed', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
+               existing = { existing: createMcpServer('existing-cmd') };
+
+         // aix does not write global config in CI, so there is nothing to observe there.
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await installToEditor('windsurf', createConfig({ mcp: existing }), testDir);
+
+         const result = await installToEditor(
+                  'windsurf',
+                  createConfig({ mcp: { added: createMcpServer('added-cmd'), ...existing } }),
+                  testDir,
+               ),
+               servers = JSON.parse(await readFile(globalMcpPath, 'utf-8')).mcpServers;
+
+         expect(result.errors).toEqual([]);
+         expect(Object.keys(servers).toSorted()).toEqual([ 'added', 'existing' ]);
+      });
+
+      it('keeps the comments and layout of a Codex config.toml when adding and removing a server', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               configPath = join(fakeHome, '.codex/config.toml'),
+               handWritten = [
+                  '# My hand-written Codex config',
+                  'model = "gpt-5"          # the model I like',
+                  '',
+                  '# Servers I maintain by hand',
+                  '[mcp_servers.existing]',
+                  'command = "node"',
+                  'args = ["existing.js"]   # keep this',
+                  '',
+               ].join('\n');
+
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await mkdir(dirname(configPath), { recursive: true });
+         await writeFile(configPath, handWritten);
+
+         await installToEditor('codex', createConfig({ mcp: { added: createMcpServer('added-cmd') } }), testDir);
+
+         const afterInstall = await readFile(configPath, 'utf-8');
+
+         await installToEditor('codex', createConfig({}), testDir);
+
+         expect(afterInstall).toContain('[mcp_servers.added]');
+         expect(afterInstall).toContain('added-cmd');
+         for (const line of handWritten.split('\n')) {
+            expect(afterInstall).toContain(line);
+         }
+         expect(await readFile(configPath, 'utf-8')).toStrictEqual(handWritten);
+      });
+
+      it('replaces a Codex server whose transport changed, leaving none of the old fields', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               configPath = join(fakeHome, '.codex/config.toml');
+
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await installToEditor('codex', createConfig({ mcp: { docs: { url: 'https://example.com/mcp' } } }), testDir);
+
+         const result = await installToEditor('codex', createConfig({ mcp: { docs: createMcpServer('docs-cmd') } }), testDir),
+               content = await readFile(configPath, 'utf-8');
+
+         expect(result.errors).toEqual([]);
+         expect(content).toContain('docs-cmd');
+         expect(content).not.toContain('example.com');
       });
 
       it('overwrites existing global-only MCP servers with ai.json config', async () => {
@@ -2523,6 +2639,39 @@ Release instructions.
       });
    });
 
+   describe('Zed user-scope paths', () => {
+      const config = createConfig({
+         mcp: { docs: createMcpServer('docs-cmd') },
+         rules: { style: { activation: 'always', content: 'Be brief.' } },
+      });
+
+      async function installAtUserScope(platform: NodeJS.Platform): Promise<string> {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         vi.spyOn(nodeRuntimeAdapter.os, 'platform').mockReturnValue(platform);
+         await installToEditor('zed', config, testDir, { targetScope: 'user', scopes: ['mcp', 'rules'] });
+         vi.restoreAllMocks();
+
+         return fakeHome;
+      }
+
+      it('writes to the roaming application data directory on Windows', async () => {
+         const fakeHome = await installAtUserScope('win32');
+
+         expect(existsSync(join(fakeHome, 'AppData/Roaming/Zed/settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, 'AppData/Roaming/Zed/AGENTS.md'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, '.config/zed'))).toStrictEqual(false);
+      });
+
+      it.each([ 'darwin', 'linux' ] as const)('writes to ~/.config/zed on %s', async (platform) => {
+         const fakeHome = await installAtUserScope(platform);
+
+         expect(existsSync(join(fakeHome, '.config/zed/settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, '.config/zed/AGENTS.md'))).toStrictEqual(true);
+      });
+   });
+
    describe('GrokAdapter', () => {
       const adapter = new GrokAdapter();
 
@@ -2557,6 +2706,21 @@ Release instructions.
 
          expect(content).toContain('# test-rule');
          expect(content).toContain('Grok rule content');
+      });
+
+      it('refuses to replace a config.toml it cannot parse', async () => {
+         const configPath = join(testDir, '.grok', 'config.toml'),
+               brokenToml = 'model = "grok"\nargs = [ "unfinished"\n',
+               config = createConfig({ mcp: { server: createMcpServer('cmd') } });
+
+         await mkdir(dirname(configPath), { recursive: true });
+         await writeFile(configPath, brokenToml);
+
+         const result = await installToEditor('grok', config, testDir);
+
+         expect(result.success).toStrictEqual(false);
+         expect(result.errors.join('\n')).toContain('Fix the file before installing');
+         expect(await readFile(configPath, 'utf-8')).toStrictEqual(brokenToml);
       });
 
       it('writes user-scope rules to ~/.grok/rules/*.md', async () => {
@@ -2697,6 +2861,15 @@ describe('extractGlobDirectoryPrefix', () => {
       expect(
          extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['src/**/*.ts', 'lib/**/*.ts'] })),
       ).toBe('');
+   });
+
+   it.each([ '../../other/**', 'src/../../other/**', '/etc/**' ])('returns empty string for "%s", which points outside the project', (glob) => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ glob ] }))).toBe('');
+   });
+
+   it('uses the directory of a glob that names one file', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ 'package.json' ] }))).toBe('');
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ 'src/index.ts' ] }))).toBe('src');
    });
 
    it('returns empty string for root-level wildcards', () => {

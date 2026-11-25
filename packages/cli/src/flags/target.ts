@@ -12,7 +12,7 @@ const VALID_EDITORS = getAcceptedEditorNames();
 export const targetFlag = {
    target: Flags.string({
       char: 't',
-      description: 'Target specific editor (repeatable, case-insensitive)',
+      description: 'Target specific editor (repeatable)',
       multiple: true,
       options: VALID_EDITORS,
    }),

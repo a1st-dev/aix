@@ -56,32 +56,51 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
+```bash
+npm install            # Install dependencies for every workspace
+npm run build:lib      # Build the schema, core, mcp-registry-client, and cli packages
+npm run standards      # Lint, check formatting, and typecheck
+npm test               # Build what each package depends on, then run every package's tests
+```
+
+Run the tests of one package, or one test file in it:
 
 ```bash
-# Example:
-# npm install
-# npm test
+npm test --workspace @a1st/aix-core
+npm test --workspace @a1st/aix-core -- src/__tests__/<file>
 ```
+
+Tests must go through these scripts. Each package's `test` script runs Vitest through
+`scripts/test-runner.mjs`, which gives the run a temporary home directory and, on macOS, an
+OS sandbox that denies writes outside it. The runner refuses to start anywhere else except a
+GitHub-hosted CI runner. Do not run Vitest directly.
 
 ## Manual testing
 
 Manual testing must never write to the real user config. `aix` resolves the home directory from
-`$HOME` first, then `%USERPROFILE%`, and only then falls back to `os.homedir()`, so pointing
-`HOME` at a throwaway directory is enough to isolate a run:
+`$AIX_USER_HOME` first, then `$HOME`, then `%USERPROFILE%`, and only then falls back to
+`os.homedir()`. Point both `AIX_USER_HOME` and `HOME` at a throwaway directory to isolate a run:
 
 ```bash
-HOME="$(mktemp -d)" node packages/cli/bin/aixd.mjs install
+SANDBOX_HOME="$(mktemp -d)"
+AIX_USER_HOME="$SANDBOX_HOME" HOME="$SANDBOX_HOME" node packages/cli/bin/aixd.mjs install
 ```
 
-- Do this for anything that can touch global config: `~/.claude.json`,
+- `AIX_USER_HOME` redirects every user-scope path aix reads or writes. `HOME` also keeps the
+  CLI's own cache and the git and npm processes aix spawns out of the real home
+- `--user-home <dir>` is the per-command form of `AIX_USER_HOME`. Each command prints the
+  directory it is using, so check for that line before trusting a run
+- Do this for anything that can touch global config: `~/.claude.json`, `~/.claude/settings.json`,
   `~/.gemini/settings.json`, `~/.config/zed/settings.json`, `~/.config/github-copilot/`,
   `~/.codeium/windsurf/mcp_config.json`, `~/.codex/config.toml`, and the `~/.aix/backups/`
-  written before each global edit
-- `npm run qa:sandbox` gives you a scratch project directory but does **not** override `HOME`,
-  so set `HOME` yourself on top of it
-- Automated tests follow the same rule: set `process.env.HOME` to a temp directory, or mock
-  `os.homedir()`, before exercising a global config path
+  store, where aix copies every file before it changes or deletes it
+- User scope is the default for `install`, `add`, `remove`, and `sync`. Running them from this
+  repository without the override installs the root `ai.json` into the real editor config
+- `npm run qa:sandbox` gives you a scratch project and sets `AIX_USER_HOME`, `HOME`,
+  `USERPROFILE`, and XDG directories to its temporary home, including for the generated `aix`
+  wrapper
+- Automated tests must run through the package `test` or `test:watch` scripts, which use
+  `scripts/test-runner.mjs`; do not run Vitest directly and do not add per-suite home isolation
 - Write to the real user config only when explicitly asked to
 
 ## Architecture Overview

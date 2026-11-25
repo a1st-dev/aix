@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'pathe';
-import { updateConfig } from '../updater.js';
+import { updateConfig, updateLocalConfig } from '../updater.js';
 import { ConfigNotFoundError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 
@@ -115,5 +115,111 @@ describe('updateConfig', () => {
       expect(raw).toContain('// Base configuration to inherit');
       expect(raw).toContain('// Configured editors');
       expect(raw).toContain('"cursor"');
+   });
+
+   it('changes only the entry the updater touched', async () => {
+      const configPath = join(testDir, 'ai.json'),
+            original = [
+               '{',
+               '   // Owned by the platform team',
+               '   "x-team": { "owner": "platform" },',
+               '   "editors": { "cursor": {} },',
+               '   "rules": {',
+               '      "style": {',
+               '         "path": "./rules/style.md"',
+               '      }',
+               '   }',
+               '}',
+               '',
+            ];
+
+      await writeFile(configPath, original.join('\n'), 'utf-8');
+
+      await updateConfig(configPath, (cfg) => ({
+         ...cfg,
+         rules: { ...cfg.rules, tests: { path: './rules/tests.md' } },
+      }));
+
+      const raw = await readFile(configPath, 'utf-8');
+
+      expect(raw).toBe([
+         ...original.slice(0, 7),
+         '      },',
+         '      "tests": {',
+         '         "path": "./rules/tests.md"',
+         '      }',
+         ...original.slice(8),
+      ].join('\n'));
+   });
+
+   it('does not add sections the config did not have', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify({ skills: {} }, null, 2), 'utf-8');
+
+      await updateConfig(configPath, (cfg) => ({
+         ...cfg,
+         skills: { typescript: '^1.0.0' },
+      }));
+
+      const updated: unknown = JSON.parse(await readFile(configPath, 'utf-8'));
+
+      expect(updated).toEqual({ skills: { typescript: '^1.0.0' } });
+   });
+
+   it('removes an entry the updater deleted', async () => {
+      const configPath = join(testDir, 'ai.json'),
+            config = { rules: { style: './rules/style.md', tests: './rules/tests.md' } };
+
+      await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+      await updateConfig(configPath, (cfg) => ({
+         ...cfg,
+         rules: { style: './rules/style.md' },
+      }));
+
+      const updated: unknown = JSON.parse(await readFile(configPath, 'utf-8'));
+
+      expect(updated).toEqual({ rules: { style: './rules/style.md' } });
+   });
+});
+
+describe('updateLocalConfig', () => {
+   beforeEach(async () => {
+      await mkdir(testDir, { recursive: true });
+   });
+
+   afterEach(async () => {
+      await safeRm(testDir, { force: true });
+   });
+
+   it('writes the updated entry without the defaults validation fills in', async () => {
+      const localPath = join(testDir, 'ai.local.json');
+
+      await writeFile(localPath, JSON.stringify({ editors: { cursor: {} } }, null, 2), 'utf-8');
+
+      await updateLocalConfig(localPath, (cfg) => ({
+         ...cfg,
+         skills: { pdf: './skills/pdf' },
+      }), { backup: false });
+
+      const updated: unknown = JSON.parse(await readFile(localPath, 'utf-8'));
+
+      expect(updated).toEqual({
+         editors: { cursor: {} },
+         skills: { pdf: './skills/pdf' },
+      });
+   });
+
+   it('creates the file with only what the updater returned', async () => {
+      const localPath = join(testDir, 'ai.local.json');
+
+      await updateLocalConfig(localPath, () => ({
+         rules: { style: { content: 'Use direct language.' } },
+      }));
+
+      const created: unknown = JSON.parse(await readFile(localPath, 'utf-8'));
+
+      expect(created).toEqual({ rules: { style: { content: 'Use direct language.' } } });
    });
 });

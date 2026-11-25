@@ -10,18 +10,20 @@ interface Props {
 }
 
 const { title = 'Terminal', lines, typing = false } = Astro.props;
+
+const LINE_STAGGER_SECONDS = 0.12;
 ---
 
 <div class="terminal-block">
   <div class="terminal-chrome">
-    <span class="terminal-dot terminal-dot--red"></span>
-    <span class="terminal-dot terminal-dot--yellow"></span>
-    <span class="terminal-dot terminal-dot--green"></span>
+    <span class="terminal-dot terminal-dot--red" aria-hidden="true"></span>
+    <span class="terminal-dot terminal-dot--yellow" aria-hidden="true"></span>
+    <span class="terminal-dot terminal-dot--green" aria-hidden="true"></span>
     <span class="terminal-title">{title}</span>
   </div>
   <div class="terminal-body">
     {lines.map((line, i) => (
-      <div class="terminal-line" style={`animation-delay: ${i * 0.12}s`}>
+      <div class="terminal-line reveal" style={`--reveal-delay: ${i * LINE_STAGGER_SECONDS}s`}>
         {line.startsWith("$") ? (
           <>
             <span class="terminal-prompt">$</span>
@@ -29,21 +31,19 @@ const { title = 'Terminal', lines, typing = false } = Astro.props;
           </>
         ) : line.startsWith("#") ? (
           <span class="terminal-comment">{line}</span>
-        ) : line.startsWith("✓") || line.startsWith("✔") ? (
-          <span class="terminal-success">{line}</span>
-        ) : line.startsWith("→") ? (
-          <span class="terminal-info">{line}</span>
         ) : (
           <span class="terminal-output">{line}</span>
         )}
       </div>
     ))}
-    {typing && <div class="terminal-cursor" />}
+    {typing && <div class="terminal-cursor" aria-hidden="true" />}
   </div>
 </div>
 
 <style>
   .terminal-block {
+    --reveal-distance: 0.25rem;
+
     background: var(--aix-surface-deep);
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 12px;
@@ -53,9 +53,9 @@ const { title = 'Terminal', lines, typing = false } = Astro.props;
     line-height: 1.7;
     max-width: 640px;
     width: 100%;
-    text-align: left;
+    text-align: start;
     box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.4),
+      var(--aix-shadow-raised),
       0 0 0 1px var(--aix-accent-glow);
   }
   .terminal-chrome {
@@ -64,7 +64,7 @@ const { title = 'Terminal', lines, typing = false } = Astro.props;
     gap: 6px;
     padding: 10px 14px;
     background: var(--aix-surface-sunken);
-    border-bottom: 1px solid var(--sl-color-hairline-shade);
+    border-block-end: 1px solid var(--sl-color-hairline-shade);
   }
   .terminal-dot {
     width: 10px;
@@ -81,65 +81,52 @@ const { title = 'Terminal', lines, typing = false } = Astro.props;
     background: var(--aix-success);
   }
   .terminal-title {
-    margin-left: 8px;
-    color: var(--sl-color-gray-4);
+    margin-inline-start: 8px;
+    color: var(--aix-text-muted);
     font-size: 0.75rem;
     letter-spacing: 0.04em;
   }
   .terminal-body {
     padding: 16px 20px 20px;
   }
+  /* A flex row keeps a wrapped command aligned after the prompt, not under it. */
   .terminal-line {
-    opacity: 0;
-    animation: termReveal 0.4s ease forwards;
+    display: flex;
+    gap: 8px;
     white-space: pre-wrap;
-    word-break: break-all;
+    overflow-wrap: anywhere;
   }
   .terminal-prompt {
     color: var(--sl-color-accent);
-    margin-right: 8px;
     user-select: none;
   }
   .terminal-cmd {
+    min-inline-size: 0;
     color: var(--sl-color-white);
   }
   .terminal-output {
-    color: var(--sl-color-gray-3);
+    color: var(--sl-color-gray-2);
   }
   .terminal-comment {
-    color: var(--sl-color-gray-4);
+    color: var(--aix-text-muted);
     font-style: italic;
-  }
-  .terminal-success {
-    color: var(--aix-success);
-  }
-  .terminal-info {
-    color: var(--sl-color-accent);
   }
   .terminal-cursor {
     display: inline-block;
     width: 8px;
     height: 16px;
     background: var(--sl-color-accent);
-    animation: blink 1s step-end infinite;
-    margin-top: 4px;
+    margin-block-start: 4px;
     vertical-align: text-bottom;
   }
-  @keyframes termReveal {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
+
+  /* The cursor blinks a few times and then rests, so nothing on the page moves forever. */
+  @media (prefers-reduced-motion: no-preference) {
+    .terminal-cursor {
+      animation: terminal-blink 1s step-end 4;
     }
   }
-  @keyframes blink {
-    0%,
-    100% {
-      opacity: 1;
-    }
+  @keyframes terminal-blink {
     50% {
       opacity: 0;
     }

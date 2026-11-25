@@ -4,6 +4,7 @@ import { parseConfig, parseLocalConfig, applyJsoncDiff, type AiJsonConfig } from
 import { parseConfigContent } from './discovery.js';
 import { createBackup } from './backup.js';
 import { ConfigNotFoundError } from './errors.js';
+import { replaceFile } from './fs/replace-file.js';
 import { getRuntimeAdapter } from './runtime/index.js';
 
 const DEFAULT_INDENT = 2;
@@ -25,7 +26,7 @@ export async function updateConfig(
 ): Promise<void> {
    const { backup = true } = options,
          absolutePath = resolve(configPath),
-         { fs, process: runtimeProcess } = getRuntimeAdapter();
+         { fs } = getRuntimeAdapter();
 
    if (!fs.existsSync(absolutePath)) {
       throw new ConfigNotFoundError(absolutePath);
@@ -43,21 +44,16 @@ export async function updateConfig(
          indent = detectIndent(existingContent).indent || DEFAULT_INDENT,
          rawConfig = parseConfigContent(existingContent) as AiJsonConfig,
          updated = await updater(rawConfig),
-         validated = parseConfig(updated),
-         // Use unique temp file name to avoid collisions (pid + timestamp)
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
-         tabSize = typeof indent === 'string' ? indent.length : indent,
-         output = applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize });
+         tabSize = typeof indent === 'string' ? indent.length : indent;
 
-   try {
-      await fs.writeFile(tempPath, output, 'utf-8');
-      await fs.rename(tempPath, absolutePath);
-   } catch (error) {
-      if (fs.existsSync(tempPath)) {
-         await fs.unlink(tempPath);
-      }
-      throw error;
-   }
+   // Validation only checks the result. What gets written is the updater's own output: the
+   // parsed form drops keys the schema does not know and adds a default for every section,
+   // which would rewrite parts of the user's file that the update never touched.
+   parseConfig(updated);
+
+   const output = applyJsoncDiff(existingContent, updated, { tabSize });
+
+   await replaceFile(absolutePath, output);
 }
 
 /**
@@ -73,7 +69,7 @@ export async function updateLocalConfig(
    options: UpdateOptions = {},
 ): Promise<void> {
    const { backup = true } = options,
-         { fs, process: runtimeProcess } = getRuntimeAdapter();
+         { fs } = getRuntimeAdapter();
 
    // If localPath is a directory, append ai.local.json
    let absolutePath = resolve(localPath);
@@ -101,38 +97,15 @@ export async function updateLocalConfig(
    }
 
    const updated = await updater(existingConfig),
-         // Validate as local config (no extends allowed)
-         validated = parseLocalConfig(updated),
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
-         tabSize = typeof indent === 'string' ? indent.length : indent,
-         output = existingContent
-            ? applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize })
-            : JSON.stringify(validated, null, indent) + '\n';
+         tabSize = typeof indent === 'string' ? indent.length : indent;
 
-   try {
-      await fs.writeFile(tempPath, output, 'utf-8');
-      await fs.rename(tempPath, absolutePath);
-   } catch (error) {
-      if (fs.existsSync(tempPath)) {
-         await fs.unlink(tempPath);
-      }
-      throw error;
-   }
-}
+   // Validate as local config (no extends allowed). As in updateConfig, the parsed form is
+   // not what gets written.
+   parseLocalConfig(updated);
 
-/**
- * Get the path to ai.local.json given a base config path.
- * @param configPath - Path to ai.json or directory
- * @returns Path to ai.local.json
- */
-export function getLocalConfigPath(configPath: string): string {
-   const absolutePath = resolve(configPath);
+   const output = existingContent
+      ? applyJsoncDiff(existingContent, updated, { tabSize })
+      : JSON.stringify(updated, null, indent) + '\n';
 
-   if (absolutePath.endsWith('ai.json')) {
-      return absolutePath.replace(/ai\.json$/, 'ai.local.json');
-   }
-   if (absolutePath.endsWith('.json')) {
-      return absolutePath.replace(/\.json$/, '.local.json');
-   }
-   return join(absolutePath, 'ai.local.json');
+   await replaceFile(absolutePath, output);
 }

@@ -1,314 +1,217 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
-import { editorSupportProfiles } from '../../lib/editor-support';
+import InlineCodeText from '../../components/InlineCodeText.astro';
+import { formatList } from '../../lib/editor-support';
+import { editorChangelogPage } from '../../lib/editor-pages';
 import {
+   editorResearchStatusLabels,
+   getVisitorNote,
+   groupEditorResearchEntries,
    listEditorResearchEntries,
+   type EditorResearchRelease,
    type EditorResearchStatus,
 } from '../../lib/editor-research';
-import { docsSidebar } from '../../starlight-sidebar.js';
 
-const entries = listEditorResearchEntries(),
-      totalChanges = entries.reduce((memo, entry) => memo + entry.changes.length, 0),
-      statusLabels: Record<EditorResearchStatus, string> = {
-         supported: 'Already handled',
-         'follow-up': 'Needs follow-up',
-         'no-change': 'No repo change',
-         unknown: 'Needs review',
-      };
+const { title, description } = editorChangelogPage;
 
-function getEditorName(editorID: string): string {
-   return editorSupportProfiles.find((profile) => profile.id === editorID)?.name ?? editorID;
+const groups = groupEditorResearchEntries(listEditorResearchEntries()),
+      releaseCount = groups.reduce((memo, group) => memo + group.releases.length, 0),
+      // Outcomes worth calling out in a collapsed row. "No effect" and "Reviewed" are the
+      // normal case and would only add noise there.
+      notableStatuses: readonly EditorResearchStatus[] = [ 'follow-up', 'supported' ];
+
+function pluralize(count: number, noun: string): string {
+   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
-function formatTimestamp(value: string): string {
-   return new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-   }).format(new Date(value));
+function describeRelease(release: EditorResearchRelease): string {
+   const notable = notableStatuses
+      .filter((status) => release.statusCounts[status] > 0)
+      .map((status) => `${release.statusCounts[status]} ${editorResearchStatusLabels[status].toLowerCase()}`);
+
+   // A repeated version already carries its review date in the heading.
+   const reviewed = release.heading.includes(release.reviewedOn) ? [] : [ `Reviewed ${release.reviewedOn}` ];
+
+   return [ ...reviewed, pluralize(release.entry.changes.length, 'change'), ...notable ].join(' · ');
+}
+
+function listSourceHosts(sourceURLs: readonly string[]): string[] {
+   return [ ...new Set(sourceURLs.map((sourceURL) => new URL(sourceURL).hostname)) ];
 }
 ---
 
 <StarlightPage
-   frontmatter={{
-      title: 'Editor changelog',
-      description: 'Research notes for editor release changes that affect aix implementation and user workflows.',
-      editUrl: false,
-   }}
-   sidebar={docsSidebar}
+   frontmatter={{ title, description, editUrl: false }}
+   headings={groups.map((group) => ({ depth: 2, slug: group.editorID, text: group.editorName }))}
 >
    <p>
-      This page is generated from markdown notes in <code>docs/editor-research/</code>. Each note
-      records the editor version checked, the research timestamp, source links, and what aix needs
-      to do about the change.
+      The aix maintainers read each supported editor's release notes and record what, if anything,
+      aix has to do about them. This page is that record: {pluralize(releaseCount, 'release')} across
+      {' '}{pluralize(groups.length, 'editor')}, newest first. It is a log of compatibility checks,
+      not the release notes for aix itself, which are on{' '}
+      <a href="https://github.com/a1st-dev/aix/releases">GitHub</a>.
    </p>
 
-   <div class="editor-changelog__summary" aria-label="Editor changelog summary">
-      <div>
-         <strong>{entries.length}</strong>
-         <span>version notes</span>
+   <p>Open a release to see its changes. Each change is marked with one of these outcomes:</p>
+
+   <dl class="editor-changelog__key aix-layout">
+      <div class="aix-layout">
+         <dt>{editorResearchStatusLabels.supported}</dt>
+         <dd>aix already handles the change, or was updated to.</dd>
       </div>
-      <div>
-         <strong>{totalChanges}</strong>
-         <span>tracked changes</span>
+      <div class="aix-layout">
+         <dt>{editorResearchStatusLabels['follow-up']}</dt>
+         <dd>aix does not handle the change yet.</dd>
       </div>
-      <div>
-         <strong>{editorSupportProfiles.length}</strong>
-         <span>supported editors</span>
+      <div class="aix-layout">
+         <dt>{editorResearchStatusLabels['no-change']}</dt>
+         <dd>The change is outside the files aix reads and writes.</dd>
       </div>
-   </div>
+      <div class="aix-layout">
+         <dt>{editorResearchStatusLabels.unknown}</dt>
+         <dd>The change was noted without one of the outcomes above.</dd>
+      </div>
+   </dl>
 
-   <form class="editor-changelog__filters" data-editor-research-filters>
-      <label>
-         <span>Editor</span>
-         <select name="editor" data-editor-filter>
-            <option value="all">All editors</option>
-            {editorSupportProfiles.map((profile) => (
-               <option value={profile.id}>{profile.name}</option>
-            ))}
-         </select>
-      </label>
+   {groups.map((group) => {
+      const [ latest ] = group.releases,
+            upstreamNames = [ ...new Set(group.releases.map((release) => release.productName)) ]
+               .filter((name) => name !== group.editorName);
 
-      <label>
-         <span>aix status</span>
-         <select name="status" data-status-filter>
-            <option value="all">All statuses</option>
-            {Object.entries(statusLabels).map(([ status, label ]) => (
-               <option value={status}>{label}</option>
-            ))}
-         </select>
-      </label>
-   </form>
+      return (
+         <>
+            <h2 id={group.editorID}>{group.editorName}</h2>
+            <p>
+               {pluralize(group.releases.length, 'release')} reviewed, most recently on {latest?.reviewedOn}.
+               {upstreamNames.length > 0 && (
+                  <>
+                     {' '}Most of these notes follow {formatList(upstreamNames)} releases, which is where aix
+                     tracks changes that affect {group.editorName}. The version in each title belongs to
+                     the product named beside it.
+                  </>
+               )}
+            </p>
 
-   <div class="editor-changelog__empty" data-empty-state hidden>
-      No editor research notes match those filters.
-   </div>
+            <div class="editor-changelog__releases aix-layout">
+               {group.releases.map((release) => (
+                  <details class="editor-changelog__release">
+                     <summary>
+                        <h3 id={release.anchor}>{release.heading}</h3>
+                        <span class="editor-changelog__meta">{describeRelease(release)}</span>
+                     </summary>
 
-   <div class="editor-changelog__entries">
-      {entries.map((entry) => (
-         <article
-            class="editor-changelog__entry"
-            data-editor-entry
-            data-editor={entry.editorID}
-            data-statuses={entry.changes.map((change) => change.status).join(' ')}
-         >
-            <header class="editor-changelog__entry-header">
-               <div>
-                  <p class="editor-changelog__eyebrow">{getEditorName(entry.editorID)}</p>
-                  <h2>{entry.editorVersion}</h2>
-               </div>
-               <time datetime={entry.researchPerformedAt}>{formatTimestamp(entry.researchPerformedAt)}</time>
-            </header>
+                     <ul class="editor-changelog__changes aix-layout">
+                        {release.entry.changes.map((change) => {
+                           const note = getVisitorNote(change.aixStatus);
 
-            {entry.sourceURLs.length > 0 && (
-               <p class="editor-changelog__sources">
-                  Sources:{' '}
-                  {entry.sourceURLs.map((sourceURL, index) => (
-                     <>
-                        {index > 0 && ', '}
-                        <a href={sourceURL}>{new URL(sourceURL).hostname}</a>
-                     </>
-                  ))}
-               </p>
-            )}
+                           return (
+                              <li class="editor-changelog__change aix-layout">
+                                 <p><InlineCodeText text={change.summary} /></p>
+                                 <p class="editor-changelog__outcome">
+                                    <strong>{editorResearchStatusLabels[change.status]}.</strong>
+                                    {note && <>{' '}<InlineCodeText text={note} /></>}
+                                 </p>
+                              </li>
+                           );
+                        })}
+                     </ul>
 
-            <ul class="editor-changelog__changes">
-               {entry.changes.map((change) => (
-                  <li class={`editor-changelog__change editor-changelog__change--${change.status}`}>
-                     <p>{change.summary}</p>
-                     <div>
-                        <span>{statusLabels[change.status]}</span>
-                        <p>{change.aixStatus}</p>
-                     </div>
-                  </li>
+                     {release.entry.sourceURLs.length > 0 && (
+                        <p class="editor-changelog__sources">
+                           Sources: {formatList(listSourceHosts(release.entry.sourceURLs))}
+                        </p>
+                     )}
+                  </details>
                ))}
-            </ul>
-         </article>
-      ))}
-   </div>
-
-   <script is:inline>
-      const filterForm = document.querySelector('[data-editor-research-filters]');
-      const editorFilter = document.querySelector('[data-editor-filter]');
-      const statusFilter = document.querySelector('[data-status-filter]');
-      const entries = Array.from(document.querySelectorAll('[data-editor-entry]'));
-      const emptyState = document.querySelector('[data-empty-state]');
-
-      function applyEditorResearchFilters() {
-         const selectedEditor = editorFilter.value;
-         const selectedStatus = statusFilter.value;
-         let visibleCount = 0;
-
-         entries.forEach((entry) => {
-            const editorMatches = selectedEditor === 'all' || entry.dataset.editor === selectedEditor;
-            const statuses = entry.dataset.statuses || '';
-            const statusMatches = selectedStatus === 'all' || statuses.split(' ').includes(selectedStatus);
-            const isVisible = editorMatches && statusMatches;
-
-            entry.hidden = !isVisible;
-            if (isVisible) {
-               visibleCount += 1;
-            }
-         });
-
-         emptyState.hidden = visibleCount > 0;
-      }
-
-      filterForm.addEventListener('change', applyEditorResearchFilters);
-   </script>
+            </div>
+         </>
+      );
+   })}
 
    <style>
-      .editor-changelog__summary {
-         display: grid;
-         gap: 0.75rem;
-         grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-         margin: 1.5rem 0;
-      }
-
-      .editor-changelog__summary div {
-         display: grid;
-         gap: 0.15rem;
-         padding: 0.8rem 0;
-         border-block: 1px solid var(--sl-color-hairline-light);
-      }
-
-      .editor-changelog__summary strong {
-         color: var(--sl-color-accent-high);
-         font-size: 1.45rem;
-         line-height: 1;
-      }
-
-      .editor-changelog__summary span,
-      .editor-changelog__eyebrow,
-      .editor-changelog__sources {
-         color: var(--sl-color-gray-3);
-      }
-
-      .editor-changelog__filters {
-         display: flex;
-         flex-wrap: wrap;
-         gap: 0.8rem;
-         margin: 1.5rem 0;
-      }
-
-      .editor-changelog__filters label {
+      .editor-changelog__key {
          display: grid;
          gap: 0.35rem;
-         min-width: min(100%, 14rem);
       }
 
-      .editor-changelog__filters span {
-         font-size: 0.85rem;
+      /* Term and description share a row when there is room and stack when there is not. */
+      .editor-changelog__key div {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 0 1rem;
+      }
+
+      .editor-changelog__key dt {
+         flex: 0 0 10rem;
          font-weight: 600;
       }
 
-      .editor-changelog__filters select {
-         min-height: 2.35rem;
-         padding: 0.4rem 0.6rem;
-         border: 1px solid var(--sl-color-hairline-light);
-         border-radius: 6px;
-         background: var(--sl-color-bg);
-         color: var(--sl-color-white);
-      }
-
-      .editor-changelog__empty {
-         padding: 1rem 0;
-         color: var(--sl-color-gray-3);
-      }
-
-      .editor-changelog__entries {
-         display: grid;
-         gap: 1rem;
-      }
-
-      .editor-changelog__entry {
-         padding: 1rem;
-         border: 1px solid var(--sl-color-hairline-light);
-         border-radius: 8px;
-         background: color-mix(in srgb, var(--sl-color-bg) 90%, var(--sl-color-accent-low));
-      }
-
-      .editor-changelog__entry-header {
-         display: flex;
-         gap: 1rem;
-         align-items: start;
-         justify-content: space-between;
-      }
-
-      .editor-changelog__entry-header h2,
-      .editor-changelog__eyebrow,
-      .editor-changelog__sources,
-      .editor-changelog__change p {
+      .editor-changelog__key dd {
+         flex: 1 1 16rem;
          margin: 0;
       }
 
-      .editor-changelog__entry-header time {
-         color: var(--sl-color-gray-3);
-         font-size: 0.85rem;
-         white-space: nowrap;
+      .editor-changelog__releases {
+         display: grid;
+         grid-template-columns: minmax(0, 1fr);
+         border-block-start: 1px solid var(--sl-color-hairline-light);
       }
 
-      .editor-changelog__eyebrow {
-         font-family: var(--sl-font-system-mono);
-         font-size: 0.72rem;
-         letter-spacing: 0.08em;
-         text-transform: uppercase;
+      /* Rows are separated by rules, so Starlight's accent bar and indent are not needed. */
+      .editor-changelog__release {
+         padding-inline-start: 0;
+         border-inline-start: 0;
+         border-block-end: 1px solid var(--sl-color-hairline-light);
       }
 
+      .editor-changelog__release summary {
+         padding-block: 0.6rem;
+         cursor: pointer;
+      }
+
+      .editor-changelog__release h3 {
+         display: inline;
+         margin-inline-end: 0.75rem;
+         font-size: 1.15rem;
+      }
+
+      .editor-changelog__meta {
+         display: inline-block;
+         font-weight: 400;
+      }
+
+      .editor-changelog__meta,
       .editor-changelog__sources {
-         margin-block: 0.4rem 1rem;
-         font-size: 0.9rem;
+         color: var(--aix-text-muted);
+         font-size: var(--sl-text-sm);
       }
 
       .editor-changelog__changes {
          display: grid;
-         gap: 0.75rem;
+         grid-template-columns: minmax(0, 1fr);
+         gap: 1rem;
          padding: 0;
-         margin: 0;
+         margin-block: 0.25rem 1rem;
          list-style: none;
       }
 
       .editor-changelog__change {
          display: grid;
-         gap: 0.55rem;
-         padding-inline-start: 0.75rem;
-         border-inline-start: 3px solid var(--sl-color-hairline-light);
+         grid-template-columns: minmax(0, 1fr);
+         gap: 0.3rem;
+         padding-inline-start: 0.9rem;
+         border-inline-start: 2px solid var(--sl-color-hairline-light);
+         overflow-wrap: anywhere;
       }
 
-      .editor-changelog__change--supported {
-         border-inline-start-color: var(--aix-success);
+      .editor-changelog__outcome {
+         color: var(--sl-color-gray-2);
+         font-size: 0.94em;
       }
 
-      .editor-changelog__change--follow-up {
-         border-inline-start-color: var(--sl-color-accent);
-      }
-
-      .editor-changelog__change--no-change {
-         border-inline-start-color: var(--sl-color-gray-3);
-      }
-
-      .editor-changelog__change div {
-         display: grid;
-         gap: 0.25rem;
-      }
-
-      .editor-changelog__change span {
-         width: fit-content;
-         padding: 0.18rem 0.45rem;
-         border-radius: 999px;
-         background: var(--sl-color-accent-low);
-         color: var(--sl-color-accent-high);
-         font-size: 0.75rem;
-         font-weight: 600;
-      }
-
-      @media (max-width: 40rem) {
-         .editor-changelog__entry-header {
-            display: grid;
-         }
-
-         .editor-changelog__entry-header time {
-            white-space: normal;
-         }
+      .editor-changelog__sources {
+         margin-block-end: 1rem;
+         overflow-wrap: anywhere;
       }
    </style>
 </StarlightPage>

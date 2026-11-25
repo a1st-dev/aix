@@ -1,6 +1,6 @@
-import { dirname } from 'pathe';
 import { getRuntimeAdapter } from '../runtime/index.js';
 import { createBackup } from '../backup.js';
+import { replaceFile } from '../fs/replace-file.js';
 import { safeRm } from '../fs/safe-rm.js';
 import type { FileChange } from './types.js';
 
@@ -52,9 +52,7 @@ export async function applyFileChanges(changes: FileChange[]): Promise<void> {
             await getRuntimeAdapter().fs.rm(change.path, { force: true });
          } else {
             // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-            await getRuntimeAdapter().fs.mkdir(dirname(change.path), { recursive: true });
-            // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
-            await getRuntimeAdapter().fs.writeFile(change.path, change.content ?? '', 'utf-8');
+            await replaceFile(change.path, change.content ?? '');
             if (change.mode !== undefined) {
                // eslint-disable-next-line no-await-in-loop -- Sequential for atomic rollback
                await getRuntimeAdapter().fs.chmod(change.path, change.mode);
@@ -73,7 +71,7 @@ export async function applyFileChanges(changes: FileChange[]): Promise<void> {
                await getRuntimeAdapter().fs.rm(path, { force: true });
             } else {
                // eslint-disable-next-line no-await-in-loop -- Sequential rollback
-               await getRuntimeAdapter().fs.writeFile(path, originalContent, 'utf-8');
+               await replaceFile(path, originalContent);
             }
          } catch {
             // Best effort rollback

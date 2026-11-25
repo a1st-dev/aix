@@ -493,9 +493,12 @@ export const editorSupportProfiles = [
             'Rules',
             'Markdown rule files.',
             nativeScope('.claude/rules/*.md'),
-            nativeScope('~/.claude/CLAUDE.md'),
+            nativeScope('~/.claude/rules/*.md'),
             {
-               notes: [ 'User scope is a single global memory file instead of per-rule files.' ],
+               notes: [
+                  'At user scope, rules without path globs are also imported from `~/.claude/CLAUDE.md`. ' +
+                  'Rules limited to path globs are left for Claude Code to load when a matching file is in play.',
+               ],
             },
          ),
          prompts: feature(
@@ -756,6 +759,7 @@ export const editorSupportProfiles = [
       migrationPitch: 'Zed is a strong target for rules, MCP, and skills after the v1.4.2 native skills update.',
       notes: [
          'Zed reads a single `.rules` file at project scope; user-scope rules go to `~/.config/zed/AGENTS.md`.',
+         'On Windows, Zed keeps its user-scope `settings.json` and `AGENTS.md` in `%APPDATA%\\Zed`, not `~/.config/zed`.',
          'Zed native Agent Skills live at `.agents/skills/<name>/`; aix manages them via `.aix/skills/` symlinks.',
          'Prompts are converted to Zed skills because Zed has no file-based prompt format.',
       ],
@@ -883,8 +887,8 @@ export const editorSupportProfiles = [
             'shim',
             'Skills',
             'Prompt-to-skill conversion during install.',
-            shimScope('.agents/skills/prompt-{name}/', 'Prompts are installed as instruction-only Agent Skills.'),
-            shimScope('~/.codex/skills/prompt-{name}/', 'User-scoped prompts are also converted to skills.'),
+            shimScope('.agents/skills/{name}/', 'Prompts are installed as instruction-only Agent Skills, named `prompt-{name}` when a skill already has the name.'),
+            shimScope('~/.codex/skills/{name}/', 'User-scoped prompts are also converted to skills.'),
          ),
          agents: feature(
             'agents',
@@ -1009,8 +1013,8 @@ export const editorSupportProfiles = [
             'shim',
             'Skills',
             'Prompt-to-skill conversion during install (workflows deprecated).',
-            shimScope('.agents/skills/prompt-{name}/', 'Prompts are installed as instruction-only Agent Skills.'),
-            shimScope('~/.gemini/config/skills/prompt-{name}/', 'User-scoped prompts are also converted to skills.'),
+            shimScope('.agents/skills/{name}/', 'Prompts are installed as instruction-only Agent Skills, named `prompt-{name}` when a skill already has the name.'),
+            shimScope('~/.gemini/config/skills/{name}/', 'User-scoped prompts are also converted to skills.'),
             {
                notes: [ 'Legacy `.agents/workflows/` files are deprecated upstream in favor of Agent Skills.' ],
             },
@@ -1244,8 +1248,8 @@ export const editorSupportProfiles = [
             'shim',
             'Skills',
             'Prompt-to-skill conversion during install.',
-            shimScope('.grok/skills/prompt-{name}/', 'Prompts are installed as instruction-only Agent Skills.'),
-            shimScope('~/.grok/skills/prompt-{name}/', 'User-scoped prompts are also converted to skills.'),
+            shimScope('.grok/skills/{name}/', 'Prompts are installed as instruction-only Agent Skills, named `prompt-{name}` when a skill already has the name.'),
+            shimScope('~/.grok/skills/{name}/', 'User-scoped prompts are also converted to skills.'),
          ),
          agents: feature(
             'agents',

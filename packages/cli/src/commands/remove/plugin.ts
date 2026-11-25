@@ -1,9 +1,9 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
-import { addLockFlag } from '../../flags/lock.js';
+import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
+import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
@@ -14,7 +14,7 @@ import {
    trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { confirm } from '@inquirer/prompts';
+import { confirmAction } from '../../lib/confirm.js';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
@@ -37,7 +37,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
    };
 
    static override flags = {
-      ...addLockFlag,
+      ...removeLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...saveFlag,
@@ -58,7 +58,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       const loaded = flags.save ? await this.loadConfig() : undefined;
       const targetEditors = resolveTargetEditors(flags.target);
       const pluginName = args.name;
-      const targetScope = resolveConfigScope(flags);
+      const targetScope = resolveTargetScope(flags, loaded?.config);
 
       validateTargetEditors(targetEditors, this.error.bind(this));
 
@@ -82,12 +82,11 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       // Confirm removal
       if (!flags.yes) {
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json',
-               message = `Remove plugin "${pluginName}" from ${targetFile}?`;
+               message = loaded
+                  ? `Remove plugin "${pluginName}" from ${targetFile}?`
+                  : `Remove plugin "${pluginName}" from editor configs?`;
 
-         const confirmed = await confirm({
-            message,
-            default: false,
-         });
+         const confirmed = await confirmAction(message, this.error.bind(this));
 
          if (!confirmed) {
             this.output.info('Cancelled');
@@ -139,7 +138,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
          }
       }
 
-      await trackRemoval(targetScope, 'plugins', pluginName, process.cwd());
+      await trackRemoval({ scope: targetScope, section: 'plugins', name: pluginName, projectRoot, editors: targetEditors });
 
       if (this.flags.json) {
          this.output.json({
@@ -166,6 +165,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       for (const result of results) {
          if (!result.success) {
             this.output.error(`Failed to remove plugin "${name}" from ${result.editor}: ${result.errors.join(', ')}`);
+            this.markFailed();
             continue;
          }
 

@@ -2,6 +2,7 @@ import { join } from 'pathe';
 import { parseSkillMd } from '../parser.js';
 import type { GitRef } from '../reference-parser.js';
 import type { ParsedSkill } from '@a1st/aix-schema';
+import { createCacheKey } from '../../git-download.js';
 import { getRuntimeAdapter, type RuntimeDirent } from '../../runtime/index.js';
 
 /** Maximum directory depth to search for a nested SKILL.md when no subpath is specified. */
@@ -12,7 +13,7 @@ const MAX_SKILL_SEARCH_DEPTH = 5;
  * Uses giget for downloading which handles caching internally.
  */
 export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
-   const cacheKey = createCacheKey(ref),
+   const cacheKey = createCacheKey(ref.url, ref.ref, ref.path),
          cachePath = join(getRuntimeAdapter().os.tmpdir(), 'aix-skills', 'git', cacheKey);
 
    // Build giget source string
@@ -42,10 +43,12 @@ export async function resolveGit(ref: GitRef): Promise<ParsedSkill> {
       source = `${source}#${ref.ref}`;
    }
 
-   // Download using giget
+   // The cache directory is reused across runs, so files the repo has since deleted must not
+   // survive into this download.
    await getRuntimeAdapter().git.downloadTemplate(source, {
       dir: cachePath,
       force: true,
+      forceClean: true,
    });
 
    const skillDir = await findSkillDirectory(cachePath);
@@ -113,15 +116,4 @@ async function searchForSkillDirs(
          await searchForSkillDirs(subdir, depth + 1, matches);
       }),
    );
-}
-
-/**
- * Create a cache key for a git reference
- */
-function createCacheKey(ref: GitRef): string {
-   const urlHash = getRuntimeAdapter().crypto.base64url(ref.url).slice(0, 16),
-         refPart = ref.ref ?? 'default',
-         pathPart = ref.path ? `-${ref.path.replace(/\//g, '-')}` : '';
-
-   return `${urlHash}-${refPart}${pathPart}`;
 }

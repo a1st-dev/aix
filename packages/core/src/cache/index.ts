@@ -1,7 +1,6 @@
 export {
    getAixDir,
    getTmpDir,
-   getBackupsDir,
    getCacheDir,
    getRulesCacheDir,
    getPromptsCacheDir,

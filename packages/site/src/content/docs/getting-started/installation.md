@@ -5,6 +5,9 @@ sidebar:
 description: Install the aix CLI and set up your environment.
 ---
 
+aix is a command-line tool distributed on npm as `@a1st/aix`. Install it globally to get the
+`aix` command.
+
 ## Requirements
 
 - **Node.js** ≥ 20.19.0 or ≥ 22.12.0
@@ -30,16 +33,22 @@ aix supports tab completion for commands and flags. Set it up with:
 aix autocomplete
 ```
 
-Follow the printed instructions to add the completion script to your shell profile (`.bashrc`, `.zshrc`, or Fish config).
+Follow the printed instructions to add the completion script to your shell profile. The
+supported shells are bash, zsh, and PowerShell.
 
 ## Update
 
-aix can self-update:
+aix is distributed through npm, so update it the way you installed it:
 
 ```bash
-aix update
+npm install -g @a1st/aix@latest
 ```
+
+`aix version` prints the version you have.
 
 ## What's next
 
-Create your first `ai.json` — follow the [Quick Start](/getting-started/quick-start/) guide.
+- New to aix? Read the [Introduction](/getting-started/introduction/) for what it does and
+  where it writes.
+- Follow the [Quick start](/getting-started/quick-start/) to create your first `ai.json`.
+- Already have editor config? [Import it](/getting-started/import-from-editor/).

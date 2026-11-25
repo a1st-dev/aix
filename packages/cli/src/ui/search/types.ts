@@ -7,13 +7,13 @@ export interface SearchUIProps {
       searchSkills: (options: { query: string }) => Promise<SearchResult[]>;
       searchMcp: (options: { query: string }) => Promise<SearchResult[]>;
    };
-   /** Called when user installs a single item. Returns true on success. */
-   onInstall: (item: InstallItem) => Promise<boolean>;
-   /** Called when user uninstalls a single item. Returns true on success. */
-   onUninstall?: (item: InstallItem) => Promise<boolean>;
+   /** Called when user installs a single item. */
+   onInstall: (item: InstallItem) => Promise<ActionOutcome>;
+   /** Called when user uninstalls a single item. */
+   onUninstall?: (item: InstallItem) => Promise<ActionOutcome>;
    /** Called when search exits. Receives list of items installed during session. */
    onExit: (installedItems: InstallItem[]) => void;
-   /** Items already installed (from ai.json) */
+   /** Names of the skills and MCP servers that ai.json already declares. */
    alreadyInstalled?: Set<string>;
 }
 
@@ -22,15 +22,8 @@ export interface InstallItem {
    type: SearchType;
 }
 
-/** @deprecated Use InstallItem instead */
-export type SelectedItem = InstallItem;
-
-export interface SearchState {
-   query: string;
-   results: SearchResult[];
-   loading: boolean;
-   error: string | null;
-   selectedIndex: number;
-   installedItems: Set<string>;
-   activeTab: SearchType;
+/** What an install or uninstall did. `error` is shown to the user when it did not succeed. */
+export interface ActionOutcome {
+   success: boolean;
+   error?: string;
 }

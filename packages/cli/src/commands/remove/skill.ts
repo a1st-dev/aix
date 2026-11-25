@@ -1,26 +1,9 @@
-import { Args, Flags } from '@oclif/core';
-import { dirname } from 'pathe';
-import { BaseCommand } from '../../base-command.js';
-import { addLockFlag } from '../../flags/lock.js';
-import { localFlag } from '../../flags/local.js';
-import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
-import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
-import { updateConfig, updateLocalConfig, getLocalConfigPath, trackRemoval } from '@a1st/aix-core';
-import { confirm } from '@inquirer/prompts';
-import { installAfterAdd } from '../../lib/install-helper.js';
-import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
-import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
-import {
-   computeFilesToDelete,
-   deleteFiles,
-   getExistingFiles,
-   printRemovalPreview,
-   type FilesToDelete,
-} from '../../lib/delete-helper.js';
+import { Args } from '@oclif/core';
+import type { AiJsonConfig } from '@a1st/aix-schema';
 import { isValidSkillName, normalizeSkillName } from '../../lib/skill-source.js';
+import { RemoveFileItemCommand, type FileItemKind } from '../../lib/remove-file-item-command.js';
 
-export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
+export default class RemoveSkill extends RemoveFileItemCommand {
    static override description = 'Remove a skill';
 
    static override examples = [
@@ -36,150 +19,12 @@ export default class RemoveSkill extends BaseCommand<typeof RemoveSkill> {
       }),
    };
 
-   static override flags = {
-      ...addLockFlag,
-      ...localFlag,
-      ...configScopeFlags,
-      ...saveFlag,
-      ...targetFlag,
-      yes: Flags.boolean({
-         char: 'y',
-         description: 'Skip confirmation prompt',
-         default: false,
-      }),
-      'no-delete': Flags.boolean({
-         description: 'Skip deleting files from editors',
-         default: false,
-      }),
-   };
+   protected readonly kind: FileItemKind = { section: 'skills', noun: 'skill', reinstallSections: [ 'skills', 'rules' ] };
 
-   async run(): Promise<void> {
-      const { args, flags } = await this.parse(RemoveSkill);
-      const loaded = flags.save ? await this.loadConfig() : undefined;
-      const normalizedName = isValidSkillName(args.name) ? args.name : normalizeSkillName(args.name);
-      const targetEditors = resolveTargetEditors(flags.target);
-      const resolvedName =
-         loaded?.config.skills?.[args.name] !== undefined
-            ? args.name
-            : loaded?.config.skills?.[normalizedName] !== undefined
-               ? normalizedName
-               : args.name;
-      const targetScope = resolveConfigScope(flags);
+   /** Skills are stored under a normalized name, but older configs may hold the name as typed. */
+   protected override resolveItemName(typedName: string, config: AiJsonConfig | undefined): string {
+      const normalizedName = isValidSkillName(typedName) ? typedName : normalizeSkillName(typedName);
 
-      validateTargetEditors(targetEditors, this.error.bind(this));
-
-      // Check if skill exists in merged config (if we have one)
-      if (flags.save && (!loaded || !loaded.config.skills?.[resolvedName])) {
-         this.error(`Skill "${args.name}" not found in configuration`);
-      }
-
-      // Compute files to delete
-      const projectRoot = loaded ? dirname(loaded.path) : process.cwd(),
-            editors = await resolveRemovalEditors({
-               targetEditors,
-               section: 'skills',
-               itemName: resolvedName,
-               configuredEditors: flags.local ? undefined : loaded?.config.editors,
-               scope: targetScope,
-               projectRoot,
-            });
-
-      let filesToDelete: FilesToDelete[] = [],
-          shouldDeleteFiles = false;
-
-      if (!flags['no-delete'] && editors.length > 0) {
-         filesToDelete = computeFilesToDelete(editors, 'skill', resolvedName, {
-            projectRoot,
-            targetScope,
-         });
-         printRemovalPreview(this.output, filesToDelete);
-      }
-
-      // Confirm removal (covers both config and file deletion)
-      if (!flags.yes) {
-         const existingFiles = getExistingFiles(filesToDelete),
-               hasFiles = existingFiles.length > 0,
-               targetFile = flags.local ? 'ai.local.json' : 'ai.json',
-               message = loaded
-                  ? hasFiles
-                     ? `Remove skill "${args.name}" from ${targetFile} and delete ${existingFiles.length} file(s)?`
-                     : `Remove skill "${args.name}" from ${targetFile}?`
-                  : `Remove skill "${args.name}" from editor configs?`;
-
-         const confirmed = await confirm({
-            message,
-            default: false,
-         });
-
-         if (!confirmed) {
-            this.output.info('Cancelled');
-            return;
-         }
-         shouldDeleteFiles = hasFiles;
-      } else {
-         shouldDeleteFiles = getExistingFiles(filesToDelete).length > 0;
-      }
-
-      const lockableConfigPath = getLockableConfigPath(flags.local, loaded?.path);
-
-      // Update ai.json / ai.local.json if present
-      if (flags.save && flags.local) {
-         const localPath = loaded ? getLocalConfigPath(loaded.path) : 'ai.local.json';
-
-         await updateLocalConfig(localPath, (config) => {
-            const { [resolvedName]: _, ...remainingSkills } = config.skills ?? {};
-
-            return {
-               ...config,
-               skills: remainingSkills,
-            };
-         });
-         this.output.success(`Removed skill "${args.name}" from ai.local.json`);
-      } else if (flags.save && loaded) {
-         await updateConfig(loaded.path, (config) => {
-            const { [resolvedName]: _, ...remainingSkills } = config.skills ?? {};
-
-            return {
-               ...config,
-               skills: remainingSkills,
-            };
-         });
-         this.output.success(`Removed skill "${args.name}"`);
-      }
-
-      const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
-
-      // Delete files from editors
-      if (shouldDeleteFiles && filesToDelete.length > 0) {
-         const deleteResults = await deleteFiles(filesToDelete);
-
-         this.logDeleteResults(deleteResults);
-
-         if (loaded) {
-            await installAfterAdd({
-               configPath: loaded.path,
-               sections: ['skills', 'rules'],
-               scope: targetScope,
-               quiet: true,
-               editors: targetEditors,
-            });
-         }
-      }
-
-      // Track the removal in state
-      await trackRemoval(targetScope, 'skills', resolvedName, process.cwd());
-
-      if (this.flags.json) {
-         this.output.json({
-            action: 'remove',
-            type: 'skill',
-            name: resolvedName,
-            ...(lockfilePath && { lockfilePath }),
-         });
-      }
-   }
-
-   protected override getLockfileMode(): 'auto' | 'ignore' {
-      return this.flags.lock ? 'ignore' : 'auto';
+      return config?.skills?.[typedName] !== undefined ? typedName : normalizedName;
    }
 }

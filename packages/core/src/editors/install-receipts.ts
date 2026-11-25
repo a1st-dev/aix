@@ -1,8 +1,8 @@
 import { dirname, join, isAbsolute } from 'pathe';
-import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, modifyJsonc, type ConfigScope } from '@a1st/aix-schema';
 import { canonicalJson, hashBytes, hashCanonicalJson } from '../entity-hash.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import { parseToml, updateToml } from '../toml.js';
 import { getStatePath } from '../state/tracker.js';
 import { isRecord } from '../type-guards.js';
 import type { ConfigSection } from '../merge.js';
@@ -90,6 +90,14 @@ function getCategory(section: ConfigSection): FileChangeCategory {
    }
 }
 
+function parseReceipt(content: string): unknown {
+   try {
+      return JSON.parse(content);
+   } catch {
+      return undefined;
+   }
+}
+
 async function readReceipts(directory: string): Promise<InstallReceipt[]> {
    const { fs } = getRuntimeAdapter();
 
@@ -103,10 +111,15 @@ async function readReceipts(directory: string): Promise<InstallReceipt[]> {
 
    const receipts = await Promise.all(paths.map(async (name) => {
       const path = join(directory, name),
-            value: unknown = JSON.parse(await fs.readFile(path, 'utf-8'));
+            value = parseReceipt(await fs.readFile(path, 'utf-8'));
 
+      // A receipt is the only record of what aix wrote for one config and editor. Guessing at
+      // a damaged one could delete user content, so stop and say how to recover.
       if (!isReceipt(value)) {
-         throw new Error(`Invalid install receipt: ${path}`);
+         throw new Error(
+            `Invalid install receipt: ${path}. Delete that file to continue. aix will then leave ` +
+            'what that install wrote in place and treat it as yours.',
+         );
       }
       return value;
    }));
@@ -116,16 +129,31 @@ async function readReceipts(directory: string): Promise<InstallReceipt[]> {
    });
 }
 
+function getReceiptsDir(scope: ConfigScope, projectRoot?: string): string {
+   return join(dirname(getStatePath(scope, projectRoot)), 'installs');
+}
+
+/** Every path an install receipt at this scope records as written by aix. */
+export async function listInstalledPaths(options: { scope: ConfigScope; projectRoot: string }): Promise<Set<string>> {
+   const receipts = await readReceipts(getReceiptsDir(options.scope, options.projectRoot));
+
+   return new Set(receipts.flatMap((receipt) => {
+      return receipt.files.map((file) => {
+         return file.path;
+      });
+   }));
+}
+
 /** Editors with contributions still owned by this config at the requested scope. */
 export async function listConfigInstallEditors(options: {
    source: string;
    scope: ConfigScope;
    projectRoot: string;
 }): Promise<EditorName[]> {
-   const directory = join(dirname(getStatePath(options.scope, options.projectRoot)), 'installs'),
+   const directory = getReceiptsDir(options.scope, options.projectRoot),
          localReceipts = await readReceipts(directory),
          globalReceipts = options.scope === 'project' && getRuntimeAdapter().host.supportsGlobalHomeAccess()
-            ? await readReceipts(join(dirname(getStatePath('user')), 'installs')) : [],
+            ? await readReceipts(getReceiptsDir('user')) : [],
          receipts = [...localReceipts, ...globalReceipts.filter((receipt) => {
             return receipt.editor.endsWith(':global');
          })],
@@ -205,7 +233,7 @@ async function snapshotChange(change: FileChange): Promise<InstalledFile | undef
 }
 
 function parseStructured(file: InstalledFile, content: string): Record<string, unknown> {
-   const parsed: unknown = file.kind === 'toml' ? parseTOML(content) : parseJsonc(content).data;
+   const parsed: unknown = file.kind === 'toml' ? parseToml(content) : parseJsonc(content).data;
 
    if (!isRecord(parsed) || (file.kind === 'json' && parseJsonc(content).errors.length > 0)) {
       throw new Error(`Cannot reconcile invalid editor config: ${file.path}`);
@@ -316,7 +344,7 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
       }
    }));
 
-   return file.kind === 'toml' ? stringifyTOML(current) : result;
+   return file.kind === 'toml' ? updateToml(content, current) : result;
 }
 
 async function stripFile(file: InstalledFile, content: string, protectedFiles: InstalledFile[]): Promise<string | undefined> {
@@ -353,7 +381,7 @@ export async function planInstallReceipt(
    options: PlanInstallReceiptOptions,
 ): Promise<{ changes: FileChange[]; receiptChange?: FileChange }> {
    const { source, editor, projectRoot, scope, scopes, changes } = options,
-         directory = join(dirname(getStatePath(scope, projectRoot)), 'installs'),
+         directory = getReceiptsDir(scope, projectRoot),
          receiptPath = join(directory, hashCanonicalJson([source, editor]).slice('sha256:'.length) + '.json'),
          receipts = await readReceipts(directory),
          previous = receipts.find((receipt) => {

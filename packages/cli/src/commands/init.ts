@@ -1,13 +1,14 @@
 import { Flags } from '@oclif/core';
-import { writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BaseCommand } from '../base-command.js';
 import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
-import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
+import { configScopeFlags, getFlagScope } from '../flags/scope.js';
 import {
+   createBackup,
    importFromEditor,
    normalizeEditorImport,
+   replaceFile,
    getAcceptedEditorNames,
    normalizeEditorName,
    writeImportedContent,
@@ -57,16 +58,16 @@ export default class Init extends BaseCommand<typeof Init> {
    async run(): Promise<void> {
       const configPath = join(process.cwd(), 'ai.json');
 
-      if (existsSync(configPath) && !this.flags.force) {
-         this.error('ai.json already exists. Use --force to overwrite.');
+      if (existsSync(configPath)) {
+         if (!this.flags.force) {
+            this.error('ai.json already exists. Use --force to overwrite.');
+         }
+         await createBackup(configPath);
       }
 
-      const scopeFlag = resolveConfigScope(
-         this.flags as { scope?: string; user?: boolean; project?: boolean },
-         'project',
-      );
-      // Only pass scope when user explicitly asked for "user"
-      const scope = scopeFlag === 'user' ? 'user' : undefined;
+      // Record a scope only when one was asked for. `aix install` then follows it, so
+      // `aix init --project` yields a config that installs into the project.
+      const scope = getFlagScope(this.flags);
 
       let config: AiJsonConfig;
       const editor = this.flags.from ? normalizeEditorName(this.flags.from) : undefined;
@@ -93,7 +94,7 @@ export default class Init extends BaseCommand<typeof Init> {
             if (scope) {
                (config as Record<string, unknown>).scope = scope;
             }
-            await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
+            await replaceFile(configPath, JSON.stringify(config, null, 2) + '\n');
             await commitImport(process.cwd());
          } catch (error) {
             await rollbackImport(process.cwd());
@@ -104,7 +105,7 @@ export default class Init extends BaseCommand<typeof Init> {
          if (extendsValue) {
             config.extends = extendsValue;
          }
-         await writeFile(configPath, JSON.stringify(config, null, 2) + '\n');
+         await replaceFile(configPath, JSON.stringify(config, null, 2) + '\n');
       }
 
       this.output.success(`Created ${configPath}`);
