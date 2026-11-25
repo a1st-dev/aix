@@ -102,6 +102,8 @@ version may appear here with no changes to this package.
 - Write editor config, aix state, and `ai.json` through a temporary file that is renamed
   into place, so an interrupted write cannot leave a truncated file. The file keeps its
   permissions, and a symlinked config is written through, not replaced
+- Name a damaged install receipt and how to recover from it; a receipt that was not valid
+  JSON failed every install with a bare parse error
 
 ## [0.6.0] - 2026-08-12
 

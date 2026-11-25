@@ -241,6 +241,19 @@ describe('editor install receipts', () => {
       }));
    });
 
+   it('names a damaged receipt and how to recover, rather than failing with a parse error', async () => {
+      const receiptPath = join(projectRoot, '.aix', 'installs', 'damaged.json');
+
+      await mkdir(dirname(receiptPath), { recursive: true });
+      await writeFile(receiptPath, '{ "version": 1, "files": [');
+
+      const result = await installToEditor('claude-code', { ...createEmptyConfig(), mcp: { docs: { command: 'server' } } }, projectRoot);
+
+      expect(result.success).toStrictEqual(false);
+      expect(result.errors.join('\n')).toContain(receiptPath);
+      expect(result.errors.join('\n')).toContain('Delete that file to continue');
+   });
+
    it('previews cleanup without advancing receipts or removing other sections', async () => {
       const config: AiJsonConfig = {
                ...createEmptyConfig(), hooks: { agent_stop: [{ hooks: [{ command: 'echo old' }] }] },

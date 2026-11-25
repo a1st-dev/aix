@@ -90,6 +90,14 @@ function getCategory(section: ConfigSection): FileChangeCategory {
    }
 }
 
+function parseReceipt(content: string): unknown {
+   try {
+      return JSON.parse(content);
+   } catch {
+      return undefined;
+   }
+}
+
 async function readReceipts(directory: string): Promise<InstallReceipt[]> {
    const { fs } = getRuntimeAdapter();
 
@@ -103,10 +111,15 @@ async function readReceipts(directory: string): Promise<InstallReceipt[]> {
 
    const receipts = await Promise.all(paths.map(async (name) => {
       const path = join(directory, name),
-            value: unknown = JSON.parse(await fs.readFile(path, 'utf-8'));
+            value = parseReceipt(await fs.readFile(path, 'utf-8'));
 
+      // A receipt is the only record of what aix wrote for one config and editor. Guessing at
+      // a damaged one could delete user content, so stop and say how to recover.
       if (!isReceipt(value)) {
-         throw new Error(`Invalid install receipt: ${path}`);
+         throw new Error(
+            `Invalid install receipt: ${path}. Delete that file to continue. aix will then leave ` +
+            'what that install wrote in place and treat it as yours.',
+         );
       }
       return value;
    }));
