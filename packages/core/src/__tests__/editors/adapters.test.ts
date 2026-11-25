@@ -433,6 +433,38 @@ describe('Editor Adapters', () => {
          expect(adapter.configDir).toBe('.claude');
       });
 
+      describe('a skill whose name is already taken in the editor', () => {
+         const config = createConfig({ skills: { pdf: './skills/pdf' } }),
+               skillFile = (dir: string): string => {
+                  return join(dir, 'SKILL.md');
+               };
+
+         beforeEach(async () => {
+            await mkdir(join(testDir, 'skills', 'pdf'), { recursive: true });
+            await writeFile(skillFile(join(testDir, 'skills', 'pdf')), '---\nname: pdf\ndescription: From ai.json\n---\nFROM CONFIG\n');
+         });
+
+         it('refuses to replace a directory that aix did not create', async () => {
+            const handWritten = join(testDir, '.claude', 'skills', 'pdf');
+
+            await mkdir(handWritten, { recursive: true });
+            await writeFile(skillFile(handWritten), 'HAND WRITTEN');
+
+            await expect(installToEditor('claude-code', config, testDir, { scopes: ['skills'] }))
+               .rejects.toThrow('already exists and was not created by aix');
+            expect(await readFile(skillFile(handWritten), 'utf-8')).toStrictEqual('HAND WRITTEN');
+         });
+
+         it('replaces the link from its own earlier install', async () => {
+            await installToEditor('claude-code', config, testDir, { scopes: ['skills'] });
+
+            const result = await installToEditor('claude-code', config, testDir, { scopes: ['skills'] });
+
+            expect(result.errors).toEqual([]);
+            expect(await readFile(skillFile(join(testDir, '.claude', 'skills', 'pdf')), 'utf-8')).toContain('FROM CONFIG');
+         });
+      });
+
       it('leaves top-level settings that hold a command where they are when adding a hook', async () => {
          const settingsPath = join(testDir, '.claude', 'settings.json'),
                statusLine = { type: 'command', command: '~/.claude/statusline.sh' },

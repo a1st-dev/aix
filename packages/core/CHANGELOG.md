@@ -44,6 +44,8 @@ version may appear here with no changes to this package.
   and stop treating any directory named `opencode` or `github-copilot` as editor config
 - Match the Windows system-directory blocklist in `safeRm`, which compared backslash paths
   against forward-slash ones
+- Refuse to install a skill over an existing editor skill directory that aix did not
+  create; it used to delete the directory and replace it with a link
 
 ## [0.6.0] - 2026-08-12
 

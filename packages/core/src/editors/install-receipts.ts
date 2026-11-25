@@ -116,16 +116,31 @@ async function readReceipts(directory: string): Promise<InstallReceipt[]> {
    });
 }
 
+function getReceiptsDir(scope: ConfigScope, projectRoot?: string): string {
+   return join(dirname(getStatePath(scope, projectRoot)), 'installs');
+}
+
+/** Every path an install receipt at this scope records as written by aix. */
+export async function listInstalledPaths(options: { scope: ConfigScope; projectRoot: string }): Promise<Set<string>> {
+   const receipts = await readReceipts(getReceiptsDir(options.scope, options.projectRoot));
+
+   return new Set(receipts.flatMap((receipt) => {
+      return receipt.files.map((file) => {
+         return file.path;
+      });
+   }));
+}
+
 /** Editors with contributions still owned by this config at the requested scope. */
 export async function listConfigInstallEditors(options: {
    source: string;
    scope: ConfigScope;
    projectRoot: string;
 }): Promise<EditorName[]> {
-   const directory = join(dirname(getStatePath(options.scope, options.projectRoot)), 'installs'),
+   const directory = getReceiptsDir(options.scope, options.projectRoot),
          localReceipts = await readReceipts(directory),
          globalReceipts = options.scope === 'project' && getRuntimeAdapter().host.supportsGlobalHomeAccess()
-            ? await readReceipts(join(dirname(getStatePath('user')), 'installs')) : [],
+            ? await readReceipts(getReceiptsDir('user')) : [],
          receipts = [...localReceipts, ...globalReceipts.filter((receipt) => {
             return receipt.editor.endsWith(':global');
          })],
@@ -353,7 +368,7 @@ export async function planInstallReceipt(
    options: PlanInstallReceiptOptions,
 ): Promise<{ changes: FileChange[]; receiptChange?: FileChange }> {
    const { source, editor, projectRoot, scope, scopes, changes } = options,
-         directory = join(dirname(getStatePath(scope, projectRoot)), 'installs'),
+         directory = getReceiptsDir(scope, projectRoot),
          receiptPath = join(directory, hashCanonicalJson([source, editor]).slice('sha256:'.length) + '.json'),
          receipts = await readReceipts(directory),
          previous = receipts.find((receipt) => {
