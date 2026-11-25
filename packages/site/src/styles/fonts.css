@@ -1,0 +1,6 @@
+/* Only the weights the site uses: Cormorant for display type, Instrument Sans for the rest. */
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/cormorant-garamond/700.css";
+@import "@fontsource/instrument-sans/400.css";
+@import "@fontsource/instrument-sans/600.css";
+@import "@fontsource/instrument-sans/700.css";

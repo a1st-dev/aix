@@ -64,17 +64,15 @@ export default defineConfig({
           href: "https://github.com/a1st-dev/aix",
         },
       ],
-      customCss: [
-        "@fontsource/cormorant-garamond/400.css",
-        "@fontsource/cormorant-garamond/500.css",
-        "@fontsource/cormorant-garamond/600.css",
-        "@fontsource/cormorant-garamond/700.css",
-        "@fontsource/instrument-sans/400.css",
-        "@fontsource/instrument-sans/500.css",
-        "@fontsource/instrument-sans/600.css",
-        "@fontsource/instrument-sans/700.css",
-        "./src/styles/theme.css",
-      ],
+      customCss: ["./src/styles/fonts.css", "./src/styles/theme.css"],
+      expressiveCode: {
+        themes: ["vitesse-dark", "vitesse-light"],
+        useStarlightUiThemeColors: true,
+        styleOverrides: {
+          borderRadius: "0.5rem",
+          borderColor: "var(--sl-color-hairline-light)",
+        },
+      },
       components: {
         Head: './src/components/Head.astro',
       },
