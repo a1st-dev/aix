@@ -5,7 +5,8 @@ title: Skills
 description: Reusable capabilities for your AI agent.
 ---
 
-A **Skill** is a package of instructions and context that teaches an AI agent how to perform a specific task or work with a specific technology.
+A **skill** is a directory of instructions and supporting files that teaches an AI agent how to
+perform a specific task or work with a specific technology.
 
 aix follows the [Agent Skills specification](https://agentskills.io) (v1).
 
@@ -28,7 +29,7 @@ You are an expert in React. Follow these principles:
    ...
 ```
 
-The frontmatter contains metadata, and the markdown body contains the instructions (system prompt context).
+The frontmatter contains metadata, and the markdown body contains the instructions.
 
 ## Configuring skills
 
@@ -55,38 +56,47 @@ Add skills to the `skills` object in `ai.json`:
 
 ## Installing skills
 
-When you run `aix install`, skills are:
+When you run `aix install`, each skill is:
 
-1. Resolved and downloaded (if remote) to `.aix/skills/{name}/`.
-2. Symlinked into the location each editor reads. Every supported editor now has native
-   Agent Skills support, so all of them get a real skill directory rather than a rule that
-   points at one:
-   - **Claude Code**: `.claude/skills/`.
-   - **Cursor**: `.cursor/skills/`.
-   - **GitHub Copilot**: `.github/skills/`.
-   - **Google Antigravity**: `.agents/skills/`.
-   - **OpenCode**: `.opencode/skills/`.
-   - **Windsurf**: `.windsurf/skills/`.
-   - **Grok CLI**: `.grok/skills/`.
-   - **Codex** and **Zed**: `.agents/skills/`, the shared Agent Skills folder convention.
+1. Resolved, and downloaded if it is remote.
+2. Copied into a directory aix manages: `~/.aix/skills/{name}/` for a user-scope install (the
+   default), or `.aix/skills/{name}/` inside the project with `--project`.
+3. Symlinked from there into the skills directory each editor reads.
 
-`aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the containing skill directory.
+Every supported editor reads Agent Skills natively, so each one gets a real skill directory.
+Some editors read the shared `.agents/skills/` folder and others have a directory of their
+own. The exact project and user paths are on each editor page:
+[Cursor](/editors/cursor/#cursor-feature-skills),
+[GitHub Copilot](/editors/copilot/#copilot-feature-skills),
+[Claude Code](/editors/claude-code/#claude-code-feature-skills),
+[Windsurf](/editors/windsurf/#windsurf-feature-skills),
+[Zed](/editors/zed/#zed-feature-skills),
+[Codex](/editors/codex/#codex-feature-skills),
+[Google Antigravity](/editors/antigravity/#antigravity-feature-skills),
+[OpenCode](/editors/opencode/#opencode-feature-skills), and
+[Grok CLI](/editors/grok/#grok-feature-skills).
 
-When you install with `--user`, the canonical managed copy lives under `~/.aix/skills/{name}/` instead of the project-local `.aix/skills/{name}/`.
+`aix add skill` also accepts direct `SKILL.md` paths or blob URLs and normalizes them to the
+containing skill directory.
 
 To install one skill without creating `ai.json`, use direct install:
 
 ```bash
 aix install ./skills/review --type skill --target claude-code --user
-aix install github:org/aix-skills/review#v1.0.0 --type skill --target cursor
+aix install github:org/aix-skills/review#v1.0.0 --type skill --target cursor --user
 ```
 
 ### Precedence with plugins
 
-If your project defines a skill in `ai.json` that is also bundled inside an enabled [plugin](/concepts/plugins/):
+If your `ai.json` defines a skill that is also bundled inside an enabled
+[plugin](/concepts/plugins/):
 
-- **Native Plugin Editors (e.g. Claude Code)**: The local project skill in `.claude/skills/<name>` takes precedence over the plugin's bundled version.
-- **Non-Native Editors (e.g. Codex, Windsurf, Zed)**: Unpacked plugin skills are automatically prefixed with the plugin name (`${pluginName}-${skillName}`) to prevent naming collisions. If you explicitly author a skill with the exact same name in `ai.json`, your explicit configuration overrides the unpacked plugin version.
+- **Editors with native plugin support, such as Claude Code**: the skill you configured takes
+  precedence over the plugin's bundled version.
+- **Editors without native plugin support, such as Codex, Windsurf, and Zed**: aix unpacks the
+  plugin's skills and prefixes each with the plugin name (`<plugin>-<skill>`), so the names do
+  not collide. If you define a skill with that exact prefixed name in `ai.json`, your
+  definition replaces the unpacked one.
 
 ## Creating a skill
 
