@@ -3,36 +3,53 @@
 Core library for the [aix](https://github.com/a1st-dev/aix/blob/main/README.md) CLI.
 Provides config loading, editor adapters, skill resolution, and file management utilities.
 
-## Role in aix
+## Install config from your own tool
 
-This package is used internally by `@a1st/aix` (the CLI). It handles:
-
-- **Config discovery & loading** — Find and parse `ai.json` files, resolve `extends`
-- **Editor adapters** — Write rules, prompts, skills, agents, hooks, and MCP config to each editor's format
-- **Skill resolution** — Load skills from local paths, git repos, or npm packages
-- **Remote loading** — Fetch configs from GitHub URLs, git shorthand, or local paths
-- **Safe file updates** — Atomic writes with backup and rollback
-
-## Key Exports
-
-```typescript
-import {
-   loadConfig, // Load ai.json from path or remote source
-   installToEditor, // Install config to a specific editor
-   resolveAllSkills, // Resolve skill references to parsed skills
-   updateConfig, // Safely update ai.json with backup
-   mergeConfigs, // Merge two configs together
-} from "@a1st/aix-core";
-```
-
-## Installation
+A CLI or library can install its own skill, MCP server, rule, or prompt into the user's AI
+editors. No `ai.json` is involved and the user does not need `aix`.
 
 ```bash
 npm install @a1st/aix-core
 ```
 
-> **Note:** This package is primarily for internal use. Most users should install
-> `@a1st/aix` (the CLI) instead.
+```js
+import { fileURLToPath } from "node:url";
+import { detectEditors, installItem, removeItem } from "@a1st/aix-core";
+
+const skill = { section: "skills", name: "my-cli", scope: "user" },
+   editors = await detectEditors(process.cwd());
+
+// Copies the skill to ~/.aix/skills/my-cli and links it into each editor's skills directory.
+const { results } = await installItem({
+   ...skill,
+   value: { path: fileURLToPath(new URL("../skills/my-cli", import.meta.url)) },
+   editors,
+});
+
+for (const result of results) {
+   console.log(result.editor, result.success ? "installed" : result.errors.join(", "));
+}
+
+// Later: deletes only what installItem created.
+await removeItem(skill);
+```
+
+`section` is a section of `ai.json` (`skills`, `mcp`, `rules`, `prompts`, `agents`, `hooks`,
+`plugins`, `marketplaces`) and `value` is what `ai.json` would have under `name`. aix backs up
+every file before it changes it. See
+[Use aix as a library](https://aix.a1st.dev/getting-started/use-as-a-library/) for a
+setup prompt, subcommands, the options, and bundling notes.
+
+## Other exports
+
+The `aix` CLI is built on this package, which also exports:
+
+- **Config discovery and loading**: `loadConfig` finds and parses `ai.json` and resolves
+  `extends`
+- **Editor adapters**: `installToEditor` writes a whole config in one editor's format
+- **Skill resolution**: `resolveAllSkills` loads skills from local paths, git repos, or npm
+  packages
+- **Safe file updates**: `updateConfig`, `createBackup`, and `replaceFile`
 
 ## License
 

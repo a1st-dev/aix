@@ -9,6 +9,10 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Add `installItem` and `removeItem`, which install one skill, MCP server, rule, or other
+  item into editors without an `ai.json` and remove only what that install created, so a
+  CLI or library can install its own skill
+- Declare `sideEffects: false`, so a bundler can drop the exports a caller does not use
 - Add the `AIX_USER_HOME` environment variable (exported as `USER_HOME_ENV_VAR`), which the
   Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
 - Add `findNativeItemPath`, which locates the native file for a named skill, rule, prompt,
@@ -27,6 +31,9 @@ version may appear here with no changes to this package.
 
 ### Changed
 
+- Upgrade `nypm` to 0.6.12, which cuts the packages installed with this one from 39 to 16
+- Parse frontmatter with `js-yaml` instead of `yaml`. `js-yaml` has an ESM build, so an ESM
+  bundle of this package no longer needs a `require` function
 - Change `trackRemoval` to take an options object; with `editors` it removes only those
   editors from the state entry
 - Keep every backup in one store at `~/.aix/backups`, keyed by the original file's path;

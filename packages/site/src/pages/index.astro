@@ -218,6 +218,24 @@ $ aix search
 $ aix search playwright --type mcp`}
               delay={0.6}
             />
+
+            <FeatureCard
+              label="@a1st/aix-core"
+              title="Ship your tool's skill with your tool."
+              description="Publishing a CLI or a library? Call the aix library from your setup command to install your skill or MCP server into every AI editor your user has. Your users do not need aix."
+              code={`import { installItem } from '@a1st/aix-core';
+
+await installItem({
+  section: 'skills',
+  name: 'my-cli',
+  value: { path: skillDir },
+  scope: 'user',
+});`}
+              href="/getting-started/use-as-a-library/"
+              linkLabel="Use aix as a library"
+              reverse
+              delay={0.8}
+            />
           </div>
         </div>
       </section>
@@ -281,6 +299,7 @@ $ aix search playwright --type mcp`}
             <ul>
               <li><a href="/getting-started/quick-start/">Quick start</a></li>
               <li><a href="/configuration/ai-json-reference/">ai.json reference</a></li>
+              <li><a href="/getting-started/use-as-a-library/">Use aix as a library</a></li>
               <li><a href="/editors/supported-editors/">Supported editors</a></li>
               <li><a href="/editors/migrations/">Migration guides</a></li>
             </ul>

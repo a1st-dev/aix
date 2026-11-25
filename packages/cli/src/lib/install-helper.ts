@@ -2,22 +2,16 @@ import { dirname } from 'pathe';
 import pMap from 'p-map';
 import {
    installToEditor,
+   installItem,
    detectEditors,
    loadConfig,
-   trackInstall,
    updateInstalledState,
    type EditorName,
    type ApplyResult,
    type ConfigSection,
    type StateSection,
 } from '@a1st/aix-core';
-import {
-   createEmptyConfig,
-   isHookEvent,
-   type ConfigScope,
-   type AiJsonConfig,
-   type HookMatcher,
-} from '@a1st/aix-schema';
+import { isHookEvent, type ConfigScope, type AiJsonConfig } from '@a1st/aix-schema';
 import { resolveTargetScope } from '../flags/scope.js';
 import { resolveConfiguredEditors } from '../flags/target.js';
 
@@ -250,78 +244,13 @@ export interface InstallItemOptions {
 export async function installSingleItem(
    options: InstallItemOptions,
 ): Promise<InstallAfterAddResult> {
-   const { section, name, value, scope, projectRoot } = options;
+   const { section, name, value, scope, projectRoot, editors } = options;
 
-   // Detect editors if not explicitly provided
-   const editors = options.editors ?? (await detectEditors(projectRoot));
-
-   if (editors.length === 0) {
+   if (!isTrackableSection(section) || (section === 'hooks' && !isHookEvent(name))) {
       return { installed: false, results: [], editors: [] };
    }
 
-   // Build a minimal config containing only the item to install
-   const config: AiJsonConfig = createEmptyConfig();
+   const installed = await installItem({ section, name, value, scope, projectRoot, editors });
 
-   switch (section) {
-      case 'mcp':
-         config.mcp = { [name]: value as AiJsonConfig['mcp'][string] };
-         break;
-      case 'skills':
-         config.skills = { [name]: value as AiJsonConfig['skills'][string] };
-         break;
-      case 'rules':
-         config.rules = { [name]: value as AiJsonConfig['rules'][string] };
-         break;
-      case 'prompts':
-         config.prompts = { [name]: value as AiJsonConfig['prompts'][string] };
-         break;
-      case 'agents':
-         config.agents = { [name]: value as AiJsonConfig['agents'][string] };
-         break;
-      case 'hooks':
-         if (!isHookEvent(name)) {
-            return { installed: false, results: [], editors: [] };
-         }
-         config.hooks = { [name]: value as HookMatcher[] };
-         break;
-      case 'plugins':
-         config.plugins = { [name]: value as AiJsonConfig['plugins'][string] };
-         break;
-      case 'marketplaces':
-         config.marketplaces = { [name]: value as AiJsonConfig['marketplaces'][string] };
-         break;
-      default:
-         return { installed: false, results: [], editors: [] };
-   }
-
-   const results = await pMap(
-      editors,
-      async (editor) => {
-         try {
-            return await installToEditor(editor, config, projectRoot, {
-               scopes: [section],
-               targetScope: scope,
-               strictTargetScope: scope === 'project',
-               // Each item is its own install source. Sharing the project's ai.json source would
-               // make this one-item config look like the whole config, and reconciling against it
-               // would remove everything installed before.
-               configSource: `direct:${section}:${name}`,
-            });
-         } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-
-            return { editor, success: false, changes: [], errors: [message] };
-         }
-      },
-      { concurrency: 2 },
-   );
-
-   // Track the installation in state
-   const installedEditors = results.filter((r) => r.success).map((r) => r.editor);
-
-   if (installedEditors.length > 0 && isTrackableSection(section)) {
-      await trackInstall(scope, section, name, installedEditors, projectRoot);
-   }
-
-   return { installed: true, results, editors };
+   return { installed: installed.editors.length > 0, ...installed };
 }
