@@ -341,7 +341,7 @@ describe('import-writer', () => {
          const result = await localizeRemoteConfig(config, remoteDir, testDir);
 
          expect(result.config.prompts?.['code-review']).toEqual({
-            path: './.aix/imported/prompts/review.md',
+            path: './.aix/imported/prompts/code-review.md',
          });
          expect(result.filesCopied).toBe(1);
       });
@@ -371,6 +371,73 @@ describe('import-writer', () => {
 
          expect(existsSync(join(stagingSkillDir, 'SKILL.md'))).toBe(true);
          expect(existsSync(join(stagingSkillDir, 'search.md'))).toBe(true);
+      });
+
+      it('copies a skill written as a string and points the config at the copy', async () => {
+         const remoteDir = join(testDir, 'remote');
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+         await writeFile(join(remoteDir, 'skills', 'pdf', 'SKILL.md'), '# PDF', 'utf-8');
+
+         const result = await localizeRemoteConfig({ skills: { pdf: './skills/pdf' } }, remoteDir, testDir);
+
+         expect(result.config.skills?.pdf).toEqual({ path: './.aix/imported/skills/pdf' });
+         expect(result.filesCopied).toBe(1);
+         expect(existsSync(join(testDir, '.aix', '.tmp', 'import-staging', 'skills', 'pdf', 'SKILL.md'))).toStrictEqual(true);
+      });
+
+      it('copies a skill wrapped in a source object and keeps its other settings', async () => {
+         const remoteDir = join(testDir, 'remote');
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+         await writeFile(join(remoteDir, 'skills', 'pdf', 'SKILL.md'), '# PDF', 'utf-8');
+
+         const config = { skills: { pdf: { source: './skills/pdf', enabled: true } } },
+               result = await localizeRemoteConfig(config, remoteDir, testDir);
+
+         expect(result.config.skills?.pdf).toEqual({ source: { path: './.aix/imported/skills/pdf' }, enabled: true });
+         expect(result.filesCopied).toBe(1);
+      });
+
+      it('does not treat a path inside a git or npm skill as a local directory', async () => {
+         const remoteDir = join(testDir, 'remote'),
+               skills = {
+                  remote: { git: 'github:acme/skills', path: './skills/pdf' },
+                  packaged: '@acme/skills',
+               };
+
+         await mkdir(join(remoteDir, 'skills', 'pdf'), { recursive: true });
+
+         const result = await localizeRemoteConfig({ skills }, remoteDir, testDir);
+
+         expect(result.config.skills).toEqual(skills);
+         expect(result.filesCopied).toBe(0);
+      });
+
+      it('keeps both files when two rules point at files with the same name', async () => {
+         const remoteDir = join(testDir, 'remote'),
+               stagingRulesDir = join(testDir, '.aix', '.tmp', 'import-staging', 'rules');
+
+         await mkdir(join(remoteDir, 'frontend'), { recursive: true });
+         await mkdir(join(remoteDir, 'backend'), { recursive: true });
+         await writeFile(join(remoteDir, 'frontend', 'style.md'), '# Frontend', 'utf-8');
+         await writeFile(join(remoteDir, 'backend', 'style.md'), '# Backend', 'utf-8');
+
+         const config = {
+            rules: {
+               'frontend-style': './frontend/style.md',
+               'backend-style': { path: './backend/style.md', activation: 'always' as const },
+            },
+         };
+
+         const result = await localizeRemoteConfig(config, remoteDir, testDir);
+
+         expect(result.config.rules).toEqual({
+            'frontend-style': { path: './.aix/imported/rules/frontend-style.md' },
+            'backend-style': { path: './.aix/imported/rules/backend-style.md', activation: 'always' },
+         });
+         expect(await readFile(join(stagingRulesDir, 'frontend-style.md'), 'utf-8')).toBe('# Frontend');
+         expect(await readFile(join(stagingRulesDir, 'backend-style.md'), 'utf-8')).toBe('# Backend');
       });
 
       it('warns when source file not found', async () => {
