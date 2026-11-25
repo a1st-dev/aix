@@ -91,20 +91,16 @@ Pushing a `v*` tag triggers the GitHub release workflow, which publishes package
 
 ## Core Principles
 
-* Readability and clarity over brevity
-* Follow existing patterns in the codebase before inventing new ones
-* Do deep research to find existing libraries (NPM, GitHub, Cargo, etc.) that solve
-  problems instead of writing code
-   * Code writing is a last resort
+* Do deep research to find libraries (NPM, GitHub, Cargo, etc.) that solve problems
+  instead of writing code
+   * Write new code only as a last resort
 * Separate formatting-only changes from functional changes
-
-## Working Habits
-
 * Be critical and thorough. Prefer truth and direct feedback over politeness
 * Look around and use existing patterns and code when possible. Look for:
    * Similar components and use their patterns
    * Library code you can reuse
    * Existing dependencies from package.json or Cargo.toml that you should use
+* ALWAYS ask yourself: Can I make this a reusable function/component?
 * Always consider the developer experience:
    * Am I placing a burden on the developer with this change?
    * Is it as easy to use / execute / import / configure as possible?
@@ -120,115 +116,108 @@ Pushing a `v*` tag triggers the GitHub release workflow, which publishes package
    * Did I address everything I was asked to?
    * Run `npm run standards` (or `tsc` / `eslint` / `commitlint` / `markdownlint` /
       `cargo lint-clippy && cargo lint-fmt` as appropriate)
-   * Test significant changes by:
+   * Test any change to behavior by:
       * Running the tests
       * Running the app and manually testing the changes (Tauri MCP/CLI or Playwright MCP/CLI)
 
-## Naming Conventions (General)
+## Naming Conventions
 
-* Use PascalCase for classes
-* Use camelCase for variables, instance functions, and methods
-* Use snake_case for static functions
-* Use kebab-case for file and directory names
-* Use UPPERCASE for environment variables
-* Files exporting classes: PascalCase.js (e.g., `User.js`)
-* Files exporting functions/objects: kebab-case.js (e.g., `my-function.js`)
-* Tests: `ClassTheyAreTesting.test.js`
+* PascalCase for classes
+* camelCase for variables, instance functions, and methods
+* snake_case for static functions
+* kebab-case for file and directory names
+* UPPERCASE for environment variables
+* Files exporting classes: PascalCase.js (e.g., `User.ts`)
+* Files exporting functions/objects: kebab-case.js (e.g., `my-function.ts`)
+* Tests: `ClassTheyAreTesting.test.ts`
 * Avoid magic numbers and define constants
-* When it has an acronym or initialism, use all lowercase or all caps, never mixed-case:
-   * `url` or `URL`, _never_ `Url`
-   * `id` or `ID`, _never_ `Id`. Prefer `ID` over `id` when writing docs/sentences
-      unless documenting a third-party entity or when specifically referring to a code
-      object with that exact casing (parameter, variable, etc.)
+* Do not export a type alias that is used once inside its own file
 
 ## Formatting Rules
 
-### Indentation
-
 * **3 spaces** (never tabs)
-* Wrapped lines: indent one level from first line
-* Chained functions: indent one level from chain start
-
-### Braces & Structure
-
-* Opening brace at end of line (K&R style)
-* Always use braces for conditionals/loops (even single line)
 * One blank line between unrelated statements
-* One-two blank lines between functions
-
-### Spacing & Operators
-
-* Space after control structures: `if (condition)`
-* No space between function name and parenthesis: `myFunction()`
-* No space between `catch` and parentheses: `catch(error) {`
-* Space around operators (except unary: `!`, `++`, `--`)
-* Space after commas in arrays/arguments
-* Spaces inside array brackets: `[ 'item' ]` and object braces: `{ key: 'value' }`
-* Empty arrays/objects: no spaces (`[]`, `{}`)
-* Multi-line arrays/objects: always trailing comma
 
 ## Control Structures
 
-* Avoid deep nesting (low cyclomatic complexity)
-* Most common case in `if` (not `else`)
-* Use positive logic over negative
+* Avoid deep nesting (keep low cyclomatic complexity)
+* Most common case in first `if`
+* Positive logic over negative e.g. `if (isToday)` vs `if (!isFuture && !isPast)`
 * Break complex conditions into variables/functions
 * Check error conditions early with early returns
-* Do not add defensive empty checks before operations that naturally handle empty inputs
+* Ternary operator only for simple conditions
 
 ## Variable Best Practices
 
 * Declare in lowest possible scope
 * Declare at top of scope before statements
-* Initialized variables before uninitialized
 * Avoid modifying input parameters (except immediate sanitization)
 * Always sanitize user input
 * Prefer immutability (`readonly`, `as const`, `const`)
 
-## Function Documentation
+## Documentation
 
-* Document the function purpose in JSDoc format
-* Document types or parameters if they are not obvious from the code
-* Omit JSDoc entirely when the function name already conveys its purpose
-   (e.g., do not add `/** Creates the foo */` to `createFoo()`)
-* Add JSDoc comments to enum values when the name alone doesn't convey the
-   domain-specific meaning
-
-## Comments
-
-* Only add a comment if:
-   * The code's rationale is not obvious from naming/context
-   * The comment answers "why," NOT "what" or "how"
-   * The surrounding code uses comments in a similar way
+* Use en-US spelling and grammar, not British.
+* No useless comments e.g. do not add `/** Creates the foo */` to `createFoo()`
+   * Only add a comment if:
+      * The code's rationale is not obvious from naming/context
+      * The comment answers "why," NOT "what" or "how"
+   * Do not write a comment that references how the code changed from a previous 
+     version
+* Be concise and use concrete, common, specific technical terms
 * Do not comment on types, parameters, or usage that are clear from code or naming
 * Use ASCII in comments, never unicode symbols
+* No commented-out code
 
-## File Standards
+## front-end
 
-* End with newline character (not blank line)
-* No Windows line endings
-* No commented-out code without reason
-* Ternary operator only for simple conditions
+## Layout Thrashing
 
-## Front-End Development
+Common causes:
 
-* Pay attention to the current version of the component, and use a similar pattern as
-  set by existing elements
-* Consider accessibility / a11y
-* Create reusable components rather than ad-hoc solutions
+- Reading a layout property forces a synchronous layout. offsetWidth, offsetHeight,
+  offsetTop, clientWidth, scrollTop, scrollHeight, getBoundingClientRect(),
+  getComputedStyle(), innerText, and focus(), and others.
+- Alternating reads and writes in a loop is one case. For example, el.style.width =
+  el.offsetWidth + 10 + 'px' inside a forEach runs one layout per item.
+- A Vue watch or onUpdated that measures the DOM, writes, and then triggers another
+  update.
+- Measuring each row in a list component
+- Calling a third-party positioning library on every frame
 
-## Library Usage
+How to avoid it
 
-* Use existing libraries to the fullest extent possible
-* Always verify function signatures before using
+- Do all reads first, then do all writes.
+- Put DOM writes in requestAnimationFrame, and do reads before the frame or right after a
+  write batch
+- Cache measured values. Do not measure the same element again in the same frame.
+- Use ResizeObserver and IntersectionObserver instead of measuring in scroll or resize
+  handlers. In Vue, use useResizeObserver, useElementSize, and useIntersectionObserver. Or
+  better yet, find a solution that does not require JavaScript. Consider progressive
+  enhancement for non-essential features that involve CSS features outside of our
+  browerserslist range and that would degrade gracefully.
+- Animate transform and opacity only. Do not animate top, left, width, height, or margin,
+  because those trigger layout on every frame.
+- Change one class instead of setting several style properties one at a time.
+- Build large DOM changes off-document, for example in a DocumentFragment, then insert
+  them once.
+- Use contain: layout or content-visibility: auto to limit how far a layout change
+  spreads.
+- Mark scroll and touch listeners { passive: true }, and throttle them to one run per
+  frame.
+
+How to find it
+
+- In the Chrome DevTools Performance panel, look for purple "Layout" blocks with a "Forced
+  reflow" warning, or the "Recalculate Style" then "Layout" pattern repeated inside one
+  task.
 
 ## css-scss
 
 * Always use SCSS, not CSS
-* If using a component library, use the component's existing props or built-in options
-  over custom styling. Reuse appropriate CSS classes
-* If none are available, prefer pre-existing utility classes over custom styling
-* Avoid ad-hoc CSS unless absolutely necessary
+* If using a component library, use existing components, props or built-in options over
+  custom styling
+   * Prefer pre-existing utility classes over custom styling
 * Consider adding a custom utility class to the global SCSS if a pattern is used in
   multiple places (e.g. text truncation, screen reader text, grid patterns)
 * Use CSS logical properties: `margin-inline-start`, not `margin-left`;
@@ -239,15 +228,14 @@ Pushing a `v*` tag triggers the GitHub release workflow, which publishes package
 
 * DO NOT use `@extend`
 * DO NOT override `line-height` to values other than `1` unless you have a very good
-   reason
+  reason
 
 ## SCSS API
 
 If the project auto-injects SCSS namespaces via its build config (e.g. Vite's
-`css.preprocessorOptions`), these are generally libraries and you should prefer these
-mixins/vars/functions over hard-coded values.
-
-Check the project's `vite.config.ts` or equivalent to see what is available.
+`css.preprocessorOptions`), prefer using the mixins/vars/functions from those libraries
+over hard-coded values. Check the project's `vite.config.ts` or equivalent to see what is
+available.
 
 ## Style Block Structure
 
@@ -405,14 +393,8 @@ const aspectRatio = ref('16 / 9');
 
 ## do-not
 
-* ABSOLUTELY DO NOT create ad-hoc test scripts. If you absolutely must, clean up those
-  files when you're done
-* ABSOLUTELY DO NOT ignore "pre-existing" TypeScript or linting errors. If you see them,
-  fix them before proceeding
-* ABSOLUTELY DO NOT ignore "pre-existing" tests that fail. If you see them, fix them
-  before proceeding
-* ABSOLUTELY DO NOT ignore "pre-existing" documentation that is out of date. If you see
-  it, fix it before proceeding
+* ABSOLUTELY DO NOT ignore "pre-existing" TypeScript or linting errors, failing tests, or
+  out of date documentation. If you see them, fix them before proceeding
 * ABSOLUTELY DO NOT use `@deprecated` on anything unless you are explicitly asked to.
   Always fully refactor and delete old code as-needed instead of deprecating it
 * ABSOLUTELY DO NOT implement functionality that already exists in a library or package,
@@ -434,7 +416,6 @@ Refer to this when running git commands:
 ## ABSOLUTELY DO NOT
 
 * ABSOLUTELY DO NOT `git push` without express permission
-* ABSOLUTELY DO NOT include `Co-Authored-By` statements in git commit messages
 
 ## Commit Message Format
 
@@ -470,7 +451,7 @@ These are the ONLY two kinds fo scoped commits allowed
 * `sub(feat):` — Sub-commit of a larger feature
 * `sub(fix):` — Sub-commit of a larger fix
 
-## Subject Line Requirements
+## Subject Line
 
 * **72 characters maximum** for the full header (type + scope + subject + issue)
 * Use imperative mood ("add feature" not "added feature" or "adds feature")
@@ -480,14 +461,14 @@ These are the ONLY two kinds fo scoped commits allowed
 * If multiple issues, include additional numbers in the body/footer instead
 * Describe **what** the commit does, not what was wrong
 
-## Body Requirements
+## Body
 
 * Separate from subject with a blank line
 * **90 characters maximum** per line
 * Explain **why** — but only if the subject doesn't fully explain the commit on its own
 * Bodies are discouraged for simple commits. Only add a body when you have a reason to
   explain why the change was made
-* Describe the outcome or behavior change, not the implementation mechanism
+* Describe the outcome or behavior change, not how the code does it
 * Prefer plain language over technical jargon
 * Use markdown formatting for lists
 
@@ -523,13 +504,14 @@ because it buffered entire responses before forwarding.
 
 ## mcps
 
-* Always use context7 when you need code generation, setup or configuration steps, or
-  library/API documentation. Automatically use the Context7 MCP tools to resolve library
-  ID and get library docs without being explicitly asked
-* If you make UI changes, use MCP tools to test them in a real environment unless
-  project-specific rules say not to
-   * Use the Tauri MCP when working within a Tauri app
-   * Use Playwright for other projects
+* If you make UI changes, use MCP tools to test them in a real environment
+   * Use the Tauri MCP when working within a Tauri app. Use agent-device for anything the
+     Tauri MCP can't do
+   * Use or browser-use for other projects
+* Use the fallow MCP in a TypeScript or JavaScript project before deleting an export, a
+  file, or a dependency, and before opening an MR. `trace_export` and `impact_closure`
+  list the consumers, `audit` reads the changed files, and `inspect_target` gathers the
+  evidence for one file or symbol in a single call
 
 ## npm
 
@@ -537,9 +519,130 @@ because it buffered entire responses before forwarding.
 * Always use the `--save-exact` flag when installing a dependency
 * Use the `-y` flag with `npx` when running a command
 * Use project-defined `npm` scripts instead of equivalent CLI commands
-
 * ABSOLUTELY DO NOT introduce new dependencies without verifying the license is
   admissible (see dependency-licenses.md)
+* To install dependencies in a folder that already has `node_modules`, run
+  `npm ci --dry-run && npm i --no-save`. `npm ci --dry-run` exits 1 when
+  `package.json` and `package-lock.json` disagree. `npm i --no-save` then installs the
+  locked versions, keeps `node_modules`, and does not write either file. Use plain
+  `npm ci` only when `node_modules` does not exist or a package in it is damaged
+
+## rust
+
+Standard Rust version and edition:
+
+   * Version: **`1.89.0`**
+   * Edition: **`2024`**
+
+## Code Standards
+
+Follow the Rust community's default linting and formatting standards as defined by
+`clippy` and `rustfmt`, with these exceptions:
+
+```toml
+# rustfmt.toml
+tab_spaces = 3
+hard_tabs = false
+newline_style = "Unix"
+remove_nested_parens = false
+use_field_init_shorthand = true
+use_try_shorthand = true
+```
+
+## Error Handling
+
+Use `thiserror` crate to define error types. If there are only a few error types, or
+you do not need serializable errors, you may define an error enum without using
+`thiserror`.
+
+For Tauri projects, see Tauri's error handling suggestion.
+
+## Documentation
+
+* All Rust libraries/crates should have well-structured documentation available via `cargo
+  doc --open`
+* Follow the Rust documentation guidelines:
+   * https://doc.rust-lang.org/rust-by-example/meta/doc.html
+   * https://doc.rust-lang.org/book/ch14-02-publishing-to-crates-io.html
+* Ensure the home page of generated docs explains the crate's purpose and usage
+* Do not inline README.md into crate docs if it contains developer-only instructions. Use
+  module-level `//!` comments or a separate `DEVELOPERS.md` instead
+* For applications: add doc blocks to commonly-used modules, structs, enums, and functions
+* **Always set code examples in doc blocks to `no_run`** to prevent `cargo test` from
+  executing them
+
+## Project Configuration Checklist
+
+* `rust-toolchain.toml` file in the root
+* `.cargo/config.toml` file with lint and fix aliases
+* `Cargo.toml` with the standard edition and rust-version
+* `rustfmt.toml` with the settings above
+* Up-to-date README with linting and fixing instructions
+
+### Toolchain Configuration
+
+```toml
+# rust-toolchain.toml
+[toolchain]
+channel = "1.88.0"
+components = [
+   "rustfmt",
+   "clippy"
+]
+```
+
+### Linting Commands
+
+```sh
+# Check
+cargo clippy --all-targets --all-features -- -D warnings && cargo fmt -- --check
+
+# Fix
+cargo clippy --all-targets --all-features --fix && cargo fmt
+```
+
+### Cargo Linting Aliases
+
+```toml
+# .cargo/config.toml
+[alias]
+lint-clippy = "clippy --all-targets --all-features -- -D warnings"
+fix-clippy = "clippy --fix"
+lint-fmt = "fmt -- --check"
+fix-fmt = "fmt"
+```
+
+For projects with JavaScript/TypeScript, add `rust:lint` to `npm run standards`:
+
+```json
+{
+   "scripts": {
+      "rust:lint": "cargo lint-clippy && cargo lint-fmt",
+      "rust:lint:fix": "cargo fix-clippy && cargo fix-fmt",
+      "standards": "npm run rust:lint"
+   }
+}
+```
+
+### Cargo.toml Requirements
+
+* `[package] name`, `description`, `version` (semver, start at `0.1.0`)
+* `[package] edition` — use the standard edition
+* `[package] rust-version` — match `rust-toolchain.toml`
+
+### Dependencies
+
+* Always pin to exact semver versions. No caret, tilde, wildcard, or comparison
+ requirements
+* When using `git` dependencies, specify a tag or hash, not a branch
+* Do not introduce new dependencies not used in other Silvermine projects without
+ consulting the team
+
+## Tests
+
+* Unit tests in the same file as the code
+* Integration tests in a `tests` folder sibling to `src`
+* Do not write documentation tests. Always annotate code in doc blocks with `no_run`
 
 ## tauri
 
@@ -556,16 +659,15 @@ because it buffered entire responses before forwarding.
 
 ## testing
 
-* When writing tests, prefer practical e2e tests over unit tests, but add unit tests for
-  critical functionality or complex logic
-* If you write tests, always run them
-* Use descriptive test names that explain the expected behavior
+* ALWAYS be very careful to only write test that are absolutely necessary and  
+  that provably test a practical scenario. Do not over-specify or write too
+  many tests.
+* Prefer practical e2e tests over unit tests. Use unit tests for critical
+  functionality or complex logic
+* Always run the tests you write
 * Group related tests with `describe()` blocks
 * Add blank line before `expect` / assertion statements
 * Follow the Arrange-Act-Assert pattern
-
-## Assertion Rules
-
 * Do NOT use `.to.be.true` or `.to.be.false`. Use `.to.strictlyEqual(true)` or
   `.to.strictlyEqual(false)` instead
 * Use `.to.eql()` for deep equality comparisons
@@ -579,19 +681,14 @@ Follow these standards:
 
 ## Core Principles
 
-* Use `let` and `const` instead of `var`
 * Prefer `const` for immutable variables
 * Group consecutive declarations in one statement; avoid separate `const` for simple,
   related assignments
-* Avoid multi-line `const` declarations (complex objects get their own block)
 * Use template literals when they improve readability; avoid multi-line template literals
 * Use `String()` for explicit string conversion
 * Prefer `async/await` over Promise chaining
-* Use `Promise.all()` for concurrent async operations
-* Use English for all code and documentation
-* Always wrap comments to utilize the full line length
+* Always wrap comments to use the full line length
 * Code must be 140 characters or less; comments must be 91 characters or less
-* Use early returns to reduce indentation
 
 ## ABSOLUTELY DO NOT
 
@@ -621,11 +718,7 @@ const a = 1,
 
 ## Naming Conventions
 
-* Use PascalCase for classes
-* Use camelCase for variables, functions, and methods
-* Use snake_case for static functions
-* Use kebab-case for file and directory names
-* Use UPPERCASE for environment variables
+* See general Silvermine coding standards
 * Avoid magic numbers and define constants
 * Use `memo` as the accumulator in reduce functions
 * Acronyms: ALL_CAPS except when first letter of camelCase property
@@ -640,7 +733,6 @@ const a = 1,
 
 ## Functions & Logic
 
-* Avoid deeply nested blocks by using early returns and extracting logic
 * Use higher-order functions (map, filter, reduce) to simplify logic
 * Arrow function parameters must have parentheses and explicit returns (good: `(a) => {
   return value; }`, bad: `a => a.value`)
@@ -649,7 +741,7 @@ const a = 1,
 * Use default parameter values instead of null/undefined checks
 * Use RO-RO (Receive Object, Return Object) for passing and returning multiple parameters
 * Use rest parameters instead of `arguments`
-* Point-free style: when a callback is simply a direct function reference, pass it
+* Point-free style: when a callback is a direct function reference, pass it
   directly (good: `rules.map(lankFromRule)`, bad: `rules.map((rule) => { return
   lankFromRule(rule); })`)
 
@@ -657,14 +749,13 @@ const a = 1,
 
 * Basic object/array destructuring: yes
 * Array destructuring with rest: yes
-* Object destructuring with rest: avoid (risky)
+* Object destructuring with rest: avoid
 * Array destructuring with ignores: use with caution
 * Renaming while destructuring: yes
 * Deep data destructuring: avoid (not readable)
 
 ## Types (TypeScript)
 
-* No implicit `any` types; never use `any`
 * Explicit types for exported variables
 * Explicit return types for functions
 * Use primitive types (`string`, `number`, `boolean`)
@@ -690,7 +781,6 @@ const a = 1,
 ## Error Handling
 
 * Prefer `instanceof` for error checking
-* Be cautious with string-based error checks
 
 ## Imports
 
@@ -704,14 +794,11 @@ const a = 1,
 Assume Vue 3.5+ with the Composition API and Single-File Components (SFCs) unless
 `package.json` indicates otherwise.
 
-## ABSOLUTELY DO NOT
-
-* ABSOLUTELY DO NOT use `v-html` in Vue templates; use `v-html-content` directive instead
-  (sanitizes via DOMPurify)
+* ABSOLUTELY DO NOT use with unsanitized inputs `v-html` in Vue templates
 
 ## SFC Structure
 
-Every component follows this block order:
+Follow this block order:
 
    1. `<template>`
    2. `<script lang="ts">` — type/interface exports and constants (no `setup`)
@@ -756,8 +843,6 @@ import { MyComponentProps }, MyComponent from './MyComponent.vue';
 
 ## Props
 
-### TypeScript interface props (preferred)
-
 Define a TypeScript interface in the non-setup `<script>` block and reference it with
 `defineProps<T>()`:
 
@@ -800,7 +885,7 @@ export type ButtonProps = IconOnlyButtonProps | LabelOnlyButtonProps;
 
 ### `defineModel`
 
-For v-model bindings, use `defineModel` (Vue 3.4+):
+For v-model bindings, use `defineModel`
 
 ```ts
 const modelValue = defineModel<boolean>({ default: false });
@@ -841,8 +926,6 @@ defineSlots<CardSlots>();
 </script>
 ```
 
-### Slot props
-
 Pass CSS classes and internal state to slot consumers via `v-bind`:
 
 ```vue
@@ -854,8 +937,6 @@ Pass CSS classes and internal state to slot consumers via `v-bind`:
    <h3 :id="titleID" :class="cardCSSClasses.cardTitle">{{ title }}</h3>
 </slot>
 ```
-
-### Checking slot existence
 
 Use `useSlots()` or `$slots` to conditionally render wrapper elements:
 
@@ -898,8 +979,6 @@ const thumbnail = useTemplateRef<typeof Thumbnail>('thumbnail');
 ```
 
 ## Component Composition
-
-### Dynamic element rendering
 
 Use `<component :is="...">` to switch between element types based on props:
 
@@ -970,7 +1049,8 @@ block so consumers can import them alongside the component.
 If the component library must render in both browser and Node.js environments:
 
 * Do not access `window`, `document`, `navigator`, or other browser globals at the top
-   level of `<script setup>`. Guard behind `onMounted` or `typeof window !== 'undefined'`
+   level of `<script setup>`. Access them inside `onMounted` or after a
+   `typeof window !== 'undefined'` check
 * Prefer VueUse composables (SSR-safe by default)
 * All custom directives must implement the `getSSRProps` hook so Vue's SSR renderer can
    produce correct attributes without mounting the directive in a DOM:
@@ -999,79 +1079,14 @@ export const vMyDirective = {
 
 ## writing
 
-## Content
+If you do not already have the Plain English output style in your context, read this file:
+@../output-styles/plain-english.md
 
-* **Be specific, not generic.** Replace vague claims of importance with concrete facts.
-   "Inventor of the first train-coupling device" instead of "a revolutionary titan of
-   industry."
-* **Skip the significance speeches.** Do not add sentences about how something "marks a
-   pivotal moment," "represents a broader trend," "highlights the enduring legacy," or
-   "underscores the importance." Let facts speak for themselves.
-* **Avoid superficial analysis.** Do not attach "-ing" phrases that editorialize:
-   "creating a lively community," "showcasing the brand's dedication," "demonstrating
-   ongoing relevance."
-* **No promotional language.** Cut puffery like "nestled within," "vibrant," "rich
-   tapestry," "seamlessly connecting," "gateway to," "breathtaking." Write neutrally.
-* **Attribute specifically or not at all.** Do not use weasel phrases like "has been
-   described as," "is considered," "researchers note," "scholars argue" without naming
-   who. If you cannot name a source, remove the claim.
-* **Do not exaggerate consensus.** Do not present one or two sources as "several
-   publications" or "multiple scholars." Do not imply lists are non-exhaustive when
-   sources give no indication other examples exist.
-* **Skip "Challenges and Future Prospects" formulas.** Do not write "Despite its [positive
-   words], [subject] faces challenges..." followed by vague optimism about future
-   initiatives.
-* **No hedging preambles.** Do not acknowledge something is "relatively minor" before
-   explaining its importance anyway.
+<!-- vale plain-english.vague = NO -->
+Avoid metaphors, figures of speech, and vague words like "carries", "holds" or "names".
+<!-- vale plain-english.vague = YES -->
 
-## Word Choice
-
-Avoid overused AI vocabulary:
-
-* **High-frequency offenders:** delve, tapestry, landscape, multifaceted, intricate,
-   nuanced, pivotal, comprehensive, innovative, cutting-edge, groundbreaking,
-   transformative, paradigm, foster, leverage, spearhead, underscore, highlight, crucial,
-   vital, robust, seamless, holistic, synergy, realm, beacon, testament, embark, unveil,
-   unravel, commendable, meticulous, intrinsic, Moreover, Furthermore, Notably,
-   Importantly, Indeed, Thus, Hence, Therefore, Consequently
-* One or two may be coincidental; clusters are evidence of overuse
-
-## Grammar & Structure
-
-* **Use simple verbs.** Prefer "is" and "are" over "serves as," "stands as," "marks,"
-   "represents," "constitutes," "features," "offers." Write "She is chairman" not "She
-   serves as chairman."
-* **Avoid negative parallelisms.** Do not write "not only ... but also," "it's not just
-   about ... it's ...," "not ... but rather." These constructions try to appear balanced
-   but often add nothing.
-* **Break the rule of three.** Do not default to "adjective, adjective, and adjective" or
-   "phrase, phrase, and phrase" patterns. Vary list lengths.
-* **Avoid elegant variation.** If you name something, use that name again. Do not cycle
-   through synonyms like "the protagonist," "the key player," "the eponymous character" to
-   avoid repetition.
-* **No false ranges.** "From X to Y" requires a real scale. "From the Big Bang to the
-   cosmic web" or "from problem-solving to artistic expression" are meaningless ranges
-   that sound impressive but say nothing.
-
-## Formatting & Style
-
-* **Use sentence case for headings.** Do not capitalize every word in section titles.
-* **Avoid excessive boldface.** Do not bold every key term or create "key takeaways" lists
-   with bolded headers.
-* **No emojis** unless explicitly requested
-
-## Communication
-
-* **No meta-commentary.** Do not include phrases like "In this section, we will
-   discuss..." or "Below is a detailed overview based on available information."
-* **No disclaimers about knowledge gaps.** Do not write "While specific details are not
-   extensively documented..." or "As of my last knowledge update..."
-* **No placeholder text.** Do not leave brackets like [describe the specific section] or
-   dates like 2025-XX-XX.
-* **No collaborative language in output.** Do not write "Would you like me to..." or
-   "Here's a template you can customize" in content meant for publication.
-
-Source: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
+Use specific, common technical terms.
 
 # Dependency License Policy
 
@@ -1116,30 +1131,21 @@ Use these by default:
 
 ## markdown
 
-## Lists
+Always use `*` for unordered lists instead of `-`
 
-* Always indent lists by 3 spaces
-* Always use `*` for unordered lists instead of `-`
-* Include a newline before and after the list
+Include a newline before and after the list
 
-## Code Blocks
+Always include a tag to specify the language, even if it's `txt`
 
-* Always include a tag to specify the language, even if it's `txt`
-
-* Run `npm run standards` if available to lint with `markdownlint`
+Run `npm run standards` if available to lint with `markdownlint`
 
 ## sql
 
-## Core Principles
-
 * Readability and clarity through vertical alignment
-* UPPERCASE keywords and functions
 * Explicit column names (never `SELECT *`)
 * Consistent formatting and indentation
 
 ## Formatting Rules
-
-### Indentation and Alignment
 
 * **Vertically align** sibling elements of queries
 * **Indent** new lines in statements
@@ -1179,7 +1185,7 @@ ORDER BY column1        -- ORDER BY aligned with FROM/JOIN/WHERE
 ;                       -- Semicolon on new line
 ```
 
-## Naming Conventions
+## Naming
 
 * **UPPERCASE**: SQL keywords, functions (SELECT, FROM, WHERE, COUNT)
 * **PascalCase**: Table and view names, plural form (e.g., `Users`, `UserProfiles`)
@@ -1257,14 +1263,14 @@ CREATE TABLE Users (
 
 ## swift
 
-These standards supplement the general Silvermine coding standards. Where Swift community
+These standards supplement the Silvermine coding standards. Where Swift community
 conventions conflict with the general standard, the Swift-specific rule takes precedence.
 
-## Core Principles
+## Principles
 
 * Prefer value types (structs) over reference types (classes) unless you need identity
   semantics or inheritance
-* Leverage Swift's type system for safety (optionals, enums with associated values,
+* Use Swift's type system for safety (optionals, enums with associated values,
   protocols)
 * Use Swift Concurrency (async/await, actors) over callback patterns
 * Follow Swift API Design Guidelines for naming
@@ -1338,7 +1344,7 @@ func listUsers() -> [User]
 ### Concurrency
 
 * Use Swift Concurrency (`async`/`await`, actors)
-* Leverage Swift 6 strict concurrency checking and `@Sendable` annotations
+* Use Swift 6 strict concurrency checking and `@Sendable` annotations
 * Use `async let` for concurrent tasks
 * Use actors for thread-safe shared mutable state
 
