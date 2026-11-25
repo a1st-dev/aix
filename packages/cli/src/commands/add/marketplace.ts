@@ -122,6 +122,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['marketplaces'],
@@ -147,6 +148,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['marketplaces'],

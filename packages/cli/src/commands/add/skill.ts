@@ -134,6 +134,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['skills'],
@@ -159,6 +160,7 @@ export default class AddSkill extends BaseCommand<typeof AddSkill> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['skills'],

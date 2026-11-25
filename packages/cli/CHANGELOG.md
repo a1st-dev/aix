@@ -139,6 +139,8 @@ version may appear here with no changes to this package.
   not cover `ai.local.json`, and `aix remove` ignored the flag without a message
 - Print how to refresh a stale `ai.lock.json` on every command. Only `aix validate`
   printed the instruction; the other commands listed digests and nothing else
+- Fail `aix add` with a non-zero exit status when no editor is detected and `--save` was
+  not passed, so the command changed nothing. With `--save` the message stays a warning
 
 ## [0.6.0] - 2026-08-12
 

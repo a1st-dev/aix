@@ -25,6 +25,8 @@ export interface PersistAddedItemOptions {
 export interface InstallAddedItemOptions {
    logInstallResults: (results: Array<{ message: string; success: boolean }>) => void;
    skipInstall: boolean;
+   /** Whether the item was written to a config file, so that the command changed something. */
+   saved: boolean;
    loaded?: LoadedConfig;
    local: boolean;
    installSections: ConfigSection[];
@@ -139,6 +141,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
    const {
       logInstallResults,
       skipInstall,
+      saved,
       loaded,
       local,
       installSections,
@@ -172,10 +175,13 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
       });
 
    if (!installResult.installed) {
-      logInstallResults([{
-         success: false,
-         message: 'Not installed to any editor: none was detected. Pass --target <editor> to choose one.',
-      }]);
+      const message = 'Not installed to any editor: none was detected. Pass --target <editor> to choose one.';
+
+      // Without --save the install was the whole command, so nothing happened at all.
+      if (!saved) {
+         failInstall(message);
+      }
+      logInstallResults([ { success: false, message } ]);
       return;
    }
 

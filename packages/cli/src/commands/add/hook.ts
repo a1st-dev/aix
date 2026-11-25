@@ -299,6 +299,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
                this.logInstallResults(results);
             },
             skipInstall: this.flags['config-only'],
+            saved: this.flags.save,
             loaded: context.loaded,
             local: this.flags.local,
             installSections: ['hooks'],

@@ -626,11 +626,21 @@ describe('CLI Commands', () => {
    });
 
    describe('add without an editor to install to', () => {
-      it('says that nothing was installed', async () => {
+      it('fails an add that did not save anything either', async () => {
          const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js']);
+
+         expect(added.error).toBeDefined();
+         expect(added.stderr).toContain('Not installed to any editor');
+      });
+
+      it('warns and succeeds when the add was saved to ai.json', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'));
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--save']);
 
          expect(added.error).toBeUndefined();
          expect(added.stdout + added.stderr).toContain('Not installed to any editor');
+         expect(await readFile(join(testDir, 'ai.json'), 'utf-8')).toContain('"docs"');
       });
 
       it('fails an install, which would otherwise do nothing and exit 0', async () => {

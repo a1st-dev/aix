@@ -161,6 +161,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['editors'],
@@ -185,6 +186,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['editors'],

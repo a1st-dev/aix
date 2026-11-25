@@ -149,6 +149,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
             this.logInstallResults(results);
          },
          skipInstall: flags['config-only'],
+         saved: flags.save,
          loaded,
          local: flags.local,
          installSections: ['mcp'],

@@ -163,6 +163,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['rules'],
@@ -188,6 +189,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['rules'],

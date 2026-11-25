@@ -124,6 +124,7 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['plugins'],
@@ -149,6 +150,7 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['plugins'],

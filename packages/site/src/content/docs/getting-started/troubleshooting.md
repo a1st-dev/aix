@@ -120,8 +120,9 @@ Not installed to any editor: none was detected. Pass --target <editor> to choose
 
 aix detects an editor by looking for its config or data directory under your home directory.
 With `--user-home` or `AIX_USER_HOME` it looks under that directory instead. When it finds
-none and you named none, it installs nothing. `aix install` exits with a non-zero status.
-`aix add` prints its message as a warning and exits with status 0.
+none and you named none, it installs nothing and exits with a non-zero status. `aix add` with
+`--save` is the exception: it has written the item to the config file, so it prints the
+message as a warning and exits with status 0.
 
 Pass `--target <editor>` for each editor, or list the editors in the
 [`editors` field](/configuration/ai-json-reference/#editors) of `ai.json`. The accepted names

@@ -85,8 +85,9 @@ No other behavior of aix depends on CI detection.
   first.
 - `aix validate` exits with a non-zero status when `ai.json` is invalid, when no `ai.json` is
   found, or when `ai.lock.json` is out of date.
-- `aix install` exits with a non-zero status when it detects no editor and you named none.
-  `aix add` in the same situation prints a warning and exits with status 0.
+- `aix install` and `aix add` exit with a non-zero status when they detect no editor and you
+  named none. `aix add --save` prints a warning and exits with status 0, because it has
+  written the item to the config file.
 - An item that aix skips, because the editor does not support it or does not accept it at the
   chosen scope, does not change the exit status.
 

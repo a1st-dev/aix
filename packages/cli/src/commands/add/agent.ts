@@ -168,6 +168,7 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
                      this.logInstallResults(results);
                   },
                   skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['agents'],
@@ -193,6 +194,7 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
                this.logInstallResults(results);
             },
             skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['agents'],

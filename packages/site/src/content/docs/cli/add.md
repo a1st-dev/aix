@@ -25,11 +25,13 @@ aix add <type> <source> [flags]
 aix installs the item into editor config and leaves `ai.json` alone. It installs to the
 editors named by `--target`, or to every editor it detects when you pass none.
 
-If no editor is found, nothing is installed and aix prints:
+If no editor is found, nothing is installed and the command fails with:
 
 ```text
 Not installed to any editor: none was detected. Pass --target <editor> to choose one.
 ```
+
+With `--save` the same message is a warning, because the item was written to the config file.
 
 ### With `--save`
 
