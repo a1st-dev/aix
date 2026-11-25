@@ -37,38 +37,44 @@ Add the `$schema` field to get autocompletion and inline validation while you ed
 
 ## Top-level fields
 
-| Field          | Type                 | Description                                                                   |
-| -------------- | -------------------- | ----------------------------------------------------------------------------- |
-| `$schema`      | `string`             | JSON Schema URL for validation                                                |
-| `scope`        | `string`             | `"project"` (default) or `"user"`. Marks the file as a project or user config |
-| `extends`      | `string \| string[]` | Inherit from other configs                                                    |
-| `skills`       | `object`             | Map of skill names to skill references                                        |
-| `mcp`          | `object`             | Map of server names to MCP server configs                                     |
-| `rules`        | `object`             | Map of rule names to rule definitions                                         |
-| `prompts`      | `object`             | Map of prompt names to prompt definitions                                     |
-| `agents`       | `object`             | Map of agent names to agent definitions                                       |
-| `editors`      | `object \| string[]` | Editor targeting and editor-specific rules                                    |
-| `hooks`        | `object`             | Lifecycle hooks for editor events                                             |
-| `plugins`      | `object`             | Map of plugin names to plugin configurations                                  |
-| `marketplaces` | `object`             | Map of marketplace names to marketplace sources                               |
-| `aix`          | `object`             | aix tool settings (cache, backups)                                            |
+| Field          | Type                 | Description                                                                |
+| -------------- | -------------------- | -------------------------------------------------------------------------- |
+| `$schema`      | `string`             | JSON Schema URL for validation                                             |
+| `scope`        | `string`             | `"user"` or `"project"`. The scope `aix install` uses without a scope flag |
+| `extends`      | `string \| string[]` | Inherit from other configs                                                 |
+| `skills`       | `object`             | Map of skill names to skill references                                     |
+| `mcp`          | `object`             | Map of server names to MCP server configs                                  |
+| `rules`        | `object`             | Map of rule names to rule definitions                                      |
+| `prompts`      | `object`             | Map of prompt names to prompt definitions                                  |
+| `agents`       | `object`             | Map of agent names to agent definitions                                    |
+| `editors`      | `object \| string[]` | Editor targeting and editor-specific rules                                 |
+| `hooks`        | `object`             | Lifecycle hooks for editor events                                          |
+| `plugins`      | `object`             | Map of plugin names to plugin configurations                               |
+| `marketplaces` | `object`             | Map of marketplace names to marketplace sources                            |
+| `aix`          | `object`             | aix tool settings (cache, backups)                                         |
 
 ---
 
 ## `scope`
 
-Marks the file as a project config or a user config. Defaults to `"project"` when omitted.
-`aix init --scope user` writes `"scope": "user"`.
+The scope `aix install` writes to when you pass no scope flag: `"user"` for the editor config
+under your home directory, or `"project"` for the editor config inside the project.
 
 ```json
 {
-   "scope": "user"
+   "scope": "project"
 }
 ```
 
-This field does not choose where `aix install` writes. The install scope comes from the
-command line: `aix install` writes user-scope editor config unless you pass `--project` (or
-`--scope project`).
+`aix install` picks its scope in this order: a scope flag on the command line (`--scope`,
+`--user`, or `--project`), then this field, then user scope. A file without the field is
+therefore installed at user scope.
+
+`aix init --scope user` writes `"scope": "user"`. `aix init` with `--project` or with no scope
+flag writes no `scope` field.
+
+`aix add` and `aix remove` do not read this field. They work at user scope unless you pass
+`--project`. See [User scope and project scope](/concepts/scopes/).
 
 ---
 
@@ -487,8 +493,11 @@ Settings for the aix tool itself. These don't affect AI editor behavior.
 }
 ```
 
-| Field                    | Type     | Default | Range | Description                   |
-| ------------------------ | -------- | ------- | ----- | ----------------------------- |
-| `cache.maxBackups`       | `number` | `5`     | 1–100 | Max backup files to keep      |
-| `cache.maxBackupAgeDays` | `number` | `30`    | 1–365 | Max backup age before cleanup |
-| `cache.maxCacheAgeDays`  | `number` | `7`     | 1–365 | Max cache age before cleanup  |
+| Field                    | Type     | Default | Range | Description                                                                    |
+| ------------------------ | -------- | ------- | ----- | ------------------------------------------------------------------------------ |
+| `cache.maxBackups`       | `number` | `5`     | 1–100 | Accepted, but not read. aix keeps the five newest backups of each file         |
+| `cache.maxBackupAgeDays` | `number` | `30`    | 1–365 | Backups older than this many days are deleted after a successful install       |
+| `cache.maxCacheAgeDays`  | `number` | `7`     | 1–365 | Cache entries older than this many days are deleted after a successful install |
+
+Backups are kept in `~/.aix/backups/` and the cache in `.aix/.tmp/` inside the project. See
+[Backups and restore](/concepts/backups-and-restore/) and [`aix cache`](/cli/cache/).
