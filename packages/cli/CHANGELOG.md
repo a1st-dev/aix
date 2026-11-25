@@ -122,6 +122,8 @@ version may appear here with no changes to this package.
   `aix add` does. They were ignored without a message
 - Leave the list of editors out of the `aix remove` preview when `--config-only` means no
   editor is changed
+- Report a user-level change that `aix add` skipped, such as a Codex or Windsurf MCP
+  server in CI. The command used to print nothing and exit 0
 
 ## [0.6.0] - 2026-08-12
 

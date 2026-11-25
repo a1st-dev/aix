@@ -496,6 +496,23 @@ describe('CLI Commands', () => {
          expect(removed.stderr).toContain('--local requires --save');
       });
 
+      it('says so when CI makes it skip a server that an editor only reads at user scope', async () => {
+         const originalCI = process.env.CI;
+
+         process.env.CI = 'true';
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--target', 'codex']);
+
+         if (originalCI === undefined) {
+            delete process.env.CI;
+         } else {
+            process.env.CI = originalCI;
+         }
+
+         expect(added.stdout + added.stderr).toContain('CI environment detected');
+         expect(existsSync(join(process.env.HOME ?? '', '.codex', 'config.toml'))).toStrictEqual(false);
+      });
+
       it('clears the cache beside ai.json when run from a subdirectory', async () => {
          const cacheEntry = join(testDir, '.aix', '.tmp', 'cache', 'entry'),
                subdirectory = join(testDir, 'src');
