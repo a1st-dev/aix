@@ -33,7 +33,7 @@ export const migrationGuidesPage = Object.freeze({
    title: 'Migration guides',
    description: 'Editor-to-editor migration guides for every pair of editors aix supports.',
    sections: Object.freeze({
-      featured: defineSection('featured', 'Most common migrations'),
+      featured: defineSection('featured', 'Featured guides'),
    }),
 });
 
