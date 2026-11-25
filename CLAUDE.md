@@ -56,13 +56,24 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
+```bash
+npm install            # Install dependencies for every workspace
+npm run build:lib      # Build the schema, core, mcp-registry-client, and cli packages
+npm run standards      # Lint, check formatting, and typecheck
+npm test               # Build what each package depends on, then run every package's tests
+```
+
+Run the tests of one package, or one test file in it:
 
 ```bash
-# Example:
-# npm install
-# npm test
+npm test --workspace @a1st/aix-core
+npm test --workspace @a1st/aix-core -- src/__tests__/<file>
 ```
+
+Tests must go through these scripts. Each package's `test` script runs Vitest through
+`scripts/test-runner.mjs`, which gives the run a temporary home directory and, on macOS, an
+OS sandbox that denies writes outside it. The runner refuses to start anywhere else except a
+GitHub-hosted CI runner. Do not run Vitest directly.
 
 ## Manual testing
 
