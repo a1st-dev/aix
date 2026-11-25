@@ -10,24 +10,10 @@ import {
 } from './sources/index.js';
 
 /**
- * Options for creating a SearchRegistry.
- */
-export interface SearchRegistryOptions {
-   /** NPM registry URL for skill searches (currently unused as skills.sh is used) */
-   npmRegistry?: string;
-}
-
-/**
  * Registry that manages multiple search sources and aggregates results.
  */
 export class SearchRegistry {
-   private readonly sources: SearchSource[] = [];
-
-   constructor(_options: SearchRegistryOptions = {}) {
-      // MCP registry and Skills Library are always available
-      this.sources.push(new McpRegistrySearchSource());
-      this.sources.push(new SkillsLibrarySearchSource());
-   }
+   private readonly sources: SearchSource[] = [ new McpRegistrySearchSource(), new SkillsLibrarySearchSource() ];
 
    /**
     * Get all registered sources.

@@ -41,6 +41,8 @@ version may appear here with no changes to this package.
 - Remove `aix update` and the background update check that ran with every command. They
   looked for release tarballs that were never published, so the command could not succeed.
   Update with `npm install -g @a1st/aix@latest`
+- Remove the `--registry` flag of `aix search`. It was accepted and never read: skills
+  come from skills.sh and MCP servers from the official MCP Registry
 
 ### Fixed
 
