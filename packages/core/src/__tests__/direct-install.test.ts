@@ -180,6 +180,52 @@ describe('direct install config resolution', () => {
       ]);
    });
 
+   describe('MCP config files', () => {
+      async function resolveMcpFile(content: unknown, name?: string): Promise<Record<string, unknown>> {
+         await writeFile(join(testDir, 'servers.json'), JSON.stringify(content), 'utf-8');
+
+         const result = await resolveDirectInstallConfig({
+            type: 'mcp',
+            source: './servers.json',
+            name,
+            cwd: testDir,
+         });
+
+         return result.config.mcp;
+      }
+
+      it('uses the only server in an mcpServers file without needing its name', async () => {
+         const mcp = await resolveMcpFile({ mcpServers: { docs: { command: 'npx docs-mcp' } } });
+
+         expect(mcp).toEqual({ servers: { command: 'npx docs-mcp' } });
+      });
+
+      it('uses the only server in an mcp file without needing its name', async () => {
+         const mcp = await resolveMcpFile({ mcp: { docs: { command: 'npx docs-mcp' }, disabled: false } });
+
+         expect(mcp).toEqual({ servers: { command: 'npx docs-mcp' } });
+      });
+
+      it('selects the named server from an mcpServers file with several', async () => {
+         const mcpServers = { docs: { command: 'npx docs-mcp' }, search: { url: 'https://example.com/mcp' } },
+               mcp = await resolveMcpFile({ mcpServers }, 'search');
+
+         expect(mcp).toEqual({ search: { url: 'https://example.com/mcp' } });
+      });
+
+      it('asks for a name only when the file really has several servers', async () => {
+         const mcpServers = { docs: { command: 'npx docs-mcp' }, search: { url: 'https://example.com/mcp' } };
+
+         await expect(resolveMcpFile({ mcpServers })).rejects.toThrow('MCP config contains multiple servers');
+      });
+
+      it('does not report several servers when the only entry is not a server config', async () => {
+         await expect(resolveMcpFile({ mcpServers: { docs: { description: 'No command or url' } } })).rejects.toThrow(
+            'MCP config does not contain a server with a command or url',
+         );
+      });
+   });
+
    it('resolves an MCP config from a git shorthand source', async () => {
       const adapter = createRuntimeAdapter({
          git: {
