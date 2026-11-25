@@ -73,7 +73,9 @@ npm test --workspace @a1st/aix-core -- src/__tests__/<file>
 Tests must go through these scripts. Each package's `test` script runs Vitest through
 `scripts/test-runner.mjs`, which gives the run a temporary home directory and, on macOS, an
 OS sandbox that denies writes outside it. The runner refuses to start anywhere else except a
-GitHub-hosted CI runner. Do not run Vitest directly.
+GitHub-hosted CI runner. On Linux, `AIX_TEST_DISPOSABLE=1` starts it with the temporary home
+directory and no sandbox; set it only inside a container or another throwaway machine, never
+on a workstation that has editor config. Do not run Vitest directly.
 
 ## Manual testing
 

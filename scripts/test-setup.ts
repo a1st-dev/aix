@@ -10,7 +10,13 @@ if (!testHomeRoot || !realHome || !protectedPath) {
    throw new Error('Tests require the protected runner. Use npm test or the package test scripts.');
 }
 
-if (process.env.AIX_TEST_PROTECTION === 'macos-sandbox') {
+const protection = process.env.AIX_TEST_PROTECTION,
+      isDisposableCI = protection === 'disposable-ci'
+         && process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted',
+      isDeclaredDisposable = protection === 'declared-disposable'
+         && process.platform === 'linux' && process.env.AIX_TEST_DISPOSABLE === '1';
+
+if (protection === 'macos-sandbox') {
    let writeBlocked = false;
 
    try {
@@ -22,9 +28,8 @@ if (process.env.AIX_TEST_PROTECTION === 'macos-sandbox') {
    if (!writeBlocked) {
       throw new Error('Test filesystem sandbox is missing. Refusing to run tests.');
    }
-} else if (process.env.AIX_TEST_PROTECTION !== 'disposable-ci'
-   || process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
-   throw new Error('Tests require a filesystem sandbox or a disposable GitHub-hosted runner.');
+} else if (!isDisposableCI && !isDeclaredDisposable) {
+   throw new Error('Tests require a filesystem sandbox, a disposable GitHub-hosted runner, or AIX_TEST_DISPOSABLE=1 on Linux.');
 }
 
 let currentTestHome: string;
