@@ -406,8 +406,10 @@ export async function installToEditors(
    projectRoot: string,
    options?: ApplyOptions,
 ): Promise<ApplyResult[]> {
+   // One editor at a time: editors share files such as .mcp.json, AGENTS.md, and the .aix skill
+   // copies, and each install reads a file, plans against it, and writes it back.
    return pMap(normalizeEditorNames(editors), (editor) => installToEditor(editor, config, projectRoot, options), {
-      concurrency: 2,
+      concurrency: 1,
    });
 }
 

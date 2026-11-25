@@ -71,16 +71,12 @@ export async function readState(scope: ConfigScope, projectRoot?: string): Promi
       return createEmptyState(scope);
    }
    try {
-      const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8');
+      const raw = await getRuntimeAdapter().fs.readFile(path, 'utf-8'),
+            parsed = JSON.parse(raw) as StateFile,
+            empty = createEmptyState(scope);
 
-      const parsed = JSON.parse(raw) as StateFile;
-
-      parsed.installed.agents ??= {};
-      parsed.installed.hooks ??= {};
-      parsed.installed.plugins ??= {};
-      parsed.installed.marketplaces ??= {};
-
-      return parsed;
+      // A file written by an older version, or by hand, may lack sections added since.
+      return { ...empty, ...parsed, installed: { ...empty.installed, ...parsed.installed } };
    } catch {
       return createEmptyState(scope);
    }

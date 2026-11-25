@@ -104,6 +104,9 @@ version may appear here with no changes to this package.
   permissions, and a symlinked config is written through, not replaced
 - Name a damaged install receipt and how to recover from it; a receipt that was not valid
   JSON failed every install with a bare parse error
+- Read a state file that lacks sections added in later versions without failing
+- Install editors one at a time in `installToEditors`; two at once raced on files that
+  editors share
 
 ## [0.6.0] - 2026-08-12
 

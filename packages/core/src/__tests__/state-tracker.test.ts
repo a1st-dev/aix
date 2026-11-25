@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm, readFile } from 'node:fs/promises';
+import { mkdir, rm, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'pathe';
 import { tmpdir } from 'node:os';
@@ -158,6 +158,21 @@ describe('trackInstall', () => {
       expect(item.editors).toContain('claude-code');
       expect(item.editors).toContain('cursor');
       expect(item.installedAt).not.toBe(item.updatedAt);
+   });
+});
+
+describe('readState', () => {
+   it('fills in sections that an older state file does not have', async () => {
+      const statePath = join(testDir, '.aix', 'state.json');
+
+      await mkdir(join(testDir, '.aix'), { recursive: true });
+      await writeFile(statePath, JSON.stringify({ version: 1, scope: 'project', installed: { skills: {} } }));
+
+      const state = await readState('project', testDir);
+
+      expect(Object.keys(state.installed).toSorted()).toEqual(
+         [ 'agents', 'hooks', 'marketplaces', 'mcp', 'plugins', 'prompts', 'rules', 'skills' ],
+      );
    });
 });
 
