@@ -48,6 +48,7 @@ export {
 } from './install.js';
 
 export {
+   findNativeItemPath,
    removeMcpFromEditor,
    removeMcpFromEditors,
    removeHookFromEditor,
@@ -58,6 +59,8 @@ export {
    removePluginFromEditors,
 } from './remove.js';
 export type {
+   FindNativeItemPathOptions,
+   NativeFileSection,
    RemoveMcpFromEditorResult,
    RemoveHookFromEditorResult,
    RemoveMarketplaceFromEditorResult,

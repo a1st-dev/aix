@@ -122,18 +122,48 @@ export async function trackInstall(...args: TrackInstallArgs): Promise<void> {
    await writeState(state, scope, projectRoot);
 }
 
-/**
- * Record that an item was removed.
- */
-export async function trackRemoval(
-   scope: ConfigScope,
-   section: StateSection,
-   name: string,
-   projectRoot?: string,
-): Promise<void> {
-   const state = await readState(scope, projectRoot);
+export interface TrackRemovalOptions {
+   scope: ConfigScope;
+   section: StateSection;
+   name: string;
+   projectRoot?: string;
+   /** Editors the item was removed from. Omit when it was removed from every editor. */
+   editors?: readonly string[];
+}
 
-   delete state.installed[section][name];
+/**
+ * Record that an item was removed. The entry survives for as long as another editor still has
+ * the item, so a targeted removal does not make the remaining copies look untracked.
+ */
+export async function trackRemoval(options: TrackRemovalOptions): Promise<void> {
+   const { scope, section, name, projectRoot, editors } = options,
+         state = await readState(scope, projectRoot),
+         existing = state.installed[section][name];
+
+   if (!existing) {
+      return;
+   }
+
+   const isStillInstalled = (editor: string): boolean => {
+      return editors !== undefined && !editors.includes(editor);
+   };
+
+   existing.editors = existing.editors.filter(isStillInstalled);
+   if (existing.sources) {
+      existing.sources = Object.fromEntries(
+         Object.entries(existing.sources)
+            .map(([ source, sourceEditors ]): [string, string[]] => {
+               return [ source, sourceEditors.filter(isStillInstalled) ];
+            })
+            .filter(([ , sourceEditors ]) => {
+               return sourceEditors.length > 0;
+            }),
+      );
+   }
+   if (existing.editors.length === 0) {
+      delete state.installed[section][name];
+   }
+
    await writeState(state, scope, projectRoot);
 }
 

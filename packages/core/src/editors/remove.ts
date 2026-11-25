@@ -1,10 +1,11 @@
-import { dirname, join } from 'pathe';
+import { basename, dirname, join } from 'pathe';
 import { isRecord } from '../type-guards.js';
 import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
 import { getAdapter } from './install.js';
+import { importFromEditor } from './import.js';
 import type { EditorName } from './types.js';
 import { normalizeEditorName, normalizeEditorNames } from './types.js';
 import type { HooksStrategy, McpStrategy } from './strategies/types.js';
@@ -50,6 +51,39 @@ export interface RemovePluginFromEditorResult {
    removed: boolean;
    path?: string;
    errors: string[];
+}
+
+/** Sections whose items each live in their own native file or directory. */
+export type NativeFileSection = 'skills' | 'rules' | 'prompts' | 'agents';
+
+export interface FindNativeItemPathOptions {
+   editor: EditorName;
+   section: NativeFileSection;
+   name: string;
+   scope: ConfigScope;
+   projectRoot: string;
+}
+
+/**
+ * Find the native file or directory that holds one named item. The editor's importer is the
+ * source of truth for where items live, so a name it does not report resolves to nothing. That
+ * covers names that are not items at all, such as `..`, without validating them here.
+ */
+export async function findNativeItemPath(options: FindNativeItemPathOptions): Promise<string | undefined> {
+   const { editor, section, name, scope, projectRoot } = options,
+         imported = await importFromEditor(editor, { projectRoot, scope }),
+         paths = imported.paths[section];
+
+   if (!Object.hasOwn(paths, name)) {
+      return undefined;
+   }
+
+   const path = paths[name],
+         fileName = path === undefined ? '' : basename(path);
+
+   // An importer may report several items from one shared file. Only a path named after the
+   // item belongs to that item alone.
+   return fileName === name || fileName.startsWith(`${name}.`) ? path : undefined;
 }
 
 interface RemoveMcpFromEditorOptions {

@@ -14,7 +14,7 @@ import {
    trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { confirm } from '@inquirer/prompts';
+import { confirmAction } from '../../lib/confirm.js';
 import { installAfterAdd } from '../../lib/install-helper.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
@@ -84,10 +84,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json',
                message = `Remove marketplace "${marketplaceName}" from ${targetFile}?`;
 
-         const confirmed = await confirm({
-            message,
-            default: false,
-         });
+         const confirmed = await confirmAction(message, this.error.bind(this));
 
          if (!confirmed) {
             this.output.info('Cancelled');
@@ -139,7 +136,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
          }
       }
 
-      await trackRemoval(targetScope, 'marketplaces', marketplaceName, process.cwd());
+      await trackRemoval({ scope: targetScope, section: 'marketplaces', name: marketplaceName, projectRoot, editors: targetEditors });
 
       if (this.flags.json) {
          this.output.json({

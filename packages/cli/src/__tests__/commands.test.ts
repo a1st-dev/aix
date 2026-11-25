@@ -483,8 +483,8 @@ describe('CLI Commands', () => {
                overriddenSkillDir = join(userHome, '.claude', 'skills', 'demo'),
                homeSkillDir = join(process.env.HOME ?? '', '.claude', 'skills', 'demo');
 
-         await mkdir(overriddenSkillDir, { recursive: true });
-         await mkdir(homeSkillDir, { recursive: true });
+         await writeSkillDir(join(userHome, '.claude'), 'demo');
+         await writeSkillDir(join(process.env.HOME ?? '', '.claude'), 'demo');
          vi.stubEnv('AIX_USER_HOME', userHome);
 
          const removed = await runCli(['remove', 'skill', 'demo', '--yes', '--target', 'claude-code']);
@@ -1943,6 +1943,58 @@ describe('CLI Commands', () => {
    });
 
    describe('remove skill', () => {
+      it.each([ '..', '.', '../rules' ])('deletes nothing when asked to remove the path-like name "%s"', async (name) => {
+         const claudeDir = join(testDir, '.claude');
+
+         await writeSkillDir(claudeDir, 'keep');
+         await mkdir(join(claudeDir, 'rules'), { recursive: true });
+         await writeFile(join(claudeDir, 'settings.json'), '{}');
+         await writeSkillDir(join(testDir, '.aix'), 'keep');
+
+         const { error } = await runCli(['remove', 'skill', name, '--yes', '--project', '--target', 'claude-code']);
+
+         expect(error).toBeUndefined();
+         expect(existsSync(join(claudeDir, 'settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(claudeDir, 'rules'))).toStrictEqual(true);
+         expect(existsSync(join(claudeDir, 'skills', 'keep', 'SKILL.md'))).toStrictEqual(true);
+         expect(existsSync(join(testDir, '.aix', 'skills', 'keep', 'SKILL.md'))).toStrictEqual(true);
+      });
+
+      it('keeps the shared skill copy while another editor still links to it', async () => {
+         const sharedCopy = join(testDir, '.aix', 'skills', 'demo'),
+               claudeLink = join(testDir, '.claude', 'skills', 'demo'),
+               cursorLink = join(testDir, '.cursor', 'skills', 'demo'),
+               statePath = join(testDir, '.aix', 'state.json'),
+               installed = { installedAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z', editors: ['claude-code', 'cursor'] };
+
+         await writeSkillDir(join(testDir, '.aix'), 'demo');
+         await mkdir(dirname(claudeLink), { recursive: true });
+         await mkdir(dirname(cursorLink), { recursive: true });
+         await symlink(join('..', '..', '.aix', 'skills', 'demo'), claudeLink);
+         await symlink(join('..', '..', '.aix', 'skills', 'demo'), cursorLink);
+         await writeFile(statePath, JSON.stringify({ version: 1, scope: 'project', installed: { skills: { demo: installed } } }));
+
+         const { error } = await runCli(['remove', 'skill', 'demo', '--yes', '--project', '--target', 'cursor']),
+               state = JSON.parse(await readFile(statePath, 'utf-8'));
+
+         expect(error).toBeUndefined();
+         expect(existsSync(cursorLink)).toStrictEqual(false);
+         expect(existsSync(join(claudeLink, 'SKILL.md'))).toStrictEqual(true);
+         expect(existsSync(sharedCopy)).toStrictEqual(true);
+         expect(state.installed.skills.demo.editors).toEqual(['claude-code']);
+      });
+
+      it('explains how to confirm when there is no terminal to prompt on', async () => {
+         await writeSkillDir(join(testDir, '.claude'), 'demo');
+
+         const { error, stderr } = await runCli(['remove', 'skill', 'demo', '--project', '--target', 'claude-code']);
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('Pass --yes to confirm');
+         expect(stderr).not.toContain('ExitPromptError');
+         expect(existsSync(join(testDir, '.claude', 'skills', 'demo', 'SKILL.md'))).toStrictEqual(true);
+      });
+
       it('removes a skill from config', async () => {
          const configPath = join(testDir, 'ai.json');
 
@@ -2011,6 +2063,18 @@ description: Demo skill
    });
 
    describe('remove rule', () => {
+      it('deletes a Copilot rule, whose file name carries the .instructions.md suffix', async () => {
+         const installedRuleFile = join(testDir, '.github', 'instructions', 'coding.instructions.md');
+
+         await mkdir(dirname(installedRuleFile), { recursive: true });
+         await writeFile(installedRuleFile, 'Keep functions small.');
+
+         const { error } = await runCli(['remove', 'rule', 'coding', '--yes', '--project', '--target', 'copilot']);
+
+         expect(error).toBeUndefined();
+         expect(existsSync(installedRuleFile)).toStrictEqual(false);
+      });
+
       it('removes a rule from config and deletes the installed rule file from editors', async () => {
          const configPath = join(testDir, 'ai.json'),
                rulesDir = join(testDir, 'rules'),

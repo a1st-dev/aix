@@ -14,7 +14,7 @@ import {
    trackRemoval,
    type EditorName,
 } from '@a1st/aix-core';
-import { confirm } from '@inquirer/prompts';
+import { confirmAction } from '../../lib/confirm.js';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
 import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
@@ -80,12 +80,10 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       // Confirm removal
       if (!flags.yes) {
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json';
-         const confirmed = await confirm({
-            message: loaded
-               ? `Remove MCP server "${args.name}" from ${targetFile}?`
-               : `Remove MCP server "${args.name}" from editor configs?`,
-            default: false,
-         });
+         const message = loaded
+                  ? `Remove MCP server "${args.name}" from ${targetFile}?`
+                  : `Remove MCP server "${args.name}" from editor configs?`,
+               confirmed = await confirmAction(message, this.error.bind(this));
 
          if (!confirmed) {
             this.output.info('Cancelled');
@@ -128,7 +126,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       }
 
       // Track the removal in state
-      await trackRemoval(targetScope, 'mcp', args.name, process.cwd());
+      await trackRemoval({ scope: targetScope, section: 'mcp', name: args.name, projectRoot, editors: targetEditors });
 
       if (this.flags.json) {
          this.output.json({

@@ -11,6 +11,13 @@ version may appear here with no changes to this package.
 
 - Add the `AIX_USER_HOME` environment variable (exported as `USER_HOME_ENV_VAR`), which the
   Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
+- Add `findNativeItemPath`, which locates the native file for a named skill, rule, prompt,
+  or agent through the editor's importer
+
+### Changed
+
+- Change `trackRemoval` to take an options object; with `editors` it removes only those
+  editors from the state entry
 
 ### Removed
 
@@ -31,6 +38,10 @@ version may appear here with no changes to this package.
   `statusLine`, in place when merging hooks, plugins, or marketplaces into a JSON config
 - Refuse to install into a Grok `config.toml` that cannot be parsed rather than replacing
   it
+- Refuse to delete an editor config directory or a `.aix` directory itself in `safeRm`,
+  and stop treating any directory named `opencode` or `github-copilot` as editor config
+- Match the Windows system-directory blocklist in `safeRm`, which compared backslash paths
+  against forward-slash ones
 
 ## [0.6.0] - 2026-08-12
 

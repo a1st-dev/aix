@@ -4,7 +4,7 @@ import { normalizeEditors, resolveScope, type ConfigScope } from '@a1st/aix-sche
 import { dirname } from 'pathe';
 import { installAfterAdd } from './install-helper.js';
 import { isValidSkillName, normalizeSkillName, parseSkillSource } from './skill-source.js';
-import { computeFilesToDelete, deleteFiles } from './delete-helper.js';
+import { deleteFiles, findFilesToDelete } from './delete-helper.js';
 import { buildMcpServerConfig, findCompatibleNpmPackage } from './add-command-helper.js';
 
 export interface AddSkillOptions {
@@ -158,9 +158,12 @@ async function cleanupRemovedSkill(
       return;
    }
 
-   const filesToDelete = computeFilesToDelete(editors, 'skill', name, {
+   const filesToDelete = await findFilesToDelete({
+      editors,
+      section: 'skills',
+      name,
+      scope,
       projectRoot: dirname(configPath),
-      targetScope: scope,
    });
 
    await deleteFiles(filesToDelete);

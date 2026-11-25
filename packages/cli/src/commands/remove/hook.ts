@@ -22,7 +22,7 @@ import {
 } from '@a1st/aix-schema';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
 import { resolveRemovalEditors } from '../../lib/resolve-removal-editors.js';
-import { confirm } from '@inquirer/prompts';
+import { confirmAction } from '../../lib/confirm.js';
 import { printEditorRemovalPreview } from '../../lib/delete-helper.js';
 
 export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
@@ -115,7 +115,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
          await this.removeFromEditorConfigs(editors, event, projectRoot, targetScope);
       }
 
-      await trackRemoval(targetScope, 'hooks', event, process.cwd());
+      await trackRemoval({ scope: targetScope, section: 'hooks', name: event, projectRoot, editors: targetEditors });
 
       if (this.flags.json) {
          this.output.json({
@@ -137,12 +137,10 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       local: boolean,
    ): Promise<boolean> {
       const targetFile = local ? 'ai.local.json' : 'ai.json',
-            confirmed = await confirm({
-               message: hasConfig
-                  ? `Remove hook "${event}" from ${targetFile} and every matching entry in your editor configs?`
-                  : `Remove every "${event}" entry from your editor configs?`,
-               default: false,
-            });
+            message = hasConfig
+               ? `Remove hook "${event}" from ${targetFile} and every matching entry in your editor configs?`
+               : `Remove every "${event}" entry from your editor configs?`,
+            confirmed = await confirmAction(message, this.error.bind(this));
 
       if (!confirmed) {
          this.output.info('Cancelled');

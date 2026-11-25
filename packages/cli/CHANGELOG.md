@@ -19,6 +19,15 @@ version may appear here with no changes to this package.
 - Stop `aix install --overwrite` from replacing whole editor config files such as
   `~/.claude.json`; the flag now only affects the `ai.json` that `--save` writes, and is
   rejected without `--save`
+- Stop `aix remove skill`, `rule`, `prompt`, and `agent` from deleting whole directories
+  when given a path-like name such as `..`; they now delete only files the editor's own
+  importer reports for that item
+- Find the right files when removing Copilot, Zed, Windsurf, and Antigravity rules,
+  prompts, and skills, which used a path table that disagreed with where aix installs them
+- Keep the shared `.aix/skills/<name>` copy and the state entry when a skill is removed
+  from only some editors
+- Fail with a pointer to `--yes` when a remove command needs confirmation and there is no
+  interactive terminal
 
 ## [0.6.0] - 2026-08-12
 
