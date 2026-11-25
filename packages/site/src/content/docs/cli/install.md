@@ -64,7 +64,7 @@ your machine:
 - With several detected and no terminal, as in a script or a CI job, the command fails. The
   message names the detected editors and tells you to pass `--target` or to list editors in
   `ai.json`.
-- With none detected, aix prints a warning and installs nothing.
+- With none detected, the command fails and installs nothing. Pass `--target`.
 
 When you install from a `source` and the working directory has its own `ai.json`, the
 `editors` field of that local file is used in place of the one in the source.
@@ -141,7 +141,8 @@ has an `editors` field. Otherwise the command stops once `ai.json` is written. R
 `aix install` to install it.
 
 `--lock` with a `source` requires `--save`, because aix needs a local `ai.json` to write
-`ai.lock.json` beside.
+`ai.lock.json` beside. When `ai.lock.json` already exists beside the saved `ai.json`, `--save`
+refreshes it whether or not you pass `--lock`. See [ai.lock.json](/configuration/lockfile/).
 
 ## Clearing the cache
 

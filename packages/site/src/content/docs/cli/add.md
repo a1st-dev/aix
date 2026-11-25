@@ -68,8 +68,8 @@ Every `aix add` command takes these flags:
 | `--target <editor>` / `-t`                               | Install to this editor only. Repeatable.                                                   |
 | `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Install at user scope or project scope. The default is user scope.                         |
 
-`--local`, `--lock`, and `--config-only` are rejected without `--save`, and `--scope` cannot
-be combined with `--user` or `--project`. `--no-install` is another spelling of
+`--local`, `--lock`, and `--config-only` are rejected without `--save`. `--lock` cannot be
+combined with `--local`, and `--scope` cannot be combined with `--user` or `--project`. `--no-install` is another spelling of
 `--config-only`. When `ai.lock.json` already exists, `--save` refreshes it whether or not you
 pass `--lock`.
 

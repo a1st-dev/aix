@@ -13,8 +13,8 @@ Creates `ai.json` in the working directory. It does not install anything into yo
 aix init [flags]
 ```
 
-If `ai.json` already exists, the command fails. Pass `--force` to replace the file. The old
-file is overwritten without a backup.
+If `ai.json` already exists, the command fails. Pass `--force` to replace the file. aix
+backs up the old file first. See [`aix backups`](/cli/backups/).
 
 ## Flags
 

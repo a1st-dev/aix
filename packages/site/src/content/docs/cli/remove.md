@@ -154,8 +154,8 @@ Every `aix remove` command takes these flags:
 | `--lock`                                                 | With `--save`, create or refresh `ai.lock.json` after removing.   |
 | `--config-only`                                          | With `--save`, edit the config file and leave the editors alone.  |
 
-`--local`, `--lock`, and `--config-only` are rejected without `--save`, and `--scope` cannot
-be combined with `--user` or `--project`. `--no-delete`, `--no-sync`, and `--no-install` are
+`--local`, `--lock`, and `--config-only` are rejected without `--save`. `--lock` cannot be
+combined with `--local`, and `--scope` cannot be combined with `--user` or `--project`. `--no-delete`, `--no-sync`, and `--no-install` are
 other spellings of `--config-only`.
 
 The [global flags](/cli/overview/#global-flags) also apply. `--config` is only read with
@@ -167,7 +167,7 @@ The command exits with a non-zero status when a removal fails for any editor.
 
 ## Undoing a removal
 
-For MCP servers, hooks, plugins, and marketplaces, restore the editor config file from its
-backup with [`aix backups restore`](/cli/backups/). Skill, rule, prompt, and agent files are
-deleted without a backup, so add them again with [`aix add`](/cli/add/) or
-[`aix install`](/cli/install/).
+aix backs up every file and directory before it changes or deletes it, except a symbolic
+link. Restore the editor config file, or the deleted skill, rule, prompt, or agent, with
+[`aix backups restore`](/cli/backups/). You can also add the item again with
+[`aix add`](/cli/add/) or [`aix install`](/cli/install/).
