@@ -296,7 +296,8 @@ async function processGlobalFeatures(
                return change.configsMatch;
             })],
             nativeChanges: FileChange[] = [],
-            contents = new Map<string, string>();
+            contents = new Map<string, string>(),
+            onDisk = new Map<string, string | null>();
 
       for (const change of installed) {
          const { fs } = getRuntimeAdapter(),
@@ -306,6 +307,7 @@ async function processGlobalFeatures(
          if (content === undefined) {
             // eslint-disable-next-line no-await-in-loop -- Changes sharing one global file must be planned in order.
             content = exists ? await fs.readFile(change.globalPath, 'utf-8') : '{}';
+            onDisk.set(change.globalPath, exists ? content : null);
             if (!exists && change.format === 'toml') {
                content = '';
             }
@@ -337,7 +339,10 @@ async function processGlobalFeatures(
             }
          }
 
-         const action = getFileChangeAction(exists ? content : null, desiredContent);
+         // Several servers can share one file, and the last change planned for a path is the one
+         // applied. Compare with the file on disk, not with the content an earlier server in this
+         // loop produced, or an unchanged server planned last would cancel the write.
+         const action = getFileChangeAction(onDisk.get(change.globalPath) ?? null, desiredContent);
 
          contents.set(change.globalPath, desiredContent);
          nativeChanges.push({

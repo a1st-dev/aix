@@ -83,6 +83,10 @@ version may appear here with no changes to this package.
 - Keep the ref when normalizing a GitHub tree URL for `--extends`
 - Accept a single-server `mcpServers` file without `--name`
 - Apply `ai.local.json` when the config path is given explicitly
+- Write a new global-only MCP server when the same file already holds one from an earlier
+  install; it was reported as installed and never written
+- Replace a Codex, Grok, or OpenCode MCP server whose definition changed rather than
+  merging the old and new fields into one entry
 
 ## [0.6.0] - 2026-08-12
 

@@ -2045,6 +2045,43 @@ Skill instructions.
          expect(result.globalChanges?.skipped.length).toBeGreaterThan(0);
       });
 
+      it('writes a new global-only MCP server beside one that is already installed', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
+               existing = { existing: createMcpServer('existing-cmd') };
+
+         // aix does not write global config in CI, so there is nothing to observe there.
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await installToEditor('windsurf', createConfig({ mcp: existing }), testDir);
+
+         const result = await installToEditor(
+                  'windsurf',
+                  createConfig({ mcp: { added: createMcpServer('added-cmd'), ...existing } }),
+                  testDir,
+               ),
+               servers = JSON.parse(await readFile(globalMcpPath, 'utf-8')).mcpServers;
+
+         expect(result.errors).toEqual([]);
+         expect(Object.keys(servers).toSorted()).toEqual([ 'added', 'existing' ]);
+      });
+
+      it('replaces a Codex server whose transport changed, leaving none of the old fields', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               configPath = join(fakeHome, '.codex/config.toml');
+
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await installToEditor('codex', createConfig({ mcp: { docs: { url: 'https://example.com/mcp' } } }), testDir);
+
+         const result = await installToEditor('codex', createConfig({ mcp: { docs: createMcpServer('docs-cmd') } }), testDir),
+               content = await readFile(configPath, 'utf-8');
+
+         expect(result.errors).toEqual([]);
+         expect(content).toContain('docs-cmd');
+         expect(content).not.toContain('example.com');
+      });
+
       it('overwrites existing global-only MCP servers with ai.json config', async () => {
          const fakeHome = join(testDir, 'fake-home'),
                globalMcpPath = join(fakeHome, '.codeium/windsurf/mcp_config.json'),
