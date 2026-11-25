@@ -19,6 +19,7 @@
       "dist"
    ],
    "type": "module",
+   "sideEffects": false,
    "main": "./dist/index.js",
    "browser": {
       "./src/runtime/node.ts": "./src/runtime/browser-dummy.ts",
@@ -47,7 +48,7 @@
       "detect-indent": "7.0.2",
       "giget": "^3.2.0",
       "is-in-ci": "2.0.0",
-      "nypm": "0.3.12",
+      "nypm": "0.6.12",
       "p-map": "7.0.4",
       "pathe": "1.1.2",
       "yaml": "^2.8.4"

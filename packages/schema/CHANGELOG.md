@@ -9,12 +9,14 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Declare `sideEffects: false`, so a bundler can drop the exports a caller does not use
 - Export `editorNames`, `editorAliasNames`, and `editorInputNames` as the one list of
   editors, which core now reuses
 - Declare the MIT license in `package.json`
 
 ### Changed
 
+- Stop installing `zod-to-json-schema` with the package; only the build uses it
 - Record any scope passed to `createEmptyConfig`, not only `user`
 
 ### Removed
