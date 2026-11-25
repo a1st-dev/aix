@@ -81,7 +81,7 @@ aix init
 aix init --from <editor>
 
 # Or sync supported config directly from one editor to another.
-# By default, sync reads user-level config and writes user-level config.
+# By default, sync reads user scope and writes user scope.
 aix sync <from> --to <to>
 ```
 
