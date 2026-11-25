@@ -171,4 +171,4 @@ This project is tested with BrowserStack.
 
 ## License
 
-MIT
+[MIT](LICENSE)
