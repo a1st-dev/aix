@@ -99,6 +99,78 @@ describe('resolveExtends', () => {
       );
    });
 
+   it('reports the chain of configs that forms the cycle', async () => {
+      const pathA = join(testDir, 'a.json'),
+            pathB = join(testDir, 'b.json');
+
+      await writeFile(pathA, JSON.stringify({ extends: './b.json' }), 'utf-8');
+      await writeFile(pathB, JSON.stringify({ extends: './a.json' }), 'utf-8');
+
+      const error: unknown = await resolveExtends({ extends: './a.json' }, { baseDir: testDir, projectRoot: testDir })
+         .catch((caught: unknown) => {
+            return caught;
+         });
+
+      expect(error).toBeInstanceOf(CircularDependencyError);
+      expect(error instanceof CircularDependencyError && error.path).toEqual([pathA, pathB, pathA]);
+   });
+
+   it('allows two extended configs to share a base config', async () => {
+      const shared = { skills: { typescript: '^1.0.0' } },
+            left = { extends: './shared.json', skills: { react: '^1.0.0' } },
+            right = { extends: './shared.json', skills: { vue: '^1.0.0' } };
+
+      await writeFile(join(testDir, 'shared.json'), JSON.stringify(shared), 'utf-8');
+      await writeFile(join(testDir, 'left.json'), JSON.stringify(left), 'utf-8');
+      await writeFile(join(testDir, 'right.json'), JSON.stringify(right), 'utf-8');
+
+      const result = await resolveExtends(
+         { extends: ['./left.json', './right.json'] },
+         { baseDir: testDir, projectRoot: testDir },
+      );
+
+      expect(result.skills).toEqual({
+         typescript: '^1.0.0',
+         react: '^1.0.0',
+         vue: '^1.0.0',
+      });
+   });
+
+   it('allows the same config to be extended twice at different depths', async () => {
+      const shared = { skills: { typescript: '^1.0.0' } },
+            middle = { extends: './shared.json', skills: { react: '^1.0.0' } };
+
+      await writeFile(join(testDir, 'shared.json'), JSON.stringify(shared), 'utf-8');
+      await writeFile(join(testDir, 'middle.json'), JSON.stringify(middle), 'utf-8');
+
+      const result = await resolveExtends(
+         { extends: ['./shared.json', './middle.json'] },
+         { baseDir: testDir, projectRoot: testDir },
+      );
+
+      expect(result.skills).toEqual({
+         typescript: '^1.0.0',
+         react: '^1.0.0',
+      });
+   });
+
+   it('detects a cycle that sits below a shared base config', async () => {
+      const left = { extends: './shared.json' },
+            right = { extends: './shared.json' },
+            shared = { extends: './loop.json' },
+            loop = { extends: './shared.json' };
+
+      await writeFile(join(testDir, 'left.json'), JSON.stringify(left), 'utf-8');
+      await writeFile(join(testDir, 'right.json'), JSON.stringify(right), 'utf-8');
+      await writeFile(join(testDir, 'shared.json'), JSON.stringify(shared), 'utf-8');
+      await writeFile(join(testDir, 'loop.json'), JSON.stringify(loop), 'utf-8');
+
+      await expect(resolveExtends(
+         { extends: ['./left.json', './right.json'] },
+         { baseDir: testDir, projectRoot: testDir },
+      )).rejects.toThrow(CircularDependencyError);
+   });
+
    it('handles multiple extends in order', async () => {
       const base1 = { skills: { typescript: '^1.0.0' } },
             base2 = { skills: { react: '^1.0.0' } },

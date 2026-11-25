@@ -19,7 +19,8 @@ export interface ResolveOptions {
    baseDir: string;
    /** Project root for determining temp directory location */
    projectRoot: string;
-   visited?: Set<string>;
+   /** The chain of extended configs that led to this one, used to detect cycles */
+   visited?: ReadonlySet<string>;
    /** Whether the baseDir is a remote URL (for resolving relative extends) */
    isRemote?: boolean;
 }
@@ -78,7 +79,7 @@ export async function resolveExtends(
 interface ResolveExtendsPathOptions {
    baseDir: string;
    projectRoot: string;
-   visited: Set<string>;
+   visited: ReadonlySet<string>;
    isRemote: boolean;
 }
 
@@ -119,19 +120,28 @@ function isRelativePath(path: string): boolean {
 }
 
 /**
+ * Extend the chain of configs being resolved with `source`. The chain is copied rather than
+ * mutated so that sibling `extends` entries do not see each other: two configs may share a
+ * base, and only a config that extends one of its own ancestors is a cycle.
+ */
+function enterExtends(visited: ReadonlySet<string>, source: string): ReadonlySet<string> {
+   if (visited.has(source)) {
+      throw new CircularDependencyError([...visited, source]);
+   }
+
+   return new Set([...visited, source]);
+}
+
+/**
  * Resolve extends from a remote URL (fetch the file directly).
  */
 async function resolveRemoteExtends(
    url: string,
    projectRoot: string,
-   visited: Set<string>,
+   visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   if (visited.has(url)) {
-      throw new CircularDependencyError([...visited, url]);
-   }
-   visited.add(url);
-
-   const rawUrl = convertBlobToRawUrl(url);
+   const chain = enterExtends(visited, url),
+         rawUrl = convertBlobToRawUrl(url);
 
    let content: string;
 
@@ -157,32 +167,27 @@ async function resolveRemoteExtends(
    const parsed = result.data as Record<string, unknown>,
          newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
 
-   return resolveExtends(parsed, { baseDir: newBaseUrl, projectRoot, visited, isRemote: true });
+   return resolveExtends(parsed, { baseDir: newBaseUrl, projectRoot, visited: chain, isRemote: true });
 }
 
 async function resolveLocalExtends(
    extendPath: string,
    baseDir: string,
    projectRoot: string,
-   visited: Set<string>,
+   visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   const absolutePath = resolve(baseDir, extendPath);
-   const { fs } = getRuntimeAdapter();
-
-   if (visited.has(absolutePath)) {
-      throw new CircularDependencyError([...visited, absolutePath]);
-   }
+   const absolutePath = resolve(baseDir, extendPath),
+         chain = enterExtends(visited, absolutePath),
+         { fs } = getRuntimeAdapter();
 
    if (!fs.existsSync(absolutePath)) {
       throw new ConfigParseError(`Extended config not found: ${extendPath}`, absolutePath);
    }
 
-   visited.add(absolutePath);
-
    const content = fs.readFileSync(absolutePath, 'utf-8'),
          parsed = parseConfigContent(content) as Record<string, unknown>,
          newBaseDir = dirname(absolutePath),
-         resolved = await resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited });
+         resolved = await resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited: chain });
 
    // Normalize local paths to absolute so they remain valid after merging into the parent config,
    // which may be in a different directory.
@@ -192,13 +197,9 @@ async function resolveLocalExtends(
 async function resolveGitExtends(
    extendPath: string,
    projectRoot: string,
-   visited: Set<string>,
+   visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   if (visited.has(extendPath)) {
-      throw new CircularDependencyError([...visited, extendPath]);
-   }
-
-   visited.add(extendPath);
+   const chain = enterExtends(visited, extendPath);
 
    return withGitDownload(extendPath, projectRoot, async (dir) => {
       const configPath = resolve(dir, 'ai.json');
@@ -210,7 +211,7 @@ async function resolveGitExtends(
 
       const content = fs.readFileSync(configPath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
-            resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited });
+            resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited: chain });
 
       // Copy the downloaded content to a permanent location under .aix/extends/ so that skill,
       // rule, and prompt paths remain resolvable after the ephemeral temp dir is cleaned up.
@@ -233,20 +234,16 @@ async function resolveGitExtends(
 async function resolveNpmExtends(
    packageName: string,
    projectRoot: string,
-   visited: Set<string>,
+   visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   if (visited.has(packageName)) {
-      throw new CircularDependencyError([...visited, packageName]);
-   }
-
-   visited.add(packageName);
+   const chain = enterExtends(visited, packageName);
 
    try {
       const packagePath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, projectRoot, 'ai.json'),
             content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
-            resolved = await resolveExtends(parsed, { baseDir, projectRoot, visited });
+            resolved = await resolveExtends(parsed, { baseDir, projectRoot, visited: chain });
 
       // Normalize local paths to absolute so they remain valid after merging into the parent config
       return normalizeLocalPaths(resolved, baseDir);
