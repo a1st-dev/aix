@@ -172,11 +172,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       const scopes = options.scopes ?? ['rules', 'mcp', 'skills', 'agents', 'hooks', 'plugins', 'marketplaces', 'editors'];
 
       try {
-         // Clean the .aix folder if requested (ensures exact match with ai.json)
-         if (options.clean && !options.dryRun) {
-            await this.cleanAixFolder(projectRoot, options.targetScope);
-         }
-
          // Generate file changes
          const planned = await this.planChanges(editorConfig, projectRoot, scopes, options),
                reconciled = await planInstallReceipt({
@@ -204,31 +199,6 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       }
 
       return result;
-   }
-
-   /**
-    * Remove the .aix folder to ensure a clean install state.
-    * Preserves .aix/.tmp if it exists (for temporary files).
-    */
-   protected async cleanAixFolder(
-      projectRoot: string,
-      targetScope: 'project' | 'user' = 'project',
-   ): Promise<void> {
-      const aixPath = join(targetScope === 'user' ? getRuntimeAdapter().os.homedir() : projectRoot, '.aix');
-
-      if (!getRuntimeAdapter().fs.existsSync(aixPath)) {
-         return;
-      }
-
-      // Clear generated content while retaining ownership records for reconciliation.
-      const entries = await getRuntimeAdapter().fs.readdir(aixPath);
-
-      // Receipts must survive cleanup so stale editor entries can still be removed.
-      await Promise.all(entries.filter((entry) => {
-         return entry !== 'installs';
-      }).map((entry) => {
-         return getRuntimeAdapter().fs.rm(join(aixPath, entry), { recursive: true, force: true });
-      }));
    }
 
    /**

@@ -30,6 +30,9 @@ version may appear here with no changes to this package.
   interactive terminal
 - Stop `aix add` without `--save` from removing what an earlier `aix add` or `aix install`
   from the same directory installed
+- Limit `aix install --clean` to the regenerable cache in `.aix/.tmp`; it used to delete
+  the whole `.aix` directory, including `~/.aix/ai.json`, other projects' skills, and
+  imported files, after the new skills were already installed
 
 ## [0.6.0] - 2026-08-12
 

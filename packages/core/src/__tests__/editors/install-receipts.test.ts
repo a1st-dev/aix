@@ -222,7 +222,7 @@ describe('editor install receipts', () => {
       expect(content).toContain('@rules/second.md');
    });
 
-   it('retains receipts across --clean so removed skill links and hooks can still be reconciled', async () => {
+   it('removes the skill links and hooks of a config that no longer declares them', async () => {
       const skillPath = join(projectRoot, 'source-skill'),
             config: AiJsonConfig = {
                ...createEmptyConfig(), skills: { managed: skillPath },
@@ -232,7 +232,7 @@ describe('editor install receipts', () => {
       await mkdir(skillPath);
       await writeFile(join(skillPath, 'SKILL.md'), '---\nname: managed\ndescription: Test skill\n---\nManaged skill.\n');
       await installToEditor('claude-code', config, projectRoot);
-      const result = await installToEditor('claude-code', createEmptyConfig(), projectRoot, { clean: true });
+      const result = await installToEditor('claude-code', createEmptyConfig(), projectRoot);
 
       expect(result.errors).toEqual([]);
       expect(JSON.parse(await readFile(join(projectRoot, '.claude', 'settings.json'), 'utf-8')).hooks.Stop).toEqual([]);

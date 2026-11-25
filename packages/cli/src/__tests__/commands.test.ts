@@ -447,6 +447,32 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install --clean', () => {
+      it('clears the project cache and keeps skills, imported content, and the user config', async () => {
+         const home = process.env.HOME ?? '',
+               staleCacheEntry = join(testDir, '.aix', '.tmp', 'cache', 'rules', 'stale'),
+               kept = [
+                  join(home, '.aix', 'ai.json'),
+                  join(home, '.aix', 'skills', 'other', 'SKILL.md'),
+                  join(testDir, '.aix', 'imported', 'rules', 'imported.md'),
+               ];
+
+         await writeSkillDir(join(home, '.aix'), 'other');
+         await mkdir(dirname(staleCacheEntry), { recursive: true });
+         await mkdir(join(testDir, '.aix', 'imported', 'rules'), { recursive: true });
+         await writeFile(staleCacheEntry, 'stale');
+         await writeFile(join(home, '.aix', 'ai.json'), createValidConfig({ scope: 'user' }));
+         await writeFile(join(testDir, '.aix', 'imported', 'rules', 'imported.md'), 'Imported rule.');
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { imported: './.aix/imported/rules/imported.md' } });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--clean']);
+
+         expect(installed.error).toBeUndefined();
+         expect(existsSync(staleCacheEntry)).toStrictEqual(false);
+         expect(kept.filter(existsSync)).toEqual(kept);
+      });
+   });
+
    describe('install --overwrite', () => {
       it('is rejected without --save because it only replaces the saved ai.json', async () => {
          await writeValidConfig(join(testDir, 'ai.json'));

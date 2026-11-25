@@ -25,6 +25,8 @@ import {
    mergeConfigs,
    filterConfigBySections,
    cleanStaleCache,
+   clearCache,
+   discoverConfig,
    localizeRemoteConfig,
    commitImport,
    rollbackImport,
@@ -137,7 +139,7 @@ export default class Install extends BaseCommand<typeof Install> {
          default: false,
       }),
       clean: Flags.boolean({
-         description: 'Clear .aix content before installing, preserving install receipts for cleanup',
+         description: "Clear aix's cache (.aix/.tmp) first, so remote sources are downloaded again",
          default: false,
       }),
       copy: Flags.boolean({
@@ -162,6 +164,10 @@ export default class Install extends BaseCommand<typeof Install> {
          if (this.flags[flag] && !this.flags.save) {
             this.error(`--${flag} only applies to the ai.json that --save writes. Pass --save as well.`);
          }
+      }
+
+      if (this.flags.clean && !this.flags['dry-run']) {
+         await this.clearCacheBeforeLoading(this.flags.type ? undefined : args.source);
       }
 
       if (this.flags.type) {
@@ -298,7 +304,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await this.installToSingleEditor(editor, loaded.config, projectRoot, {
             isDryRun,
             sections,
-            clean: this.flags.clean,
             configBaseDir: loaded.configBaseDir,
             configSource: loaded.path,
             targetScope,
@@ -570,7 +575,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await this.installToSingleEditor(editor, direct.config, process.cwd(), {
             isDryRun,
             sections,
-            clean: this.flags.clean,
             configSource: `direct:${type}:${source ?? this.flags.name ?? type}`,
             targetScope,
          });
@@ -618,6 +622,20 @@ export default class Install extends BaseCommand<typeof Install> {
          lockfilePath: written.lockfilePath,
          lockfile: written.lockfile,
       };
+   }
+
+   /**
+    * `.aix/.tmp` holds only what aix can download or build again. Clearing it before the config
+    * loads is what makes the load fetch every remote source afresh.
+    */
+   private async clearCacheBeforeLoading(remoteSource: string | undefined): Promise<void> {
+      const discovered = remoteSource ? undefined : await discoverConfig(process.cwd(), this.flags.config),
+            projectRoot = discovered ? dirname(discovered.path) : process.cwd(),
+            cleared = await clearCache(projectRoot);
+
+      if (cleared.deletedPaths.length > 0) {
+         this.output.info(`Cleared the aix cache in ${join(projectRoot, '.aix', '.tmp')}`);
+      }
    }
 
    /**
@@ -685,13 +703,12 @@ export default class Install extends BaseCommand<typeof Install> {
       options: {
          isDryRun: boolean;
          sections: ConfigSection[];
-         clean?: boolean;
          configBaseDir?: string;
          configSource?: string;
          targetScope?: ConfigScope;
       },
    ): Promise<ApplyResult> {
-      const { isDryRun, sections, clean, configBaseDir, configSource, targetScope } = options;
+      const { isDryRun, sections, configBaseDir, configSource, targetScope } = options;
 
       this.output.startSpinner(isDryRun ? `Analyzing ${editor}...` : `Installing to ${editor}...`);
 
@@ -699,7 +716,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await installToEditor(editor, config, projectRoot, {
             dryRun: isDryRun,
             scopes: sections,
-            clean,
             configBaseDir,
             configSource,
             targetScope,

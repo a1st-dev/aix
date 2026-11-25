@@ -23,6 +23,8 @@ version may appear here with no changes to this package.
 
 - Remove the `overwrite` apply option, which replaced whole editor config files rather
   than merging into them
+- Remove the `clean` apply option; clear the cache with `clearCache` before loading a
+  config
 
 ### Fixed
 
