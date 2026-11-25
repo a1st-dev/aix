@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 6
+   order: 70
 title: Plugins & Marketplaces
 description: Manage AI editor plugins, marketplaces, and compatibility unpacking across editors.
 ---

@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 2
+   order: 20
 title: Rules
 description: Persistent instructions that guide AI behavior.
 ---

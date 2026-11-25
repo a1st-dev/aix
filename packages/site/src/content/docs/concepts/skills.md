@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 1
+   order: 10
 title: Skills
 description: Reusable capabilities for your AI agent.
 ---

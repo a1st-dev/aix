@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 5
+   order: 60
 title: Hooks
 description: Trigger scripts on AI lifecycle events across every supported editor.
 ---

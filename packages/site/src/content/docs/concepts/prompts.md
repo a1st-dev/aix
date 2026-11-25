@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 3
+   order: 30
 title: Prompts
 description: Reusable slash commands and workflows.
 ---

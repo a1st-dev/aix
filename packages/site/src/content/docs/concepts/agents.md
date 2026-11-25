@@ -1,4 +1,6 @@
 ---
+sidebar:
+   order: 50
 title: Agents
 description: Specialized primary agents and subagents in aix.
 ---

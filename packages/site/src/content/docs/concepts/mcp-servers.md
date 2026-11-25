@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 4
+   order: 40
 title: MCP Servers
 description: Extend your AI with Model Context Protocol servers.
 ---
