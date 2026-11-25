@@ -71,8 +71,8 @@ Cursor, GitHub Copilot, Claude Code, and OpenCode load plugins themselves. aix w
 plugin entries into the editor's configuration and the editor does the rest. Marketplaces are
 written for Cursor, GitHub Copilot, and Claude Code.
 
-Cursor has no user-scope plugin configuration, so a user-scope install, which is the default,
-skips its plugins and marketplaces with a warning. Use `--project` for Cursor.
+Cursor has no user-scope plugin configuration, so a user-scope install skips its plugins and
+marketplaces with a warning. Use `--project` for Cursor.
 
 ### Editors without a plugin system
 

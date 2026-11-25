@@ -66,12 +66,14 @@ A few behaviors are worth knowing before you install:
 
 - Where an editor keeps rules in a shared file such as `AGENTS.md`, aix writes its rules into
   a managed section of that file and leaves the rest of the file alone.
-- For Claude Code at user scope, aix writes one file per rule under `~/.claude/rules/` and
-  lists them as `@rules/...` imports in a managed section of `~/.claude/CLAUDE.md`. Your own
-  notes in `CLAUDE.md` stay as they are.
-- Cursor and GitHub Copilot have no user-scope rules file that aix writes. A user-scope
-  install, which is the default, skips rules for those editors and prints a warning. Use
-  `--project` to write their project rules.
+- For Claude Code at user scope, aix writes one file per rule under `~/.claude/rules/`. Rules
+  that are not limited to file patterns are also listed as `@rules/...` imports in a managed
+  section of `~/.claude/CLAUDE.md`. A rule with `glob` activation is not imported, so that
+  Claude Code loads it only for matching files. Your own notes in `CLAUDE.md` stay as they
+  are.
+- Cursor, GitHub Copilot, and Grok CLI have no user-scope rules file that aix writes. A
+  user-scope install skips rules for those editors and prints a warning. Use `--project` to
+  write their project rules.
 
 ## Sources
 

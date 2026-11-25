@@ -70,15 +70,16 @@ You can restrict which tools and resources an MCP server exposes to the model.
 
 ## User scope and project scope
 
-`aix install` writes each editor's user-scope MCP config by default, for example
-`~/.claude.json` for Claude Code. With `--project`, it writes the editor's project MCP file
-instead, for example `.mcp.json`.
+At user scope, `aix install` writes each editor's user-scope MCP config, for example
+`~/.claude.json` for Claude Code. At project scope, it writes the editor's project MCP file
+instead, for example `.mcp.json`. [User scope and project scope](/concepts/scopes/) explains
+how the scope is chosen.
 
 Windsurf and Codex are exceptions. aix has no project MCP file to write for them, so their
-servers always go to the user-scope file (`~/.codeium/windsurf/mcp_config.json` and
-`~/.codex/config.toml`), even in a `--project` install. The install output lists these writes
-separately. aix skips them when it detects a CI environment, and `aix sync --scope project`
-skips them and reports the skip.
+servers only go to the user-scope file (`~/.codeium/windsurf/mcp_config.json` and
+`~/.codex/config.toml`). A project-scope `aix install` leaves those files alone and lists the
+servers as skipped, and so does `aix sync --scope project`. A user-scope install writes them
+and lists them separately in its output, unless aix detects a CI environment.
 
 Each editor page lists its MCP paths:
 [Cursor](/editors/cursor/#cursor-feature-mcp),
@@ -99,9 +100,9 @@ Use `aix search` to browse the official MCP Registry:
 aix search --type mcp
 ```
 
-The search is interactive and needs an `ai.json` in the project, so run `aix init` first.
-Selecting a server saves it to `ai.json`. Run `aix install` afterwards to write it to your
-editors.
+The search is interactive. Installing from it needs an `ai.json` in the project, so run
+`aix init` first. Pressing Enter on a server saves it to `ai.json` and installs it to your
+editors. See [`aix search`](/cli/search/).
 
 To add a server without the search UI, use `aix add mcp`. On its own it installs the server
 into your user-scope editor config and leaves `ai.json` unchanged. With `--save` it writes the
