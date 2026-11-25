@@ -91,6 +91,8 @@ version may appear here with no changes to this package.
   install; it was reported as installed and never written
 - Replace a Codex, Grok, or OpenCode MCP server whose definition changed rather than
   merging the old and new fields into one entry
+- Keep a Codex rule glob such as `../../other/**` from writing `AGENTS.md` outside the
+  project, and stop treating a glob that names one file as a directory
 
 ## [0.6.0] - 2026-08-12
 

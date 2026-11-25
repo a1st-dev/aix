@@ -268,14 +268,14 @@ export function extractGlobDirectoryPrefix(rule: EditorRule): string {
  */
 function extractStaticPrefix(glob: string): string {
    const segments = glob.split('/'),
-         staticSegments: string[] = [];
+         firstWildcard = segments.findIndex((segment) => {
+            return /[*?{}[\]]/.test(segment);
+         }),
+         // A glob with no wildcard names one file, so its last segment is not a directory.
+         staticSegments = firstWildcard === -1 ? segments.slice(0, -1) : segments.slice(0, firstWildcard),
+         leavesProject = glob.startsWith('/') || staticSegments.includes('..');
 
-   for (const seg of segments) {
-      if (/[*?{}[\]]/.test(seg)) {
-         break;
-      }
-      staticSegments.push(seg);
-   }
-
-   return staticSegments.join('/');
+   // The prefix becomes a directory under the project root that AGENTS.md is written into. A
+   // glob from a shared config must not be able to steer that write outside the project.
+   return leavesProject ? '' : staticSegments.join('/');
 }

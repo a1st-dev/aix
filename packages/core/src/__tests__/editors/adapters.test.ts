@@ -2793,6 +2793,15 @@ describe('extractGlobDirectoryPrefix', () => {
       ).toBe('');
    });
 
+   it.each([ '../../other/**', 'src/../../other/**', '/etc/**' ])('returns empty string for "%s", which points outside the project', (glob) => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ glob ] }))).toBe('');
+   });
+
+   it('uses the directory of a glob that names one file', () => {
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ 'package.json' ] }))).toBe('');
+      expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: [ 'src/index.ts' ] }))).toBe('src');
+   });
+
    it('returns empty string for root-level wildcards', () => {
       expect(extractGlobDirectoryPrefix(rule({ type: 'glob', globs: ['**/*.test.ts'] }))).toBe('');
    });
