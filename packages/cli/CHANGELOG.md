@@ -18,6 +18,10 @@ version may appear here with no changes to this package.
 
 - List every backup from one store in `aix backups`, whatever directory it runs from;
   `--json` entries are now `{ path, originalPath, backupDate, size }`
+- Print the scope an install targets before it writes, and the path of every file it
+  changes, so a line that touches the home directory is recognizable in `--dry-run` output
+- Leave global-only editor config, such as Windsurf and Codex MCP servers, untouched in a
+  project-scope `aix install` and report it as skipped
 
 ### Fixed
 
@@ -41,6 +45,8 @@ version may appear here with no changes to this package.
   the whole `.aix` directory, including `~/.aix/ai.json`, other projects' skills, and
   imported files, after the new skills were already installed
 - Stop `aix cache clear` and `aix install --clean` from deleting backups
+- Honor the `scope` an `ai.json` declares in `aix install`; a config that declared project
+  scope was installed into user-level editor config unless `--project` was passed
 
 ## [0.6.0] - 2026-08-12
 

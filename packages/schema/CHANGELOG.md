@@ -10,6 +10,8 @@ version may appear here with no changes to this package.
 ### Fixed
 
 - Accept the `{ "npm", "path", "version" }` object form for skill and plugin sources
+- Describe the `scope` field as the scope `aix install` targets, with user scope as the
+  default
 
 ## [0.6.0] - 2026-08-12
 

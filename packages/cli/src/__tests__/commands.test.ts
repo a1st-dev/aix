@@ -447,6 +447,47 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install scope', () => {
+      const mcp = { docs: { command: 'node', args: ['docs.js'] } };
+
+      it('installs into the project when ai.json declares project scope', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { scope: 'project', mcp });
+
+         const installed = await runCli(['install', '--target', 'claude-code']);
+
+         expect(installed.error).toBeUndefined();
+         expect(installed.stdout).toContain('Installing to project scope');
+         expect(existsSync(join(testDir, '.mcp.json'))).toStrictEqual(true);
+         expect(existsSync(join(process.env.HOME ?? '', '.claude.json'))).toStrictEqual(false);
+      });
+
+      it('says that it writes to the home directory, and where, when it defaults to user scope', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp });
+
+         const installed = await runCli(['install', '--target', 'claude-code', '--dry-run']);
+
+         expect(installed.stdout).toContain('Installing to user scope');
+         expect(installed.stdout).toContain('Pass --project');
+         expect(installed.stdout).toContain('~/.claude.json');
+      });
+
+      it('leaves global-only editor config alone in a project-scope install', async () => {
+         const globalMcpPath = join(process.env.HOME ?? '', '.codeium', 'windsurf', 'mcp_config.json'),
+               existing = JSON.stringify({ mcpServers: { mine: { command: 'node' } } });
+
+         await mkdir(dirname(globalMcpPath), { recursive: true });
+         await writeFile(globalMcpPath, existing);
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp, rules: { style: { content: 'Be brief.' } } });
+
+         const installed = await runCli(['install', '--target', 'windsurf', '--project']);
+
+         expect(installed.error).toBeUndefined();
+         expect(await readFile(globalMcpPath, 'utf-8')).toStrictEqual(existing);
+         expect(installed.stdout + installed.stderr).toContain('did not write global-only config');
+         expect(existsSync(join(testDir, '.windsurf', 'rules', 'style.md'))).toStrictEqual(true);
+      });
+   });
+
    describe('backups', () => {
       const original = JSON.stringify({ numStartups: 7, mcpServers: { mine: { command: 'node', args: ['mine.js'] } } }, null, 2);
       let claudeConfigPath: string;

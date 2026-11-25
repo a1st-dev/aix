@@ -1,5 +1,6 @@
-import { getBackupStoreDir, getRuntimeAdapter, listAllBackups } from '@a1st/aix-core';
+import { getBackupStoreDir, listAllBackups } from '@a1st/aix-core';
 import { BaseCommand } from '../../base-command.js';
+import { formatDisplayPath } from '../../lib/display-path.js';
 
 const BYTES_PER_KILOBYTE = 1024;
 
@@ -35,11 +36,7 @@ Before aix changes or deletes an existing file, it copies the file into one back
    ];
 
    async run(): Promise<void> {
-      const backups = await listAllBackups(),
-            home = getRuntimeAdapter().os.homedir(),
-            abbreviateHome = (path: string): string => {
-               return path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
-            };
+      const backups = await listAllBackups();
 
       if (this.flags.json) {
          this.output.json(backups.map((backup) => {
@@ -50,7 +47,7 @@ Before aix changes or deletes an existing file, it copies the file into one back
 
       if (backups.length === 0) {
          this.output.info('No backups found');
-         this.output.info(`Backups are kept in ${abbreviateHome(getBackupStoreDir())}`);
+         this.output.info(`Backups are kept in ${formatDisplayPath(getBackupStoreDir())}`);
          return;
       }
 
@@ -58,10 +55,10 @@ Before aix changes or deletes an existing file, it copies the file into one back
       this.output.table(
          backups.map((backup) => {
             return {
-               originalPath: backup.originalPath ? abbreviateHome(backup.originalPath) : 'unknown',
+               originalPath: backup.originalPath ? formatDisplayPath(backup.originalPath) : 'unknown',
                date: formatDate(backup.timestamp),
                size: formatSize(backup.size),
-               path: abbreviateHome(backup.path),
+               path: formatDisplayPath(backup.path),
             };
          }),
          {

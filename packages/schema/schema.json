@@ -32,7 +32,7 @@
             "scope": {
                "type": "string",
                "enum": ["project", "user"],
-               "description": "Config scope: \"project\" (default) or \"user\""
+               "description": "Scope `aix install` targets when no scope flag is passed. Without it, install targets user scope"
             },
             "skills": {
                "type": "object",

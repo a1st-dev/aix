@@ -201,13 +201,11 @@ export default class Install extends BaseCommand<typeof Install> {
             isSaveMode = this.flags.save,
             isDryRun = this.flags['dry-run'];
 
-      // Resolve target scope: CLI flags override ai.json scope
+      // A scope flag wins, then the `scope` the config declares, then the user-scope default.
       const flagScope = resolveConfigScope(this.flags as { scope?: string; user?: boolean; project?: boolean }, undefined),
-            targetScope: ConfigScope = flagScope ?? 'user';
+            targetScope: ConfigScope = flagScope ?? loaded.config.scope ?? 'user';
 
-      if (flagScope) {
-         this.output.info(`Scope override: installing to ${targetScope} scope`);
-      }
+      this.announceScope(targetScope, projectRoot);
 
       // When installing from a remote source, check local ai.json for editor preferences
       let localEditors: AiJsonConfig['editors'] | undefined;
@@ -515,6 +513,7 @@ export default class Install extends BaseCommand<typeof Install> {
                'project',
             );
 
+      this.announceScope(targetScope, process.cwd());
       if (this.flags.lock) {
          this.error('--lock requires a local ai.json and cannot be used with direct installs');
       }
@@ -624,6 +623,15 @@ export default class Install extends BaseCommand<typeof Install> {
       };
    }
 
+   /** Say where this install writes before it writes, since the default is the home directory. */
+   private announceScope(targetScope: ConfigScope, projectRoot: string): void {
+      const location = targetScope === 'user'
+         ? 'editor config in your home directory. Pass --project to keep it in this project'
+         : `editor config in ${projectRoot}`;
+
+      this.output.info(`Installing to ${targetScope} scope: ${location}`);
+   }
+
    /**
     * `.aix/.tmp` holds only what aix can download or build again. Clearing it before the config
     * loads is what makes the load fetch every remote source afresh.
@@ -719,6 +727,9 @@ export default class Install extends BaseCommand<typeof Install> {
             configBaseDir,
             configSource,
             targetScope,
+            // A project-scope install must leave the home directory alone. Config an editor only
+            // accepts globally is reported as skipped.
+            strictTargetScope: targetScope === 'project',
          });
 
          this.handleInstallResult(editor, result, isDryRun, targetScope ?? 'project');
