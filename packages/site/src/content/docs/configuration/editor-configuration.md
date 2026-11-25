@@ -2,14 +2,33 @@
 sidebar:
    order: 4
 title: Editor configuration
-description: Configure target editors and editor-specific settings.
+description: Choose which editors aix installs to and give an editor its own rules.
 ---
 
-By default, `aix install` detects all supported editors installed on your system and syncs configuration to them. You can control this behavior and pass editor-specific settings using the `editors` field.
+By default, `aix install` looks for the supported editors installed on your machine. If it
+finds one, it installs to it. If it finds several, it asks which ones to use. The `editors`
+field in `ai.json` replaces that detection with a fixed list, and lets you add rules for one
+editor only.
+
+## Editor IDs
+
+`ai.json` and the `--target` flag refer to editors by ID:
+
+| Editor             | ID            |
+| ------------------ | ------------- |
+| Cursor             | `cursor`      |
+| GitHub Copilot     | `copilot`     |
+| Claude Code        | `claude-code` |
+| Windsurf           | `windsurf`    |
+| Zed                | `zed`         |
+| Codex              | `codex`       |
+| Google Antigravity | `antigravity` |
+| OpenCode           | `opencode`    |
+| Grok CLI           | `grok`        |
 
 ## Limiting installation
 
-To only install to specific editors, provide an array of strings:
+To install to specific editors only, list them:
 
 ```json
 {
@@ -17,7 +36,7 @@ To only install to specific editors, provide an array of strings:
 }
 ```
 
-Or use the object form:
+Or use the object form, which can also switch an editor off:
 
 ```json
 {
@@ -30,123 +49,25 @@ Or use the object form:
 }
 ```
 
-## Editor-specific settings
+When `editors` is set, aix installs to the listed, enabled editors and does not detect or ask.
+If you later take an editor off the list, the next `aix install` also removes what this
+`ai.json` had installed for that editor.
 
-The object form allows you to pass additional configuration to specific editors.
+The array form does not accept `codex` at the moment. To target Codex from `ai.json`, use the
+object form: `"editors": { "codex": { "enabled": true } }`.
 
-### Windsurf
+### Overriding the list for one run
 
-Windsurf (by Codeium) supports "Cascade" settings.
+`--target` (or `-t`) takes precedence over `editors` for a single command and can be repeated:
 
-```json
-{
-   "editors": {
-      "windsurf": {
-         "enabled": true,
-         "cascadeSettings": {
-            "mcp": {
-               "globalEnabled": true
-            }
-         }
-      }
-   }
-}
-```
-
-### Cursor
-
-Cursor has its own AI settings block.
-
-```json
-{
-   "editors": {
-      "cursor": {
-         "enabled": true,
-         "aiSettings": {
-            // Cursor specific settings
-         }
-      }
-   }
-}
-```
-
-### Claude Code
-
-Configure permissions for the Claude Code CLI tool.
-
-```json
-{
-   "editors": {
-      "claude-code": {
-         "enabled": true,
-         "permissions": {
-            "allow-file-access": true
-         }
-      }
-   }
-}
-```
-
-### OpenCode
-
-OpenCode currently uses the shared editor config shape. Target it with `enabled` and optional OpenCode-only rules:
-
-```json
-{
-   "editors": {
-      "opencode": {
-         "enabled": true,
-         "rules": {
-            "opencode-context": {
-               "content": "Prefer OpenCode commands when a reusable workflow exists."
-            }
-         }
-      }
-   }
-}
-```
-
-### Grok CLI
-
-Target Grok CLI with `enabled` and optional Grok-only rules:
-
-```json
-{
-   "editors": {
-      "grok": {
-         "enabled": true,
-         "rules": {
-            "grok-context": {
-               "content": "Prefer concise CLI explanations."
-            }
-         }
-      }
-   }
-}
-```
-
-### Antigravity
-
-Antigravity uses `.agents/` project-level configuration (and `~/.gemini/config/`), supporting subagents in `.agents/agents/`, MCP servers, rules, and Agent Skills. Standalone workflows are deprecated upstream in favor of Agent Skills; aix installs prompts as converted skills into `.agents/skills/`. Target it with `enabled` and optional Antigravity-only rules:
-
-```json
-{
-   "editors": {
-      "antigravity": {
-         "enabled": true,
-         "rules": {
-            "antigravity-context": {
-               "content": "Use Antigravity skills conventions and tools."
-            }
-         }
-      }
-   }
-}
+```bash
+aix install --target cursor --target claude-code
 ```
 
 ## Editor-specific rules
 
-Sometimes you need to give instructions to one specific AI model but not others. You can define rules nested under the editor config:
+Sometimes one editor needs an instruction the others should not get. Define rules under that
+editor in the object form:
 
 ```json
 {
@@ -162,4 +83,13 @@ Sometimes you need to give instructions to one specific AI model but not others.
 }
 ```
 
-Rules defined here will **only** be written to that editor's configuration.
+Rules defined here are written only to that editor, in addition to the shared rules in the
+top-level `rules` field. They take the same fields as any other
+[rule](/concepts/rules/).
+
+## Other settings
+
+`enabled` and `rules` are the only settings aix reads under an editor. The schema also accepts
+a `cascadeSettings` object for Windsurf, `aiSettings` for Cursor, `permissions` for Claude
+Code, and `antigravitySettings` for Google Antigravity, but aix does not write them to any
+editor.
