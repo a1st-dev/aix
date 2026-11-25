@@ -7,6 +7,26 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-25
+
+- No changes
+
+## [0.9.0] - 2026-11-23
+
+- No changes
+
+## [0.8.2] - 2026-11-04
+
+- No changes
+
+## [0.8.0] - 2026-10-01
+
+- No changes
+
+## [0.7.0] - 2026-09-08
+
+- No changes
+
 ## [0.6.0] - 2026-08-12
 
 - No changes

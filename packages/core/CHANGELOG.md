@@ -7,6 +7,8 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-25
+
 ### Added
 
 - Add `installItem` and `removeItem`, which install one skill, MCP server, rule, or other
@@ -59,14 +61,6 @@ version may appear here with no changes to this package.
 
 ### Fixed
 
-- Keep MCP auth headers when syncing a remote server between editors
-- Import remote MCP servers from Zed, which were skipped entirely
-- Write Gemini remote servers to `httpUrl`, its streamable HTTP key, and import
-  servers declared with either `httpUrl` or `url`
-- Map Codex remote auth to `http_headers`, `env_http_headers`, and
-  `bearer_token_env_var` instead of dropping it
-- Keep a disabled server in the Codex and Windsurf configs, marked disabled,
-  rather than removing it from the file
 - Keep top-level settings that hold a `command` or `url`, such as Claude Code's
   `statusLine`, in place when merging hooks, plugins, or marketplaces into a JSON config
 - Refuse to install into a Grok `config.toml` that cannot be parsed rather than replacing
@@ -153,6 +147,31 @@ version may appear here with no changes to this package.
 - Record a file outside the directory of `ai.json` relative to that directory in
   `ai.lock.json`, and leave out the download directory of a git skill. Both were absolute
   paths inside the entry digest, so the lockfile did not match on another machine
+
+## [0.9.0] - 2026-11-23
+
+- Changes to this package were not recorded for this release
+
+## [0.8.2] - 2026-11-04
+
+- Changes to this package were not recorded for this release
+
+## [0.8.0] - 2026-10-01
+
+- Changes to this package were not recorded for this release
+
+## [0.7.0] - 2026-09-08
+
+### Fixed
+
+- Keep MCP auth headers when syncing a remote server between editors
+- Import remote MCP servers from Zed, which were skipped entirely
+- Write Gemini remote servers to `httpUrl`, its streamable HTTP key, and import
+  servers declared with either `httpUrl` or `url`
+- Map Codex remote auth to `http_headers`, `env_http_headers`, and
+  `bearer_token_env_var` instead of dropping it
+- Keep a disabled server in the Codex and Windsurf configs, marked disabled,
+  rather than removing it from the file
 
 ## [0.6.0] - 2026-08-12
 

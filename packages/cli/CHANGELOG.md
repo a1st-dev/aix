@@ -7,6 +7,8 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-25
+
 ### Added
 
 - Add the `--user-home <dir>` flag and `AIX_USER_HOME` environment variable, which move
@@ -146,6 +148,22 @@ version may appear here with no changes to this package.
   printed the instruction; the other commands listed digests and nothing else
 - Fail `aix add` with a non-zero exit status when no editor is detected and `--save` was
   not passed, so the command changed nothing. With `--save` the message stays a warning
+
+## [0.9.0] - 2026-11-23
+
+- Changes to this package were not recorded for this release
+
+## [0.8.2] - 2026-11-04
+
+- Changes to this package were not recorded for this release
+
+## [0.8.0] - 2026-10-01
+
+- Changes to this package were not recorded for this release
+
+## [0.7.0] - 2026-09-08
+
+- Changes to this package were not recorded for this release
 
 ## [0.6.0] - 2026-08-12
 

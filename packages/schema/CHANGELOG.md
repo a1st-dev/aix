@@ -7,6 +7,8 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-25
+
 ### Added
 
 - Declare `sideEffects: false`, so a bundler can drop the exports a caller does not use
@@ -35,6 +37,22 @@ version may appear here with no changes to this package.
 - Correct the editor support data for Claude Code user-scope rules
   (`~/.claude/rules/*.md`) and for the name of a prompt installed as a skill
 - Note Zed's Windows config location in the editor support data
+
+## [0.9.0] - 2026-11-23
+
+- No changes
+
+## [0.8.2] - 2026-11-04
+
+- No changes
+
+## [0.8.0] - 2026-10-01
+
+- Changes to this package were not recorded for this release
+
+## [0.7.0] - 2026-09-08
+
+- Changes to this package were not recorded for this release
 
 ## [0.6.0] - 2026-08-12
 
