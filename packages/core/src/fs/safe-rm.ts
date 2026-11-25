@@ -37,14 +37,15 @@ const BLOCKED_PATHS_UNIX = new Set([
    '/var',
 ]);
 
+// pathe normalizes separators to forward slashes on every platform.
 const BLOCKED_PATHS_WINDOWS = new Set([
    'c:',
-   'c:\\',
-   'c:\\windows',
-   'c:\\program files',
-   'c:\\program files (x86)',
-   'c:\\users',
-   'c:\\programdata',
+   'c:/',
+   'c:/windows',
+   'c:/program files',
+   'c:/program files (x86)',
+   'c:/users',
+   'c:/programdata',
 ]);
 
 const DEFAULT_MAX_RETRIES = 5,
@@ -96,41 +97,47 @@ function isInTempDir(normalizedPath: string): boolean {
 }
 
 /**
- * Check if path is within a .aix directory.
+ * Editor config locations aix installs into. The two-segment entries are user-scope
+ * directories whose last segment is too common a name to trust on its own.
  */
-function isInAixDir(normalizedPath: string): boolean {
-   const isWin = getRuntimeAdapter().os.platform() === 'win32',
-         p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
-
-   return p.includes(`${sep}.aix${sep}`) || p.endsWith(`${sep}.aix`);
-}
+const EDITOR_CONFIG_DIRS = [
+   '.windsurf',
+   '.codeium',
+   '.cursor',
+   '.claude',
+   '.vscode',
+   '.zed',
+   '.codex',
+   '.gemini',
+   '.agents',
+   '.antigravity',
+   '.github',
+   '.opencode',
+   '.config/opencode',
+   '.config/github-copilot',
+   '.grok',
+] as const;
 
 /**
- * Check if path is within an editor config directory.
+ * Whether the path lies strictly inside a directory with the given name. The directory itself
+ * does not count: removing `~/.claude` or a project's `.aix` wholesale is never something aix
+ * does, so a path that resolves to one is a bug in the caller.
  */
-function isInEditorConfigDir(normalizedPath: string): boolean {
-   const editorDirs = [
-      '.windsurf',
-      '.cursor',
-      '.claude',
-      '.vscode',
-      '.zed',
-      '.codex',
-      '.gemini',
-      '.agents',
-      '.antigravity',
-      '.github',
-      '.opencode',
-      'opencode',
-      'github-copilot',
-      '.grok',
-   ];
+function isInsideDirNamed(normalizedPath: string, dirName: string): boolean {
    const isWin = getRuntimeAdapter().os.platform() === 'win32',
-         p = isWin ? normalizedPath.toLowerCase() : normalizedPath;
+         path = isWin ? normalizedPath.toLowerCase() : normalizedPath;
 
-   return editorDirs.some(
-      (dir) => p.includes(`${sep}${dir}${sep}`) || p.endsWith(`${sep}${dir}`),
-   );
+   return path.includes(`${sep}${dirName}${sep}`);
+}
+
+function isInAixDir(normalizedPath: string): boolean {
+   return isInsideDirNamed(normalizedPath, '.aix');
+}
+
+function isInEditorConfigDir(normalizedPath: string): boolean {
+   return EDITOR_CONFIG_DIRS.some((dir) => {
+      return isInsideDirNamed(normalizedPath, dir);
+   });
 }
 
 /**
