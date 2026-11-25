@@ -43,11 +43,16 @@ export async function updateConfig(
          indent = detectIndent(existingContent).indent || DEFAULT_INDENT,
          rawConfig = parseConfigContent(existingContent) as AiJsonConfig,
          updated = await updater(rawConfig),
-         validated = parseConfig(updated),
          // Use unique temp file name to avoid collisions (pid + timestamp)
          tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
-         tabSize = typeof indent === 'string' ? indent.length : indent,
-         output = applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize });
+         tabSize = typeof indent === 'string' ? indent.length : indent;
+
+   // Validation only checks the result. What gets written is the updater's own output: the
+   // parsed form drops keys the schema does not know and adds a default for every section,
+   // which would rewrite parts of the user's file that the update never touched.
+   parseConfig(updated);
+
+   const output = applyJsoncDiff(existingContent, updated, { tabSize });
 
    try {
       await fs.writeFile(tempPath, output, 'utf-8');
@@ -101,13 +106,16 @@ export async function updateLocalConfig(
    }
 
    const updated = await updater(existingConfig),
-         // Validate as local config (no extends allowed)
-         validated = parseLocalConfig(updated),
          tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
-         tabSize = typeof indent === 'string' ? indent.length : indent,
-         output = existingContent
-            ? applyJsoncDiff(existingContent, validated as unknown as Record<string, unknown>, { tabSize })
-            : JSON.stringify(validated, null, indent) + '\n';
+         tabSize = typeof indent === 'string' ? indent.length : indent;
+
+   // Validate as local config (no extends allowed). As in updateConfig, the parsed form is
+   // not what gets written.
+   parseLocalConfig(updated);
+
+   const output = existingContent
+      ? applyJsoncDiff(existingContent, updated, { tabSize })
+      : JSON.stringify(updated, null, indent) + '\n';
 
    try {
       await fs.writeFile(tempPath, output, 'utf-8');
