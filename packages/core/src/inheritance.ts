@@ -1,4 +1,4 @@
-import { resolve, dirname, join } from 'pathe';
+import { resolve, dirname, join, basename, isAbsolute } from 'pathe';
 import { detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
 import { withGitDownload, createCacheKey, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
@@ -11,7 +11,7 @@ import {
    UnsupportedRuntimeCapabilityError,
 } from './errors.js';
 import { fetchWithTimeout } from './remote-loader.js';
-import { convertBlobToRawUrl } from './url-parsing.js';
+import { convertBlobToRawUrl, parseGitHubBlobUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -21,7 +21,9 @@ const SOURCE_REF_SECTIONS = ['skills', 'rules', 'prompts', 'agents'] as const,
       FILE_PROTOCOL = 'file:',
       // Files that decide what `npm install` puts in node_modules
       DEPENDENCY_MANIFESTS = ['package.json', 'package-lock.json', 'npm-shrinkwrap.json', '.npmrc'] as const,
-      INSTALL_FINGERPRINT_FILE = '.aix-install-fingerprint';
+      INSTALL_FINGERPRINT_FILE = '.aix-install-fingerprint',
+      DEFAULT_CONFIG_FILE = 'ai.json',
+      CURRENT_DIR = '.';
 
 export interface ResolveOptions {
    baseDir: string;
@@ -255,13 +257,25 @@ function parseExtendedConfig(content: string, source: string): Record<string, un
 }
 
 /**
- * Resolve extends from a remote URL (fetch the file directly).
+ * Resolve extends from a remote URL. A GitHub blob URL names a file in a repository, so it is
+ * resolved like the git source for that file's folder: the folder is downloaded, and the
+ * config's relative paths resolve inside it. Any other URL is one file with nothing beside
+ * it, which is fetched directly.
  */
 async function resolveRemoteExtends(
    url: string,
    context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
+   const blob = parseGitHubBlobUrl(url);
+
+   if (blob) {
+      const folder = dirname(blob.path),
+            subpath = folder === CURRENT_DIR ? '' : `/${folder}`;
+
+      return resolveGitExtends(`github:${blob.owner}/${blob.repo}${subpath}#${blob.ref}`, context, visited, basename(blob.path));
+   }
+
    const chain = enterExtends(visited, url),
          rawUrl = convertBlobToRawUrl(url);
 
@@ -276,7 +290,17 @@ async function resolveRemoteExtends(
    }
 
    const parsed = parseExtendedConfig(content, url),
-         newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
+         newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1),
+         relativePaths = listRelativeSourcePaths(parsed);
+
+   // Merged into the extending config, these would be read from the user's project.
+   if (relativePaths.length > 0) {
+      throw new ConfigParseError(
+         `A config extended by URL cannot use relative paths (${relativePaths.join(', ')}). ` +
+         'Extend it with a git source such as github:org/repo/folder#ref, which downloads the files beside it.',
+         url,
+      );
+   }
 
    return resolveExtendsChain(parsed, { baseDir: newBaseUrl, context, visited: chain, isRemote: true });
 }
@@ -308,6 +332,7 @@ async function resolveGitExtends(
    extendPath: string,
    context: ExtendsContext,
    visited: ReadonlySet<string>,
+   configFileName: string = DEFAULT_CONFIG_FILE,
 ): Promise<Record<string, unknown>> {
    const chain = enterExtends(visited, extendPath),
          extendsKey = createDownloadKey(extendPath),
@@ -320,14 +345,14 @@ async function resolveGitExtends(
    // .aix/extends/ after this load. It is replaced only once the download has an ai.json that
    // parses and its dependencies are in place, so a failed load leaves the old copy usable.
    const parsed = await withGitDownload(extendPath, context.projectRoot, async (dir) => {
-      const configPath = resolve(dir, 'ai.json');
+      const configPath = resolve(dir, configFileName);
 
       if (!fs.existsSync(configPath)) {
-         throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
+         throw new ConfigParseError(`No ${configFileName} found in git repository: ${extendPath}`, configPath);
       }
 
       const config = parseExtendedConfig(fs.readFileSync(configPath, 'utf-8'), configPath),
-            installedConfigPath = resolve(permanentDir, 'ai.json');
+            installedConfigPath = resolve(permanentDir, configFileName);
 
       if (!context.installDependencies && needsDependencyInstall(dir, permanentDir)) {
          // This load may not install, and the download cannot replace the copy without its
@@ -519,6 +544,39 @@ function normalizeHookCommand(command: string, baseDir: string, powershell: bool
       const escapedPath = powershell ? absolutePath.replaceAll("'", "''") : absolutePath.replaceAll("'", "'\\''");
 
       return `'${escapedPath}'`;
+   });
+}
+
+/** The relative local paths of one skill, rule, prompt or agent reference. */
+function listRelativeRefPaths(ref: unknown): string[] {
+   if (typeof ref === 'string') {
+      const path = ref.startsWith(FILE_PROTOCOL) ? ref.slice(FILE_PROTOCOL.length) : ref;
+
+      return isLocalPath(ref) && !isAbsolute(path) ? [ ref ] : [];
+   }
+
+   if (!isRecord(ref)) {
+      return [];
+   }
+
+   // A `path` beside `git` or `npm` is a location inside that repository or package.
+   if (typeof ref.path === 'string' && !('git' in ref) && !('npm' in ref)) {
+      return isAbsolute(ref.path) ? [] : [ ref.path ];
+   }
+
+   return 'source' in ref ? listRelativeRefPaths(ref.source) : [];
+}
+
+/** Each relative local path in a config, as `section.name: path`. */
+function listRelativeSourcePaths(config: Record<string, unknown>): string[] {
+   return SOURCE_REF_SECTIONS.flatMap((section) => {
+      const sources = config[section];
+
+      return Object.entries(isRecord(sources) ? sources : {}).flatMap(([ name, ref ]) => {
+         return listRelativeRefPaths(ref).map((path) => {
+            return `${section}.${name}: ${path}`;
+         });
+      });
    });
 }
 

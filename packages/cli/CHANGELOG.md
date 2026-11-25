@@ -7,6 +7,14 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Fixed
+
+- Install skills, rules, prompts, and agents that a config extended by a GitHub blob URL
+  refers to with relative paths. `aix install` looked for them in the local project and
+  failed, while `aix validate` reported the config as valid
+- Report relative paths in a config extended by any other URL as an error in
+  `aix validate` and `aix install`
+
 ## [0.10.0] - 2026-11-25
 
 ### Added
