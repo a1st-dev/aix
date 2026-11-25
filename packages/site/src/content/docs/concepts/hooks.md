@@ -2,7 +2,7 @@
 sidebar:
    order: 60
 title: Hooks
-description: Trigger scripts on AI lifecycle events across every supported editor.
+description: Run scripts on editor lifecycle events, written in each editor's native hook format.
 ---
 
 **Hooks** run scripts in response to editor lifecycle events, such as a session starting, a
