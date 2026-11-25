@@ -1,7 +1,8 @@
 import { Command, Flags, Interfaces } from '@oclif/core';
 import chalk from 'chalk';
-import { basename, resolve } from 'pathe';
+import { basename, dirname, resolve } from 'pathe';
 import {
+   discoverConfig,
    loadConfig as coreLoadConfig,
    ConfigParseError,
    USER_HOME_ENV_VAR,
@@ -102,6 +103,17 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          this.error('No ai.json found. Run `aix init` to create one.');
       }
       return config;
+   }
+
+   /**
+    * The directory of the ai.json this command would load, or the working directory when there
+    * is none. A project's `.aix` directory sits beside its ai.json, so a command run from a
+    * subdirectory has to look there and not under the working directory.
+    */
+   protected async findProjectRoot(): Promise<string> {
+      const discovered = await discoverConfig(process.cwd(), this.flags.config);
+
+      return discovered ? dirname(discovered.path) : process.cwd();
    }
 
    protected getLockfileMode(): LockfileMode {

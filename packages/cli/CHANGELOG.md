@@ -110,6 +110,9 @@ version may appear here with no changes to this package.
   `aix search`; every result looked uninstalled
 - Reject `--scope` combined with `--user` or `--project`. A command given
   `--scope project --user` used to follow `--scope` and ignore the other flag.
+- Make `aix cache clear` clear the cache beside the `ai.json` it finds, as
+  `aix install --clean` does. Run from a subdirectory, it used to report an empty cache
+  and delete nothing.
 
 ## [0.6.0] - 2026-08-12
 

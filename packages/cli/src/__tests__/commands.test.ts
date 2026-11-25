@@ -489,6 +489,22 @@ describe('CLI Commands', () => {
          expect(installed.stderr).toContain('--user');
       });
 
+      it('clears the cache beside ai.json when run from a subdirectory', async () => {
+         const cacheEntry = join(testDir, '.aix', '.tmp', 'cache', 'entry'),
+               subdirectory = join(testDir, 'src');
+
+         await writeValidConfig(join(testDir, 'ai.json'));
+         await mkdir(dirname(cacheEntry), { recursive: true });
+         await mkdir(subdirectory);
+         await writeFile(cacheEntry, 'cached');
+         process.chdir(subdirectory);
+
+         const cleared = await runCli(['cache', 'clear']);
+
+         expect(cleared.error).toBeUndefined();
+         expect(existsSync(cacheEntry)).toStrictEqual(false);
+      });
+
       it('says that there is nothing to remove instead of asking to confirm', async () => {
          const removed = await runCli(['remove', 'rule', 'missing', '--project', '--target', 'claude-code']);
 

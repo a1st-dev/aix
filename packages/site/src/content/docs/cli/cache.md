@@ -16,8 +16,10 @@ aix cache clear
 
 Alias: `aix cache clean`
 
-The command deletes `.aix/.tmp/` in the working directory. Run it from the directory that
-holds `ai.json`. The next `aix install` downloads remote sources again.
+The command deletes `.aix/.tmp/` beside the `ai.json` it finds, searching from the working
+directory upward the way `aix install` does, so it works from any subdirectory of the project.
+`--config` picks a different `ai.json`. Without an `ai.json`, it uses the working directory.
+The next `aix install` downloads remote sources again.
 
 It does not delete anything else:
 

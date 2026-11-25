@@ -27,7 +27,6 @@ import {
    cleanStaleCache,
    clearCache,
    replaceFile,
-   discoverConfig,
    localizeRemoteConfig,
    commitImport,
    rollbackImport,
@@ -642,8 +641,7 @@ export default class Install extends BaseCommand<typeof Install> {
     * loads is what makes the load fetch every remote source afresh.
     */
    private async clearCacheBeforeLoading(remoteSource: string | undefined): Promise<void> {
-      const discovered = remoteSource ? undefined : await discoverConfig(process.cwd(), this.flags.config),
-            projectRoot = discovered ? dirname(discovered.path) : process.cwd(),
+      const projectRoot = remoteSource ? process.cwd() : await this.findProjectRoot(),
             cleared = await clearCache(projectRoot);
 
       if (cleared.deletedPaths.length > 0) {
