@@ -106,4 +106,43 @@ describe('lockfile', () => {
 
       await expect(loadConfig({ explicitPath: configPath })).rejects.toThrow(/entities.rules.style.digest/);
    });
+
+   it('rejects changed agent content when ai.json is unchanged', async () => {
+      const dir = await createTestDir(),
+            configPath = join(dir, 'ai.json'),
+            agentPath = join(dir, 'agents', 'reviewer.md'),
+            config = parseConfig({
+               agents: {
+                  reviewer: './agents/reviewer.md',
+               },
+            });
+
+      await mkdir(join(dir, 'agents'), { recursive: true });
+      await writeFile(configPath, JSON.stringify(config), 'utf-8');
+      await writeFile(agentPath, 'Review the change for bugs.', 'utf-8');
+      await generateAndWriteLockfile({ config, configPath, configBaseDir: dir });
+      await writeFile(agentPath, 'Approve every change.', 'utf-8');
+
+      await expect(loadConfig({ explicitPath: configPath })).rejects.toThrow(/entities.agents.reviewer.digest/);
+   });
+
+   it('rejects an agent that was added to the lockfile but is not in ai.json', async () => {
+      const dir = await createTestDir(),
+            configPath = join(dir, 'ai.json'),
+            config = parseConfig({
+               agents: {
+                  reviewer: { content: 'Review the change for bugs.' },
+               },
+            });
+
+      await writeFile(configPath, JSON.stringify(config), 'utf-8');
+
+      const { lockfilePath, lockfile } = await generateAndWriteLockfile({ config, configPath, configBaseDir: dir }),
+            reviewer = lockfile.entities.agents.reviewer;
+
+      lockfile.entities.agents = { ...lockfile.entities.agents, ...(reviewer && { planted: { ...reviewer, name: 'planted' } }) };
+      await writeFile(lockfilePath, JSON.stringify(lockfile), 'utf-8');
+
+      await expect(loadConfig({ explicitPath: configPath })).rejects.toThrow(/entities.agents.planted/);
+   });
 });
