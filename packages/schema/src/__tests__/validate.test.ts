@@ -231,6 +231,48 @@ describe('parseConfig', () => {
    });
 });
 
+describe('parseConfig with skill references in object form', () => {
+   it('keeps the package name of an npm reference that has a path', () => {
+      const skill = { npm: '@acme/skills', path: 'skills/pdf', version: '^1.0.0' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('keeps the package name of an npm reference that has only a version', () => {
+      const skill = { npm: 'aix-skill-pdf', version: '^1.0.0' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('keeps an npm reference inside a source wrapper', () => {
+      const skill = { source: { npm: '@acme/skills', path: 'skills/pdf' }, enabled: true },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('still reads a git reference with a path as a git reference', () => {
+      const skill = { git: 'github:acme/skills', ref: 'main', path: 'skills/pdf' },
+            parsed = parseConfig({ skills: { pdf: skill } });
+
+      expect(parsed.skills.pdf).toEqual(skill);
+   });
+
+   it('still reads an object with only a path as a local reference', () => {
+      const parsed = parseConfig({ skills: { pdf: { path: './skills/pdf' } } });
+
+      expect(parsed.skills.pdf).toEqual({ path: './skills/pdf' });
+   });
+
+   it('rejects an npm reference whose package name is not a string', () => {
+      expect(() => {
+         return parseConfig({ skills: { pdf: { npm: 42 } } });
+      }).toThrow();
+   });
+});
+
 describe('aiJsonConfigSchema', () => {
    it('has expected shape', () => {
       expect(aiJsonConfigSchema.shape).toHaveProperty('skills');
