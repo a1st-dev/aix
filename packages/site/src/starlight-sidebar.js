@@ -51,4 +51,8 @@ export const docsSidebar = [
          },
       ],
    },
+   {
+      label: 'Changelog',
+      link: '/changelog/',
+   },
 ];

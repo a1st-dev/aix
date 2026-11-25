@@ -1,0 +1,58 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import InlineCodeText from '../components/InlineCodeText.astro';
+import { changelogPage, getReleaseAnchor, getReleaseURL, listPublishedReleases } from '../lib/changelog';
+
+const { title, description, releasesURL } = changelogPage,
+      releases = listPublishedReleases();
+---
+
+<StarlightPage
+   frontmatter={{ title, description, editUrl: false }}
+   headings={releases.map((release) => ({ depth: 2, slug: getReleaseAnchor(release.version), text: release.version }))}
+>
+   <p>
+      The aix CLI (<code>@a1st/aix</code>) and its library packages are released together under
+      one version number. Each release below lists the changes per package. The same notes are
+      on the <a href={releasesURL}>GitHub releases</a> page.
+   </p>
+
+   {releases.map((release) => (
+      <section class="changelog-release">
+         <h2 id={getReleaseAnchor(release.version)}>{release.version}</h2>
+         <p class="changelog-release__meta">
+            {release.date && <>Released <time datetime={release.date}>{release.date}</time> · </>}
+            <a href={getReleaseURL(release.version)}>GitHub release</a>
+         </p>
+
+         {release.packages.length === 0 && <p>No changes were recorded for this release.</p>}
+
+         {release.packages.map((changes) => (
+            <>
+               <h3><code>{changes.name}</code></h3>
+               {changes.groups.map((group) => (
+                  <>
+                     {group.title && <h4>{group.title}</h4>}
+                     <ul>
+                        {group.entries.map((entry) => (
+                           <li><InlineCodeText text={entry} /></li>
+                        ))}
+                     </ul>
+                  </>
+               ))}
+            </>
+         ))}
+      </section>
+   ))}
+
+   <style>
+      .changelog-release {
+         margin-block-start: 2.5rem;
+      }
+
+      .changelog-release__meta {
+         color: var(--sl-color-gray-3);
+         font-size: var(--sl-text-sm);
+      }
+   </style>
+</StarlightPage>
