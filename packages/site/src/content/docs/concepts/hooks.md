@@ -5,9 +5,9 @@ title: Hooks
 description: Trigger scripts on AI lifecycle events across every supported editor.
 ---
 
-**Hooks** run scripts in response to lifecycle events (a session starts, a tool is about
-to run, a model response just landed, …). aix lets you author one set of hooks in
-`ai.json` and translates each one into the native format of every target editor.
+**Hooks** run scripts in response to editor lifecycle events, such as a session starting, a
+tool about to run, or a response finishing. You write one set of hooks in `ai.json`, and aix
+translates each one into the native format of every editor you install to.
 
 ## Usage
 
@@ -49,11 +49,11 @@ Or define hooks in `ai.json` directly:
 }
 ```
 
-When you run `aix install`, each enabled editor adapter translates that block into the
-editor's native config format and writes it to the right file. Nothing is dropped
-silently: aix warns when the editor has no hooks support at all, when an individual event
-has no native equivalent, when an action field cannot be expressed, and when the editor
-has no hooks file at the scope you targeted.
+When you run `aix install`, aix translates that block into each editor's native hook format
+and writes it to the editor's hooks file. Nothing is dropped silently: aix warns when the
+editor has no hooks support at all, when an individual event has no native equivalent, when an
+action field cannot be expressed, and when the editor has no hooks file at the scope you
+targeted.
 
 To install one hook fragment without creating `ai.json`, use direct install:
 
@@ -63,33 +63,36 @@ aix install ./hooks/pre-command.jsonc --type hook --target claude-code --user
 
 Installation preserves existing settings and distinct hook entries. For simple commands
 with readable absolute script paths (including paths beginning with `$HOME` or `${HOME}`),
-aix compares file contents rather than paths. Handlers with the same arguments,
-matchers, and options use the incoming registration, so reinstalling updates the path
-without adding another copy, even if handlers were grouped differently. Compound commands and unreadable paths use the literal
-command instead. The output lists the installed native events,
-such as `Stop`, `SubagentStop`, and `PreToolUse`.
+aix compares file contents rather than paths. Handlers with the same arguments, matchers, and
+options use the incoming registration, so reinstalling updates the path without adding another
+copy, even if handlers were grouped differently. Compound commands and unreadable paths use
+the literal command instead. The output lists the installed native events, such as `Stop`,
+`SubagentStop`, and `PreToolUse`.
 
 Existing hook config files are backed up under `.aix/.tmp/backups/` in the file's
 directory before writes. Invalid JSON stops installation without replacing the file.
 
-For inherited configs, aix resolves existing relative script paths in simple commands
-against the config's source directory. For example, `node ./hooks/check.mjs` uses the
+Hooks are inherited through [`extends`](/configuration/config-inheritance/) like the rest of
+`ai.json`. For inherited configs, aix resolves existing relative script paths in simple
+commands against the config's source directory. For example, `node ./hooks/check.mjs` uses the
 script from the extended config while keeping the editor's working directory. For
 commands with shell operators or variable expansion, use an explicit script path.
 
 ### Hooks and plugins
 
-In editors with native plugin support (such as Claude Code), hooks defined in `ai.json` and hooks bundled within enabled [plugins](/concepts/plugins/) both trigger on matching lifecycle events. Claude Code executes matching hooks in sequence (both project/user hooks and active plugin hooks run for the given event).
+In editors with native plugin support, such as Claude Code, hooks defined in `ai.json` and
+hooks bundled in enabled [plugins](/concepts/plugins/) both run on matching lifecycle events.
 
 ## Hook events
 
-aix defines a normalized event vocabulary covering every event surfaced by the supported
-editors. Adapters map each to the editor's native equivalent.
+aix defines one set of event names that covers the events the supported editors expose. On
+install, each name is mapped to the editor's native event.
 
 ### Lifecycle
 
 - `session_start`, `session_end`
 - `setup` (Claude Code's `--init-only` / `--init` / `--maintenance`)
+- `interrupt` — when the user interrupts a running turn
 
 ### Prompt
 
@@ -113,6 +116,7 @@ editors. Adapters map each to the editor's native equivalent.
 - `pre_model_request` — before sending a request to the LLM
 - `post_model_response` — when the LLM emits a response
 - `pre_response_chunk` — for every streaming chunk
+- `pre_model_switch`, `post_model_switch` — around a change of model
 
 ### Agent / response
 
@@ -130,57 +134,90 @@ editors. Adapters map each to the editor's native equivalent.
 
 ## Hook action fields
 
-Every action under `hooks[].hooks[]` accepts an optional set of fields. Adapters use
-whatever the target editor surfaces and report the rest via install-time warnings.
+Every action under `hooks[].hooks[]` accepts an optional set of fields. aix writes the fields
+the target editor supports and reports the rest as warnings at install time.
 
-| Field                                 | Purpose                                                                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type`                                | `command` (default), `http`, `mcp_tool`, `prompt`, or `agent`.                                                                                                            |
-| `command`                             | Shell command to run.                                                                                                                                                     |
-| `bash` / `powershell`                 | Cross-platform commands. Used directly by Copilot and Windsurf; Codex writes `powershell` as `commandWindows`; Claude Code expands to two entries with `shell` selectors. |
-| `shell`                               | `bash` or `powershell` selector when only one of the command fields is set.                                                                                               |
-| `cwd` / `working_directory`           | Working directory for the command.                                                                                                                                        |
-| `env`                                 | Environment variables to pass through (Copilot only today).                                                                                                               |
-| `timeout`                             | Timeout in seconds. Adapters convert (Copilot uses `timeoutSec`).                                                                                                         |
-| `async` / `async_rewake`              | Background execution. `async` also reaches Codex, which added it in 0.148.0; `async_rewake` is Claude Code only.                                                          |
-| `if`                                  | Permission-rule guard expression (Claude Code).                                                                                                                           |
-| `status_message`                      | Custom spinner message (Claude Code).                                                                                                                                     |
-| `once`                                | Run once per session (Claude Code skill / agent frontmatter).                                                                                                             |
-| `url`, `headers`, `allowed_env_vars`  | HTTP webhook fields (Claude Code `http`).                                                                                                                                 |
-| `mcp_server`, `mcp_tool`, `mcp_input` | MCP tool dispatch (Claude Code `mcp_tool`).                                                                                                                               |
-| `prompt`, `model`                     | LLM-evaluated prompt or agent (Claude Code, Cursor, Copilot `sessionStart`).                                                                                              |
-| `description`, `name`                 | Documentation / log identifier.                                                                                                                                           |
-| `fail_closed`                         | Block the action when the hook itself fails (Cursor).                                                                                                                     |
-| `loop_limit`                          | Max auto-triggered follow-ups (Cursor).                                                                                                                                   |
-| `show_output`                         | Surface output in the editor UI (Windsurf).                                                                                                                               |
+| Field                                 | Purpose                                                                                                                                                                          |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`                                | `command` (default), `http`, `mcp_tool`, `prompt`, or `agent`.                                                                                                                   |
+| `command`                             | Shell command to run.                                                                                                                                                            |
+| `bash` / `powershell`                 | Cross-platform commands. Used directly by GitHub Copilot and Windsurf; Codex writes `powershell` as `commandWindows`; Claude Code expands to two entries with `shell` selectors. |
+| `shell`                               | `bash` or `powershell` selector when only one of the command fields is set.                                                                                                      |
+| `cwd` / `working_directory`           | Working directory for the command.                                                                                                                                               |
+| `env`                                 | Environment variables to pass through (GitHub Copilot only today).                                                                                                               |
+| `timeout`                             | Timeout in seconds. aix converts where needed (GitHub Copilot uses `timeoutSec`).                                                                                                |
+| `async` / `async_rewake`              | Background execution. `async` also reaches Codex, which added it in 0.148.0; `async_rewake` is Claude Code only.                                                                 |
+| `if`                                  | Permission-rule guard expression (Claude Code).                                                                                                                                  |
+| `status_message`                      | Custom spinner message (Claude Code, Codex).                                                                                                                                     |
+| `once`                                | Run once per session (Claude Code skill / agent frontmatter).                                                                                                                    |
+| `url`, `headers`, `allowed_env_vars`  | HTTP webhook fields (Claude Code `http`; Grok CLI supports `url` and `headers`).                                                                                                 |
+| `mcp_server`, `mcp_tool`, `mcp_input` | MCP tool dispatch (Claude Code `mcp_tool`).                                                                                                                                      |
+| `prompt`, `model`                     | LLM-evaluated prompt or agent (Claude Code, Cursor, GitHub Copilot `sessionStart`).                                                                                              |
+| `description`, `name`                 | Documentation / log identifier.                                                                                                                                                  |
+| `fail_closed`                         | Block the action when the hook itself fails (Cursor).                                                                                                                            |
+| `loop_limit`                          | Max auto-triggered follow-ups (Cursor).                                                                                                                                          |
+| `show_output`                         | Surface output in the editor UI (Windsurf).                                                                                                                                      |
 
 ## Per-editor coverage
 
-| Event family                                                       | Claude Code |                       Cursor                        |       Copilot        |                Windsurf                 |     Antigravity      |
-| ------------------------------------------------------------------ | :---------: | :-------------------------------------------------: | :------------------: | :-------------------------------------: | :------------------: |
-| `session_start` / `session_end`                                    |     yes     |                         yes                         |         yes          |                    —                    |         yes          |
-| `setup`                                                            |     yes     |                          —                          |          —           |                    —                    |          —           |
-| `user_prompt_expansion`                                            |     yes     |                          —                          |          —           |                    —                    |          —           |
-| `pre_prompt`                                                       |     yes     |                         yes                         |         yes          |                   yes                   |          —           |
-| `pre_tool_use` / `post_tool_use`                                   |     yes     |                         yes                         |         yes          | maps to read/write/command/mcp variants |         yes          |
-| `post_tool_use_failure`                                            |     yes     |                         yes                         |         yes          |                    —                    |          —           |
-| `permission_request` / `permission_denied`                         |     yes     |        `permission_request` via `preToolUse`        |    yes (request)     |                    —                    |          —           |
-| `pre_tool_selection`                                               |      —      |                          —                          |          —           |                    —                    |         yes          |
-| `pre_model_request` / `post_model_response` / `pre_response_chunk` |      —      | partial (`afterAgentResponse`, `afterAgentThought`) |          —           |                    —                    |         yes          |
-| `pre_agent` / `post_agent`                                         |      —      |                          —                          |          —           |                    —                    |         yes          |
-| `post_response` / `post_response_with_transcript`                  |      —      |                       partial                       |          —           |      yes (with transcript variant)      |          —           |
-| `agent_stop` / `subagent_*`                                        |     yes     |                         yes                         |         yes          |            `agent_stop` only            |          —           |
-| `pre_compact` / `post_compact`                                     |     yes     |                   yes (pre only)                    |    yes (pre only)    |                    —                    | yes (`PreCompress`)  |
-| Tab hooks                                                          |      —      |                         yes                         |          —           |                    —                    |          —           |
-| `notification` / `elicitation*`                                    |     yes     |                          —                          | yes (`notification`) |                    —                    | yes (`Notification`) |
-| `error_occurred`                                                   |      —      |                          —                          |         yes          |                    —                    |          —           |
-| Worktree / fs / config events                                      |     yes     |                          —                          |          —           |       `post_setup_worktree` only        |          —           |
+This table shows which aix events each editor has a native event for. "yes" means aix writes
+the hook; "—" means the editor has no equivalent, and aix warns and skips that event for that
+editor. Zed and OpenCode have no hooks support and are left out.
 
-## Decision output (per editor)
+| Event                                                                                    | Claude Code |     Cursor      | GitHub Copilot | Windsurf | Codex | Google Antigravity | Grok CLI |
+| ---------------------------------------------------------------------------------------- | :---------: | :-------------: | :------------: | :------: | :---: | :----------------: | :------: |
+| `session_start`, `session_end`                                                           |     yes     |       yes       |      yes       |    —     |  yes  |        yes         |   yes    |
+| `setup`                                                                                  |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `interrupt`                                                                              |      —      |        —        |       —        |    —     |  yes  |         —          |    —     |
+| `pre_prompt`                                                                             |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `user_prompt_expansion`                                                                  |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `pre_tool_use`, `post_tool_use`                                                          |     yes     |       yes       |      yes       |    —     |  yes  |        yes         |   yes    |
+| `post_tool_use_failure`                                                                  |     yes     |       yes       |      yes       |    —     |   —   |         —          |   yes    |
+| `post_tool_batch`                                                                        |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `permission_request`                                                                     |     yes     | as `preToolUse` |      yes       |    —     |  yes  |         —          |    —     |
+| `permission_denied`                                                                      |     yes     |        —        |       —        |    —     |   —   |         —          |   yes    |
+| `pre_file_read`                                                                          |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `post_file_read`, `pre_file_write`                                                       |     yes     |        —        |      yes       |   yes    |  yes  |         —          |   yes    |
+| `post_file_write`                                                                        |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `pre_command`, `post_command`                                                            |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `pre_mcp_tool`, `post_mcp_tool`                                                          |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `pre_tab_file_read`, `post_tab_file_edit`                                                |      —      |       yes       |       —        |    —     |   —   |         —          |    —     |
+| `pre_response_chunk`                                                                     |      —      |       yes       |       —        |    —     |   —   |         —          |    —     |
+| `pre_model_switch`, `post_model_switch`                                                  |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `pre_agent`, `post_agent`                                                                |      —      |        —        |       —        |    —     |   —   |        yes         |    —     |
+| `post_response`, `post_response_with_transcript`                                         |      —      |       yes       |       —        |   yes    |   —   |         —          |    —     |
+| `agent_stop`                                                                             |     yes     |       yes       |      yes       |   yes    |  yes  |        yes         |   yes    |
+| `subagent_start`, `subagent_stop`                                                        |     yes     |       yes       |      yes       |    —     |  yes  |         —          |    —     |
+| `subagent_idle`                                                                          |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `pre_compact`                                                                            |     yes     |       yes       |      yes       |    —     |  yes  |         —          |   yes    |
+| `post_compact`                                                                           |     yes     |        —        |       —        |    —     |  yes  |         —          |   yes    |
+| `task_created`, `task_completed`                                                         |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `worktree_setup`                                                                         |     yes     |        —        |       —        |   yes    |   —   |         —          |    —     |
+| `worktree_remove`                                                                        |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `instructions_loaded`, `config_change`, `cwd_changed`, `directory_added`, `file_changed` |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `notification`                                                                           |     yes     |        —        |      yes       |    —     |   —   |         —          |   yes    |
+| `elicitation`, `elicitation_result`                                                      |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
+| `error_occurred`                                                                         |      —      |        —        |      yes       |    —     |   —   |         —          |    —     |
 
-aix only writes the hook configuration. Whether a hook _blocks_ an action is a contract
-between your script and the editor. The shapes scripts must print to stdout (or signal
-via exit code 2) are summarized below.
+`pre_tool_selection`, `pre_model_request`, and `post_model_response` are part of the event
+vocabulary, but no supported editor has a native equivalent today.
+
+Where an editor has no dedicated file, command, or MCP event, aix writes those events as the
+editor's general tool hook with a matcher for the relevant tools. Each editor page lists the
+native event names aix can write for it:
+[Cursor](/editors/cursor/#cursor-feature-hooks),
+[GitHub Copilot](/editors/copilot/#copilot-feature-hooks),
+[Claude Code](/editors/claude-code/#claude-code-feature-hooks),
+[Windsurf](/editors/windsurf/#windsurf-feature-hooks),
+[Codex](/editors/codex/#codex-feature-hooks),
+[Google Antigravity](/editors/antigravity/#antigravity-feature-hooks), and
+[Grok CLI](/editors/grok/#grok-feature-hooks).
+
+## Decision output per editor
+
+aix only writes the hook configuration. Whether a hook blocks an action is decided between
+your script and the editor. The output each editor expects on stdout, or the exit code it
+treats as a block, is summarized below.
 
 ### Claude Code
 
@@ -212,7 +249,7 @@ Exit code 2 also blocks the matching event.
 
 Cursor also accepts `failClosed: true` on the hook config to block on hook errors.
 
-### GitHub Copilot CLI
+### GitHub Copilot
 
 ```json
 {
@@ -224,7 +261,7 @@ Cursor also accepts `failClosed: true` on the hook config to block on hook error
 
 `agentStop` and `subagentStop` use `{ "decision": "block|allow", "reason": "..." }`.
 
-### Windsurf Cascade
+### Windsurf
 
 Pre-hooks block the action with **exit code 2** and use stderr as the rejection reason.
 Post-hooks cannot block.
@@ -238,20 +275,14 @@ Post-hooks cannot block.
 }
 ```
 
-## Editor-native config locations
+## Where hooks are written
 
-| Editor      | Project                                  | User                                        |
-| ----------- | ---------------------------------------- | ------------------------------------------- |
-| Claude Code | `.claude/settings.json`                  | `~/.claude/settings.json`                   |
-| Cursor      | `.cursor/hooks.json` (with `version: 1`) | `~/.cursor/hooks.json`                      |
-| Copilot     | `.github/hooks/hooks.json`               | `~/.config/github-copilot/hooks/hooks.json` |
-| Windsurf    | `.windsurf/hooks.json`                   | `~/.codeium/windsurf/hooks.json`            |
-| Antigravity | `.agents/hooks.json`                     | `~/.gemini/config/hooks.json`               |
-| Codex       | `.codex/hooks.json`                      | `~/.codex/hooks.json`                       |
-| Grok        | `.grok/hooks.json`                       | `~/.grok/hooks.json`                        |
+Each editor has one hooks file per scope. Claude Code keeps hooks in its `settings.json`, and
+the other editors use a dedicated `hooks.json`. The exact project and user paths are on each
+editor page, linked in the list above.
 
-Codex also reads hooks from inline `[hooks]` tables in `config.toml`. aix writes the
-JSON files instead, so it never has to rewrite the TOML file that holds your MCP servers.
+Codex also reads hooks from inline `[hooks]` tables in `config.toml`. aix writes the JSON
+files instead, so it never has to rewrite the TOML file that holds your MCP servers.
 
-Zed and OpenCode do not currently support hooks. aix warns when you target them with a
-hook config.
+Zed and OpenCode do not support hooks. aix warns when an install that contains hooks targets
+them.
