@@ -9,6 +9,9 @@ interface Props {
   description: string;
   code?: string;
   language?: 'json' | 'text';
+  /** Where the link under the description goes. Needs `linkLabel`. */
+  href?: string;
+  linkLabel?: string;
   reverse?: boolean;
   delay?: number;
 }
@@ -19,6 +22,8 @@ const {
   description,
   code,
   language = 'text',
+  href,
+  linkLabel,
   reverse = false,
   delay = 0,
 } = Astro.props;
@@ -62,6 +67,7 @@ const highlightJson = (input: string) => {
     <span class="feature-card__label">{label}</span>
     <h3 class="feature-card__title">{title}</h3>
     <p class="feature-card__desc">{description}</p>
+    {href && linkLabel && <a class="feature-card__link" href={href}>{linkLabel} →</a>}
   </div>
   <div class="feature-card__code">
     <slot>
@@ -116,6 +122,19 @@ const highlightJson = (input: string) => {
     line-height: 1.65;
     color: var(--aix-text-muted);
     margin: 0;
+  }
+  .feature-card__link {
+    align-self: flex-start;
+    font-family: var(--sl-font);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--sl-color-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+    text-underline-offset: 0.2em;
+  }
+  .feature-card__link:hover {
+    text-decoration-color: currentColor;
   }
   .feature-card__code {
     flex: 3 1 30rem;
