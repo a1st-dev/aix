@@ -55,17 +55,6 @@ export class ConfigParseError extends ConfigError {
    }
 }
 
-export class EmbeddedConfigUpdateError extends ConfigError {
-   constructor(public readonly packageJsonPath: string) {
-      super(
-         `Cannot update config embedded in package.json (${packageJsonPath}). ` +
-            'Extract the "ai" field to a separate ai.json file first, or use ' +
-            '"ai": "./ai.json" in package.json to reference an external file.',
-         'EMBEDDED_CONFIG_UPDATE',
-      );
-   }
-}
-
 export class RemoteFetchError extends ConfigError {
    constructor(
       public readonly url: string,

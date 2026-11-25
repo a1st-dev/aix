@@ -46,6 +46,7 @@ version may appear here with no changes to this package.
   the `autoConfirmGlobal` apply option. Their write paths were unreachable from an install
   and overwrote a global config file that failed to parse. `planGlobalChanges` replaces
   the first
+- Remove `EmbeddedConfigUpdateError`, which nothing threw
 
 ### Fixed
 
@@ -129,6 +130,11 @@ version may appear here with no changes to this package.
 - Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and
   Antigravity on macOS by its application support directory; its list held an absolute
   `/Applications` path that was joined onto the home directory and never matched
+- Update a config kept in the `ai` field of `package.json` inside that field.
+  `updateConfig` wrote the changed sections to the top level of `package.json`, so
+  `aix add --save` reported success and the item was never read
+- Resolve the local overrides of a config in `package.json` to `ai.local.json`, the file
+  discovery reads, and not to `package.local.json`
 
 ## [0.6.0] - 2026-08-12
 

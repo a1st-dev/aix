@@ -184,6 +184,32 @@ describe('updateConfig', () => {
    });
 });
 
+describe('updateConfig with a config in package.json', () => {
+   beforeEach(async () => {
+      await mkdir(testDir, { recursive: true });
+   });
+
+   afterEach(async () => {
+      await safeRm(testDir, { force: true });
+   });
+
+   it('changes the ai field and leaves the rest of package.json alone', async () => {
+      const packageJsonPath = join(testDir, 'package.json');
+
+      await writeFile(packageJsonPath, JSON.stringify({ name: 'demo', version: '1.0.0', ai: { rules: {} } }, null, 2), 'utf-8');
+
+      await updateConfig(packageJsonPath, (config) => {
+         return { ...config, rules: { strict: { content: 'Use strict mode.' } } };
+      });
+
+      expect(JSON.parse(await readFile(packageJsonPath, 'utf-8'))).to.eql({
+         name: 'demo',
+         version: '1.0.0',
+         ai: { rules: { strict: { content: 'Use strict mode.' } } },
+      });
+   });
+});
+
 describe('updateLocalConfig', () => {
    beforeEach(async () => {
       await mkdir(testDir, { recursive: true });

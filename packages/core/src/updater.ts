@@ -1,4 +1,4 @@
-import { resolve, dirname, join } from 'pathe';
+import { basename, resolve, dirname, join } from 'pathe';
 import detectIndent from 'detect-indent';
 import { parseConfig, parseLocalConfig, applyJsoncDiff, type AiJsonConfig } from '@a1st/aix-schema';
 import { parseConfigContent } from './discovery.js';
@@ -6,6 +6,7 @@ import { createBackup } from './backup.js';
 import { ConfigNotFoundError } from './errors.js';
 import { replaceFile } from './fs/replace-file.js';
 import { getRuntimeAdapter } from './runtime/index.js';
+import { isRecord } from './type-guards.js';
 
 const DEFAULT_INDENT = 2;
 
@@ -17,6 +18,13 @@ export type LocalConfigUpdater = (
 export interface UpdateOptions {
    /** Create a backup before updating (default: true) */
    backup?: boolean;
+}
+
+type PackageJsonWithConfig = Record<string, unknown> & { ai: Record<string, unknown> };
+
+/** Whether the config is the `ai` field of a package.json, which is then the part to change. */
+function isEmbeddedConfig(path: string, document: unknown): document is PackageJsonWithConfig {
+   return basename(path) === 'package.json' && isRecord(document) && isRecord(document.ai);
 }
 
 export async function updateConfig(
@@ -42,7 +50,9 @@ export async function updateConfig(
    // inherit from remote sources.
    const existingContent = await fs.readFile(absolutePath, 'utf-8'),
          indent = detectIndent(existingContent).indent || DEFAULT_INDENT,
-         rawConfig = parseConfigContent(existingContent) as AiJsonConfig,
+         document = parseConfigContent(existingContent),
+         isEmbedded = isEmbeddedConfig(absolutePath, document),
+         rawConfig = (isEmbedded ? document.ai : document) as AiJsonConfig,
          updated = await updater(rawConfig),
          tabSize = typeof indent === 'string' ? indent.length : indent;
 
@@ -51,7 +61,7 @@ export async function updateConfig(
    // which would rewrite parts of the user's file that the update never touched.
    parseConfig(updated);
 
-   const output = applyJsoncDiff(existingContent, updated, { tabSize });
+   const output = applyJsoncDiff(existingContent, isEmbedded ? { ...document, ai: updated } : updated, { tabSize });
 
    await replaceFile(absolutePath, output);
 }

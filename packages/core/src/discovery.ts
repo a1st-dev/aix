@@ -1,4 +1,4 @@
-import { resolve, dirname, join } from 'pathe';
+import { basename, resolve, dirname, join } from 'pathe';
 import { parseJsonc } from '@a1st/aix-schema';
 import { ConfigParseError } from './errors.js';
 import { getRuntimeAdapter } from './runtime/index.js';
@@ -139,6 +139,11 @@ export async function discoverConfig(
 export function getLocalConfigPath(configPath: string): string {
    const absolutePath = resolve(configPath);
 
+   // A config in the `ai` field of package.json takes its overrides from the same
+   // ai.local.json as an ai.json in that directory would.
+   if (basename(absolutePath) === 'package.json') {
+      return join(dirname(absolutePath), 'ai.local.json');
+   }
    if (absolutePath.endsWith('ai.json')) {
       return absolutePath.replace(/ai\.json$/, 'ai.local.json');
    }
