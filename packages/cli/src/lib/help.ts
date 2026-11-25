@@ -17,7 +17,9 @@ export default class CustomHelp extends Help {
 
       return this.section('TOPIC GROUPS (use "aix <topic>" for subcommands)', body);
    }
-   protected formatRoot(): string {
+   // Public because newer @oclif/core releases declare it public on Help, and a subclass may
+   // widen a protected member but not narrow a public one. This compiles against both.
+   public formatRoot(): string {
       return `aix - Unified AI agent and editor configuration
 
 ${super.formatRoot()}`;
