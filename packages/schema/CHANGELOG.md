@@ -7,6 +7,10 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Fixed
+
+- Accept the `{ "npm", "path", "version" }` object form for skill and plugin sources
+
 ## [0.6.0] - 2026-08-12
 
 ### Added

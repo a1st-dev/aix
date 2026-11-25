@@ -68,6 +68,25 @@
                                  {
                                     "type": "object",
                                     "properties": {
+                                       "npm": {
+                                          "type": "string",
+                                          "description": "NPM package name (e.g., \"@company/skills\")"
+                                       },
+                                       "path": {
+                                          "type": "string",
+                                          "description": "Subdirectory within the package"
+                                       },
+                                       "version": {
+                                          "type": "string",
+                                          "description": "Version to auto-install (omit to use project node_modules)"
+                                       }
+                                    },
+                                    "required": ["npm"],
+                                    "additionalProperties": false
+                                 },
+                                 {
+                                    "type": "object",
+                                    "properties": {
                                        "path": {
                                           "type": "string",
                                           "description": "Local file or directory path"
@@ -121,6 +140,25 @@
                                              }
                                           },
                                           "required": ["git"],
+                                          "additionalProperties": false
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "npm": {
+                                                "type": "string",
+                                                "description": "NPM package name (e.g., \"@company/skills\")"
+                                             },
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Subdirectory within the package"
+                                             },
+                                             "version": {
+                                                "type": "string",
+                                                "description": "Version to auto-install (omit to use project node_modules)"
+                                             }
+                                          },
+                                          "required": ["npm"],
                                           "additionalProperties": false
                                        },
                                        {
@@ -2539,6 +2577,25 @@
                                              }
                                           },
                                           "required": ["git"],
+                                          "additionalProperties": false
+                                       },
+                                       {
+                                          "type": "object",
+                                          "properties": {
+                                             "npm": {
+                                                "type": "string",
+                                                "description": "NPM package name (e.g., \"@company/skills\")"
+                                             },
+                                             "path": {
+                                                "type": "string",
+                                                "description": "Subdirectory within the package"
+                                             },
+                                             "version": {
+                                                "type": "string",
+                                                "description": "Version to auto-install (omit to use project node_modules)"
+                                             }
+                                          },
+                                          "required": ["npm"],
                                           "additionalProperties": false
                                        },
                                        {

@@ -23,6 +23,7 @@ version may appear here with no changes to this package.
 - Keep every backup in one store at `~/.aix/backups`, keyed by the original file's path;
   backups were written to a `.aix/.tmp/backups` directory beside each edited file,
   including inside editor config directories
+- Require the parsed input as the second argument of `toConfigValidationError`
 
 ### Removed
 
@@ -32,6 +33,8 @@ version may appear here with no changes to this package.
   config
 - Remove `getBackupsDir` and the `backups` category of `getCacheStatus`; backups are no
   longer cache content
+- Remove the unused `hasUnresolvedEnvVars` and `hasUnresolvedVariables` exports, and
+  `ResolveOptions.visited`
 
 ### Fixed
 
@@ -57,6 +60,29 @@ version may appear here with no changes to this package.
   `removePluginFromEditor`, or `removeMarketplaceFromEditor` rewrites it
 - Stop importing path-scoped Claude Code rules from `~/.claude/CLAUDE.md`; the import
   loaded every rule in every session, so a rule's `paths` had no effect
+- Key git caches and download directories by a hash of the full URL, ref, and path; every
+  GitHub skill shared one cache directory, and a rule's cache ignored its ref and path
+- Allow extended configs to share a base config without reporting a circular dependency
+- Rebase object-form rule, prompt, agent, and skill paths from extended configs
+- Detect changed agents when checking `ai.lock.json`
+- Copy string-form skills and same-named rule files when saving a remote config with
+  `--copy`; name imported files after their config key
+- Merge a new import into `.aix/imported` instead of replacing earlier imports
+- Show the received value in `ai.json` validation errors
+- Parse frontmatter with CRLF line endings, a byte order mark, or no trailing newline
+- Time out stalled remote config and `extends` downloads
+- Install git `extends` dependencies with npm and without lifecycle scripts, and only when
+  their manifests change
+- Keep the existing `.aix/extends` copy when a download or install fails
+- Change only the updated entries when writing `ai.json` and `ai.local.json`; unknown keys
+  were deleted and empty sections added
+- Report circular `extends`, failed downloads, and syntax errors in extended configs with
+  their own error type and file
+- Install versioned npm sources into `.aix/.tmp` instead of the project's `node_modules`
+- Let an explicit `"activation": "always"` override rule frontmatter
+- Keep the ref when normalizing a GitHub tree URL for `--extends`
+- Accept a single-server `mcpServers` file without `--name`
+- Apply `ai.local.json` when the config path is given explicitly
 
 ## [0.6.0] - 2026-08-12
 
