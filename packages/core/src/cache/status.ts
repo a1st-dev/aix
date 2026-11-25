@@ -1,5 +1,5 @@
 import { join } from 'pathe';
-import { getBackupsDir, getCacheDir, getNpmCacheDir } from './paths.js';
+import { getCacheDir, getNpmCacheDir } from './paths.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface CacheEntry {
@@ -16,7 +16,6 @@ export interface CacheCategory {
 
 export interface CacheStatus {
    totalSize: number;
-   backups: CacheCategory;
    gitCache: CacheCategory;
    npmCache: CacheCategory;
 }
@@ -26,27 +25,17 @@ export interface CacheStatus {
  */
 export async function getCacheStatus(projectRoot: string): Promise<CacheStatus> {
    // Check both new (.tmp/) and legacy paths
-   const [backups, gitCache, npmCache] = await Promise.all([
-      scanDirectory(getBackupsDir(projectRoot)),
-      scanDirectory(getCacheDir(projectRoot)),
-      scanDirectory(getNpmCacheDir(projectRoot)),
-   ]);
-
-   // Also check legacy paths (for migration)
-   const [legacyBackups, legacyGitCache, legacyNpmCache] = await Promise.all([
-      scanDirectory(join(projectRoot, '.aix', 'backups')),
-      scanDirectory(join(projectRoot, '.aix', 'cache')),
-      scanDirectory(join(projectRoot, '.aix', 'node_modules')),
-   ]);
-
-   // Merge new and legacy results
-   const mergedBackups = mergeCategories(backups, legacyBackups),
+   const [gitCache, npmCache, legacyGitCache, legacyNpmCache] = await Promise.all([
+            scanDirectory(getCacheDir(projectRoot)),
+            scanDirectory(getNpmCacheDir(projectRoot)),
+            scanDirectory(join(projectRoot, '.aix', 'cache')),
+            scanDirectory(join(projectRoot, '.aix', 'node_modules')),
+         ]),
          mergedGitCache = mergeCategories(gitCache, legacyGitCache),
          mergedNpmCache = mergeCategories(npmCache, legacyNpmCache);
 
    return {
-      totalSize: mergedBackups.size + mergedGitCache.size + mergedNpmCache.size,
-      backups: mergedBackups,
+      totalSize: mergedGitCache.size + mergedNpmCache.size,
       gitCache: mergedGitCache,
       npmCache: mergedNpmCache,
    };

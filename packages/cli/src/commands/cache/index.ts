@@ -1,7 +1,7 @@
 import { Command, Help } from '@oclif/core';
 
 export default class CacheIndex extends Command {
-   static override description = 'Clear cache and backups';
+   static override description = 'Clear cache files created by aix';
 
    static override hidden = true;
    static override strict = false;

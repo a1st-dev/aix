@@ -15,13 +15,6 @@ export function getTmpDir(projectRoot: string): string {
 }
 
 /**
- * Get the backups directory path.
- */
-export function getBackupsDir(projectRoot: string): string {
-   return join(projectRoot, '.aix', '.tmp', 'backups');
-}
-
-/**
  * Get the cache directory path (git-sourced rules/prompts).
  */
 export function getCacheDir(projectRoot: string): string {

@@ -1,9 +1,10 @@
-import { basename, dirname, join } from 'pathe';
+import { basename, join } from 'pathe';
 import { isRecord } from '../type-guards.js';
 import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import { applyFileChanges } from './apply-file-changes.js';
 import { getAdapter } from './install.js';
 import { importFromEditor } from './import.js';
 import type { EditorName } from './types.js';
@@ -194,8 +195,7 @@ export async function removeMcpFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.mkdir(dirname(configPath), { recursive: true });
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {
@@ -346,7 +346,7 @@ export async function removeHookFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, next.content, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: next.content }]);
 
       return { ...result, removed: true, removedCount: next.removedCount };
    } catch (error) {
@@ -447,7 +447,7 @@ export async function removeMarketplaceFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {
@@ -557,7 +557,7 @@ export async function removePluginFromEditor(
          return result;
       }
 
-      await getRuntimeAdapter().fs.writeFile(configPath, nextContent, 'utf-8');
+      await applyFileChanges([{ path: configPath, action: 'update', content: nextContent }]);
 
       return { ...result, removed: true };
    } catch (error) {

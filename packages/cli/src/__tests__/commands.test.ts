@@ -447,6 +447,53 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('backups', () => {
+      const original = JSON.stringify({ numStartups: 7, mcpServers: { mine: { command: 'node', args: ['mine.js'] } } }, null, 2);
+      let claudeConfigPath: string;
+
+      beforeEach(async () => {
+         claudeConfigPath = join(process.env.HOME ?? '', '.claude.json');
+         await writeFile(claudeConfigPath, original);
+         await writeValidConfig(join(testDir, 'ai.json'), { mcp: { docs: { command: 'node', args: ['docs.js'] } } });
+         await runCli(['install', '--target', 'claude-code', '--user']);
+      });
+
+      it('lists the backup of a user-level file from any directory and restores it', async () => {
+         const listed = await runCli(['backups', '--json']),
+               backups = JSON.parse(listed.stdout);
+
+         expect(backups).toHaveLength(1);
+         expect(backups[0].originalPath).toStrictEqual(claudeConfigPath);
+         expect(await readFile(claudeConfigPath, 'utf-8')).toContain('docs');
+
+         const restored = await runCli(['backups', 'restore', backups[0].path, '--yes']);
+
+         expect(restored.error).toBeUndefined();
+         expect(await readFile(claudeConfigPath, 'utf-8')).toStrictEqual(original);
+      });
+
+      it('survives clearing the cache from the home directory', async () => {
+         process.chdir(process.env.HOME ?? '');
+         await mkdir(join(process.cwd(), '.aix', '.tmp', 'cache'), { recursive: true });
+         await writeFile(join(process.cwd(), '.aix', '.tmp', 'cache', 'entry'), 'cached');
+
+         await runCli(['cache', 'clear']);
+
+         expect(await listBackups(claudeConfigPath)).toHaveLength(1);
+      });
+
+      it('backs up an editor config before removing a server from it', async () => {
+         const removed = await runCli(['remove', 'mcp', 'mine', '--yes', '--user', '--target', 'claude-code']),
+               backups = await listBackups(claudeConfigPath),
+               newest = await readFile(backups[0]?.path ?? '', 'utf-8');
+
+         expect(removed.error).toBeUndefined();
+         expect(backups).toHaveLength(2);
+         expect(newest).toContain('"mine"');
+         expect(await readFile(claudeConfigPath, 'utf-8')).not.toContain('"mine"');
+      });
+   });
+
    describe('install --clean', () => {
       it('clears the project cache and keeps skills, imported content, and the user config', async () => {
          const home = process.env.HOME ?? '',

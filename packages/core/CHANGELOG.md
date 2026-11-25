@@ -13,11 +13,16 @@ version may appear here with no changes to this package.
   Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
 - Add `findNativeItemPath`, which locates the native file for a named skill, rule, prompt,
   or agent through the editor's importer
+- Add `listAllBackups`, `pruneBackups`, and `getBackupStoreDir`; `restoreBackup` can now
+  find the original path itself and backs up the file it replaces
 
 ### Changed
 
 - Change `trackRemoval` to take an options object; with `editors` it removes only those
   editors from the state entry
+- Keep every backup in one store at `~/.aix/backups`, keyed by the original file's path;
+  backups were written to a `.aix/.tmp/backups` directory beside each edited file,
+  including inside editor config directories
 
 ### Removed
 
@@ -25,6 +30,8 @@ version may appear here with no changes to this package.
   than merging into them
 - Remove the `clean` apply option; clear the cache with `clearCache` before loading a
   config
+- Remove `getBackupsDir` and the `backups` category of `getCacheStatus`; backups are no
+  longer cache content
 
 ### Fixed
 
@@ -46,6 +53,8 @@ version may appear here with no changes to this package.
   against forward-slash ones
 - Refuse to install a skill over an existing editor skill directory that aix did not
   create; it used to delete the directory and replace it with a link
+- Back up an editor config file before `removeMcpFromEditor`, `removeHookFromEditor`,
+  `removePluginFromEditor`, or `removeMarketplaceFromEditor` rewrites it
 
 ## [0.6.0] - 2026-08-12
 

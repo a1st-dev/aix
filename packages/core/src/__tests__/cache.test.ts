@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'pathe';
+import { dirname, join } from 'pathe';
 import { existsSync } from 'node:fs';
 import {
    getCacheStatus,
    clearCache,
    cleanStaleCache,
-   getBackupsDir,
    getCacheDir,
    getTmpDir,
 } from '../cache/index.js';
@@ -29,44 +28,32 @@ describe('cache utilities', () => {
          const status = await getCacheStatus(testDir);
 
          expect(status.totalSize).toBe(0);
-         expect(status.backups.size).toBe(0);
-         expect(status.backups.count).toBe(0);
          expect(status.gitCache.size).toBe(0);
          expect(status.npmCache.size).toBe(0);
       });
 
       it('calculates correct sizes for cache entries', async () => {
          // Create some cache files in the new .tmp/ structure
-         const backupsDir = getBackupsDir(testDir),
-               cacheDir = getCacheDir(testDir);
+         const cacheDir = getCacheDir(testDir);
 
-         await mkdir(backupsDir, { recursive: true });
          await mkdir(cacheDir, { recursive: true });
-
-         await writeFile(join(backupsDir, 'ai.json.backup'), 'backup content');
          await writeFile(join(cacheDir, 'rule-cache'), 'cached rule content');
 
          const status = await getCacheStatus(testDir);
 
          expect(status.totalSize).toBeGreaterThan(0);
-         expect(status.backups.count).toBe(1);
          expect(status.gitCache.count).toBe(1);
       });
 
       it('includes legacy paths in status', async () => {
          // Create files in legacy locations
-         const legacyBackups = join(testDir, '.aix', 'backups'),
-               legacyCache = join(testDir, '.aix', 'cache');
+         const legacyCache = join(testDir, '.aix', 'cache');
 
-         await mkdir(legacyBackups, { recursive: true });
          await mkdir(legacyCache, { recursive: true });
-
-         await writeFile(join(legacyBackups, 'old.backup'), 'old backup');
          await writeFile(join(legacyCache, 'old-cache'), 'old cache');
 
          const status = await getCacheStatus(testDir);
 
-         expect(status.backups.count).toBe(1);
          expect(status.gitCache.count).toBe(1);
       });
    });
@@ -81,10 +68,10 @@ describe('cache utilities', () => {
 
       it('clears .tmp directory', async () => {
          const tmpDir = getTmpDir(testDir),
-               backupsDir = getBackupsDir(testDir);
+               cacheDir = getCacheDir(testDir);
 
-         await mkdir(backupsDir, { recursive: true });
-         await writeFile(join(backupsDir, 'test.backup'), 'backup content');
+         await mkdir(cacheDir, { recursive: true });
+         await writeFile(join(cacheDir, 'rule-cache'), 'cached rule content');
 
          expect(existsSync(tmpDir)).toBe(true);
 
@@ -95,24 +82,32 @@ describe('cache utilities', () => {
       });
 
       it('clears legacy directories', async () => {
-         const legacyBackups = join(testDir, '.aix', 'backups'),
-               legacyCache = join(testDir, '.aix', 'cache'),
+         const legacyCache = join(testDir, '.aix', 'cache'),
                legacyNodeModules = join(testDir, '.aix', 'node_modules');
 
-         await mkdir(legacyBackups, { recursive: true });
          await mkdir(legacyCache, { recursive: true });
          await mkdir(legacyNodeModules, { recursive: true });
 
-         await writeFile(join(legacyBackups, 'old.backup'), 'content');
          await writeFile(join(legacyCache, 'old-cache'), 'content');
          await writeFile(join(legacyNodeModules, 'package.json'), '{}');
 
          const result = await clearCache(testDir);
 
          expect(result.freedBytes).toBeGreaterThan(0);
-         expect(existsSync(legacyBackups)).toBe(false);
          expect(existsSync(legacyCache)).toBe(false);
          expect(existsSync(legacyNodeModules)).toBe(false);
+      });
+
+      it('leaves .aix/backups alone, which is the backup store when run from the home directory', async () => {
+         const backupFile = join(testDir, '.aix', 'backups', 'home', 'settings.json.2026-01-01T00-00-00-000Z.backup');
+
+         await mkdir(dirname(backupFile), { recursive: true });
+         await mkdir(getCacheDir(testDir), { recursive: true });
+         await writeFile(backupFile, 'backup');
+
+         await clearCache(testDir);
+
+         expect(existsSync(backupFile)).toStrictEqual(true);
       });
 
       it('preserves skills directory', async () => {
@@ -120,10 +115,10 @@ describe('cache utilities', () => {
                tmpDir = getTmpDir(testDir);
 
          await mkdir(skillsDir, { recursive: true });
-         await mkdir(join(tmpDir, 'backups'), { recursive: true });
+         await mkdir(join(tmpDir, 'cache'), { recursive: true });
 
          await writeFile(join(skillsDir, 'SKILL.md'), '# My Skill');
-         await writeFile(join(tmpDir, 'backups', 'test.backup'), 'backup');
+         await writeFile(join(tmpDir, 'cache', 'rule-cache'), 'cached');
 
          await clearCache(testDir);
 

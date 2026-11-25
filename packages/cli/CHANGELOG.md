@@ -11,6 +11,13 @@ version may appear here with no changes to this package.
 
 - Add the `--user-home <dir>` flag and `AIX_USER_HOME` environment variable, which move
   user-scope editor config and aix's `~/.aix/` state to another directory
+- Add `aix backups restore <backup file>`, which copies a backup back over the file it was
+  taken from and backs up what it replaces
+
+### Changed
+
+- List every backup from one store in `aix backups`, whatever directory it runs from;
+  `--json` entries are now `{ path, originalPath, backupDate, size }`
 
 ### Fixed
 
@@ -33,6 +40,7 @@ version may appear here with no changes to this package.
 - Limit `aix install --clean` to the regenerable cache in `.aix/.tmp`; it used to delete
   the whole `.aix` directory, including `~/.aix/ai.json`, other projects' skills, and
   imported files, after the new skills were already installed
+- Stop `aix cache clear` and `aix install --clean` from deleting backups
 
 ## [0.6.0] - 2026-08-12
 
