@@ -212,12 +212,6 @@ export interface ApplyOptions {
    /** Whether to target project-local or user-level editor config where supported. */
    targetScope?: 'project' | 'user';
    /**
-    * If true, overwrite existing JSON config files entirely instead of merging. Default is false,
-    * which means JSON files in editor config folders are recursively merged with existing content.
-    * Markdown files are always overwritten regardless of this setting.
-    */
-   overwrite?: boolean;
-   /**
     * If true, skip all global configuration changes (for editors with global-only features).
     * Useful in CI environments or when user doesn't want to modify global config.
     */

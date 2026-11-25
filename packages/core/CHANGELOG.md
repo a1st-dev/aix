@@ -12,6 +12,11 @@ version may appear here with no changes to this package.
 - Add the `AIX_USER_HOME` environment variable (exported as `USER_HOME_ENV_VAR`), which the
   Node runtime adapter's `os.homedir()` returns ahead of `HOME` and `USERPROFILE`
 
+### Removed
+
+- Remove the `overwrite` apply option, which replaced whole editor config files rather
+  than merging into them
+
 ### Fixed
 
 - Keep MCP auth headers when syncing a remote server between editors
@@ -22,6 +27,10 @@ version may appear here with no changes to this package.
   `bearer_token_env_var` instead of dropping it
 - Keep a disabled server in the Codex and Windsurf configs, marked disabled,
   rather than removing it from the file
+- Keep top-level settings that hold a `command` or `url`, such as Claude Code's
+  `statusLine`, in place when merging hooks, plugins, or marketplaces into a JSON config
+- Refuse to install into a Grok `config.toml` that cannot be parsed rather than replacing
+  it
 
 ## [0.6.0] - 2026-08-12
 

@@ -133,7 +133,7 @@ export default class Install extends BaseCommand<typeof Install> {
          default: false,
       }),
       overwrite: Flags.boolean({
-         description: 'Overwrite existing local ai.json instead of merging (only with --save)',
+         description: 'Replace the local ai.json with the remote config instead of merging (requires --save)',
          default: false,
       }),
       clean: Flags.boolean({
@@ -141,7 +141,7 @@ export default class Install extends BaseCommand<typeof Install> {
          default: false,
       }),
       copy: Flags.boolean({
-         description: 'Copy files to .aix/imported/ instead of using git references (with --save)',
+         description: 'Copy files to .aix/imported/ instead of using git references (requires --save)',
          default: false,
       }),
       lock: Flags.boolean({
@@ -156,6 +156,13 @@ export default class Install extends BaseCommand<typeof Install> {
 
    async run(): Promise<void> {
       const { args } = await this.parse(Install);
+
+      // oclif's `dependsOn` treats a boolean flag with a default as always provided.
+      for (const flag of [ 'overwrite', 'copy' ] as const) {
+         if (this.flags[flag] && !this.flags.save) {
+            this.error(`--${flag} only applies to the ai.json that --save writes. Pass --save as well.`);
+         }
+      }
 
       if (this.flags.type) {
          await this.runDirectInstall(args.source);
@@ -692,7 +699,6 @@ export default class Install extends BaseCommand<typeof Install> {
          const result = await installToEditor(editor, config, projectRoot, {
             dryRun: isDryRun,
             scopes: sections,
-            overwrite: this.flags.overwrite,
             clean,
             configBaseDir,
             configSource,

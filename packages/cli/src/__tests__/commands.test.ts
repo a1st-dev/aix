@@ -447,6 +447,17 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('install --overwrite', () => {
+      it('is rejected without --save because it only replaces the saved ai.json', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'));
+
+         const { error, stderr } = await runCli(['install', '--target', 'claude-code', '--project', '--overwrite']);
+
+         expect(error).toBeDefined();
+         expect(stderr).toContain('--save');
+      });
+   });
+
    describe('alternate user home', () => {
       it('installs user-scope config under --user-home and leaves the home directory alone', async () => {
          const userHome = join(testDir, 'alternate-home'),

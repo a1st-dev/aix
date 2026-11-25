@@ -182,11 +182,13 @@ export class GrokAdapter extends BaseEditorAdapter {
 
       let config: Record<string, unknown> = {};
 
-      if (existing && !options.overwrite) {
+      if (existing) {
          try {
             config = parseTOML(existing) as Record<string, unknown>;
-         } catch {
-            config = {};
+         } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+
+            throw new Error(`Cannot merge ${mcpPath}: ${message}. Fix the file before installing.`, { cause: error });
          }
       }
 

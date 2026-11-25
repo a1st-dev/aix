@@ -433,6 +433,25 @@ describe('Editor Adapters', () => {
          expect(adapter.configDir).toBe('.claude');
       });
 
+      it('leaves top-level settings that hold a command where they are when adding a hook', async () => {
+         const settingsPath = join(testDir, '.claude', 'settings.json'),
+               statusLine = { type: 'command', command: '~/.claude/statusline.sh' },
+               config = createConfig({ hooks: { agent_stop: [{ hooks: [{ command: 'echo done' }] }] } });
+
+         await mkdir(dirname(settingsPath), { recursive: true });
+         await writeFile(settingsPath, `{\n  // my status line\n  "statusLine": ${JSON.stringify(statusLine)}\n}\n`);
+
+         await installToEditor('claude-code', config, testDir, { scopes: ['hooks'] });
+
+         const content = await readFile(settingsPath, 'utf-8'),
+               settings = parseJsonc<Record<string, unknown>>(content).data;
+
+         expect(content).toContain('// my status line');
+         expect(settings?.statusLine).toEqual(statusLine);
+         expect(settings?.mcpServers).toBeUndefined();
+         expect(settings?.hooks).toBeDefined();
+      });
+
       describe('hook content deduplication', () => {
          it('replaces duplicate script copies with the incoming registration and keeps unrelated hooks', async () => {
             const oldPath = join(testDir, 'old.mjs'),
@@ -1727,39 +1746,6 @@ Skill instructions.
          expect(mcpConfig.mcpServers.github.args).toEqual(['--new-arg']);
       });
 
-      it('overwrites entire file with --overwrite flag', async () => {
-         // First install with server A
-         const config1 = createConfig({
-            mcp: {
-               serverA: createMcpServer('cmd-a'),
-            },
-         });
-
-         await installToEditor('cursor', config1, testDir);
-
-         // Verify server A was written
-         const mcpContentBefore = await readFile(join(testDir, '.cursor/mcp.json'), 'utf-8');
-         const mcpConfigBefore = JSON.parse(mcpContentBefore);
-
-         expect(mcpConfigBefore.mcpServers.serverA).toBeDefined();
-
-         // Second install with server B and overwrite flag
-         const config2 = createConfig({
-            mcp: {
-               serverB: createMcpServer('cmd-b'),
-            },
-         });
-
-         await installToEditor('cursor', config2, testDir, { overwrite: true });
-
-         // Verify only server B is present (server A was removed)
-         const mcpContent = await readFile(join(testDir, '.cursor/mcp.json'), 'utf-8');
-         const mcpConfig = JSON.parse(mcpContent);
-
-         expect(mcpConfig.mcpServers.serverA).toBeUndefined();
-         expect(mcpConfig.mcpServers.serverB).toBeDefined();
-      });
-
       it('preserves user-added keys in MCP config', async () => {
          // Manually create an MCP config with user-added content
          const userConfig = {
@@ -2557,6 +2543,21 @@ Release instructions.
 
          expect(content).toContain('# test-rule');
          expect(content).toContain('Grok rule content');
+      });
+
+      it('refuses to replace a config.toml it cannot parse', async () => {
+         const configPath = join(testDir, '.grok', 'config.toml'),
+               brokenToml = 'model = "grok"\nargs = [ "unfinished"\n',
+               config = createConfig({ mcp: { server: createMcpServer('cmd') } });
+
+         await mkdir(dirname(configPath), { recursive: true });
+         await writeFile(configPath, brokenToml);
+
+         const result = await installToEditor('grok', config, testDir);
+
+         expect(result.success).toStrictEqual(false);
+         expect(result.errors.join('\n')).toContain('Fix the file before installing');
+         expect(await readFile(configPath, 'utf-8')).toStrictEqual(brokenToml);
       });
 
       it('writes user-scope rules to ~/.grok/rules/*.md', async () => {

@@ -133,11 +133,7 @@ export class ZedAdapter extends BaseEditorAdapter {
                   mcpPath = targetScope === 'user' && globalMcpPath
                      ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                      : join(configDir, this.mcpStrategy.getConfigPath()),
-                  change = await this.planJsonFileChange(
-                     mcpPath,
-                     this.mcpStrategy.formatConfig(editorConfig.mcp),
-                     options,
-                  );
+                  change = await this.planJsonFileChange(mcpPath, this.mcpStrategy.formatConfig(editorConfig.mcp));
 
             changes.push({ ...change, category: 'mcp' });
          }

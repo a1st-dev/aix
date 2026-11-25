@@ -150,6 +150,13 @@ export interface McpStrategy {
    formatConfig(mcp: Record<string, McpServerConfig>): string;
 
    /**
+    * Reshape an existing config file into the layout {@link formatConfig} writes, before aix
+    * merges into it. Only an editor that accepts more than one layout for the same file needs
+    * this. Return the argument itself when nothing has to change.
+    */
+   normalizeExistingConfig?(config: Record<string, unknown>): Record<string, unknown>;
+
+   /**
     * Format a single server entry for this editor. Global-only editors need this because
     * their config files are merged one server at a time rather than rewritten whole.
     */

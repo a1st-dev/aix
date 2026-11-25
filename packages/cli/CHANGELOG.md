@@ -16,6 +16,9 @@ version may appear here with no changes to this package.
 
 - Resolve the home directory in `aix backups` and `aix remove skill|rule|prompt|agent` the
   same way as every other command; they ignored `HOME` on Windows
+- Stop `aix install --overwrite` from replacing whole editor config files such as
+  `~/.claude.json`; the flag now only affects the `ai.json` that `--save` writes, and is
+  rejected without `--save`
 
 ## [0.6.0] - 2026-08-12
 
