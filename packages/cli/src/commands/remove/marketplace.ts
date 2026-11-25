@@ -163,6 +163,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       for (const result of results) {
          if (!result.success) {
             this.output.error(`Failed to remove marketplace "${name}" from ${result.editor}: ${result.errors.join(', ')}`);
+            this.markFailed();
             continue;
          }
 

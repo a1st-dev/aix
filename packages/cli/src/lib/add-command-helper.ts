@@ -194,18 +194,28 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
          editors,
       });
 
-   if (installResult.installed) {
-      logInstallResults(formatInstallResults(installResult.results));
+   if (!installResult.installed) {
+      logInstallResults([{
+         success: false,
+         message: 'Not installed to any editor: none was detected. Pass --target <editor> to choose one.',
+      }]);
+      return;
+   }
 
-      const failures = installResult.results.filter((result) => !result.success);
+   logInstallResults(formatInstallResults(installResult.results));
 
-      if (failures.length > 0) {
-         failInstall(
-            failures
-               .map((failure) => `Failed to install to ${failure.editor}: ${failure.errors.join(', ')}`)
-               .join('\n'),
-         );
-      }
+   const failures = installResult.results.filter((result) => {
+      return !result.success;
+   });
+
+   if (failures.length > 0) {
+      failInstall(
+         failures
+            .map((failure) => {
+               return `Failed to install to ${failure.editor}: ${failure.errors.join(', ')}`;
+            })
+            .join('\n'),
+      );
    }
 }
 

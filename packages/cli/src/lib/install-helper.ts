@@ -95,14 +95,17 @@ export async function installAfterAdd(
       return { installed: false, results: [], editors: [] };
    }
 
-   const editors = options.editors ?? resolveConfiguredEditors(loaded.config.editors);
+   const projectRoot = dirname(options.configPath),
+         configuredEditors = resolveConfiguredEditors(loaded.config.editors),
+         // Fall back to detection the way `aix install` does. A config without `editors`, which
+         // is what `aix init` writes, would otherwise be saved to and installed nowhere.
+         editors = options.editors ?? (configuredEditors.length > 0 ? configuredEditors : await detectEditors(projectRoot));
 
    if (editors.length === 0) {
       return { installed: false, results: [], editors: [] };
    }
 
-   const projectRoot = dirname(options.configPath),
-         targetScope = options.scope ?? resolveScope(loaded.config),
+   const targetScope = options.scope ?? resolveScope(loaded.config),
          results = await pMap(
             editors,
             async (editor) => {

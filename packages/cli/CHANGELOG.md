@@ -47,6 +47,10 @@ version may appear here with no changes to this package.
 - Stop `aix cache clear` and `aix install --clean` from deleting backups
 - Honor the `scope` an `ai.json` declares in `aix install`; a config that declared project
   scope was installed into user-level editor config unless `--project` was passed
+- Exit non-zero when `aix install`, `aix sync`, or an `aix remove` command fails for any
+  editor; they printed the failure and exited 0
+- Say so when `aix add` finds no editor to install to, and detect editors for
+  `aix add --save` when `ai.json` lists none; both used to install nowhere without a word
 
 ## [0.6.0] - 2026-08-12
 

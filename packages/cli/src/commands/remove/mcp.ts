@@ -153,6 +153,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       for (const result of results) {
          if (!result.success) {
             this.output.error(`Failed to remove "${name}" from ${result.editor}: ${result.errors.join(', ')}`);
+            this.markFailed();
             continue;
          }
 

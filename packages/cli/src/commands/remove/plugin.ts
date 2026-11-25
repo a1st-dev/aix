@@ -163,6 +163,7 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       for (const result of results) {
          if (!result.success) {
             this.output.error(`Failed to remove plugin "${name}" from ${result.editor}: ${result.errors.join(', ')}`);
+            this.markFailed();
             continue;
          }
 

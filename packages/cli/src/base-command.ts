@@ -118,6 +118,15 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       }
    }
 
+   /**
+    * Make the process exit non-zero once the command returns. A command that works through
+    * several editors keeps going after one fails, so it cannot throw, but a script or CI job
+    * still has to see that something did not happen.
+    */
+   protected markFailed(): void {
+      process.exitCode = 1;
+   }
+
    /** Log delete operation results */
    protected logDeleteResults(
       results: Array<{ editor: string; deleted: string[]; errors: string[] }>,
@@ -128,6 +137,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
          }
          for (const err of result.errors) {
             this.output.warn(`Failed to delete: ${err}`);
+            this.markFailed();
          }
       }
    }

@@ -739,6 +739,7 @@ export default class Install extends BaseCommand<typeof Install> {
          const message = error instanceof Error ? error.message : String(error);
 
          this.output.error(message);
+         this.markFailed();
          return { editor, success: false, changes: [], errors: [message] };
       }
    }
@@ -807,6 +808,7 @@ export default class Install extends BaseCommand<typeof Install> {
          for (const err of result.errors) {
             this.output.error(err);
          }
+         this.markFailed();
          return;
       }
 

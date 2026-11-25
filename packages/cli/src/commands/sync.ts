@@ -122,6 +122,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
             for (const error of result.errors) {
                this.output.error(error);
             }
+            this.markFailed();
             return;
          }
 

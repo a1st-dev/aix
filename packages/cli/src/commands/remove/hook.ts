@@ -170,6 +170,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
             this.output.error(
                `Failed to remove "${event}" from ${result.editor}: ${result.errors.join(', ')}`,
             );
+            this.markFailed();
             continue;
          }
 
