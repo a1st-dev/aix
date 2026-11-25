@@ -66,6 +66,7 @@ Invalid ai.json configuration:
 ✗ Configuration Error
 
   File: ai.local.json
+  Validation failed
 
   ● <field>
     <problem>
@@ -87,13 +88,13 @@ Fix the field that the message names. `ai.local.json` does not accept `extends`,
 ai.lock.json is stale. Run `aix validate --lock` or the command you were using with `--lock` to refresh it.
 ```
 
-`aix validate` prints this text. Other commands print a `Configuration Error` for the file
-`ai.lock.json` with a line such as `config.digest` or `entities.rules.<name>.digest`.
+The message is followed by one line for each difference, such as `config.digest` or
+`entities.rules.<name>.digest`.
 
 The project has an `ai.lock.json`, and the resolved config no longer matches it. Either
-`ai.json` changed, or a file or remote source it refers to changed. A lockfile written by
-an earlier version of aix can also be reported as out of date once. Review the change, then refresh
-the lockfile:
+`ai.json` changed, or a file or remote source it refers to changed. A lockfile written by an
+earlier version of aix can also be reported as out of date once. Review the change, then
+refresh the lockfile:
 
 ```bash
 aix validate --lock

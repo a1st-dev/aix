@@ -22,6 +22,8 @@ version may appear here with no changes to this package.
   for a git `extends`
 - Back up whole directories: `createBackup` copies a directory, `restoreBackup` puts it
   back without files added since, and `listAllBackups` reports `isDirectory`
+- Add `ConfigParseError.reason`, the description of the problem without the file name or
+  the list of issues
 
 ### Changed
 

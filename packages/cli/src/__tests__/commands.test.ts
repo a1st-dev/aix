@@ -216,10 +216,12 @@ describe('CLI Commands', () => {
          });
 
          const stale = await runCli(['validate', '--config', configPath], {
-            root,
-         });
+                  root,
+               }),
+               staleInstall = await runCli(['install', '--config', configPath, '--target', 'claude-code', '--dry-run']);
 
          expect(stale.error).toBeDefined();
+         expect(staleInstall.stderr).toContain('aix validate --lock');
 
          const refreshed = await runCli(['validate', '--config', configPath, '--lock'], {
             root,

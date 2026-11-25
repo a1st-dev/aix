@@ -183,6 +183,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
     * ✗ Configuration Error
     *
     *   File: ai.local.json
+    *   Validation failed
     *
     *   ● mcp.playwright
     *     Expected object or false, received true
@@ -198,6 +199,8 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       console.error(chalk.red('✗') + ' Configuration ' + chalk.red('Error'));
       console.error('');
       console.error('  File: ' + chalk.cyan(fileName));
+      // For a stale lockfile this line is the only place that says how to refresh it.
+      console.error('  ' + error.reason);
       console.error('');
 
       for (const issue of issues) {

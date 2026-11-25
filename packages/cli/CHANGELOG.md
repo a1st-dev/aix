@@ -137,6 +137,8 @@ version may appear here with no changes to this package.
   the lockfile it had just made stale
 - Reject `--lock` combined with `--local` on `aix add` and `aix remove`. The lockfile does
   not cover `ai.local.json`, and `aix remove` ignored the flag without a message
+- Print how to refresh a stale `ai.lock.json` on every command. Only `aix validate`
+  printed the instruction; the other commands listed digests and nothing else
 
 ## [0.6.0] - 2026-08-12
 

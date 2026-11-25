@@ -88,18 +88,13 @@ Each command that loads `ai.json` checks the lockfile as part of loading: `aix i
 `aix validate`, `aix config`, and `aix add` or `aix remove` with `--save`. If a hash differs,
 the command stops with a non-zero exit status before it changes any editor config.
 
-The error from `aix validate` contains this text, followed by the list of differences:
-
-```text
-ai.lock.json is stale. Run `aix validate --lock` or the command you were using with `--lock` to refresh it.
-```
-
-The other commands print the differences under the name of the file:
+The error names the file, says how to refresh it, and lists the differences:
 
 ```text
 ✗ Configuration Error
 
   File: ai.lock.json
+  ai.lock.json is stale. Run `aix validate --lock` or the command you were using with `--lock` to refresh it.
 
   ● config.digest
     Expected sha256:<hash of the config now>, found sha256:<hash in the lockfile>

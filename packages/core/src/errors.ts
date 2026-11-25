@@ -43,7 +43,8 @@ export interface ConfigParseIssue {
 
 export class ConfigParseError extends ConfigError {
    constructor(
-      message: string,
+      /** What is wrong with the file, without the file name or the list of issues. */
+      public readonly reason: string,
       public readonly filePath: string,
       public readonly issues?: ConfigParseIssue[],
    ) {
@@ -51,7 +52,7 @@ export class ConfigParseError extends ConfigError {
          ? `\n${issues.map((issue) => `  - ${issue.path}: ${issue.message}`).join('\n')}`
          : '';
 
-      super(`Failed to parse ${filePath}: ${message}${issueDetails}`, 'CONFIG_PARSE_ERROR');
+      super(`Failed to parse ${filePath}: ${reason}${issueDetails}`, 'CONFIG_PARSE_ERROR');
    }
 }
 
