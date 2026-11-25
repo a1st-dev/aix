@@ -5,11 +5,12 @@ title: Plugins and marketplaces
 description: Manage AI editor plugins, marketplaces, and compatibility unpacking across editors.
 ---
 
-Plugins extend AI agents with bundled tools, skills, rules, hooks, and MCP servers. Marketplaces provide registries or collections where plugins can be discovered and installed.
+**Plugins** bundle skills, rules, hooks, and MCP servers into one installable unit.
+**Marketplaces** are catalogs that plugins are published in.
 
-`aix` provides first-class configuration for plugins and marketplaces via `ai.json`, configuring native plugin registries where supported and automatically converting and unpacking plugin components for editors without native plugin systems.
-
----
+You list plugins and marketplaces in `ai.json`. For editors with their own plugin system, aix
+writes the editor's plugin configuration. For the others, aix can unpack a local plugin into
+its parts and install those instead.
 
 ## Configuration
 
@@ -27,12 +28,15 @@ Add plugins and marketplaces to `ai.json`:
    "marketplaces": {
       "claude-plugins-official": "https://github.com/anthropics/claude-plugins-official",
       "team-marketplace": {
-         "source": "https://github.com/my-org/marketplace",
-         "type": "git"
+         "source": "https://github.com/my-org/marketplace"
       }
    }
 }
 ```
+
+A plugin key is a plugin name, optionally followed by `@` and the marketplace it comes from.
+Its value is `true`, a source string, or an object with `source`, `enabled`, and `options`.
+Set a plugin or marketplace to `false` to disable one you inherit through `extends`.
 
 ### CLI commands
 
@@ -44,7 +48,7 @@ aix add marketplace https://github.com/anthropics/claude-plugins-official --name
 aix add plugin skill-creator@claude-plugins-official
 aix add plugin ./plugins/custom-tools --name custom-tools
 
-# List configured plugins and marketplaces
+# List the plugins and marketplaces your editors hold
 aix list plugins
 aix list marketplaces
 
@@ -53,52 +57,63 @@ aix remove plugin skill-creator@claude-plugins-official
 aix remove marketplace claude-plugins-official
 ```
 
----
+Like the other `aix add` and `aix remove` commands, these act on your user-scope editor config
+by default and leave `ai.json` unchanged. Pass `--save` to write the change to `ai.json` and
+`--project` to work at project scope.
 
 ## Native support and compatibility unpacking
 
-Different editors have different levels of support for plugins and marketplaces:
+Editors fall into two groups.
 
-1. **Native Plugin Editors** (`claude-code`, `opencode`, `copilot`, `cursor`):
-   - **Claude Code**: Writes enabled plugins to `enabledPlugins` and marketplaces to `extraKnownMarketplaces` in `.claude/settings.json` (project) or `~/.claude/settings.json` (user).
-   - **OpenCode**: Writes plugin references or paths to the `plugins` array in `opencode.json` (project) or `~/.config/opencode/opencode.json` (user).
-   - **Copilot**: Writes `.github/copilot-plugins.json` and `.github/copilot-marketplaces.json` (project) or `~/.config/github-copilot/` (user).
-   - **Cursor**: Writes `.cursor-plugin/plugin.json` and `.cursor-plugin/marketplaces.json` at project scope. (Cursor has no user-scope plugin configuration).
+### Editors with a plugin system
 
-2. **Compatibility Unpacking for Non-Native Editors** (`codex`, `windsurf`, `zed`, `antigravity`, `grok`):
-   - Editors without a native plugin engine cannot load Claude/OpenCode plugin bundles directly.
-   - For local or resolved plugin directories, `aix` automatically discovers bundled components:
-      - **Skills**: Discovered from `<pluginDir>/skills/*/SKILL.md` or `<pluginDir>/SKILL.md`.
-      - **Rules**: Discovered from `<pluginDir>/rules/*.md` or `*.mdc`.
-      - **MCP Servers**: Discovered from `<pluginDir>/.mcp.json` or `<pluginDir>/mcp.json`.
-   - These components are unpacked and installed directly into the target editor's native directories (e.g. `.agents/skills/`, `.windsurf/rules/`, etc.).
+Cursor, GitHub Copilot, Claude Code, and OpenCode load plugins themselves. aix writes the
+plugin entries into the editor's configuration and the editor does the rest. Marketplaces are
+written for Cursor, GitHub Copilot, and Claude Code.
 
----
+Cursor has no user-scope plugin configuration, so a user-scope install, which is the default,
+skips its plugins and marketplaces with a warning. Use `--project` for Cursor.
 
-## What Happens When a Skill, Rule, or Hook Collides with a Plugin?
+### Editors without a plugin system
 
-If your `ai.json` defines a skill, rule, MCP server, or hook that is also provided by an active plugin, behavior is governed by strict precedence and namespacing:
+Windsurf, Zed, Codex, Google Antigravity, and Grok CLI cannot load a plugin bundle. For these
+editors aix looks inside the plugin and installs the parts it finds as ordinary skills,
+rules, and MCP servers:
 
-### 1. In Editors with Native Plugin Support
+- **Skills** from `<plugin>/skills/*/SKILL.md`, or a single `<plugin>/SKILL.md`.
+- **Rules** from `<plugin>/rules/*.md` and `*.mdc`.
+- **MCP servers** from `<plugin>/.mcp.json` or `<plugin>/mcp.json`.
 
-- **Skills**: Native editors like Claude Code resolve local project-level skills first. When a local skill in `.claude/skills/<name>` shares a name with a skill bundled inside an enabled plugin, the local project skill takes precedence.
-- **Hooks**: Both user-defined hooks and plugin hooks execute. In Claude Code, hooks registered in `.claude/settings.json` and hooks provided by active plugins both trigger on matching lifecycle events, running sequentially.
-- **MCP Servers**: Servers explicitly declared in `mcp` (`.mcp.json`) run alongside any servers spun up by enabled plugins.
+Unpacking has two limits:
 
-### 2. In Non-Native Editors via Compatibility Unpacking
+- It only applies to plugins whose source is a local directory, such as
+  `"./plugins/custom-tools"`. A plugin named only by a marketplace entry is not downloaded and
+  unpacked.
+- It only runs in a project-scope install (`aix install --project`).
 
-When `aix` unpacks a plugin for non-native editors, it employs two layers of conflict protection:
+The [support matrix](/editors/supported-editors/) shows plugin and marketplace support for
+every editor, and each editor page lists the file aix writes.
 
-1. **Automatic Namespace Prefixing**:
-   - Every unpacked component is automatically namespaced using the plugin's name: `${pluginName}-${componentName}`.
-   - For example, if plugin `skill-creator` contains a skill named `eval-viewer` and a rule `guidelines.md`, `aix` unpacks them as `skill-creator-eval-viewer` and `skill-creator-guidelines`.
-   - Because user-defined skills and rules in `ai.json` are authored without the plugin prefix (e.g. `eval-viewer`), **their keys do not collide**.
+## Name collisions with plugin contents
 
-2. **Explicit User Config Always Overrides (`...unpacked, ...userConfig`)**:
-   - If a collision occurs (for instance, if you explicitly define a skill or rule named `skill-creator-eval-viewer` in your `ai.json`), `aix` merges unpacked components _underneath_ your configuration:
-      ```ts
-      skills: { ...unpacked.skills, ...config.skills },
-      mcp: { ...unpacked.mcp, ...config.mcp },
-      rules: { ...unpacked.rules, ...config.rules },
-      ```
-   - **Your explicit `ai.json` definitions always override plugin-provided components.**
+Your `ai.json` may define a skill, rule, MCP server, or hook that a plugin also provides.
+
+### In editors with a plugin system
+
+The editor decides, because it loads the plugin itself. In Claude Code:
+
+- **Skills**: a skill you configured takes precedence over a plugin skill with the same name.
+- **Hooks**: hooks from your config and hooks from enabled plugins both run on a matching
+  event.
+- **MCP servers**: servers from your config run alongside servers started by enabled plugins.
+
+### In editors without a plugin system
+
+aix prefixes every unpacked item with the plugin name. A plugin `skill-creator` that contains
+a skill `eval-viewer` and a rule `guidelines.md` is unpacked as `skill-creator-eval-viewer`
+and `skill-creator-guidelines`. Items you define yourself have no prefix, so the names do not
+normally collide.
+
+If you do define an item with the same prefixed name, such as a skill called
+`skill-creator-eval-viewer`, your definition in `ai.json` is used and the unpacked one is
+dropped.
