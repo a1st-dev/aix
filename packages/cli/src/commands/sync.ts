@@ -202,6 +202,7 @@ export default class Sync extends BaseCommand<typeof Sync> {
          Object.keys(normalized.mcp).length +
          normalized.rules.length +
          normalized.prompts.length +
+         normalized.agents.length +
          normalized.skills.length +
          Object.keys(normalized.hooks).length
       );

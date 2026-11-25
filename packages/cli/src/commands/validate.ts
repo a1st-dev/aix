@@ -33,9 +33,6 @@ export default class Validate extends BaseCommand<typeof Validate> {
 
          if (!result) {
             this.output.stopSpinner(false, 'No ai.json found');
-            if (this.flags.json) {
-               this.output.json({ valid: false, error: 'No ai.json found' });
-            }
             this.error('No ai.json found. Run `aix init` to create one.');
          }
 

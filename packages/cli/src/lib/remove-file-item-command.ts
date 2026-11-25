@@ -10,7 +10,7 @@ import {
 } from '@a1st/aix-core';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
-import { addLockFlag } from '../flags/lock.js';
+import { removeLockFlag } from '../flags/lock.js';
 import { localFlag } from '../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../flags/scope.js';
 import { saveFlag } from '../flags/save.js';
@@ -54,7 +54,7 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
    };
 
    static override flags = {
-      ...addLockFlag,
+      ...removeLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...saveFlag,

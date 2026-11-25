@@ -53,7 +53,7 @@ export function includesSection(sections: Section[], section: Section): boolean 
  */
 export const configScopeFlags = {
    scope: Flags.string({
-      description: 'Target scope for installation',
+      description: 'Editor config scope to target',
       options: ['user', 'project'],
    }),
    user: Flags.boolean({
@@ -123,16 +123,3 @@ export function resolveConfigScope(
    }
    return resolvedDefault;
 }
-
-// --- Backward compatibility aliases ---
-
-/** @deprecated Use `onlyFlag` instead. */
-export const scopeFlag = onlyFlag;
-/** @deprecated Use `Section` instead. */
-export type Scope = Section;
-/** @deprecated Use `VALID_SECTIONS` instead. */
-export const VALID_SCOPES = VALID_SECTIONS;
-/** @deprecated Use `parseSections` instead. */
-export const parseScopes = parseSections;
-/** @deprecated Use `includesSection` instead. */
-export const includesScope = includesSection;

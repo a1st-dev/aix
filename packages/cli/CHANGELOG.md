@@ -54,6 +54,12 @@ version may appear here with no changes to this package.
 - Name the detected editors and point at `--target` when `aix install` would have to ask
   which editors to use and there is no terminal; the same for the registry server choice
   in `aix add mcp`
+- Print one JSON document from `aix validate --json` when no config is found; it printed
+  two
+- Sync a source editor whose only config is agents; `aix sync` reported that nothing was
+  found
+- Describe `--lock` and `--scope` correctly on remove commands, and stop claiming
+  `--target` is case-insensitive
 
 ## [0.6.0] - 2026-08-12
 

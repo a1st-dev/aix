@@ -175,6 +175,13 @@ describe('CLI Commands', () => {
    });
 
    describe('validate', () => {
+      it('prints one JSON document when there is no config to validate', async () => {
+         const { error, stdout } = await runCli(['validate', '--json']);
+
+         expect(error).toBeDefined();
+         expect(JSON.parse(stdout)).toEqual({ valid: false, error: 'No ai.json found. Run `aix init` to create one.' });
+      });
+
       it('validates a correct config file', async () => {
          const configPath = join(testDir, 'ai.json');
 

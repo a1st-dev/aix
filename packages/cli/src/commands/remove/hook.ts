@@ -1,7 +1,7 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
-import { addLockFlag } from '../../flags/lock.js';
+import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveConfigScope } from '../../flags/scope.js';
 import { saveFlag } from '../../flags/save.js';
@@ -43,7 +43,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
    };
 
    static override flags = {
-      ...addLockFlag,
+      ...removeLockFlag,
       ...localFlag,
       ...configScopeFlags,
       ...saveFlag,
