@@ -33,7 +33,8 @@ aix supports tab completion for commands and flags. Set it up with:
 aix autocomplete
 ```
 
-Follow the printed instructions to add the completion script to your shell profile (`.bashrc`, `.zshrc`, or Fish config).
+Follow the printed instructions to add the completion script to your shell profile. The
+supported shells are bash, zsh, and PowerShell.
 
 ## Update
 
