@@ -4,11 +4,34 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const disposableCI = process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted';
+const DISPOSABLE_ENV_VAR = 'AIX_TEST_DISPOSABLE',
+      disposableCI = process.env.GITHUB_ACTIONS === 'true' && process.env.RUNNER_ENVIRONMENT === 'github-hosted',
+      // Linux has no sandbox here, so a person can state that the machine is a container or
+      // another throwaway environment with no editor config to lose. Nothing can check that
+      // claim. On macOS the variable changes nothing: the run is sandboxed either way.
+      declaredDisposable = process.platform === 'linux' && process.env[DISPOSABLE_ENV_VAR] === '1';
 
-if (process.platform !== 'darwin' && !disposableCI) {
+function getProtection() {
+   if (process.platform === 'darwin') {
+      return 'macos-sandbox';
+   }
+   if (disposableCI) {
+      return 'disposable-ci';
+   }
+
+   return declaredDisposable ? 'declared-disposable' : undefined;
+}
+
+const protection = getProtection();
+
+if (!protection) {
    console.error('Protected tests require macOS sandbox-exec or a disposable GitHub-hosted runner. Refusing an unprotected local run.');
+   console.error(`On Linux, inside a container or another throwaway machine, set ${DISPOSABLE_ENV_VAR}=1 to run without the sandbox.`);
    process.exit(1);
+}
+if (protection === 'declared-disposable') {
+   console.warn(`${DISPOSABLE_ENV_VAR}=1: running tests with a temporary home directory and no filesystem sandbox.`);
+   console.warn('A test that bypasses the temporary home directory can write to real files on this machine.');
 }
 
 const repoRoot = realpathSync(fileURLToPath(new URL('..', import.meta.url))),
@@ -35,7 +58,7 @@ try {
             AIX_TEST_HOME_ROOT: testHomeRoot,
             AIX_TEST_REAL_HOME: realHome,
             AIX_TEST_PROTECTED_PATH: protectedPath,
-            AIX_TEST_PROTECTION: process.platform === 'darwin' ? 'macos-sandbox' : 'disposable-ci',
+            AIX_TEST_PROTECTION: protection,
          },
          // OS permissions restrict native children and symlinks, unlike Node's permission model.
          sandboxProfile = [
