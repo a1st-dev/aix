@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'pathe';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'pathe';
+import { createDownloadKey } from '../git-download.js';
 import { resolveExtends } from '../inheritance.js';
 import { CircularDependencyError, RemoteFetchError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
@@ -9,6 +11,19 @@ import type { RuntimeAdapter } from '../runtime/index.js';
 
 const testDir = join(process.env.HOME ?? '', 'test-fixtures', 'inheritance'),
       originalFetch = global.fetch;
+
+/** Stands in for a git repository whose content and availability a test can change. */
+interface FakeRemote {
+   files: Record<string, string>;
+   offline?: boolean;
+   installFails?: boolean;
+   /** Directories the package manager was asked to install in */
+   installs: string[];
+}
+
+function createRemote(files: Record<string, string>): FakeRemote {
+   return { files, installs: [] };
+}
 
 describe('resolveExtends', () => {
    beforeEach(async () => {
@@ -361,49 +376,182 @@ describe('resolveExtends', () => {
       });
    });
 
-   describe('git extends dependencies', () => {
-      async function resolveGitExtends(files: Record<string, string>): Promise<string[]> {
-         const installedDirs: string[] = [],
-               adapter: RuntimeAdapter = {
-                  ...nodeRuntimeAdapter,
-                  git: {
-                     downloadTemplate: async (_template, options) => {
-                        const dir = options.dir ?? '';
+   describe('git extends', () => {
+      const EXTENDS = 'github:org/config#main',
+            copyDir = join(testDir, '.aix', 'extends', createDownloadKey(EXTENDS));
 
-                        await mkdir(dir, { recursive: true });
-                        await Promise.all(Object.entries(files).map(([ name, content ]) => {
-                           return writeFile(join(dir, name), content, 'utf-8');
-                        }));
+      function loadConfigExtending(remote: FakeRemote, extendsValue: string = EXTENDS): Promise<Record<string, unknown>> {
+         const adapter: RuntimeAdapter = {
+            ...nodeRuntimeAdapter,
+            git: {
+               downloadTemplate: async (_template, options) => {
+                  const dir = options.dir ?? '';
 
-                        return { dir };
-                     },
-                  },
-                  npm: {
-                     ...nodeRuntimeAdapter.npm,
-                     installDependencies: async (cwd) => {
-                        installedDirs.push(cwd);
-                     },
-                  },
-               };
+                  if (remote.offline) {
+                     throw new Error('getaddrinfo ENOTFOUND codeload.github.com');
+                  }
 
-         await withRuntimeAdapter(adapter, () => {
-            return resolveExtends({ extends: 'github:org/config#main' }, { baseDir: testDir, projectRoot: testDir });
+                  await Promise.all(Object.entries(remote.files).map(async ([name, content]) => {
+                     await mkdir(dirname(join(dir, name)), { recursive: true });
+                     await writeFile(join(dir, name), content, 'utf-8');
+                  }));
+
+                  return { dir };
+               },
+            },
+            npm: {
+               ...nodeRuntimeAdapter.npm,
+               installDependencies: async (cwd) => {
+                  remote.installs.push(cwd);
+
+                  if (remote.installFails) {
+                     throw new Error('npm install failed');
+                  }
+
+                  await mkdir(join(cwd, 'node_modules', 'dependency'), { recursive: true });
+                  await writeFile(join(cwd, 'node_modules', 'dependency', 'index.js'), '', 'utf-8');
+               },
+            },
+         };
+
+         return withRuntimeAdapter(adapter, () => {
+            return resolveExtends({ extends: extendsValue }, { baseDir: testDir, projectRoot: testDir });
          });
-
-         return installedDirs;
       }
 
-      it('installs dependencies in the extends copy when it has a package.json', async () => {
-         const installedDirs = await resolveGitExtends({ 'ai.json': '{}', 'package.json': '{}' });
+      it('installs dependencies before the download becomes the extends copy', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}' });
 
-         expect(installedDirs).toHaveLength(1);
-         expect(installedDirs[0]?.startsWith(join(testDir, '.aix', 'extends'))).toBe(true);
+         await loadConfigExtending(remote);
+
+         expect(remote.installs).toHaveLength(1);
+         expect(remote.installs[0]?.startsWith(join(testDir, '.aix', 'extends'))).toStrictEqual(false);
+         expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
       });
 
       it('skips the install when the extends copy has no package.json', async () => {
-         const installedDirs = await resolveGitExtends({ 'ai.json': '{}' });
+         const remote = createRemote({ 'ai.json': '{}' });
 
-         expect(installedDirs).toEqual([]);
+         await loadConfigExtending(remote);
+
+         expect(remote.installs).toEqual([]);
+      });
+
+      it('does not install again while the dependency manifests are unchanged', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}', 'rules/style.md': 'Old' });
+
+         await loadConfigExtending(remote);
+         remote.files['rules/style.md'] = 'New';
+         await loadConfigExtending(remote);
+         await loadConfigExtending(remote);
+
+         expect(remote.installs).toHaveLength(1);
+         expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+         expect(await readFile(join(copyDir, 'rules/style.md'), 'utf-8')).toBe('New');
+      });
+
+      it('installs again when package.json changes', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}' });
+
+         await loadConfigExtending(remote);
+         remote.files['package.json'] = '{ "dependencies": { "left-pad": "1.3.0" } }';
+         await loadConfigExtending(remote);
+
+         expect(remote.installs).toHaveLength(2);
+      });
+
+      it('keeps the existing copy when the download fails', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}', 'scripts/check.sh': 'exit 0' });
+
+         await loadConfigExtending(remote);
+         remote.offline = true;
+
+         await expect(loadConfigExtending(remote)).rejects.toThrow('ENOTFOUND');
+
+         expect(await readFile(join(copyDir, 'scripts/check.sh'), 'utf-8')).toBe('exit 0');
+         expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+      });
+
+      it('keeps the existing copy when the dependency install fails', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{}' });
+
+         await loadConfigExtending(remote);
+         remote.files['package.json'] = '{ "dependencies": { "left-pad": "1.3.0" } }';
+         remote.installFails = true;
+
+         await expect(loadConfigExtending(remote)).rejects.toThrow('npm install failed');
+
+         expect(await readFile(join(copyDir, 'package.json'), 'utf-8')).toBe('{}');
+         expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+      });
+
+      it('keeps the existing copy when the new download has no ai.json', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'scripts/check.sh': 'exit 0' });
+
+         await loadConfigExtending(remote);
+         remote.files = { 'README.md': 'Moved elsewhere' };
+
+         await expect(loadConfigExtending(remote)).rejects.toThrow('No ai.json found in git repository');
+
+         expect(existsSync(join(copyDir, 'scripts/check.sh'))).toStrictEqual(true);
+      });
+
+      it('drops files that the repository no longer contains', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'rules/removed.md': 'Gone soon' });
+
+         await loadConfigExtending(remote);
+         remote.files = { 'ai.json': '{}' };
+         await loadConfigExtending(remote);
+
+         expect(existsSync(join(copyDir, 'rules/removed.md'))).toStrictEqual(false);
+         expect(existsSync(join(copyDir, 'ai.json'))).toStrictEqual(true);
+      });
+
+      it('removes the copy of a config that is no longer extended', async () => {
+         const OTHER_EXTENDS = 'github:org/other-config',
+               remote = createRemote({ 'ai.json': '{}' });
+
+         await loadConfigExtending(remote);
+         await loadConfigExtending(remote, OTHER_EXTENDS);
+
+         expect(existsSync(copyDir)).toStrictEqual(false);
+         expect(existsSync(join(testDir, '.aix', 'extends', createDownloadKey(OTHER_EXTENDS), 'ai.json'))).toStrictEqual(true);
+      });
+
+      it('keeps the copy of a config that is no longer extended when the new load fails', async () => {
+         const remote = createRemote({ 'ai.json': '{}' });
+
+         await loadConfigExtending(remote);
+         remote.offline = true;
+
+         await expect(loadConfigExtending(remote, 'github:org/other-config')).rejects.toThrow('ENOTFOUND');
+
+         expect(existsSync(join(copyDir, 'ai.json'))).toStrictEqual(true);
+      });
+
+      it('resolves a local extends inside the repository against the extends copy', async () => {
+         const remote = createRemote({
+            'ai.json': JSON.stringify({ extends: './base/ai.json' }),
+            'base/ai.json': JSON.stringify({ rules: { style: './style.md' } }),
+            'base/style.md': 'Use direct language.',
+         });
+
+         const result = await loadConfigExtending(remote);
+
+         expect(result.rules).toEqual({ style: join(copyDir, 'base/style.md') });
+      });
+
+      it('points hook commands at scripts in the extends copy', async () => {
+         const remote = createRemote({
+            'ai.json': JSON.stringify({ hooks: { pre_command: [{ hooks: [{ command: './scripts/check.sh' }] }] } }),
+            'scripts/check.sh': 'exit 0',
+         });
+
+         const result = await loadConfigExtending(remote);
+
+         expect(result.hooks).toEqual({
+            pre_command: [{ hooks: [{ command: `'${join(copyDir, 'scripts/check.sh')}'` }] }],
+         });
       });
    });
 });

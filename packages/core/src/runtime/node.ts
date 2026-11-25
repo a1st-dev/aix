@@ -78,16 +78,60 @@ async function downloadTemplate(
    return gigetDownload(template, options);
 }
 
-async function ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void> {
-   const { ensureDependencyInstalled: nypmEnsureInstalled } = await import('nypm');
+const IGNORE_SCRIPTS_ENV_VAR = 'npm_config_ignore_scripts';
 
-   await nypmEnsureInstalled(packageSpec, { cwd });
+let activeConfigInstalls = 0,
+    ignoreScriptsBeforeInstalls: string | undefined;
+
+/**
+ * Run a package install on behalf of a config. The packages and the directory come from a
+ * config that may have been downloaded, so nothing in them is allowed to pick what runs:
+ * callers pin the package manager to npm (nypm would otherwise take the command name from
+ * the directory's `packageManager` field or lockfiles) and no lifecycle script is run.
+ *
+ * nypm cannot pass flags or an environment to the package manager, so the setting goes into
+ * this process's environment, which the child inherits. Installs can overlap, so the previous
+ * value is restored only when the last one finishes.
+ */
+async function withLifecycleScriptsIgnored<T>(install: () => Promise<T>): Promise<T> {
+   const env = getNodeProcess().env;
+
+   if (activeConfigInstalls === 0) {
+      ignoreScriptsBeforeInstalls = env[IGNORE_SCRIPTS_ENV_VAR];
+   }
+
+   activeConfigInstalls += 1;
+   env[IGNORE_SCRIPTS_ENV_VAR] = 'true';
+
+   try {
+      return await install();
+   } finally {
+      activeConfigInstalls -= 1;
+
+      if (activeConfigInstalls === 0 && ignoreScriptsBeforeInstalls === undefined) {
+         delete env[IGNORE_SCRIPTS_ENV_VAR];
+      } else if (activeConfigInstalls === 0) {
+         env[IGNORE_SCRIPTS_ENV_VAR] = ignoreScriptsBeforeInstalls;
+      }
+   }
+}
+
+async function ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void> {
+   const { addDependency } = await import('nypm');
+
+   // nypm's own ensureDependencyInstalled cannot pin the package manager, and its "already
+   // installed" check never matches a spec that carries a version, so it always added anyway.
+   await withLifecycleScriptsIgnored(() => {
+      return addDependency(packageSpec, { cwd, packageManager: 'npm' });
+   });
 }
 
 async function installDependencies(cwd: string): Promise<void> {
    const { installDependencies: nypmInstallDependencies } = await import('nypm');
 
-   await nypmInstallDependencies({ cwd, silent: true });
+   await withLifecycleScriptsIgnored(() => {
+      return nypmInstallDependencies({ cwd, silent: true, packageManager: 'npm' });
+   });
 }
 
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {

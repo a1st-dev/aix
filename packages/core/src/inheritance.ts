@@ -1,8 +1,9 @@
 import { resolve, dirname, join } from 'pathe';
 import { parseJsonc, detectSourceType, isLocalPath, hooksSchema, type HookAction } from '@a1st/aix-schema';
-import { withGitDownload, createDownloadKey } from './git-download.js';
+import { withGitDownload, createCacheKey, createDownloadKey } from './git-download.js';
 import { getExtendsDir } from './cache/paths.js';
 import { parseConfigContent } from './discovery.js';
+import { safeRm } from './fs/safe-rm.js';
 import {
    CircularDependencyError,
    ConfigParseError,
@@ -17,38 +18,77 @@ import { getRuntimeAdapter } from './runtime/index.js';
 import { isRecord } from './type-guards.js';
 
 const SOURCE_REF_SECTIONS = ['skills', 'rules', 'prompts', 'agents'] as const,
-      FILE_PROTOCOL = 'file:';
+      FILE_PROTOCOL = 'file:',
+      // Files that decide what `npm install` puts in node_modules
+      DEPENDENCY_MANIFESTS = ['package.json', 'package-lock.json', 'npm-shrinkwrap.json', '.npmrc'] as const,
+      INSTALL_FINGERPRINT_FILE = '.aix-install-fingerprint';
 
 export interface ResolveOptions {
    baseDir: string;
    /** Project root for determining temp directory location */
    projectRoot: string;
-   /** The chain of extended configs that led to this one, used to detect cycles */
-   visited?: ReadonlySet<string>;
    /** Whether the baseDir is a remote URL (for resolving relative extends) */
    isRemote?: boolean;
+}
+
+/** State shared by every config in one `resolveExtends` call */
+interface ExtendsContext {
+   projectRoot: string;
+   /** Names of the copies under `.aix/extends/` that the resolved config points into */
+   usedExtendsKeys: Set<string>;
+}
+
+interface ExtendsChainOptions {
+   baseDir: string;
+   context: ExtendsContext;
+   /** The chain of extended configs that led to this one, used to detect cycles */
+   visited: ReadonlySet<string>;
+   isRemote: boolean;
 }
 
 export async function resolveExtends(
    config: Record<string, unknown>,
    options: ResolveOptions,
 ): Promise<AiJsonConfig> {
-   const { baseDir, projectRoot, visited = new Set<string>(), isRemote = false } = options,
-         isTopLevel = !options.visited;
+   const { baseDir, projectRoot, isRemote = false } = options,
+         context: ExtendsContext = { projectRoot, usedExtendsKeys: new Set<string>() },
+         resolved = await resolveExtendsChain(config, { baseDir, context, visited: new Set<string>(), isRemote });
 
-   if (!config.extends) {
-      return config as AiJsonConfig;
+   if (config.extends) {
+      await removeUnusedExtendsCopies(context);
    }
 
-   // On the top-level call, wipe the extends directory so it exactly reflects the current config.
-   // This prevents orphaned directories from accumulating when the extends URL changes.
-   if (isTopLevel) {
-      const extendsDir = getExtendsDir(projectRoot),
-            { fs } = getRuntimeAdapter();
+   return resolved;
+}
 
-      if (fs.existsSync(extendsDir)) {
-         await fs.rm(extendsDir, { recursive: true, force: true });
-      }
+/**
+ * Remove the copies under `.aix/extends/` that the config no longer extends. This runs only
+ * after the whole config has resolved: installed hooks point into these copies, so a load
+ * that fails (for example while offline) must leave them as they were.
+ */
+async function removeUnusedExtendsCopies(context: ExtendsContext): Promise<void> {
+   const extendsDir = getExtendsDir(context.projectRoot),
+         { fs } = getRuntimeAdapter();
+
+   if (!fs.existsSync(extendsDir)) {
+      return;
+   }
+
+   const unusedKeys = (await fs.readdir(extendsDir)).filter((key) => {
+      return !context.usedExtendsKeys.has(key);
+   });
+
+   await Promise.all(unusedKeys.map((key) => {
+      return safeRm(join(extendsDir, key), { force: true });
+   }));
+}
+
+async function resolveExtendsChain(
+   config: Record<string, unknown>,
+   options: ExtendsChainOptions,
+): Promise<AiJsonConfig> {
+   if (!config.extends) {
+      return config as AiJsonConfig;
    }
 
    const extendsValue = config.extends,
@@ -63,12 +103,7 @@ export async function resolveExtends(
       }
 
       // eslint-disable-next-line no-await-in-loop -- Sequential: inheritance chain order matters
-      const resolvedConfig = await resolveExtendsPath(extendPath, {
-         baseDir,
-         projectRoot,
-         visited,
-         isRemote,
-      });
+      const resolvedConfig = await resolveExtendsPath(extendPath, options);
 
       merged = deepMergeJson(merged, resolvedConfig, { resolver: aiJsonMergeResolver });
    }
@@ -80,39 +115,32 @@ export async function resolveExtends(
    return merged as AiJsonConfig;
 }
 
-interface ResolveExtendsPathOptions {
-   baseDir: string;
-   projectRoot: string;
-   visited: ReadonlySet<string>;
-   isRemote: boolean;
-}
-
 async function resolveExtendsPath(
    extendPath: string,
-   options: ResolveExtendsPathOptions,
+   options: ExtendsChainOptions,
 ): Promise<Record<string, unknown>> {
-   const { baseDir, projectRoot, visited, isRemote } = options;
+   const { baseDir, context, visited, isRemote } = options;
 
    // If base is a remote URL and extend is a relative path, resolve as remote URL
    if (isRemote && isRelativePath(extendPath)) {
-      return resolveRemoteExtends(new URL(extendPath, baseDir).href, projectRoot, visited);
+      return resolveRemoteExtends(new URL(extendPath, baseDir).href, context, visited);
    }
 
    const sourceType = detectSourceType(extendPath);
 
    switch (sourceType) {
       case 'local':
-         return resolveLocalExtends(extendPath, baseDir, projectRoot, visited);
+         return resolveLocalExtends(extendPath, baseDir, context, visited);
 
       case 'https-file':
-         return resolveRemoteExtends(extendPath, projectRoot, visited);
+         return resolveRemoteExtends(extendPath, context, visited);
 
       case 'git-shorthand':
       case 'https-repo':
-         return resolveGitExtends(extendPath, projectRoot, visited);
+         return resolveGitExtends(extendPath, context, visited);
 
       case 'npm':
-         return resolveNpmExtends(extendPath, projectRoot, visited);
+         return resolveNpmExtends(extendPath, context, visited);
 
       case 'http-unsupported':
          throw new ConfigParseError('HTTP URLs are not supported (use HTTPS)', extendPath);
@@ -141,7 +169,7 @@ function enterExtends(visited: ReadonlySet<string>, source: string): ReadonlySet
  */
 async function resolveRemoteExtends(
    url: string,
-   projectRoot: string,
+   context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
    const chain = enterExtends(visited, url),
@@ -166,13 +194,13 @@ async function resolveRemoteExtends(
    const parsed = result.data as Record<string, unknown>,
          newBaseUrl = rawUrl.substring(0, rawUrl.lastIndexOf('/') + 1);
 
-   return resolveExtends(parsed, { baseDir: newBaseUrl, projectRoot, visited: chain, isRemote: true });
+   return resolveExtendsChain(parsed, { baseDir: newBaseUrl, context, visited: chain, isRemote: true });
 }
 
 async function resolveLocalExtends(
    extendPath: string,
    baseDir: string,
-   projectRoot: string,
+   context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
    const absolutePath = resolve(baseDir, extendPath),
@@ -186,7 +214,7 @@ async function resolveLocalExtends(
    const content = fs.readFileSync(absolutePath, 'utf-8'),
          parsed = parseConfigContent(content) as Record<string, unknown>,
          newBaseDir = dirname(absolutePath),
-         resolved = await resolveExtends(parsed, { baseDir: newBaseDir, projectRoot, visited: chain });
+         resolved = await resolveExtendsChain(parsed, { baseDir: newBaseDir, context, visited: chain, isRemote: false });
 
    // Normalize local paths to absolute so they remain valid after merging into the parent config,
    // which may be in a different directory.
@@ -195,54 +223,91 @@ async function resolveLocalExtends(
 
 async function resolveGitExtends(
    extendPath: string,
-   projectRoot: string,
+   context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
-   const chain = enterExtends(visited, extendPath);
+   const chain = enterExtends(visited, extendPath),
+         extendsKey = createDownloadKey(extendPath),
+         permanentDir = join(getExtendsDir(context.projectRoot), extendsKey),
+         { fs } = getRuntimeAdapter();
 
-   return withGitDownload(extendPath, projectRoot, async (dir) => {
+   context.usedExtendsKeys.add(extendsKey);
+
+   // Skill, rule and prompt paths and installed hook commands keep pointing at the copy under
+   // .aix/extends/ after this load. It is replaced only once the download has an ai.json that
+   // parses and its dependencies are in place, so a failed load leaves the old copy usable.
+   const parsed = await withGitDownload(extendPath, context.projectRoot, async (dir) => {
       const configPath = resolve(dir, 'ai.json');
-      const { fs } = getRuntimeAdapter();
 
       if (!fs.existsSync(configPath)) {
          throw new ConfigParseError(`No ai.json found in git repository: ${extendPath}`, configPath);
       }
 
       const content = fs.readFileSync(configPath, 'utf-8'),
-            parsed = parseConfigContent(content) as Record<string, unknown>,
-            resolved = await resolveExtends(parsed, { baseDir: dir, projectRoot, visited: chain });
+            config = parseConfigContent(content) as Record<string, unknown>;
 
-      // Copy the downloaded content to a permanent location under .aix/extends/ so that skill,
-      // rule, and prompt paths remain resolvable after the ephemeral temp dir is cleaned up.
-      const extendsKey = createDownloadKey(extendPath),
-            permanentDir = join(getExtendsDir(projectRoot), extendsKey);
-
+      await installExtendsDependencies(dir, permanentDir);
       await fs.mkdir(dirname(permanentDir), { recursive: true });
-      await fs.cp(dir, permanentDir, { recursive: true, force: true });
+      await safeRm(permanentDir, { force: true });
+      await fs.rename(dir, permanentDir);
 
-      // Hook commands run scripts from this copy, and those scripts can import its packages.
-      if (fs.existsSync(join(permanentDir, 'package.json'))) {
-         await getRuntimeAdapter().npm.installDependencies(permanentDir);
-      }
-
-      // Normalize local paths to point at the permanent copy
-      return normalizeLocalPaths(resolved, permanentDir);
+      return config;
    });
+
+   const resolved = await resolveExtendsChain(parsed, { baseDir: permanentDir, context, visited: chain, isRemote: false });
+
+   return normalizeLocalPaths(resolved, permanentDir);
+}
+
+/**
+ * Give a downloaded extends copy the packages that its hook scripts import. The package
+ * manager runs only when the dependency manifests differ from those the copy being replaced
+ * was installed from; otherwise that copy's packages are moved over, so that loading a config
+ * does not reinstall every time.
+ */
+async function installExtendsDependencies(dir: string, previousDir: string): Promise<void> {
+   const { fs, npm } = getRuntimeAdapter(),
+         modulesDir = join(dir, 'node_modules'),
+         previousModulesDir = join(previousDir, 'node_modules');
+
+   if (!fs.existsSync(join(dir, 'package.json'))) {
+      return;
+   }
+
+   const fingerprint = createCacheKey(...DEPENDENCY_MANIFESTS.map((name) => {
+      return fs.existsSync(join(dir, name)) ? fs.readFileSync(join(dir, name), 'utf-8') : undefined;
+   }));
+
+   if (!fs.existsSync(modulesDir) && readInstallFingerprint(previousModulesDir) === fingerprint) {
+      await fs.rename(previousModulesDir, modulesDir);
+      return;
+   }
+
+   await npm.installDependencies(dir);
+   await fs.mkdir(modulesDir, { recursive: true });
+   await fs.writeFile(join(modulesDir, INSTALL_FINGERPRINT_FILE), fingerprint, 'utf-8');
+}
+
+function readInstallFingerprint(modulesDir: string): string | undefined {
+   const { fs } = getRuntimeAdapter(),
+         fingerprintPath = join(modulesDir, INSTALL_FINGERPRINT_FILE);
+
+   return fs.existsSync(fingerprintPath) ? fs.readFileSync(fingerprintPath, 'utf-8') : undefined;
 }
 
 async function resolveNpmExtends(
    packageName: string,
-   projectRoot: string,
+   context: ExtendsContext,
    visited: ReadonlySet<string>,
 ): Promise<Record<string, unknown>> {
    const chain = enterExtends(visited, packageName);
 
    try {
-      const packagePath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, projectRoot, 'ai.json'),
+      const packagePath = await getRuntimeAdapter().npm.resolvePackagePath(packageName, context.projectRoot, 'ai.json'),
             content = getRuntimeAdapter().fs.readFileSync(packagePath, 'utf-8'),
             parsed = parseConfigContent(content) as Record<string, unknown>,
             baseDir = dirname(packagePath),
-            resolved = await resolveExtends(parsed, { baseDir, projectRoot, visited: chain });
+            resolved = await resolveExtendsChain(parsed, { baseDir, context, visited: chain, isRemote: false });
 
       // Normalize local paths to absolute so they remain valid after merging into the parent config
       return normalizeLocalPaths(resolved, baseDir);
