@@ -10,10 +10,11 @@ This guide creates an `ai.json`, saves one rule and one
 into your editors. It assumes aix is [installed](/getting-started/installation/).
 
 :::caution[Installs default to user scope]
-`aix install` and `aix add` write to user-scope editor config unless you pass `--project`. User
-scope means files under your home directory, such as `~/.claude.json`, and they apply to every
-project you open. Step 3 shows how to preview the changes first and how to write project files
-instead.
+`aix install` and `aix add` write to user-scope editor config unless you pass `--project`, or,
+for `aix install`, unless `ai.json` sets `"scope": "project"`. User scope means files under
+your home directory, such as `~/.claude.json`, and they apply to every project you open. Step 3
+shows how to preview the changes first and how to write project files instead. See
+[User scope and project scope](/concepts/scopes/).
 :::
 
 ## 1. Create ai.json
@@ -100,16 +101,17 @@ Then install:
 aix install
 ```
 
-aix looks for supported editors on your machine. If it finds one, it installs to that editor.
-If it finds several, it asks which ones to install to. For each editor it then prints
-`Installed to <editor>` followed by the files it wrote.
+aix first prints the scope it is installing to. It then looks for supported editors on your
+machine. If it finds one, it installs to that editor. If it finds several, it asks which ones
+to install to. For each editor it prints `Installed to <editor>` followed by each change and
+the path of the file it wrote.
 
 ### Which files are touched
 
-With no scope flag, the install is user scope. For Claude Code, the rule is written under
-`~/.claude/rules/` and the MCP server is added to `~/.claude.json`. Other editors use their
-own locations, which are listed on each editor's page under
-[Supported editors](/editors/supported-editors/).
+The `ai.json` from step 1 has no `scope` field, so with no scope flag the install is user
+scope. For Claude Code, the rule is written under `~/.claude/rules/` and the MCP server is
+added to `~/.claude.json`. Other editors use their own locations, which are listed on each
+editor's page under [Supported editors](/editors/supported-editors/).
 
 Some editors have no user-scope file for a feature. Cursor, for example, keeps user rules in
 its settings UI, so aix cannot write the rule there. aix prints a warning for anything it could
@@ -122,10 +124,12 @@ aix install --project
 ```
 
 For Claude Code this writes the rule under `.claude/rules/` and the MCP server to `.mcp.json`
-in the project.
+in the project. To make project scope the default for this `ai.json`, add `"scope": "project"`
+to it.
 
 aix backs up an existing file before it changes it. [`aix backups`](/cli/backups/) lists the
-backups.
+backups, and [Backups and restore](/concepts/backups-and-restore/) shows how to put a file
+back or undo an install.
 
 Run `aix install` again whenever you change `ai.json`.
 
@@ -133,6 +137,8 @@ Run `aix install` again whenever you change `ai.json`.
 
 - Learn about [skills](/concepts/skills/), [rules](/concepts/rules/),
   [prompts](/concepts/prompts/), and [MCP servers](/concepts/mcp-servers/).
+- Read [What aix writes and where](/concepts/files-and-directories/) to see which files to
+  commit.
 - See the full [ai.json reference](/configuration/ai-json-reference/).
 - Browse the [CLI reference](/cli/overview/).
 - Already have editor config? [Import it](/getting-started/import-from-editor/).

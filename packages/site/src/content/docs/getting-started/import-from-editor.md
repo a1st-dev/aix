@@ -39,6 +39,7 @@ aix reads the editor's config at both user scope and project scope and imports w
 - **Rules, prompts, and agents** are copied into `.aix/imported/` as markdown files, and
   `ai.json` refers to each one by path.
 - **MCP servers, skills, and hooks** are written into `ai.json` directly.
+- **Plugins and marketplaces** are not imported.
 
 Each editor's page under [Supported editors](/editors/supported-editors/) lists where that
 editor keeps each kind of config.
@@ -76,6 +77,9 @@ ai.local.json
 !.aix/imported/
 ```
 
+[What aix writes and where](/concepts/files-and-directories/) lists what each part of `.aix/`
+holds.
+
 ## Choosing between `init --from` and `sync`
 
 - `aix init --from cursor` reads Cursor and creates `ai.json`.
@@ -104,8 +108,9 @@ aix install --dry-run
 aix install
 ```
 
-`aix install` writes user-scope editor config by default. Pass `--project` to write project
-files instead.
+`aix install` writes user-scope editor config unless `ai.json` has a `scope` field. The file
+that `aix init --from` creates has none, so pass `--project` to write project files instead.
+See [User scope and project scope](/concepts/scopes/).
 
 When aix detects more than one editor, it asks which ones to install to, with all of them
 selected the first time. Keep the editor you imported from selected so it stays in sync.

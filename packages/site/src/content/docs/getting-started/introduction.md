@@ -29,12 +29,24 @@ Editors do not all support the same features. The
 
 ## Where aix writes
 
-`aix install`, `aix add`, and `aix remove` work at user scope by default. User scope is the
-editor config under your home directory, such as `~/.claude.json`, and it applies to every
-project you open. Pass `--project` to work at project scope, which is the editor config inside
-the current project, such as `.mcp.json`.
+aix writes editor config at one of two scopes. User scope is the editor config under your
+home directory, such as `~/.claude.json`, and it applies to every project you open. Project
+scope is the editor config inside the current project, such as `.mcp.json`.
 
-`aix install --dry-run` lists the files an install would change without writing them.
+`aix add` and `aix remove` work at user scope unless you pass `--project`. `aix install` uses
+the `scope` field of `ai.json` and falls back to user scope, and it prints the scope before it
+writes. [User scope and project scope](/concepts/scopes/) has the rule for every command.
+
+`aix install --dry-run` lists the files an install would change, with their paths, without
+writing them.
+
+aix keeps its own copies and records in a `.aix/` directory in the project and in `~/.aix/`.
+Before it changes a file that already exists, it saves a copy that you can restore:
+
+- [What aix writes and where](/concepts/files-and-directories/): the files and directories
+  aix creates, and which ones to commit.
+- [Backups and restore](/concepts/backups-and-restore/): how to list backups, put a file
+  back, and undo an install.
 
 ## Where to go next
 
