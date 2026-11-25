@@ -4,8 +4,8 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { loadConfig } from '../loader.js';
-import { updateLocalConfig, getLocalConfigPath } from '../updater.js';
-import { discoverConfig } from '../discovery.js';
+import { updateLocalConfig } from '../updater.js';
+import { discoverConfig, getLocalConfigPath } from '../discovery.js';
 import { safeRm } from '../fs/safe-rm.js';
 
 const testDir = join(tmpdir(), 'aix-test-local-overrides');
@@ -90,6 +90,44 @@ describe('local overrides - loading', () => {
       });
       // MCP should be preserved from base
       expect(result?.config.mcp?.github).toBeDefined();
+   });
+
+   it('merges ai.local.json when ai.json is named explicitly', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify({ skills: { typescript: '^1.0.0' } }), 'utf-8');
+      await writeFile(join(testDir, 'ai.local.json'), JSON.stringify({ skills: { react: '^2.0.0' } }), 'utf-8');
+
+      const explicit = await loadConfig({ explicitPath: configPath }),
+            discovered = await loadConfig({ startDir: testDir });
+
+      expect(explicit?.hasLocalOverrides).toStrictEqual(true);
+      expect(explicit?.localPath).toBe(join(testDir, 'ai.local.json'));
+      expect(explicit?.config).toEqual(discovered?.config);
+   });
+
+   it('merges the matching local file when a config with another name is named explicitly', async () => {
+      const configPath = join(testDir, 'team.json');
+
+      await writeFile(configPath, JSON.stringify({ skills: { typescript: '^1.0.0' } }), 'utf-8');
+      await writeFile(join(testDir, 'team.local.json'), JSON.stringify({ skills: { react: '^2.0.0' } }), 'utf-8');
+      await writeFile(join(testDir, 'ai.local.json'), JSON.stringify({ skills: { vue: '^3.0.0' } }), 'utf-8');
+
+      const result = await loadConfig({ explicitPath: configPath });
+
+      expect(result?.localPath).toBe(join(testDir, 'team.local.json'));
+      expect(result?.config.skills).toEqual({ typescript: '^1.0.0', react: '^2.0.0' });
+   });
+
+   it('loads an explicitly named config without overrides when it has no local file', async () => {
+      const configPath = join(testDir, 'ai.json');
+
+      await writeFile(configPath, JSON.stringify({ skills: { typescript: '^1.0.0' } }), 'utf-8');
+
+      const result = await loadConfig({ explicitPath: configPath });
+
+      expect(result?.hasLocalOverrides).toBeUndefined();
+      expect(result?.localPath).toBeUndefined();
    });
 
    it('loads only ai.local.json when ai.json does not exist', async () => {

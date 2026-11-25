@@ -23,16 +23,27 @@ export async function discoverConfig(
    const { fs } = getRuntimeAdapter();
 
    if (explicitPath) {
-      const absolutePath = resolve(startDir, explicitPath);
+      const absolutePath = resolve(startDir, explicitPath),
+            localPath = getLocalConfigPath(absolutePath);
 
-      if (fs.existsSync(absolutePath)) {
-         return {
-            path: absolutePath,
-            content: fs.readFileSync(absolutePath, 'utf-8'),
-            source: 'file',
-         };
+      if (!fs.existsSync(absolutePath)) {
+         return undefined;
       }
-      return undefined;
+
+      const result: DiscoveryResult = {
+         path: absolutePath,
+         content: fs.readFileSync(absolutePath, 'utf-8'),
+         source: 'file',
+      };
+
+      // Naming the config file must not change what it resolves to: the local overrides
+      // beside it apply just as they do when the same file is found by discovery.
+      if (fs.existsSync(localPath)) {
+         result.localPath = localPath;
+         result.localContent = fs.readFileSync(localPath, 'utf-8');
+      }
+
+      return result;
    }
 
    let currentDir = resolve(startDir);
@@ -118,6 +129,23 @@ export async function discoverConfig(
    }
 
    return undefined;
+}
+
+/**
+ * Get the path to ai.local.json given a base config path.
+ * @param configPath - Path to ai.json or directory
+ * @returns Path to ai.local.json
+ */
+export function getLocalConfigPath(configPath: string): string {
+   const absolutePath = resolve(configPath);
+
+   if (absolutePath.endsWith('ai.json')) {
+      return absolutePath.replace(/ai\.json$/, 'ai.local.json');
+   }
+   if (absolutePath.endsWith('.json')) {
+      return absolutePath.replace(/\.json$/, '.local.json');
+   }
+   return join(absolutePath, 'ai.local.json');
 }
 
 function readPackageJson(packageJsonPath: string, isOptional: boolean): Record<string, unknown> | undefined {

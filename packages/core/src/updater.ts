@@ -127,20 +127,3 @@ export async function updateLocalConfig(
       throw error;
    }
 }
-
-/**
- * Get the path to ai.local.json given a base config path.
- * @param configPath - Path to ai.json or directory
- * @returns Path to ai.local.json
- */
-export function getLocalConfigPath(configPath: string): string {
-   const absolutePath = resolve(configPath);
-
-   if (absolutePath.endsWith('ai.json')) {
-      return absolutePath.replace(/ai\.json$/, 'ai.local.json');
-   }
-   if (absolutePath.endsWith('.json')) {
-      return absolutePath.replace(/\.json$/, '.local.json');
-   }
-   return join(absolutePath, 'ai.local.json');
-}
