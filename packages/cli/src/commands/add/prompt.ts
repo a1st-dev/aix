@@ -2,10 +2,11 @@ import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadPrompt,
@@ -20,7 +21,6 @@ import {
    isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -34,8 +34,8 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
       '<%= config.bin %> <%= command.id %> https://github.com/org/prompts/blob/main/review.md --name review',
       '<%= config.bin %> <%= command.id %> "Review code for issues" --name review',
       '<%= config.bin %> <%= command.id %> github:myorg/prompts/code-review.md#main --name code-review',
-      '<%= config.bin %> <%= command.id %> ./review.md --name review -d "Code review checklist" -a "[file]"',
-      '<%= config.bin %> <%= command.id %> ./review.md --name review --no-install',
+      '<%= config.bin %> <%= command.id %> ./review.md --name review --description "Code review checklist" -a "[file]"',
+      '<%= config.bin %> <%= command.id %> ./review.md --name review --save --config-only',
    ];
 
    static override args = {
@@ -56,7 +56,6 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          description: 'Prompt name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Description shown in command picker',
       }),
       'argument-hint': Flags.string({
@@ -67,10 +66,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
          char: 'r',
          description: 'Git ref (branch, tag, commit) - overrides ref in URL',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -82,10 +78,7 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -166,7 +159,8 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
                   logInstallResults: (results) => {
                      this.logInstallResults(results);
                   },
-                  skipInstall: flags['no-install'],
+                  skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['editors'],
@@ -190,7 +184,8 @@ export default class AddPrompt extends BaseCommand<typeof AddPrompt> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: flags['no-install'],
+            skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['editors'],

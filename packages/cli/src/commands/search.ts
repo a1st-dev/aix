@@ -49,20 +49,12 @@ export default class Search extends BaseCommand<typeof Search> {
    };
 
    static override flags = {
-      registry: Flags.string({
-         char: 'r',
-         description: 'NPM registry URL to search',
-         env: 'NPM_CONFIG_REGISTRY',
-         default: 'https://registry.npmjs.org',
-      }),
       type: Flags.string({
-         char: 't',
          description: 'Type of resources to search (can be specified multiple times)',
          options: ['skills', 'mcp'],
          multiple: true,
       }),
       plain: Flags.boolean({
-         char: 'p',
          description: 'Force plain text output (non-interactive)',
          default: false,
       }),
@@ -76,10 +68,7 @@ export default class Search extends BaseCommand<typeof Search> {
 
       const outputMode = getOutputMode({ json: this.flags.json, plain: this.flags.plain });
 
-      // Create registry
-      const registry = new SearchRegistry({
-         npmRegistry: this.flags.registry,
-      });
+      const registry = new SearchRegistry();
 
       // Interactive mode
       if (outputMode === 'interactive') {

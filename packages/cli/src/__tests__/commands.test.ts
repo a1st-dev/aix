@@ -216,10 +216,12 @@ describe('CLI Commands', () => {
          });
 
          const stale = await runCli(['validate', '--config', configPath], {
-            root,
-         });
+                  root,
+               }),
+               staleInstall = await runCli(['install', '--config', configPath, '--target', 'claude-code', '--dry-run']);
 
          expect(stale.error).toBeDefined();
+         expect(staleInstall.stderr).toContain('aix validate --lock');
 
          const refreshed = await runCli(['validate', '--config', configPath, '--lock'], {
             root,
@@ -388,6 +390,23 @@ describe('CLI Commands', () => {
          expect(existsSync(join(fakeHome, '.claude.json'))).toBe(false);
       });
 
+      it('refreshes the lockfile beside ai.json when --save changes that ai.json', async () => {
+         const configPath = join(testDir, 'ai.json'),
+               sourcePath = join(testDir, 'source', 'ai.json');
+
+         await mkdir(dirname(sourcePath), { recursive: true });
+         await writeValidConfig(configPath, { rules: { local: { content: 'Local rule.' } } });
+         await writeValidConfig(sourcePath, { rules: { remote: { content: 'Remote rule.' } } });
+         await runCli(['validate', '--config', configPath, '--lock']);
+
+         const installed = await runCli(['install', sourcePath, '--save']),
+               validated = await runCli(['validate', '--config', configPath]);
+
+         expect(installed.error).toBeUndefined();
+         expect(validated.error).toBeUndefined();
+         expect(await readFile(configPath, 'utf-8')).toContain('remote');
+      });
+
       it('refreshes a stale local lockfile when saving a source config with --lock', async () => {
          const configPath = join(testDir, 'ai.json'),
                sourceDir = join(testDir, 'source'),
@@ -482,6 +501,53 @@ describe('CLI Commands', () => {
          expect(existsSync(join(testDir, '.claude', 'agents', 'planner.md'))).toStrictEqual(true);
       });
 
+      it('rejects scope flags that disagree', async () => {
+         const installed = await runCli(['install', '--scope', 'project', '--user', '--dry-run']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('--user');
+      });
+
+      it('rejects a remove flag that does nothing without --save', async () => {
+         const removed = await runCli(['remove', 'mcp', 'docs', '--yes', '--local', '--project', '--target', 'claude-code']);
+
+         expect(removed.error).toBeDefined();
+         expect(removed.stderr).toContain('--local requires --save');
+      });
+
+      it('says so when CI makes it skip a server that an editor only reads at user scope', async () => {
+         const originalCI = process.env.CI;
+
+         process.env.CI = 'true';
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--target', 'codex']);
+
+         if (originalCI === undefined) {
+            delete process.env.CI;
+         } else {
+            process.env.CI = originalCI;
+         }
+
+         expect(added.stdout + added.stderr).toContain('CI environment detected');
+         expect(existsSync(join(process.env.HOME ?? '', '.codex', 'config.toml'))).toStrictEqual(false);
+      });
+
+      it('clears the cache beside ai.json when run from a subdirectory', async () => {
+         const cacheEntry = join(testDir, '.aix', '.tmp', 'cache', 'entry'),
+               subdirectory = join(testDir, 'src');
+
+         await writeValidConfig(join(testDir, 'ai.json'));
+         await mkdir(dirname(cacheEntry), { recursive: true });
+         await mkdir(subdirectory);
+         await writeFile(cacheEntry, 'cached');
+         process.chdir(subdirectory);
+
+         const cleared = await runCli(['cache', 'clear']);
+
+         expect(cleared.error).toBeUndefined();
+         expect(existsSync(cacheEntry)).toStrictEqual(false);
+      });
+
       it('says that there is nothing to remove instead of asking to confirm', async () => {
          const removed = await runCli(['remove', 'rule', 'missing', '--project', '--target', 'claude-code']);
 
@@ -560,11 +626,30 @@ describe('CLI Commands', () => {
    });
 
    describe('add without an editor to install to', () => {
-      it('says that nothing was installed', async () => {
+      it('fails an add that did not save anything either', async () => {
          const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js']);
+
+         expect(added.error).toBeDefined();
+         expect(added.stderr).toContain('Not installed to any editor');
+      });
+
+      it('warns and succeeds when the add was saved to ai.json', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'));
+
+         const added = await runCli(['add', 'mcp', 'docs', '--command', 'node docs.js', '--save']);
 
          expect(added.error).toBeUndefined();
          expect(added.stdout + added.stderr).toContain('Not installed to any editor');
+         expect(await readFile(join(testDir, 'ai.json'), 'utf-8')).toContain('"docs"');
+      });
+
+      it('fails an install, which would otherwise do nothing and exit 0', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { style: { content: 'Use direct language.' } } });
+
+         const installed = await runCli(['install', '--project']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('No editors detected, so nothing was installed');
       });
    });
 
@@ -1338,7 +1423,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -1372,7 +1457,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -1401,7 +1486,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -1435,7 +1520,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -1497,7 +1582,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -1527,7 +1612,7 @@ describe('CLI Commands', () => {
          );
 
          const { error } = await runCli(
-            ['add', 'hook', './hooks/guard.json', '--config', configPath, '--save', '--no-install'],
+            ['add', 'hook', './hooks/guard.json', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 
@@ -1606,7 +1691,7 @@ describe('CLI Commands', () => {
 
          await writeValidConfig(configPath);
          await runCli(
-            ['add', 'hook', 'post_compact', '--command', './cleanup.sh', '--config', configPath, '--save', '--no-install'],
+            ['add', 'hook', 'post_compact', '--command', './cleanup.sh', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 
@@ -2191,7 +2276,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -2223,7 +2308,7 @@ describe('CLI Commands', () => {
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -2433,7 +2518,7 @@ description: Demo skill
    });
 
    describe('remove prompt', () => {
-      it('removes a prompt from config and keeps file with --no-delete', async () => {
+      it('accepts --no-delete as another spelling of --config-only', async () => {
          const configPath = join(testDir, 'ai.json'),
                promptsDir = join(testDir, 'prompts'),
                promptFile = join(promptsDir, 'review.md');
@@ -2739,7 +2824,7 @@ description: User Agents skill
          await writeValidConfig(configPath);
 
          const { error } = await runCli(
-            ['add', 'plugin', 'code-review@claude-plugins-official', '--config', configPath, '--save', '--no-install'],
+            ['add', 'plugin', 'code-review@claude-plugins-official', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 
@@ -2783,7 +2868,7 @@ description: User Agents skill
          });
 
          const { error } = await runCli(
-            ['remove', 'plugin', 'code-review', '--yes', '--config', configPath, '--save', '--no-install'],
+            ['remove', 'plugin', 'code-review', '--yes', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 
@@ -2830,7 +2915,7 @@ description: User Agents skill
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -2875,7 +2960,7 @@ description: User Agents skill
          });
 
          const { error } = await runCli(
-            ['remove', 'marketplace', 'team-market', '--yes', '--config', configPath, '--save', '--no-install'],
+            ['remove', 'marketplace', 'team-market', '--yes', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 
@@ -2912,7 +2997,7 @@ You are a senior code reviewer.
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -2953,7 +3038,7 @@ You plan architecture tasks.
                '--config',
                configPath,
                '--save',
-               '--no-install',
+               '--config-only',
             ],
             { root },
          );
@@ -3004,7 +3089,7 @@ You plan architecture tasks.
          });
 
          const { error } = await runCli(
-            ['remove', 'agent', 'reviewer', '--yes', '--config', configPath, '--save', '--no-delete'],
+            ['remove', 'agent', 'reviewer', '--yes', '--config', configPath, '--save', '--config-only'],
             { root },
          );
 

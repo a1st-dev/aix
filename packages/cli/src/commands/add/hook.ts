@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    appendHooks,
@@ -27,7 +28,6 @@ import {
    installAddedItem,
    isUserScopeAdd,
    persistAddedItem,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -51,7 +51,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
       '<%= config.bin %> <%= command.id %> agent_stop --prompt "Summarize what changed" --type agent',
       '<%= config.bin %> <%= command.id %> ./hooks/guard.json',
       '<%= config.bin %> <%= command.id %> github:myorg/config/hooks/guard.json',
-      '<%= config.bin %> <%= command.id %> pre_command --command "npm run lint" --no-install',
+      '<%= config.bin %> <%= command.id %> pre_command --command "npm run lint" --save --config-only',
    ];
 
    static override args = {
@@ -88,7 +88,6 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
          description: 'Timeout in seconds',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Free-form description for the hook group',
       }),
       name: Flags.string({
@@ -99,10 +98,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
          char: 'r',
          description: 'Git ref (branch, tag, commit) - overrides ref in URL',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -113,10 +109,7 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
             lockableConfigPath = getLockableConfigPath(loaded),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -304,7 +297,8 @@ export default class AddHook extends BaseCommand<typeof AddHook> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: this.flags['no-install'],
+            skipInstall: this.flags['config-only'],
+            saved: this.flags.save,
             loaded: context.loaded,
             local: this.flags.local,
             installSections: ['hooks'],

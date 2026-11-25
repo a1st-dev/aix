@@ -11,16 +11,16 @@
 # Create a local ai.json file for storing your config
 aix init
 # Save an MCP server from the official registry to ai.json.
-# --save writes to ai.json. --no-install leaves your editors alone until `aix install`.
-aix add mcp playwright --save --no-install
+# --save writes to ai.json. --config-only leaves your editors alone until `aix install`.
+aix add mcp playwright --save --config-only
 # Save a skill from GitHub, a repo path, a local path, or an installed npm package
-aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md --save --no-install
+aix add skill https://github.com/obra/superpowers/blob/main/skills/systematic-debugging/SKILL.md --save --config-only
 # Save a rule from GitHub, local path, or npm package
-aix add rule ../rules/typescript-rules.md --save --no-install
+aix add rule ../rules/typescript-rules.md --save --config-only
 # Save a prompt (also known as a workflow or slash command)
-aix add prompt ../prompts/review.md --save --no-install
+aix add prompt ../prompts/review.md --save --config-only
 # Save a hook that runs on an editor lifecycle event
-aix add hook pre_command --command "npm run lint" --save --no-install
+aix add hook pre_command --command "npm run lint" --save --config-only
 # Optionally create ai.lock.json for reproducible installs
 aix validate --lock
 # Install everything in ai.json into this project's config for the named editors

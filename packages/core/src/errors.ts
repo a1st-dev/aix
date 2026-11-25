@@ -43,7 +43,8 @@ export interface ConfigParseIssue {
 
 export class ConfigParseError extends ConfigError {
    constructor(
-      message: string,
+      /** What is wrong with the file, without the file name or the list of issues. */
+      public readonly reason: string,
       public readonly filePath: string,
       public readonly issues?: ConfigParseIssue[],
    ) {
@@ -51,18 +52,7 @@ export class ConfigParseError extends ConfigError {
          ? `\n${issues.map((issue) => `  - ${issue.path}: ${issue.message}`).join('\n')}`
          : '';
 
-      super(`Failed to parse ${filePath}: ${message}${issueDetails}`, 'CONFIG_PARSE_ERROR');
-   }
-}
-
-export class EmbeddedConfigUpdateError extends ConfigError {
-   constructor(public readonly packageJsonPath: string) {
-      super(
-         `Cannot update config embedded in package.json (${packageJsonPath}). ` +
-            'Extract the "ai" field to a separate ai.json file first, or use ' +
-            '"ai": "./ai.json" in package.json to reference an external file.',
-         'EMBEDDED_CONFIG_UPDATE',
-      );
+      super(`Failed to parse ${filePath}: ${reason}${issueDetails}`, 'CONFIG_PARSE_ERROR');
    }
 }
 

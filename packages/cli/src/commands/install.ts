@@ -10,12 +10,13 @@ import {
    showTargetScopeLimitationWarnings,
    showUnsupportedFeatureWarnings,
 } from '../lib/apply-result-reporter.js';
-import { ConfigParseError, generateAndWriteLockfile } from '@a1st/aix-core';
+import { ConfigParseError, writeLockfileForConfig } from '@a1st/aix-core';
 import { onlyFlag, parseSections, configScopeFlags, getFlagScope, resolveTargetScope } from '../flags/scope.js';
 import { resolveTargetEditors, resolveConfiguredEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { resolveMcpFromRegistry } from '../lib/add-command-helper.js';
 import { recordInstalledItems, recordInstalledSections } from '../lib/install-helper.js';
 import { assertInteractive } from '../lib/confirm.js';
+import { shouldRefreshLockfile } from '../lib/lockfile-helper.js';
 import {
    installToEditor,
    listConfigInstallEditors,
@@ -27,7 +28,6 @@ import {
    cleanStaleCache,
    clearCache,
    replaceFile,
-   discoverConfig,
    localizeRemoteConfig,
    commitImport,
    rollbackImport,
@@ -205,7 +205,10 @@ export default class Install extends BaseCommand<typeof Install> {
       const sections = parseSections(this.flags as { only?: string[] }),
             projectRoot = args.source ? process.cwd() : dirname(loaded.path),
             isSaveMode = this.flags.save,
-            isDryRun = this.flags['dry-run'];
+            isDryRun = this.flags['dry-run'],
+            // Saving changes ai.json, so a lockfile beside it is refreshed as `aix add --save`
+            // refreshes it. Checking the changed config against the old lockfile would fail.
+            refreshesLockfile = isSaveMode ? shouldRefreshLockfile(this.flags.lock, join(projectRoot, 'ai.json')) : this.flags.lock;
 
       const targetScope = resolveTargetScope(this.flags, loaded.config);
 
@@ -248,7 +251,7 @@ export default class Install extends BaseCommand<typeof Install> {
          if (!isDryRun) {
             const localLoaded = await loadConfig({
                explicitPath: join(projectRoot, 'ai.json'),
-               lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+               lockfileMode: refreshesLockfile ? 'ignore' : 'auto',
                installExtendsDependencies: this.installsExtendsDependencies(),
             });
 
@@ -259,14 +262,14 @@ export default class Install extends BaseCommand<typeof Install> {
 
          // If only saving (no editor installation needed), we're done
          if (!this.flags.target && !loaded.config.editors) {
-            if (this.flags.lock && !isDryRun) {
+            if (refreshesLockfile && !isDryRun) {
                await this.updateLockfile(loaded, projectRoot);
             }
             return;
          }
       }
 
-      if (this.flags.lock && !isDryRun) {
+      if (refreshesLockfile && !isDryRun) {
          loaded = await this.updateLockfile(loaded, projectRoot);
       }
 
@@ -612,12 +615,7 @@ export default class Install extends BaseCommand<typeof Install> {
    }
 
    private async updateLockfile(loaded: LoadedConfig, projectRoot: string): Promise<LoadedConfig> {
-      const written = await generateAndWriteLockfile({
-         config: loaded.config,
-         configPath: loaded.path,
-         configBaseDir: loaded.configBaseDir,
-         projectRoot,
-      });
+      const written = await writeLockfileForConfig(loaded, projectRoot);
 
       this.output.success(`Updated ${written.lockfilePath}`);
 
@@ -642,8 +640,7 @@ export default class Install extends BaseCommand<typeof Install> {
     * loads is what makes the load fetch every remote source afresh.
     */
    private async clearCacheBeforeLoading(remoteSource: string | undefined): Promise<void> {
-      const discovered = remoteSource ? undefined : await discoverConfig(process.cwd(), this.flags.config),
-            projectRoot = discovered ? dirname(discovered.path) : process.cwd(),
+      const projectRoot = remoteSource ? process.cwd() : await this.findProjectRoot(),
             cleared = await clearCache(projectRoot);
 
       if (cleared.deletedPaths.length > 0) {
@@ -680,9 +677,7 @@ export default class Install extends BaseCommand<typeof Install> {
       const detected = await detectEditors(projectRoot);
 
       if (detected.length === 0) {
-         this.output.warn('No editors detected.');
-         this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
-         return null;
+         this.error('No editors detected, so nothing was installed. Pass --target <editor>, or list editors under "editors" in ai.json.');
       }
       if (detected.length === 1) {
          this.output.info(`Detected editor: ${detected[0]}`);

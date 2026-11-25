@@ -23,7 +23,7 @@ export default class CacheClear extends BaseCommand<typeof CacheClear> {
    static override examples = ['<%= config.bin %> cache clear', '<%= config.bin %> cache clean'];
 
    async run(): Promise<void> {
-      const projectRoot = process.cwd(),
+      const projectRoot = await this.findProjectRoot(),
             status = await getCacheStatus(projectRoot);
 
       if (status.totalSize === 0) {

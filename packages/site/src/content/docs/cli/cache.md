@@ -5,8 +5,10 @@ title: aix cache
 description: Clear the files aix downloaded and can download again.
 ---
 
-aix keeps the git and npm sources it downloads in `.aix/.tmp/` inside the project, so that a
-later install does not fetch them again. `aix cache clear` deletes that directory.
+aix keeps the npm packages and the git rules, prompts, and agents it downloads in `.aix/.tmp/`
+inside the project, so that a later install does not fetch them again. `aix cache clear`
+deletes that directory. A skill from a git repository is not kept there: aix downloads it
+into the temporary directory of the operating system on every install.
 
 ## Usage
 
@@ -16,8 +18,10 @@ aix cache clear
 
 Alias: `aix cache clean`
 
-The command deletes `.aix/.tmp/` in the working directory. Run it from the directory that
-holds `ai.json`. The next `aix install` downloads remote sources again.
+The command deletes `.aix/.tmp/` beside the `ai.json` it finds, searching from the working
+directory upward the way `aix install` does, so it works from any subdirectory of the project.
+`--config` picks a different `ai.json`. Without an `ai.json`, it uses the working directory.
+The next `aix install` downloads remote sources again.
 
 It does not delete anything else:
 

@@ -91,8 +91,8 @@ command fails and names the flag to pass instead:
 - `aix install` asks which editors to use when it detects several. Pass `--target`, or list
   the editors in `ai.json`.
 - `aix remove` and `aix backups restore` ask for confirmation. Pass `--yes`.
-- `aix add mcp <name>` asks which registry server to use when several match. Pass
-  `--command` or `--url` to define the server yourself.
+- `aix add mcp <name>` asks which registry server to use when several match. Pass the full
+  name of the one you want, or `--command` or `--url` to define the server yourself.
 
 `aix install`, `aix add`, `aix sync`, and `aix remove` exit with a non-zero status when they
 fail for any editor.

@@ -9,9 +9,12 @@ interface Props {
    heading: MarkdownHeading;
 }
 
+const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const,
+      DEFAULT_TAG = 'h2';
+
 const { heading } = Astro.props;
 
-const Tag = `h${heading.depth}`;
+const Tag = HEADING_TAGS[heading.depth - 1] ?? DEFAULT_TAG;
 ---
 
 <Tag id={heading.slug}>{heading.text}</Tag>

@@ -65,12 +65,11 @@ When you exit, aix prints the items you installed.
 
 ## Flags
 
-| Flag                      | Description                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------- |
-| `--type <type>` / `-t`    | Search only `skills` or only `mcp`. Repeatable. The default is both.             |
-| `--plain` / `-p`          | Print the results as text and exit.                                              |
-| `--json`                  | Print the results as JSON and exit.                                              |
-| `--registry <url>` / `-r` | Accepted, but it has no effect. Skills come from skills.sh, not an npm registry. |
+| Flag            | Description                                                          |
+| --------------- | -------------------------------------------------------------------- |
+| `--type <type>` | Search only `skills` or only `mcp`. Repeatable. The default is both. |
+| `--plain`       | Print the results as text and exit.                                  |
+| `--json`        | Print the results as JSON and exit.                                  |
 
 ## Plain and JSON output
 

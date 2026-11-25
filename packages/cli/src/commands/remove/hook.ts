@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    getLocalConfigPath,
@@ -32,7 +33,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
       '<%= config.bin %> <%= command.id %> pre_command',
       '<%= config.bin %> <%= command.id %> pre_command --yes',
       '<%= config.bin %> <%= command.id %> session_start --user --target claude-code',
-      '<%= config.bin %> <%= command.id %> pre_command --no-sync',
+      '<%= config.bin %> <%= command.id %> pre_command --save --config-only',
    ];
 
    static override args = {
@@ -53,10 +54,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
          description: 'Skip confirmation prompt',
          default: false,
       }),
-      'no-sync': Flags.boolean({
-         description: 'Skip removing the hook from editor configs',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -65,6 +63,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
             targetEditors = resolveTargetEditors(flags.target),
             targetScope = resolveTargetScope(flags, loaded?.config);
 
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       if (!isHookEvent(args.event)) {
@@ -87,7 +86,9 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
                projectRoot,
             });
 
-      printEditorRemovalPreview({ output: this.output, editors, itemType: 'hook', itemName: event, scope: targetScope });
+      if (!flags['config-only']) {
+         printEditorRemovalPreview({ output: this.output, editors, itemType: 'hook', itemName: event, scope: targetScope });
+      }
 
       if (!flags.yes && !await this.confirmRemoval(event, Boolean(loaded), flags.local)) {
          return;
@@ -111,7 +112,7 @@ export default class RemoveHook extends BaseCommand<typeof RemoveHook> {
 
       const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
-      if (!flags['no-sync']) {
+      if (!flags['config-only']) {
          await this.removeFromEditorConfigs(editors, event, projectRoot, targetScope);
       }
 

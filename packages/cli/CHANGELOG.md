@@ -31,6 +31,14 @@ version may appear here with no changes to this package.
   user scope
 - Retry a failed search with Ctrl+R in `aix search`; a plain `r` was also typed into the
   query, as was the `?` that toggles help
+- Name the flag that changes `ai.json` and leaves the editors alone `--config-only` on
+  every `aix add` and `aix remove` command. `--no-install`, `--no-sync`, and `--no-delete`
+  are still accepted on all of them
+- Give each short flag one meaning on every command. `-d` is `--dry-run`, `-s` is
+  `--save`, `-t` is the editor to write to, `-p` is `--project`, and `-r` is `--ref`. The
+  other flags that used those letters lost them: `--description` on `aix add`, `--scope`
+  on `aix sync`, `--type` and `--plain` on `aix search`, and `--resolved` on
+  `aix config show`. `aix sync` accepts `--target` as another name for `--to`
 
 ### Removed
 
@@ -38,6 +46,8 @@ version may appear here with no changes to this package.
 - Remove `aix update` and the background update check that ran with every command. They
   looked for release tarballs that were never published, so the command could not succeed.
   Update with `npm install -g @a1st/aix@latest`
+- Remove the `--registry` flag of `aix search`. It was accepted and never read: skills
+  come from skills.sh and MCP servers from the official MCP Registry
 
 ### Fixed
 
@@ -108,6 +118,34 @@ version may appear here with no changes to this package.
 - Print JSON from `aix search --json` when there are no results
 - Mark the skills and MCP servers that `ai.json` already declares as installed in
   `aix search`; every result looked uninstalled
+- Reject `--scope` combined with `--user` or `--project`. A command given
+  `--scope project --user` used to follow `--scope` and ignore the other flag
+- Make `aix cache clear` clear the cache beside the `ai.json` it finds, as
+  `aix install --clean` does. Run from a subdirectory, it used to report an empty cache
+  and delete nothing
+- Reject `--local`, `--lock`, and `--config-only` on `aix remove` without `--save`, as
+  `aix add` does. They were ignored without a message
+- Leave the list of editors out of the `aix remove` preview when `--config-only` means no
+  editor is changed
+- Report a user-level change that `aix add` skipped, such as a Codex or Windsurf MCP
+  server in CI. The command used to print nothing and exit 0
+- Fail `aix install` with a non-zero exit status when no editor is detected and none is
+  named. It used to print a warning, install nothing, and exit 0, and with `--json` it
+  printed nothing
+- Stop `aix validate` from running a package manager for a git `extends` that has a
+  `package.json`
+- Make `ai.lock.json` match on every machine: it no longer covers `ai.local.json` or
+  absolute paths. Run `aix validate --lock` once to refresh a lockfile that was written
+  with local overrides, a git skill, or a file outside the project
+- Refresh an existing `ai.lock.json` after `aix install <source> --save` changes
+  `ai.json`, as `aix add --save` does. The command used to save `ai.json` and then stop on
+  the lockfile it had just made stale
+- Reject `--lock` combined with `--local` on `aix add` and `aix remove`. The lockfile does
+  not cover `ai.local.json`, and `aix remove` ignored the flag without a message
+- Print how to refresh a stale `ai.lock.json` on every command. Only `aix validate`
+  printed the instruction; the other commands listed digests and nothing else
+- Fail `aix add` with a non-zero exit status when no editor is detected and `--save` was
+  not passed, so the command changed nothing. With `--save` the message stays a warning
 
 ## [0.6.0] - 2026-08-12
 

@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
@@ -25,7 +26,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
    static override examples = [
       '<%= config.bin %> <%= command.id %> github',
       '<%= config.bin %> <%= command.id %> filesystem --yes',
-      '<%= config.bin %> <%= command.id %> github --no-sync',
+      '<%= config.bin %> <%= command.id %> github --save --config-only',
    ];
 
    static override args = {
@@ -46,10 +47,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
          description: 'Skip confirmation prompt',
          default: false,
       }),
-      'no-sync': Flags.boolean({
-         description: 'Skip syncing changes to editor MCP configs',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -58,6 +56,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       const targetScope = resolveTargetScope(flags, loaded?.config);
       const targetEditors = resolveTargetEditors(flags.target);
 
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if MCP server exists in merged config (if we have one)
@@ -75,7 +74,9 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
                projectRoot,
             });
 
-      printEditorRemovalPreview({ output: this.output, editors, itemType: 'MCP server', itemName: args.name, scope: targetScope });
+      if (!flags['config-only']) {
+         printEditorRemovalPreview({ output: this.output, editors, itemType: 'MCP server', itemName: args.name, scope: targetScope });
+      }
 
       // Confirm removal
       if (!flags.yes) {
@@ -121,7 +122,7 @@ export default class RemoveMcp extends BaseCommand<typeof RemoveMcp> {
       const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
       // Sync editor MCP configs so removals affect the same editor set as add/install.
-      if (!flags['no-sync']) {
+      if (!flags['config-only']) {
          await this.removeMcpFromEditorConfigs(editors, args.name, projectRoot, targetScope);
       }
 

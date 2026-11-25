@@ -52,6 +52,11 @@ export function formatInstallResults(
                success: true,
             });
          }
+         // A user-level change that was skipped, as in CI, is the only sign that an item
+         // did not reach the editor.
+         for (const warning of result.globalChanges?.warnings ?? []) {
+            output.push({ editor: result.editor, message: warning, success: false });
+         }
       } else {
          output.push({
             editor: result.editor,

@@ -10,10 +10,11 @@ import {
 } from '@a1st/aix-core';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { BaseCommand } from '../base-command.js';
+import { configOnlyFlag } from '../flags/config-only.js';
 import { removeLockFlag } from '../flags/lock.js';
 import { localFlag } from '../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../flags/scope.js';
-import { saveFlag } from '../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../flags/target.js';
 import { confirmAction } from './confirm.js';
 import { deleteFiles, findFilesToDelete, printRemovalPreview } from './delete-helper.js';
@@ -64,10 +65,7 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
          description: 'Skip confirmation prompt',
          default: false,
       }),
-      'no-delete': Flags.boolean({
-         description: 'Skip deleting files from editors',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    protected abstract readonly kind: FileItemKind;
@@ -87,6 +85,7 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
             scope = resolveTargetScope(flags, loaded?.config),
             targetFile = flags.local ? 'ai.local.json' : 'ai.json';
 
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       if (flags.save && loaded?.config[section]?.[name] === undefined) {
@@ -102,14 +101,14 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
                scope,
                projectRoot,
             }),
-            filesToDelete = flags['no-delete']
+            filesToDelete = flags['config-only']
                ? []
                : await findFilesToDelete({ editors, section, name, scope, projectRoot }),
             fileCount = filesToDelete.flatMap(({ files }) => {
                return files;
             }).length;
 
-      if (fileCount === 0 && !loaded && !flags['no-delete']) {
+      if (fileCount === 0 && !loaded) {
          this.output.info(`No ${noun} named "${args.name}" found at ${scope} scope in: ${editors.join(', ') || 'any editor'}`);
          return;
       }

@@ -1,5 +1,5 @@
 import { BaseCommand } from '../base-command.js';
-import { loadConfig as coreLoadConfig, generateAndWriteLockfile } from '@a1st/aix-core';
+import { loadConfig as coreLoadConfig, writeLockfileForConfig } from '@a1st/aix-core';
 import { ConfigValidationError } from '@a1st/aix-core';
 import { Flags } from '@oclif/core';
 
@@ -29,6 +29,8 @@ export default class Validate extends BaseCommand<typeof Validate> {
          const result = await coreLoadConfig({
             explicitPath: configPath,
             lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            // Checking a config must not run a package manager for a git `extends`.
+            installExtendsDependencies: false,
          });
 
          if (!result) {
@@ -41,11 +43,7 @@ export default class Validate extends BaseCommand<typeof Validate> {
          let lockfilePath = result.lockfilePath;
 
          if (this.flags.lock) {
-            const written = await generateAndWriteLockfile({
-               config: result.config,
-               configPath: result.path,
-               configBaseDir: result.configBaseDir,
-            });
+            const written = await writeLockfileForConfig(result);
 
             lockfilePath = written.lockfilePath;
             this.output.success(`Updated ${lockfilePath}`);

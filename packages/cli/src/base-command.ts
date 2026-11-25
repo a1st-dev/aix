@@ -1,7 +1,8 @@
 import { Command, Flags, Interfaces } from '@oclif/core';
 import chalk from 'chalk';
-import { basename, resolve } from 'pathe';
+import { basename, dirname, resolve } from 'pathe';
 import {
+   discoverConfig,
    loadConfig as coreLoadConfig,
    ConfigParseError,
    USER_HOME_ENV_VAR,
@@ -104,6 +105,17 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       return config;
    }
 
+   /**
+    * The directory of the ai.json this command would load, or the working directory when there
+    * is none. A project's `.aix` directory sits beside its ai.json, so a command run from a
+    * subdirectory has to look there and not under the working directory.
+    */
+   protected async findProjectRoot(): Promise<string> {
+      const discovered = await discoverConfig(process.cwd(), this.flags.config);
+
+      return discovered ? dirname(discovered.path) : process.cwd();
+   }
+
    protected getLockfileMode(): LockfileMode {
       return 'auto';
    }
@@ -171,6 +183,7 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
     * ✗ Configuration Error
     *
     *   File: ai.local.json
+    *   Validation failed
     *
     *   ● mcp.playwright
     *     Expected object or false, received true
@@ -186,6 +199,8 @@ export abstract class BaseCommand<T extends typeof Command> extends Command {
       console.error(chalk.red('✗') + ' Configuration ' + chalk.red('Error'));
       console.error('');
       console.error('  File: ' + chalk.cyan(fileName));
+      // For a stale lockfile this line is the only place that says how to refresh it.
+      console.error('  ' + error.reason);
       console.error('');
 
       for (const issue of issues) {

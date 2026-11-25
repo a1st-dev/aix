@@ -48,11 +48,11 @@ what is imported.
 ## 2. Save a rule and an MCP server
 
 ```bash
-aix add rule "Always use TypeScript strict mode" --name typescript-strict --save --no-install
-aix add mcp playwright --command "npx @playwright/mcp@latest" --save --no-install
+aix add rule "Always use TypeScript strict mode" --name typescript-strict --save --config-only
+aix add mcp playwright --command "npx @playwright/mcp@latest" --save --config-only
 ```
 
-`--save` writes the item to `ai.json`. `--no-install` leaves your editors alone for now, so
+`--save` writes the item to `ai.json`. `--config-only` leaves your editors alone for now, so
 step 3 can preview the install before anything is written.
 
 `ai.json` now contains both items:

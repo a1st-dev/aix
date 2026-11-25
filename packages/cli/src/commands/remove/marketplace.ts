@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { dirname } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { removeLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags, resolveTargetScope } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    updateConfig,
@@ -26,7 +27,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
    static override examples = [
       '<%= config.bin %> <%= command.id %> my-market',
       '<%= config.bin %> <%= command.id %> team-plugins --yes',
-      '<%= config.bin %> <%= command.id %> team-plugins --no-install',
+      '<%= config.bin %> <%= command.id %> team-plugins --save --config-only',
    ];
 
    static override args = {
@@ -47,10 +48,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
          description: 'Skip confirmation prompt',
          default: false,
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip re-installing to editors after removing',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -60,6 +58,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       const marketplaceName = args.name;
       const targetScope = resolveTargetScope(flags, loaded?.config);
 
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       validateTargetEditors(targetEditors, this.error.bind(this));
 
       // Check if marketplace exists in merged config (if we have one)
@@ -77,7 +76,9 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
                projectRoot,
             });
 
-      printEditorRemovalPreview({ output: this.output, editors, itemType: 'marketplace', itemName: marketplaceName, scope: targetScope });
+      if (!flags['config-only']) {
+         printEditorRemovalPreview({ output: this.output, editors, itemType: 'marketplace', itemName: marketplaceName, scope: targetScope });
+      }
 
       // Confirm removal
       if (!flags.yes) {
@@ -124,7 +125,7 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       const lockfilePath = await refreshLockfileAfterRemoval(flags.lock, lockableConfigPath, this.output);
 
       // Clean up marketplace config in editors unless skipped
-      if (!flags['no-install']) {
+      if (!flags['config-only']) {
          await this.removeMarketplaceFromEditorConfigs(editors, marketplaceName, projectRoot, targetScope);
 
          if (loaded) {

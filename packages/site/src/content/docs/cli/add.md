@@ -25,11 +25,13 @@ aix add <type> <source> [flags]
 aix installs the item into editor config and leaves `ai.json` alone. It installs to the
 editors named by `--target`, or to every editor it detects when you pass none.
 
-If no editor is found, nothing is installed and aix prints:
+If no editor is found, nothing is installed and the command fails with:
 
 ```text
 Not installed to any editor: none was detected. Pass --target <editor> to choose one.
 ```
+
+With `--save` the same message is a warning, because the item was written to the config file.
 
 ### With `--save`
 
@@ -45,8 +47,8 @@ aix writes the item to `ai.json` first and then installs it:
 With `--local`, the item is written to `ai.local.json` beside `ai.json`, and only that item
 is installed.
 
-`--no-install` writes the config file and skips the install, so you can review the change and
-run [`aix install`](/cli/install/) yourself.
+`--config-only` writes the config file and skips the install, so you can review the change
+and run [`aix install`](/cli/install/) yourself.
 
 ### Scope
 
@@ -63,13 +65,15 @@ Every `aix add` command takes these flags:
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `--save` / `-s`                                          | Also write the item to `ai.json`.                                                          |
 | `--local` / `-l`                                         | With `--save`, write to `ai.local.json` instead of `ai.json`.                              |
-| `--no-install`                                           | With `--save`, write the config file and skip the install.                                 |
+| `--config-only`                                          | With `--save`, write the config file and skip the install.                                 |
 | `--lock`                                                 | With `--save`, create or refresh `ai.lock.json` after adding. Needs an existing `ai.json`. |
 | `--target <editor>` / `-t`                               | Install to this editor only. Repeatable.                                                   |
 | `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Install at user scope or project scope. The default is user scope.                         |
 
-`--local`, `--lock`, and `--no-install` are rejected without `--save`. When `ai.lock.json`
-already exists, `--save` refreshes it whether or not you pass `--lock`.
+`--local`, `--lock`, and `--config-only` are rejected without `--save`. `--lock` cannot be
+combined with `--local`, and `--scope` cannot be combined with `--user` or `--project`. `--no-install` is another spelling of
+`--config-only`. When `ai.lock.json` already exists, `--save` refreshes it whether or not you
+pass `--lock`.
 
 The [global flags](/cli/overview/#global-flags) also apply. `--config` is only read with
 `--save`.
@@ -134,7 +138,7 @@ aix add rule <source>... [flags]
 - `--name <name>` / `-n`: Rule name. Inferred from the source when omitted.
 - `--activation <mode>` / `-a`: `always` (the default), `auto`, `glob`, or `manual`.
 - `--globs <patterns>` / `-g`: Comma-separated file patterns for `glob` activation.
-- `--description <desc>` / `-d`: When the rule should apply, for `auto` activation.
+- `--description <desc>`: When the rule should apply, for `auto` activation.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
 `--name`, `--description`, and `--ref` only work with one source.
@@ -150,7 +154,7 @@ aix add prompt <source>... [flags]
 **Flags:**
 
 - `--name <name>` / `-n`: Prompt name. Inferred from the source when omitted.
-- `--description <desc>` / `-d`: Description shown in the editor's command picker.
+- `--description <desc>`: Description shown in the editor's command picker.
 - `--argument-hint <hint>` / `-a`: Hint for the arguments, such as `[file] [message]`.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
@@ -171,7 +175,7 @@ name.
 - `--mode <mode>` / `-m`: `subagent` (the default) or `primary`.
 - `--model <model>`: Model alias or model ID.
 - `--tools <tools>`: Comma-separated list of tools available to the agent.
-- `--description <desc>` / `-d`: When this agent should be used.
+- `--description <desc>`: When this agent should be used.
 - `--ref <ref>` / `-r`: Git branch, tag, or commit.
 
 You can pass several sources at once. `--name`, `--model`, `--tools`, `--description`, and
@@ -204,7 +208,7 @@ for that event instead of replacing it.
 - `--type <kind>`: `command`, `http`, `prompt`, or `agent`. Inferred from the flag above when omitted.
 - `--matcher <pattern>` / `-m`: Pattern selecting which tools or actions the hook applies to.
 - `--timeout <seconds>`: Timeout in seconds.
-- `--description <desc>` / `-d`: Free-form description for the hook group.
+- `--description <desc>`: Free-form description for the hook group.
 
 Pass exactly one of `--command`, `--url`, and `--prompt`.
 
@@ -271,7 +275,7 @@ or a local directory.
 **Flags:**
 
 - `--name <name>` / `-n`: Marketplace name. Inferred from the URL or repository when omitted.
-- `--description <desc>` / `-d`: Description of the marketplace.
+- `--description <desc>`: Description of the marketplace.
 
 Both flags only work with one source.
 
@@ -302,7 +306,7 @@ aix add rule ./rules/typescript.md --target cursor --project
 **Save a skill to `ai.json` without installing it:**
 
 ```bash
-aix add skill ./skills/review --save --no-install
+aix add skill ./skills/review --save --config-only
 ```
 
 **Save a personal rule to `ai.local.json`:**

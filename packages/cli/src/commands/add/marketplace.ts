@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import {
@@ -18,7 +19,6 @@ import {
    isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -31,7 +31,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
       '<%= config.bin %> <%= command.id %> https://github.com/my-org/marketplace-catalog --name my-market',
       '<%= config.bin %> <%= command.id %> github:my-org/plugins --name team-plugins',
       '<%= config.bin %> <%= command.id %> ./marketplaces/local --name local-market',
-      '<%= config.bin %> <%= command.id %> github:my-org/plugins --name team-plugins --no-install',
+      '<%= config.bin %> <%= command.id %> github:my-org/plugins --name team-plugins --save --config-only',
    ];
 
    static override args = {
@@ -52,13 +52,9 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
          description: 'Marketplace name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'Optional description of the marketplace',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -70,10 +66,7 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -127,7 +120,8 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
                   logInstallResults: (results) => {
                      this.logInstallResults(results);
                   },
-                  skipInstall: flags['no-install'],
+                  skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['marketplaces'],
@@ -152,7 +146,8 @@ export default class AddMarketplace extends BaseCommand<typeof AddMarketplace> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: flags['no-install'],
+            skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['marketplaces'],

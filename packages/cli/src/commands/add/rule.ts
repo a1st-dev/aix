@@ -2,10 +2,11 @@ import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadRule,
@@ -20,7 +21,6 @@ import {
    isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -36,7 +36,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
       '<%= config.bin %> <%= command.id %> ./rules/coding-standards.md --name coding-standards',
       '<%= config.bin %> <%= command.id %> https://github.com/anthropics/skills/tree/main/skills/frontend-design --name frontend',
       '<%= config.bin %> <%= command.id %> github:myorg/rules/typescript#main --name typescript',
-      '<%= config.bin %> <%= command.id %> "Always use TypeScript" --name ts-rule --no-install',
+      '<%= config.bin %> <%= command.id %> "Always use TypeScript" --name ts-rule --save --config-only',
    ];
 
    static override args = {
@@ -57,7 +57,6 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          description: 'Rule name (inferred from source if not provided)',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'When the rule should apply (enables auto activation)',
       }),
       activation: Flags.string({
@@ -74,10 +73,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
          char: 'r',
          description: 'Git ref (branch, tag, commit) - overrides ref in URL',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -89,10 +85,7 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -168,7 +161,8 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
                   logInstallResults: (results) => {
                      this.logInstallResults(results);
                   },
-                  skipInstall: flags['no-install'],
+                  skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['rules'],
@@ -193,7 +187,8 @@ export default class AddRule extends BaseCommand<typeof AddRule> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: flags['no-install'],
+            skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['rules'],

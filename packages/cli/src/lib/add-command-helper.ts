@@ -25,6 +25,8 @@ export interface PersistAddedItemOptions {
 export interface InstallAddedItemOptions {
    logInstallResults: (results: Array<{ message: string; success: boolean }>) => void;
    skipInstall: boolean;
+   /** Whether the item was written to a config file, so that the command changed something. */
+   saved: boolean;
    loaded?: LoadedConfig;
    local: boolean;
    installSections: ConfigSection[];
@@ -41,10 +43,6 @@ export interface AddScopeFlags {
    scope?: string;
    user?: boolean;
    project?: boolean;
-   local?: boolean;
-   lock?: boolean;
-   'no-install'?: boolean;
-   save?: boolean;
 }
 
 export function getAddSources(args: { source: string }, argv: unknown[]): string[] {
@@ -57,25 +55,6 @@ export function getAddSources(args: { source: string }, argv: unknown[]): string
 
 export function isUserScopeAdd(flags: AddScopeFlags): boolean {
    return isUserScopeRequested(flags) || (!flags.project && flags.scope !== 'project');
-}
-
-export function rejectUserScopeProjectConfigFlags(options: {
-   flags: AddScopeFlags;
-   error: (message: string) => never;
-}): void {
-   const { flags, error } = options;
-
-   if (flags.local && !flags.save) {
-      error('--local requires --save because add does not change config files by default.');
-   }
-
-   if (flags.lock && !flags.save) {
-      error('--lock requires --save because no ai.json is changed otherwise.');
-   }
-
-   if (flags['no-install'] && !flags.save) {
-      error('--no-install requires --save; otherwise the command would make no change.');
-   }
 }
 
 export function resolveAddTargetScope(flags: AddScopeFlags, loaded: LoadedConfig | undefined): ConfigScope {
@@ -162,6 +141,7 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
    const {
       logInstallResults,
       skipInstall,
+      saved,
       loaded,
       local,
       installSections,
@@ -195,10 +175,13 @@ export async function installAddedItem(options: InstallAddedItemOptions): Promis
       });
 
    if (!installResult.installed) {
-      logInstallResults([{
-         success: false,
-         message: 'Not installed to any editor: none was detected. Pass --target <editor> to choose one.',
-      }]);
+      const message = 'Not installed to any editor: none was detected. Pass --target <editor> to choose one.';
+
+      // Without --save the install was the whole command, so nothing happened at all.
+      if (!saved) {
+         failInstall(message);
+      }
+      logInstallResults([ { success: false, message } ]);
       return;
    }
 

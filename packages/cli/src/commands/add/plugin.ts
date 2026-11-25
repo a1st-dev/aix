@@ -1,10 +1,11 @@
 import { Args, Flags } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import {
@@ -18,7 +19,6 @@ import {
    isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -33,7 +33,7 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
       '<%= config.bin %> <%= command.id %> @scope/my-plugin',
       '<%= config.bin %> <%= command.id %> code-review --marketplace custom-market',
       '<%= config.bin %> <%= command.id %> ./plugins/local-plugin --name my-plugin',
-      '<%= config.bin %> <%= command.id %> code-review --no-install',
+      '<%= config.bin %> <%= command.id %> code-review --save --config-only',
    ];
 
    static override args = {
@@ -57,10 +57,7 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
          char: 'm',
          description: 'Marketplace name where plugin is published',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -72,10 +69,7 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -129,7 +123,8 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
                   logInstallResults: (results) => {
                      this.logInstallResults(results);
                   },
-                  skipInstall: flags['no-install'],
+                  skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['plugins'],
@@ -154,7 +149,8 @@ export default class AddPlugin extends BaseCommand<typeof AddPlugin> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: flags['no-install'],
+            skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['plugins'],

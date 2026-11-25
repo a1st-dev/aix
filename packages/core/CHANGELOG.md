@@ -22,6 +22,8 @@ version may appear here with no changes to this package.
   for a git `extends`
 - Back up whole directories: `createBackup` copies a directory, `restoreBackup` puts it
   back without files added since, and `listAllBackups` reports `isDirectory`
+- Add `ConfigParseError.reason`, the description of the problem without the file name or
+  the list of issues
 
 ### Changed
 
@@ -46,6 +48,7 @@ version may appear here with no changes to this package.
   the `autoConfirmGlobal` apply option. Their write paths were unreachable from an install
   and overwrote a global config file that failed to parse. `planGlobalChanges` replaces
   the first
+- Remove `EmbeddedConfigUpdateError`, which nothing threw
 
 ### Fixed
 
@@ -129,6 +132,20 @@ version may appear here with no changes to this package.
 - Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and
   Antigravity on macOS by its application support directory; its list held an absolute
   `/Applications` path that was joined onto the home directory and never matched
+- Update a config kept in the `ai` field of `package.json` inside that field.
+  `updateConfig` wrote the changed sections to the top level of `package.json`, so
+  `aix add --save` reported success and the item was never read
+- Resolve the local overrides of a config in `package.json` to `ai.local.json`, the file
+  discovery reads, and not to `package.local.json`
+- Name `ai.local.json` in the error when that file has a syntax error. The error named
+  `ai.json`
+- Compute `ai.lock.json` from the config without `ai.local.json`. The lockfile is
+  committed and the local overrides are not, so a lockfile that covered them matched only
+  on the machine that wrote it. `LoadedConfig.sharedConfig` is the config before the
+  overrides, and `writeLockfileForConfig` writes the lockfile from it
+- Record a file outside the directory of `ai.json` relative to that directory in
+  `ai.lock.json`, and leave out the download directory of a git skill. Both were absolute
+  paths inside the entry digest, so the lockfile did not match on another machine
 
 ## [0.6.0] - 2026-08-12
 

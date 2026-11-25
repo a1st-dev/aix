@@ -30,7 +30,7 @@ const highlightJson = (input: string) => {
     .replace(/>/g, '&gt;');
 
   const tokens: string[] = [];
-  const withCommentTokens = escaped.replace(/(^|\s)(\/\/.*)$/gm, (match, lead, comment) => {
+  const withCommentTokens = escaped.replace(/(^|\s)(\/\/.*)$/gm, (_match, lead, comment) => {
     const token = `__TOKEN_${tokens.length}__`;
     tokens.push(`${lead}<span class="code-token code-token--comment">${comment}</span>`);
     return token;

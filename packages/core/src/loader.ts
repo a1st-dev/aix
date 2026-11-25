@@ -24,6 +24,12 @@ export interface LoadedConfig {
    /** Whether local overrides were applied */
    hasLocalOverrides?: boolean;
    /**
+    * The config before `ai.local.json` was merged in, set only when local overrides were
+    * applied. This is the config `ai.lock.json` describes: the lockfile is committed and the
+    * local overrides are not, so a lockfile that covered them would not match anywhere else.
+    */
+   sharedConfig?: AiJsonConfig;
+   /**
     * Base directory/URL for resolving relative paths in the config (skills, rules, etc.). For local
     * configs, this is the directory containing the config file. For remote URL configs, this is the
     * remote URL directory. For git shorthand configs, this is the local temp directory where the
@@ -155,9 +161,11 @@ function mergeLocalOverrides(
    localContent: string,
    localPath: string,
 ): { config: AiJsonConfig; hasLocalOverrides: true } {
-   const localParsed = parseConfigContent(localContent) as Record<string, unknown>;
+   let localParsed: unknown;
 
    try {
+      localParsed = parseConfigContent(localContent);
+
       const localValidated = parseLocalConfig(localParsed);
 
       return {
@@ -195,9 +203,10 @@ async function loadFromDiscovered(discovered: {
             baseDir = dirname(discovered.path),
             resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir, installDependencies });
 
-      let validated = parseResolvedConfig(resolved);
+      const sharedConfig = parseResolvedConfig(resolved),
+            warnings: string[] = [];
 
-      const warnings: string[] = [];
+      let validated = sharedConfig;
 
       if (discovered.packageJsonAlsoHasAi) {
          warnings.push(
@@ -225,12 +234,12 @@ async function loadFromDiscovered(discovered: {
          configBaseDir: baseDir,
          ...(warnings.length > 0 && { warnings }),
          ...(localPath && { localPath }),
-         ...(hasLocalOverrides && { hasLocalOverrides }),
+         ...(hasLocalOverrides && { hasLocalOverrides, sharedConfig }),
       };
 
       const lockfile = await loadMatchingLockfile({
          configPath: discovered.path,
-         config: validated,
+         config: sharedConfig,
          configBaseDir: baseDir,
          projectRoot: baseDir,
          mode: lockfileMode,

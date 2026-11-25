@@ -2,10 +2,11 @@ import { Args, Flags } from '@oclif/core';
 import { resolve } from 'pathe';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectIneffectiveSaveFlags, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import {
    loadAgent,
@@ -20,7 +21,6 @@ import {
    isUserScopeAdd,
    persistAddedItem,
    rejectMultiSourceFlags,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -36,7 +36,7 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
       '<%= config.bin %> <%= command.id %> github:myorg/agents/coder.md --name coder',
       '<%= config.bin %> <%= command.id %> ./agents/coder.md --name my-coder --mode primary',
       '<%= config.bin %> <%= command.id %> ./agents/coder.md --model claude-3-7-sonnet --tools bash,edit',
-      '<%= config.bin %> <%= command.id %> ./agents/coder.md --no-install',
+      '<%= config.bin %> <%= command.id %> ./agents/coder.md --save --config-only',
    ];
 
    static override args = {
@@ -73,13 +73,9 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
          description: 'Comma-separated list of tools available to this agent',
       }),
       description: Flags.string({
-         char: 'd',
          description: 'When this agent should be used',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -91,10 +87,7 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
             sources = getAddSources(args, argv),
             targetEditors = resolveTargetEditors(flags.target);
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectIneffectiveSaveFlags(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -173,7 +166,8 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
                   logInstallResults: (results) => {
                      this.logInstallResults(results);
                   },
-                  skipInstall: flags['no-install'],
+                  skipInstall: flags['config-only'],
+                  saved: flags.save,
                   loaded,
                   local: flags.local,
                   installSections: ['agents'],
@@ -198,7 +192,8 @@ export default class AddAgent extends BaseCommand<typeof AddAgent> {
             logInstallResults: (results) => {
                this.logInstallResults(results);
             },
-            skipInstall: flags['no-install'],
+            skipInstall: flags['config-only'],
+            saved: flags.save,
             loaded,
             local: flags.local,
             installSections: ['agents'],

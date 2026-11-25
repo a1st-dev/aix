@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname } from 'pathe';
-import { generateAndWriteLockfile, getLockfilePath, loadConfig, type LoadedConfig } from '@a1st/aix-core';
+import { getLockfilePath, loadConfig, writeLockfileForConfig, type LoadedConfig } from '@a1st/aix-core';
 import type { Output } from './output.js';
 
 export function getLockableConfigPath(
@@ -63,12 +63,7 @@ export async function refreshLockfile(configPath: string): Promise<string> {
       throw new Error(`Could not load ${configPath} after updating it.`);
    }
 
-   const written = await generateAndWriteLockfile({
-      config: loaded.config,
-      configPath: loaded.path,
-      configBaseDir: loaded.configBaseDir,
-      projectRoot: dirname(loaded.path),
-   });
+   const written = await writeLockfileForConfig(loaded, dirname(loaded.path));
 
    return written.lockfilePath;
 }

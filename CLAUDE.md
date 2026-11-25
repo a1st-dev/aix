@@ -105,8 +105,54 @@ AIX_USER_HOME="$SANDBOX_HOME" HOME="$SANDBOX_HOME" node packages/cli/bin/aixd.mj
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+An npm workspace with five packages, built with turbo:
+
+- `packages/schema` (`@a1st/aix-schema`): the Zod schemas for `ai.json`, `ai.local.json`, and
+  `ai.lock.json`, the list of editor names, and the editor support data that the docs site
+  renders. `schema.json` is generated from the Zod schemas by `npm run generate-schema` in that
+  package
+- `packages/core` (`@a1st/aix-core`): everything that reads config and writes editor files
+- `packages/cli` (`@a1st/aix`): the oclif CLI. `bin/aixd.mjs` runs the TypeScript source and
+  `dist/cli.js` is the built CLI that the tests run
+- `packages/mcp-registry-client`: a client for the official MCP Registry API
+- `packages/site`: the Astro and Starlight docs site, deployed by Vercel
+
+An install moves through core in this order:
+
+1. `discovery.ts` finds `ai.json`, and `loader.ts` loads it: `inheritance.ts` resolves
+   `extends`, the local overrides in `ai.local.json` are merged, and `lockfile.ts` checks
+   `ai.lock.json`
+2. `editors/install.ts` asks each editor's adapter in `editors/adapters/` for a list of
+   `FileChange` objects. An adapter delegates each section (rules, MCP, skills, prompts, hooks,
+   agents, plugins) to a strategy in `editors/strategies/<editor>/`
+3. `editors/apply-file-changes.ts` writes the changes. It backs up each file with `backup.ts`,
+   replaces it atomically with `fs/replace-file.ts`, and restores every file if one write fails
+4. `editors/install-receipts.ts` and `state/tracker.ts` record what was installed, so a later
+   install or remove deletes only what aix created
+
+`editors/import.ts` reads config out of an editor for `aix init --from`, `aix list`, and
+`aix sync`. `editors/remove.ts` removes one item and uses the same importer to find it.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- Core reaches the file system, the environment, and the home directory only through
+  `getRuntimeAdapter()` in `packages/core/src/runtime/`. Do not call `os.homedir()` or read
+  `process.env.HOME` anywhere else: the adapter is what makes `AIX_USER_HOME` and the test
+  sandbox work
+- A change to an editor file is a `FileChange` applied by `applyFileChanges`. Do not write
+  editor files with `writeFile`. Anything else that overwrites or deletes a user's file calls
+  `createBackup` first and writes with `replaceFile`
+- Delete with `safeRm`, which refuses paths outside `.aix` and the editor config directories
+- Change JSON, JSONC, and TOML files by patching the existing text, so comments and unrelated
+  keys stay: `applyJsoncDiff` from the schema package for `ai.json`, `planJsonFileChange` in
+  `editors/adapters/base.ts` for editor JSON, and `updateToml` in `toml.ts` for TOML
+- Every CLI command extends `BaseCommand`. Reuse the flag definitions in
+  `packages/cli/src/flags/`, and resolve the scope with `resolveTargetScope` so every command
+  gives the same answer for the same project
+- A command that works through several editors reports each failure and calls `markFailed()`
+  so the process exits non-zero
+- Editor names come from `editorNames` in `packages/schema/src/editors.ts`. Do not keep a
+  second list
+- A change that a user can see gets an entry under `## [Unreleased]` in the changed package's
+  `CHANGELOG.md`, and an update to the page in `packages/site/src/content/docs/` that describes
+  the behavior

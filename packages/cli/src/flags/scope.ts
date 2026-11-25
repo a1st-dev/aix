@@ -55,6 +55,7 @@ export const configScopeFlags = {
    scope: Flags.string({
       description: 'Editor config scope to target',
       options: ['user', 'project'],
+      exclusive: ['user', 'project'],
    }),
    user: Flags.boolean({
       char: 'u',
@@ -103,7 +104,7 @@ function isConfigScope(value: string | undefined): value is ConfigScope {
    return value === 'user' || value === 'project';
 }
 
-/** The scope the flags ask for, or nothing when none of them was passed. `--scope` wins. */
+/** The scope the flags ask for, or nothing when none of them was passed. */
 export function getFlagScope(flags: ScopeFlags): ConfigScope | undefined {
    if (isConfigScope(flags.scope)) {
       return flags.scope;

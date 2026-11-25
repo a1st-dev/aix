@@ -82,7 +82,7 @@ aix add agent ./agents/code-reviewer.md
 aix add agent ./agents/coder.md --name my-coder --mode primary
 
 # Save to ai.json, then install from it
-aix add agent ./agents/code-reviewer.md --save --no-install
+aix add agent ./agents/code-reviewer.md --save --config-only
 aix install
 ```
 
