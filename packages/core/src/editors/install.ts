@@ -1,5 +1,5 @@
 import pMap from 'p-map';
-import { join } from 'pathe';
+import { isAbsolute, join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
 import { stringifyTOML } from 'confbox';
@@ -100,7 +100,7 @@ async function isEditorInstalledGlobally(editor: EditorName): Promise<boolean> {
    for (const p of paths) {
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential: first-match lookup
-         await getRuntimeAdapter().fs.access(join(home, p), getRuntimeAdapter().fs.constants.F_OK);
+         await getRuntimeAdapter().fs.access(isAbsolute(p) ? p : join(home, p), getRuntimeAdapter().fs.constants.F_OK);
          return true;
       } catch {
          // Continue checking other paths

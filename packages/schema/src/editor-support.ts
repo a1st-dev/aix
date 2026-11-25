@@ -759,6 +759,7 @@ export const editorSupportProfiles = [
       migrationPitch: 'Zed is a strong target for rules, MCP, and skills after the v1.4.2 native skills update.',
       notes: [
          'Zed reads a single `.rules` file at project scope; user-scope rules go to `~/.config/zed/AGENTS.md`.',
+         'On Windows, Zed keeps its user-scope `settings.json` and `AGENTS.md` in `%APPDATA%\\Zed`, not `~/.config/zed`.',
          'Zed native Agent Skills live at `.agents/skills/<name>/`; aix manages them via `.aix/skills/` symlinks.',
          'Prompts are converted to Zed skills because Zed has no file-based prompt format.',
       ],

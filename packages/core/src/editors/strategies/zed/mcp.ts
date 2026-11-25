@@ -2,6 +2,7 @@ import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../types.js';
 import { isRecord } from '../../../type-guards.js';
 import { buildStandardServerEntry, parseStandardServerEntry } from '../shared/standard-mcp.js';
+import { getGlobalZedDir } from './paths.js';
 
 /**
  * Zed MCP strategy. Uses `settings.json` with a `context_servers` object. Note that Zed's MCP
@@ -17,7 +18,7 @@ export class ZedMcpStrategy implements McpStrategy {
    }
 
    getGlobalMcpConfigPath(): string | null {
-      return '.config/zed/settings.json';
+      return `${getGlobalZedDir()}/settings.json`;
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {

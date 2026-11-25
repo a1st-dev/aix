@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'pathe';
@@ -22,6 +22,7 @@ import {
    importFromEditor,
    installToEditor,
 } from '../../editors/index.js';
+import { nodeRuntimeAdapter } from '../../runtime/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
 import { isCI } from '../../env/index.js';
 import { safeRm } from '../../fs/safe-rm.js';
@@ -2632,6 +2633,39 @@ Release instructions.
 
          expect(result.unsupportedFeatures?.hooks).toBeDefined();
          expect(result.unsupportedFeatures?.hooks?.allUnsupported).toBe(true);
+      });
+   });
+
+   describe('Zed user-scope paths', () => {
+      const config = createConfig({
+         mcp: { docs: createMcpServer('docs-cmd') },
+         rules: { style: { activation: 'always', content: 'Be brief.' } },
+      });
+
+      async function installAtUserScope(platform: NodeJS.Platform): Promise<string> {
+         const fakeHome = join(testDir, 'fake-home');
+
+         process.env.HOME = fakeHome;
+         vi.spyOn(nodeRuntimeAdapter.os, 'platform').mockReturnValue(platform);
+         await installToEditor('zed', config, testDir, { targetScope: 'user', scopes: ['mcp', 'rules'] });
+         vi.restoreAllMocks();
+
+         return fakeHome;
+      }
+
+      it('writes to the roaming application data directory on Windows', async () => {
+         const fakeHome = await installAtUserScope('win32');
+
+         expect(existsSync(join(fakeHome, 'AppData/Roaming/Zed/settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, 'AppData/Roaming/Zed/AGENTS.md'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, '.config/zed'))).toStrictEqual(false);
+      });
+
+      it.each([ 'darwin', 'linux' ] as const)('writes to ~/.config/zed on %s', async (platform) => {
+         const fakeHome = await installAtUserScope(platform);
+
+         expect(existsSync(join(fakeHome, '.config/zed/settings.json'))).toStrictEqual(true);
+         expect(existsSync(join(fakeHome, '.config/zed/AGENTS.md'))).toStrictEqual(true);
       });
    });
 

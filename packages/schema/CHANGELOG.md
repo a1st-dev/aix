@@ -32,6 +32,7 @@ version may appear here with no changes to this package.
   directory when the name was used as a skill directory
 - Correct the editor support data for Claude Code user-scope rules
   (`~/.claude/rules/*.md`) and for the name of a prompt installed as a skill
+- Note Zed's Windows config location in the editor support data
 
 ## [0.6.0] - 2026-08-12
 

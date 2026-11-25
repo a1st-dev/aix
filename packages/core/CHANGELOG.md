@@ -124,6 +124,10 @@ version may appear here with no changes to this package.
   giget's template registry
 - Honor `aix.cache.maxBackups`, which the schema accepted and nothing read. Loading a
   config sets the limit, and `setMaxBackupsPerFile` sets it directly
+- Write Zed user-scope config to `%APPDATA%\Zed` on Windows, where Zed reads it; aix
+  wrote `~/.config/zed` on every platform
+- Detect OpenCode on Windows by `~/.config/opencode`, where it keeps its config, and check
+  an absolute detection path such as `/Applications/Antigravity.app` as written
 
 ## [0.6.0] - 2026-08-12
 
