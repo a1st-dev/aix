@@ -51,7 +51,7 @@ The project is structured as a TypeScript monorepo using npm workspaces.
 - **Fast Linting:** Use `oxlint` for linting. Configuration is in `.oxlintrc.json`.
 - **Formatting:** Use `oxfmt`. Configuration is in `.oxfmtrc.json`.
 - **File writes:** Write editor config through `applyFileChanges` and `replaceFile` in `packages/core`, which back the file up and replace it atomically.
-- **Releases:** Releases are triggered by pushing a signed git tag (e.g., `git tag -s vX.Y.Z -m "vX.Y.Z"`). Use `npm run version:bump` to update versions across the monorepo before tagging.
+- **Releases:** Releases are triggered by pushing a signed git tag (e.g., `git tag -s vX.Y.Z -m "vX.Y.Z"`). Use `npm run version:bump -- X.Y.Z` before tagging: it updates the versions across the monorepo and moves the `## [Unreleased]` entries of each `packages/*/CHANGELOG.md` under the new version. Commit the changelogs with the version bump.
 
 ## Key Files
 

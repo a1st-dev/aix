@@ -53,11 +53,14 @@ Do not use lightweight or unsigned tags. Every release tag must be signed with a
 ### Creating a release
 
 1. Ensure `main` is up to date and includes all release-ready changes.
-2. Bump versions in `package.json` and `package-lock.json` files, then commit those changes.
+2. Bump the version, then commit the changes. `version:bump` updates the `package.json` and
+   `package-lock.json` files, and in each `packages/*/CHANGELOG.md` it moves the entries under
+   `## [Unreleased]` to a new `## [X.Y.Z] - <date>` section. Read the new sections before you
+   commit: they become the GitHub Release notes and the changelog page of the docs site.
 
 ```bash
 npm run version:bump -- X.Y.Z
-git add package.json package-lock.json packages/*/package.json
+git add package.json package-lock.json packages/*/package.json packages/*/CHANGELOG.md
 git commit -m "chore: release vX.Y.Z"
 ```
 
@@ -84,7 +87,7 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
-Pushing a `v*` tag triggers the GitHub release workflow, which publishes packages and creates the GitHub Release.
+Pushing a `v*` tag triggers the GitHub release workflow, which publishes packages and creates the GitHub Release. The workflow fails before it publishes if a changelog has no section for the version or still has entries under `## [Unreleased]`.
 
 <!-- BEGIN AIX MANAGED SECTION — DO NOT EDIT -->
 ## general

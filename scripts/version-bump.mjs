@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync, spawnSync } from 'node:child_process';
+import { listChangelogPackages, rollUnreleased } from './changelog.mjs';
 
 const version = process.argv[2];
 const semverPattern =
@@ -168,6 +169,35 @@ function bumpNpmVersions(nextVersion) {
    return { lockfilesFound: lockFiles.length, nestedProcessed };
 }
 
+const DATE_PART_LENGTH = 2;
+
+function padDatePart(value) {
+   return String(value).padStart(DATE_PART_LENGTH, '0');
+}
+
+function getLocalISODate() {
+   const now = new Date();
+
+   return `${now.getFullYear()}-${padDatePart(now.getMonth() + 1)}-${padDatePart(now.getDate())}`;
+}
+
+/**
+ * Move each package's Unreleased changelog entries under a heading for the new version.
+ */
+function rollChangelogs(nextVersion) {
+   const date = getLocalISODate(),
+         // Every changelog is checked before the first one is written.
+         updates = listChangelogPackages(process.cwd()).map(({ changelogPath }) => {
+            return { changelogPath, content: rollUnreleased(fs.readFileSync(changelogPath, 'utf8'), nextVersion, date) };
+         });
+
+   for (const { changelogPath, content } of updates) {
+      fs.writeFileSync(changelogPath, content);
+   }
+
+   console.log(`Changelogs updated for ${nextVersion}: ${updates.length}`);
+}
+
 function bumpCargoVersions(nextVersion) {
    const ignoredDirs = new Set(['.git', 'node_modules', 'target']);
    const cargoTomls = findFiles(process.cwd(), 'Cargo.toml', ignoredDirs);
@@ -231,6 +261,9 @@ function bumpCargoVersions(nextVersion) {
 }
 
 try {
+   // First, so a changelog that already has this version stops the bump before any file changes.
+   rollChangelogs(version);
+
    const npmResult = bumpNpmVersions(version);
    const cargoResult = bumpCargoVersions(version);
 

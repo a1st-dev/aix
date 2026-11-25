@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { listUnreleasedProblems } from './changelog.mjs';
 
 const expectedVersion = process.argv[2];
 
@@ -43,3 +44,15 @@ if (mismatches.length > 0) {
 }
 
 console.log(`All package.json versions match ${expectedVersion}.`);
+
+const changelogProblems = listUnreleasedProblems(expectedVersion, process.cwd());
+
+if (changelogProblems.length > 0) {
+   console.error('Changelogs are not ready for this release. Run `npm run version:bump` to update them:');
+   for (const problem of changelogProblems) {
+      console.error(`- ${problem}`);
+   }
+   process.exit(1);
+}
+
+console.log(`All changelogs have a section for ${expectedVersion}.`);

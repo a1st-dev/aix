@@ -117,6 +117,15 @@ jobs:
       permissions:
          contents: write
       steps:
+         - name: Checkout code
+           uses: actions/checkout@v7
+
+         - name: Setup Node.js
+           uses: actions/setup-node@v7
+           with:
+              node-version: lts/*
+              package-manager-cache: false
+
          - name: Extract version from tag
            id: version
            env:
@@ -125,11 +134,16 @@ jobs:
               VERSION=${TAG#v}
               echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+         - name: Write the release notes from the package changelogs
+           env:
+              VERSION: ${{ steps.version.outputs.version }}
+           run: node ./scripts/changelog.mjs notes "$VERSION" > release-notes.md
+
          - name: Create GitHub Release
            uses: softprops/action-gh-release@v3
            with:
               tag_name: ${{ github.ref_name }}
               name: Release ${{ steps.version.outputs.version }}
-              generate_release_notes: true
+              body_path: release-notes.md
               draft: false
               prerelease: false
