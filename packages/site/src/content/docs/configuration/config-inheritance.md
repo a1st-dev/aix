@@ -70,6 +70,13 @@ The repository must have an `ai.json` at its root. To use a config in a subdirec
 directory to the shorthand, as in `github:company/repo/configs/web`. That directory must then
 contain the `ai.json`.
 
+aix keeps a copy of the repository under `.aix/extends/`, and installed hooks run their scripts
+from that copy. If the repository has a `package.json`, `aix install` installs its dependencies
+there with npm, without running the packages' lifecycle scripts. Commands that only read the
+config, such as `aix validate` and `aix install --dry-run`, never run npm. When the extended
+config has changed in a way that needs an install, they keep reading the copy that is already
+installed until the next `aix install`.
+
 ### URLs
 
 Direct HTTPS URLs to a JSON file. Plain HTTP is rejected.
