@@ -201,15 +201,14 @@ node ./bin/my-cli.js skill install
 
 ## Dependencies and bundling
 
-`@a1st/aix-core` installs 16 other packages, about 4 MB on disk. The packages that download
+`@a1st/aix-core` installs 17 other packages, about 4 MB on disk. The packages that download
 git sources and npm packages are loaded only when a `value` needs them.
 
 If you bundle your tool into one file, the simplest setup leaves `@a1st/aix-core` out of the
 bundle as a normal dependency. It can be bundled: an esbuild bundle of the code above is
-about 670 kB minified. Some of its dependencies are CommonJS, so an ESM bundle needs the ESM
-entry points and a `require` function:
+about 600 kB minified. One dependency, `jsonc-parser`, has a CommonJS default entry point that
+does not work in an ESM bundle, so tell the bundler to prefer the ESM one:
 
 ```bash
-esbuild src/cli.js --bundle --platform=node --format=esm --main-fields=module,main \
-   --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"
+esbuild src/cli.js --bundle --platform=node --format=esm --main-fields=module,main
 ```

@@ -4,7 +4,7 @@
  * frontmatter handling.
  */
 
-import { parse as parseYaml } from 'yaml';
+import { load as parseYaml } from 'js-yaml';
 
 // Editors on Windows save files with a byte order mark and CRLF line endings, and a file may
 // end at its closing delimiter. The body between the delimiters is optional so that an empty
@@ -77,7 +77,7 @@ export function parseYamlValue(lines: string[], key: string): string | boolean |
 }
 
 /**
- * Parse all key-value pairs from frontmatter into a raw object using the yaml library.
+ * Parse all key-value pairs from frontmatter into a raw object using the js-yaml library.
  * Falls back to simple line-based parsing if YAML parsing fails (e.g., for unquoted glob patterns).
  * @param frontmatter - The frontmatter content (without delimiters)
  * @returns Object with all parsed key-value pairs

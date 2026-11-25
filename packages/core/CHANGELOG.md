@@ -32,6 +32,8 @@ version may appear here with no changes to this package.
 ### Changed
 
 - Upgrade `nypm` to 0.6.12, which cuts the packages installed with this one from 39 to 16
+- Parse frontmatter with `js-yaml` instead of `yaml`. `js-yaml` has an ESM build, so an ESM
+  bundle of this package no longer needs a `require` function
 - Change `trackRemoval` to take an options object; with `editors` it removes only those
   editors from the state entry
 - Keep every backup in one store at `~/.aix/backups`, keyed by the original file's path;
