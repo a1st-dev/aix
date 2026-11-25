@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getEditorResearchRoot, listEditorResearchEntries } from './editor-research';
+import {
+   getEditorResearchRoot,
+   getVisitorNote,
+   groupEditorResearchEntries,
+   listEditorResearchEntries,
+} from './editor-research';
 
 function writeResearchFile(options: {
    rootDir: string;
@@ -10,12 +15,14 @@ function writeResearchFile(options: {
    version: string;
    timestamp: string;
    includeVersion?: boolean;
+   fileName?: string;
+   summary?: string;
 }): void {
    const editorDir = path.join(options.rootDir, options.editorID);
 
    fs.mkdirSync(editorDir, { recursive: true });
    fs.writeFileSync(
-      path.join(editorDir, `${options.version}.md`),
+      path.join(editorDir, `${options.fileName ?? options.version}.md`),
       [
          '---',
          `research_performed_at: "${options.timestamp}"`,
@@ -27,7 +34,7 @@ function writeResearchFile(options: {
          '',
          '## Changes affecting aix',
          '',
-         '- Added a config file.',
+         `- ${options.summary ?? 'Added a config file.'}`,
          '  - aix status: needs follow-up before implementation.',
          '',
          '## Baseline evidence',
@@ -146,6 +153,41 @@ describe('editor research notes', () => {
       );
    });
 
+   it('classifies the short verdicts the notes use', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      fs.mkdirSync(path.join(rootDir, 'cursor'), { recursive: true });
+      fs.writeFileSync(
+         path.join(rootDir, 'cursor', '3.5.md'),
+         [
+            '---',
+            'research_performed_at: "2026-05-21T10:00:00-04:00"',
+            'editor_id: "cursor"',
+            'editor_version: "3.5"',
+            '---',
+            '',
+            '## Changes affecting aix',
+            '',
+            '- Hardened MCP tool calls.',
+            '   - aix status: supported. aix writes standard MCP definitions.',
+            '- Reworked rule discovery.',
+            '   - aix status: already addressed in an earlier review.',
+            '- Added per-agent model lists.',
+            '   - aix status: partial. aix models the field as a single string.',
+            '- Added output token limits.',
+            '   - aix status: not applicable. aix does not write that setting.',
+            '',
+         ].join('\n'),
+         'utf8',
+      );
+
+      const [ entry ] = listEditorResearchEntries(rootDir);
+
+      expect(entry?.changes.map((change) => {
+         return change.status;
+      })).toEqual([ 'supported', 'supported', 'follow-up', 'no-change' ]);
+   });
+
    it('joins bullet text that wraps across lines', () => {
       const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
 
@@ -196,5 +238,127 @@ describe('editor research notes', () => {
       });
 
       expect(() => listEditorResearchEntries(rootDir)).to.throw('Missing required frontmatter field: editor_version');
+   });
+});
+
+describe('visitor-facing status notes', () => {
+   it('drops the opening verdict and keeps the explanation', () => {
+      const note = getVisitorNote('no change needed. aix writes static `headers` into MCP config.');
+
+      expect(note).toStrictEqual('aix writes static `headers` into MCP config.');
+   });
+
+   it('keeps an opening sentence that explains something', () => {
+      const note = getVisitorNote('no change needed, because aix does not write that settings key at all.');
+
+      expect(note).toStrictEqual('No change needed, because aix does not write that settings key at all.');
+   });
+
+   it('drops sentences that point into the aix source tree', () => {
+      const note = getVisitorNote([
+         'already supported.',
+         'Prompts are converted into skills under `.agents/skills/`.',
+         'See `packages/core/src/editors/adapters/antigravity.ts`.',
+         '`AntigravityPromptsStrategy` reports prompts as unsupported.',
+      ].join(' '));
+
+      expect(note).toStrictEqual('Prompts are converted into skills under `.agents/skills/`.');
+   });
+
+   it('returns an empty string when only a verdict was recorded', () => {
+      const note = getVisitorNote('verified 2026-07-19, no change needed.');
+
+      expect(note).toStrictEqual('');
+   });
+
+   it('does not split file paths or version numbers into sentences', () => {
+      const note = getVisitorNote('supported. aix writes `~/.gemini/settings.json` for release 0.66.0 and later.');
+
+      expect(note).toStrictEqual('aix writes `~/.gemini/settings.json` for release 0.66.0 and later.');
+   });
+});
+
+describe('editor research groups', () => {
+   it('groups releases by editor in the requested order', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      writeResearchFile({ rootDir, editorID: 'zed', version: '1.2', timestamp: '2026-05-21T10:00:00-04:00' });
+      writeResearchFile({ rootDir, editorID: 'cursor', version: '3.4', timestamp: '2026-05-20T10:00:00-04:00' });
+      writeResearchFile({ rootDir, editorID: 'cursor', version: '3.5', timestamp: '2026-05-22T10:00:00-04:00' });
+
+      const groups = groupEditorResearchEntries(listEditorResearchEntries(rootDir), [ 'cursor', 'zed', 'codex' ]);
+
+      expect(groups.map((group) => {
+         return group.editorName;
+      })).toEqual([ 'Cursor', 'Zed' ]);
+      expect(groups[0]?.releases.map((release) => {
+         return release.heading;
+      })).toEqual([ 'Cursor 3.5', 'Cursor 3.4' ]);
+      expect(groups[0]?.releases[0]?.anchor).toStrictEqual('cursor-3-5');
+      expect(groups[0]?.releases[0]?.statusCounts['follow-up']).toStrictEqual(1);
+   });
+
+   it('adds the review date when several notes cover the same version', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      writeResearchFile({ rootDir, editorID: 'cursor', version: '3.11', timestamp: '2026-07-19T10:00:00-04:00' });
+      writeResearchFile({
+         rootDir,
+         editorID: 'cursor',
+         version: '3.11',
+         timestamp: '2026-08-24T23:30:00-04:00',
+         fileName: '2026-08-24',
+      });
+
+      const [ group ] = groupEditorResearchEntries(listEditorResearchEntries(rootDir)),
+            headings = group?.releases.map((release) => {
+               return release.heading;
+            }),
+            anchors = group?.releases.map((release) => {
+               return release.anchor;
+            });
+
+      expect(headings).toEqual([ 'Cursor 3.11, reviewed Aug 24, 2026', 'Cursor 3.11, reviewed Jul 19, 2026' ]);
+      expect(anchors).toEqual([ 'cursor-3-11-2026-08-24', 'cursor-3-11-2026-07-19' ]);
+   });
+
+   it('titles a note with the upstream product only when the note is about that product', () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aix-editor-research-'));
+
+      writeResearchFile({
+         rootDir,
+         editorID: 'antigravity',
+         version: '0.66.0',
+         timestamp: '2026-11-04T10:00:00-05:00',
+         summary: 'Gemini CLI 0.66.0 added a setting.',
+      });
+      writeResearchFile({
+         rootDir,
+         editorID: 'antigravity',
+         version: '2.0.0',
+         timestamp: '2026-10-01T10:00:00-04:00',
+         summary: 'Google Antigravity deprecated workflows.',
+      });
+
+      const [ group ] = groupEditorResearchEntries(listEditorResearchEntries(rootDir));
+
+      expect(group?.releases.map((release) => {
+         return release.heading;
+      })).toEqual([ 'Gemini CLI 0.66.0', 'Google Antigravity 2.0.0' ]);
+   });
+
+   it('gives every seeded release a unique heading and anchor', () => {
+      const releases = groupEditorResearchEntries(listEditorResearchEntries()).flatMap((group) => {
+               return group.releases;
+            }),
+            headings = new Set(releases.map((release) => {
+               return release.heading;
+            })),
+            anchors = new Set(releases.map((release) => {
+               return release.anchor;
+            }));
+
+      expect(headings.size).toStrictEqual(releases.length);
+      expect(anchors.size).toStrictEqual(releases.length);
    });
 });

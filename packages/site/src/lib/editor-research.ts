@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { supportedEditorNames, type SupportedEditorName } from '@a1st/aix-schema';
+import { getEditorSupportProfile, supportedEditorNames, type SupportedEditorName } from '@a1st/aix-schema';
 
 export type EditorResearchStatus = 'supported' | 'follow-up' | 'no-change' | 'unknown';
 
@@ -136,11 +136,14 @@ function getChangesSection(body: string): string {
  */
 const STATUS_PATTERNS: readonly { pattern: RegExp; status: EditorResearchStatus }[] = [
    // "partially addressed" leaves work outstanding, so it reads as follow-up, not done.
-   { pattern: /follow-up needed|needs follow-up|follow-up worth|partially addressed/u, status: 'follow-up' },
-   { pattern: /^(addressed|fixed|verified)\b|already (supported|aligned|exposes|partly aligned)/u, status: 'supported' },
+   { pattern: /follow-up needed|needs follow-up|follow-up worth|partially addressed|^partial\b/u, status: 'follow-up' },
+   {
+      pattern: /^(addressed|fixed|verified|supported)\b|already (supported|aligned|exposes|partly aligned|addressed)/u,
+      status: 'supported',
+   },
    // Covers the whole "no <something> change" family: "no change needed", "no generated
    // config change", "no current implementation change", and the rest.
-   { pattern: /\bno\b[^.]{0,40}\bchange\b/u, status: 'no-change' },
+   { pattern: /\bno\b[^.]{0,40}\bchange\b|^not applicable\b/u, status: 'no-change' },
 ];
 
 function classifyStatus(aixStatus: string): EditorResearchStatus {
@@ -296,4 +299,151 @@ export function listEditorResearchEntries(rootDir: string = researchRoot): Edito
 
 export function getEditorResearchRoot(): string {
    return researchRoot;
+}
+
+/** What each outcome means to someone using aix, as opposed to someone maintaining it. */
+export const editorResearchStatusLabels: Readonly<Record<EditorResearchStatus, string>> = Object.freeze({
+   supported: 'Supported by aix',
+   'follow-up': 'Follow-up planned',
+   'no-change': 'No effect on aix',
+   unknown: 'Reviewed',
+});
+
+// A sentence ends at terminal punctuation that is followed by the start of another one.
+// File paths and version numbers contain periods but no whitespace, so they stay whole.
+// "aix" is listed because it starts sentences in lowercase.
+const SENTENCE_BOUNDARY = /(?<=[.!?])\s+(?=[A-Z`"'(]|aix\b)/u;
+
+// References that only mean something inside the aix repository: source paths, and the
+// adapter and strategy classes those paths contain.
+const REPOSITORY_REFERENCE = /(?:packages|docs|skills)\/[\w./-]+|\b\w+(?:Strategy|Adapter)\b/u;
+
+// "no change needed.", "verified 2026-07-19, no change needed." and the like. A longer
+// opening sentence explains something and is kept.
+const MAX_VERDICT_WORDS = 6;
+
+function isBareVerdict(sentence: string): boolean {
+   return classifyStatus(sentence) !== 'unknown' && sentence.split(/\s+/u).length <= MAX_VERDICT_WORDS;
+}
+
+/**
+ * The explanatory part of an `aix status:` note, for readers outside the project. The
+ * opening verdict is dropped because the status label already says it, and so is any
+ * sentence that points into the aix source tree. Returns an empty string when nothing
+ * else is left.
+ */
+export function getVisitorNote(aixStatus: string): string {
+   const sentences = aixStatus.split(SENTENCE_BOUNDARY),
+         explanation = isBareVerdict(sentences[0] ?? '') ? sentences.slice(1) : sentences,
+         note = explanation
+            .filter((sentence) => {
+               return !REPOSITORY_REFERENCE.test(sentence);
+            })
+            .join(' ');
+
+   // The product name is always written in lowercase, even at the start of a sentence.
+   return /^aix\b/u.test(note) ? note : note.charAt(0).toUpperCase() + note.slice(1);
+}
+
+export interface EditorResearchRelease {
+   entry: EditorResearchEntry;
+   /** The product whose release was reviewed. Usually the editor, sometimes its upstream. */
+   productName: string;
+   /** Names the product and version, and is unique across every group. */
+   heading: string;
+   /** Fragment identifier for the release, unique across every group. */
+   anchor: string;
+   /** Calendar date of the review as written in the note, such as "Aug 24, 2026". */
+   reviewedOn: string;
+   statusCounts: Record<EditorResearchStatus, number>;
+}
+
+export interface EditorResearchGroup {
+   editorID: SupportedEditorName;
+   editorName: string;
+   /** Newest review first. */
+   releases: EditorResearchRelease[];
+}
+
+/**
+ * Editors whose notes follow another product's releases. A note is titled with that
+ * product's name only when its text mentions the product, because the version number in
+ * such a note belongs to that product and not to the editor.
+ */
+const UPSTREAM_PRODUCT_NAMES: Partial<Record<SupportedEditorName, string>> = {
+   antigravity: 'Gemini CLI',
+};
+
+const reviewDateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }),
+      ISO_DATE_LENGTH = 'YYYY-MM-DD'.length;
+
+function getReviewDate(entry: EditorResearchEntry): string {
+   return entry.researchPerformedAt.slice(0, ISO_DATE_LENGTH);
+}
+
+function getReleaseProductName(entry: EditorResearchEntry): string {
+   const upstreamName = UPSTREAM_PRODUCT_NAMES[entry.editorID];
+
+   if (upstreamName && entry.body.includes(upstreamName)) {
+      return upstreamName;
+   }
+
+   return getEditorSupportProfile(entry.editorID).name;
+}
+
+function countStatuses(changes: readonly EditorResearchChange[]): Record<EditorResearchStatus, number> {
+   const counts: Record<EditorResearchStatus, number> = { supported: 0, 'follow-up': 0, 'no-change': 0, unknown: 0 };
+
+   for (const change of changes) {
+      counts[change.status] += 1;
+   }
+
+   return counts;
+}
+
+/**
+ * Groups entries by editor, in the order the editors are given, keeping the order of the
+ * entries within each group. Several notes can cover the same version (an editor that
+ * stops numbering its releases is re-reviewed by date), so those get the review date in
+ * their heading and anchor to stay distinguishable.
+ */
+export function groupEditorResearchEntries(
+   entries: readonly EditorResearchEntry[],
+   editorIDs: readonly SupportedEditorName[] = supportedEditorNames,
+): EditorResearchGroup[] {
+   const productNames = entries.map(getReleaseProductName),
+         baseHeadings = entries.map((entry, index) => {
+            return `${productNames[index]} ${entry.editorVersion}`;
+         });
+
+   const releases = entries.map((entry, index): EditorResearchRelease => {
+      const baseHeading = baseHeadings[index] ?? '',
+            reviewDate = getReviewDate(entry),
+            reviewedOn = reviewDateFormatter.format(new Date(`${reviewDate}T00:00:00Z`)),
+            baseAnchor = `${entry.editorID}-${entry.editorVersion}`.replace(/[^\w-]+/gu, '-'),
+            isRepeated = baseHeadings.indexOf(baseHeading) !== baseHeadings.lastIndexOf(baseHeading);
+
+      return {
+         entry,
+         productName: productNames[index] ?? '',
+         heading: isRepeated ? `${baseHeading}, reviewed ${reviewedOn}` : baseHeading,
+         anchor: isRepeated ? `${baseAnchor}-${reviewDate}` : baseAnchor,
+         reviewedOn,
+         statusCounts: countStatuses(entry.changes),
+      };
+   });
+
+   return editorIDs
+      .map((editorID) => {
+         return {
+            editorID,
+            editorName: getEditorSupportProfile(editorID).name,
+            releases: releases.filter((release) => {
+               return release.entry.editorID === editorID;
+            }),
+         };
+      })
+      .filter((group) => {
+         return group.releases.length > 0;
+      });
 }
