@@ -495,7 +495,7 @@ Settings for the aix tool itself. These don't affect AI editor behavior.
 
 | Field                    | Type     | Default | Range | Description                                                                    |
 | ------------------------ | -------- | ------- | ----- | ------------------------------------------------------------------------------ |
-| `cache.maxBackups`       | `number` | `5`     | 1–100 | Accepted, but not read. aix keeps the five newest backups of each file         |
+| `cache.maxBackups`       | `number` | `5`     | 1–100 | How many backups of one file or directory aix keeps; older ones are deleted    |
 | `cache.maxBackupAgeDays` | `number` | `30`    | 1–365 | Backups older than this many days are deleted after a successful install       |
 | `cache.maxCacheAgeDays`  | `number` | `7`     | 1–365 | Cache entries older than this many days are deleted after a successful install |
 

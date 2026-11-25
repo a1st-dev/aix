@@ -12,8 +12,10 @@ export interface BackupInfo {
 }
 
 export interface StoredBackup extends BackupInfo {
-   /** The file this is a backup of, when the store's layout records it. */
+   /** The file or directory this is a backup of, when the store's layout records it. */
    originalPath?: string;
+   /** Whether the backup is a copy of a whole directory, such as a skill. */
+   isDirectory: boolean;
    size: number;
 }
 
@@ -31,6 +33,16 @@ const DEFAULT_MAX_BACKUPS = 5,
       ROOT_KEY = 'root',
       TIMESTAMP_PATTERN = /\.(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.backup$/,
       MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+let maxBackupsPerFile = DEFAULT_MAX_BACKUPS;
+
+/**
+ * Set how many backups of one file are kept from now on. The value comes from the loaded
+ * config (`aix.cache.maxBackups`), which the code that makes a backup has no access to.
+ */
+export function setMaxBackupsPerFile(maxBackups: number = DEFAULT_MAX_BACKUPS): void {
+   maxBackupsPerFile = maxBackups;
+}
 
 /**
  * The one directory that holds every backup aix makes. It sits beside aix's other user-level
@@ -94,7 +106,13 @@ function parseTimestamp(fileName: string): Date | undefined {
    return new Date(`${day}T${hours}:${minutes}:${seconds}.${milliseconds}Z`);
 }
 
-async function listBackupFiles(directory: string): Promise<string[]> {
+interface BackupEntry {
+   path: string;
+   isDirectory: boolean;
+}
+
+/** Find every backup under a directory. A backup of a directory is itself a directory. */
+async function listBackupEntries(directory: string): Promise<BackupEntry[]> {
    const { fs } = getRuntimeAdapter();
 
    if (!fs.existsSync(directory)) {
@@ -102,16 +120,37 @@ async function listBackupFiles(directory: string): Promise<string[]> {
    }
 
    const entries = await fs.readdir(directory, { withFileTypes: true }),
-         nested = await Promise.all(entries.map(async (entry) => {
+         nested = await Promise.all(entries.map(async (entry): Promise<BackupEntry[]> => {
             const path = join(directory, entry.name);
 
-            if (entry.isDirectory()) {
-               return listBackupFiles(path);
+            if (TIMESTAMP_PATTERN.test(entry.name)) {
+               return [ { path, isDirectory: entry.isDirectory() } ];
             }
-            return entry.name.endsWith(BACKUP_EXTENSION) ? [ path ] : [];
+            return entry.isDirectory() ? listBackupEntries(path) : [];
          }));
 
    return nested.flat();
+}
+
+async function getSize(path: string): Promise<number> {
+   const { fs } = getRuntimeAdapter(),
+         stats = await fs.stat(path);
+
+   if (!stats.isDirectory()) {
+      return stats.size;
+   }
+
+   const sizes = await Promise.all((await fs.readdir(path)).map((name) => {
+      return getSize(join(path, name));
+   }));
+
+   return sizes.reduce((memo, size) => {
+      return memo + size;
+   }, 0);
+}
+
+function removeBackup(path: string): Promise<void> {
+   return getRuntimeAdapter().fs.rm(path, { recursive: true, force: true });
 }
 
 function newestFirst<T extends BackupInfo>(backups: T[]): T[] {
@@ -120,9 +159,19 @@ function newestFirst<T extends BackupInfo>(backups: T[]): T[] {
    });
 }
 
-/** Copy a file into the backup store before it is changed or deleted. */
+async function copyEntry(source: string, destination: string): Promise<void> {
+   const { fs } = getRuntimeAdapter();
+
+   if ((await fs.stat(source)).isDirectory()) {
+      await fs.cp(source, destination, { recursive: true });
+      return;
+   }
+   await fs.copyFile(source, destination);
+}
+
+/** Copy a file, or a whole directory, into the backup store before it is changed or deleted. */
 export async function createBackup(filePath: string, options: BackupOptions = {}): Promise<BackupInfo> {
-   const { maxBackups = DEFAULT_MAX_BACKUPS } = options,
+   const { maxBackups = maxBackupsPerFile } = options,
          absolutePath = resolve(filePath),
          { fs } = getRuntimeAdapter();
 
@@ -134,12 +183,12 @@ export async function createBackup(filePath: string, options: BackupOptions = {}
          backupPath = `${getStoreEntryPath(absolutePath)}.${formatTimestamp(timestamp)}${BACKUP_EXTENSION}`;
 
    await fs.mkdir(dirname(backupPath), { recursive: true });
-   await fs.copyFile(absolutePath, backupPath);
+   await copyEntry(absolutePath, backupPath);
 
    const superseded = (await listBackups(absolutePath)).slice(maxBackups);
 
    await Promise.all(superseded.map((backup) => {
-      return fs.unlink(backup.path);
+      return removeBackup(backup.path);
    }));
 
    return { path: backupPath, timestamp };
@@ -167,16 +216,15 @@ export async function listBackups(filePath: string): Promise<BackupInfo[]> {
 
 /** List every backup in the store, newest first. */
 export async function listAllBackups(): Promise<StoredBackup[]> {
-   const { fs } = getRuntimeAdapter(),
-         paths = await listBackupFiles(getBackupStoreDir()),
-         backups = await Promise.all(paths.map(async (path): Promise<StoredBackup[]> => {
+   const entries = await listBackupEntries(getBackupStoreDir()),
+         backups = await Promise.all(entries.map(async ({ path, isDirectory }): Promise<StoredBackup[]> => {
             const timestamp = parseTimestamp(basename(path));
 
             if (!timestamp) {
                return [];
             }
 
-            return [ { path, timestamp, originalPath: getOriginalPath(path), size: (await fs.stat(path)).size } ];
+            return [ { path, timestamp, originalPath: getOriginalPath(path), isDirectory, size: await getSize(path) } ];
          }));
 
    return newestFirst(backups.flat());
@@ -202,9 +250,11 @@ export async function restoreBackup(backupPath: string, targetPath?: string): Pr
 
    if (fs.existsSync(destination)) {
       await createBackup(destination);
+      // A restored directory must not keep files that were added after the backup was made.
+      await fs.rm(destination, { recursive: true, force: true });
    }
    await fs.mkdir(dirname(destination), { recursive: true });
-   await fs.copyFile(absoluteBackupPath, destination);
+   await copyEntry(absoluteBackupPath, destination);
 
    return destination;
 }
@@ -212,13 +262,12 @@ export async function restoreBackup(backupPath: string, targetPath?: string): Pr
 /** Delete every backup older than `maxAgeDays`. */
 export async function pruneBackups(options: { maxAgeDays: number }): Promise<PruneBackupsResult> {
    const cutoff = Date.now() - options.maxAgeDays * MILLISECONDS_PER_DAY,
-         { fs } = getRuntimeAdapter(),
          expired = (await listAllBackups()).filter((backup) => {
             return backup.timestamp.getTime() < cutoff;
          });
 
    await Promise.all(expired.map((backup) => {
-      return fs.unlink(backup.path);
+      return removeBackup(backup.path);
    }));
 
    return {

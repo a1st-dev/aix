@@ -92,8 +92,8 @@ async function deleteFile(
 ): Promise<{ file: string; status: 'deleted' | 'missing' | 'error'; error?: string }> {
    try {
       if (existsSync(file)) {
-         // A directory or a link holds nothing the backup store can keep as one file.
-         if (lstatSync(file).isFile()) {
+         // A link holds nothing of its own, and what it points at is not being deleted.
+         if (!lstatSync(file).isSymbolicLink()) {
             await createBackup(file);
          }
          await safeRm(file, { force: true });

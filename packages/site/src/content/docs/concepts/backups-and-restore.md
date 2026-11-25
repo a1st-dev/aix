@@ -18,14 +18,16 @@ aix backs up a file immediately before it writes to it or deletes it. That cover
   `aix remove marketplace` edits.
 - `ai.json` and `ai.local.json`, when `--save` or `aix config set` edits them.
 - The file that `aix backups restore` is about to replace.
-- A rule, prompt, or agent file that `aix remove` deletes.
+- A rule, prompt, or agent file that `aix remove` deletes, and a skill directory that
+  `aix remove skill` deletes. A directory is backed up as a directory and restored whole.
 - The `ai.json` that `aix init --force` replaces.
 
 No backup is made in these cases:
 
 - A file that aix creates. There was nothing to copy, so undoing it means removing the file.
 - A `--dry-run`, which writes nothing.
-- Directories. A skill is a directory, so replacing or removing one leaves no backup.
+- aix's own copy of a skill under `.aix/skills/`, which the next install rebuilds from the
+  skill's source.
 
 ## Where backups go
 
@@ -77,7 +79,8 @@ up the file it replaces first, so a restore can be undone by restoring that newe
 
 ## How long backups are kept
 
-- aix keeps the five newest backups of each file. Older ones are deleted when a new backup
+- aix keeps the five newest backups of each file, or as many as
+  [`aix.cache.maxBackups`](/configuration/ai-json-reference/#aix) says. Older ones are deleted when a new backup
   of that file is made.
 - After an `aix install` that succeeds for every editor, aix deletes backups older than
   `aix.cache.maxBackupAgeDays`. The default is 30 days.

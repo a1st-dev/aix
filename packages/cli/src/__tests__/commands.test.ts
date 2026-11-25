@@ -490,6 +490,31 @@ describe('CLI Commands', () => {
          expect(removed.stdout).toContain('No rule named "missing" found at project scope in: claude-code');
       });
 
+      it('backs up a hand-written skill directory before deleting it', async () => {
+         const skillDir = join(testDir, '.claude', 'skills', 'pdf');
+
+         await writeSkillDir(join(testDir, '.claude'), 'pdf');
+         await writeFile(join(skillDir, 'notes.txt'), 'my notes');
+
+         await runCli(['remove', 'skill', 'pdf', '--yes', '--project', '--target', 'claude-code']);
+
+         const backups = await listBackups(skillDir);
+
+         expect(existsSync(skillDir)).toStrictEqual(false);
+         expect(backups).toHaveLength(1);
+         expect(await readFile(join(backups[0]?.path ?? '', 'notes.txt'), 'utf-8')).toStrictEqual('my notes');
+      });
+
+      it('keeps the number of backups that aix.cache.maxBackups asks for', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, { aix: { cache: { maxBackups: 1 } } });
+         await runCli(['config', 'set', 'aix.cache.maxBackupAgeDays', '10']);
+         await runCli(['config', 'set', 'aix.cache.maxBackupAgeDays', '20']);
+
+         expect(await listBackups(configPath)).toHaveLength(1);
+      });
+
       it('backs up a rule file before deleting it', async () => {
          const ruleFile = join(testDir, '.claude', 'rules', 'style.md');
 

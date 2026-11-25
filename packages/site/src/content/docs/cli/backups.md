@@ -75,7 +75,8 @@ Nothing is written beside the file that was edited.
 
 ## Retention
 
-aix keeps the five newest backups of each file. After an `aix install` that succeeds, it also
+aix keeps the five newest backups of each file, or as many as `aix.cache.maxBackups` in
+`ai.json` says. After an `aix install` that succeeds, it also
 deletes backups older than `aix.cache.maxBackupAgeDays`, which is 30 days unless `ai.json`
 sets it:
 

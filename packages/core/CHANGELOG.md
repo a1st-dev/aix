@@ -20,6 +20,8 @@ version may appear here with no changes to this package.
 - Add the `installExtendsDependencies` load option (`installDependencies` on
   `resolveExtends`), which lets a caller that only reads a config skip the package install
   for a git `extends`
+- Back up whole directories: `createBackup` copies a directory, `restoreBackup` puts it
+  back without files added since, and `listAllBackups` reports `isDirectory`
 
 ### Changed
 
@@ -120,6 +122,8 @@ version may appear here with no changes to this package.
   a bearer token
 - Resolve a `user/repo#ref` reference on GitHub, as documented; it was looked up in
   giget's template registry
+- Honor `aix.cache.maxBackups`, which the schema accepted and nothing read. Loading a
+  config sets the limit, and `setMaxBackupsPerFile` sets it directly
 
 ## [0.6.0] - 2026-08-12
 

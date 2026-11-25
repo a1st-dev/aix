@@ -95,6 +95,7 @@ version may appear here with no changes to this package.
 - Stop `aix validate`, `aix install --dry-run`, and every other command that only reads
   the config from running a package manager for a git `extends`; only a real `aix install`
   does
+- Back up a skill directory before `aix remove skill` deletes it
 
 ## [0.6.0] - 2026-08-12
 

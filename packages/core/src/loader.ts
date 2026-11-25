@@ -1,3 +1,4 @@
+import { setMaxBackupsPerFile } from './backup.js';
 import { dirname, resolve } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import { discoverConfig, parseConfigContent } from './discovery.js';
@@ -86,19 +87,20 @@ export async function loadConfig(
       installExtendsDependencies = true,
    } = opts;
 
-   // If remoteSource is provided, load from URL/git/path
-   if (remoteSource) {
-      return loadFromRemoteSource(remoteSource, cwd, installExtendsDependencies);
-   }
+   const discovered = remoteSource ? undefined : await discoverConfig(cwd, explicitPath);
 
-   // Existing discovery behavior
-   const discovered = await discoverConfig(cwd, explicitPath);
-
-   if (!discovered) {
+   if (!remoteSource && !discovered) {
       return undefined;
    }
 
-   return loadFromDiscovered(discovered, { lockfileMode, installExtendsDependencies });
+   const loaded = discovered
+      ? await loadFromDiscovered(discovered, { lockfileMode, installExtendsDependencies })
+      : await loadFromRemoteSource(remoteSource ?? '', cwd, installExtendsDependencies);
+
+   // Backups are made far from here, by code that never sees the config.
+   setMaxBackupsPerFile(loaded.config.aix?.cache?.maxBackups);
+
+   return loaded;
 }
 
 /**

@@ -40,7 +40,13 @@ Before aix changes or deletes an existing file, it copies the file into one back
 
       if (this.flags.json) {
          this.output.json(backups.map((backup) => {
-            return { path: backup.path, originalPath: backup.originalPath, backupDate: backup.timestamp, size: backup.size };
+            return {
+               path: backup.path,
+               originalPath: backup.originalPath,
+               isDirectory: backup.isDirectory,
+               backupDate: backup.timestamp,
+               size: backup.size,
+            };
          }));
          return;
       }
@@ -55,7 +61,7 @@ Before aix changes or deletes an existing file, it copies the file into one back
       this.output.table(
          backups.map((backup) => {
             return {
-               originalPath: backup.originalPath ? formatDisplayPath(backup.originalPath) : 'unknown',
+               originalPath: backup.originalPath ? `${formatDisplayPath(backup.originalPath)}${backup.isDirectory ? '/' : ''}` : 'unknown',
                date: formatDate(backup.timestamp),
                size: formatSize(backup.size),
                path: formatDisplayPath(backup.path),
