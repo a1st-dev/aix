@@ -845,18 +845,6 @@ export default class Install extends BaseCommand<typeof Install> {
          });
       }
 
-      // Show Codex-specific usage instructions when MCP flags were generated
-      if (editor === 'codex') {
-         const hasCodexFlags = result.changes.some(
-            (c) => c.action !== 'unchanged' && c.path.endsWith('codex-flags'),
-         );
-
-         if (hasCodexFlags) {
-            this.output.info('MCP servers configured via CLI flags.');
-            this.output.info('Usage: .aix/codex [prompt]');
-         }
-      }
-
       showWarnings();
    }
 
