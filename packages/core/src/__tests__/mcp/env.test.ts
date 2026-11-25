@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
    resolveEnvVars,
    resolveEnvObject,
-   hasUnresolvedEnvVars,
    extractEnvVarNames,
    getSoleEnvVarName,
    validateEnvVars,
@@ -66,20 +65,6 @@ describe('resolveEnvObject', () => {
       const result = resolveEnvObject({ 'my-key': '${VAL}' }, { env: { VAL: 'value' } });
 
       expect(result).toEqual({ 'my-key': 'value' });
-   });
-});
-
-describe('hasUnresolvedEnvVars', () => {
-   it('returns true for string with env vars', () => {
-      expect(hasUnresolvedEnvVars('${FOO}')).toBe(true);
-   });
-
-   it('returns false for string without env vars', () => {
-      expect(hasUnresolvedEnvVars('no vars')).toBe(false);
-   });
-
-   it('returns true for partial env var syntax', () => {
-      expect(hasUnresolvedEnvVars('prefix ${VAR} suffix')).toBe(true);
    });
 });
 

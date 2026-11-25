@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
    interpolateRule,
    interpolateRules,
-   hasUnresolvedVariables,
    extractVariableNames,
 } from '../../rules/interpolate.js';
 
@@ -84,20 +83,6 @@ describe('interpolateRules', () => {
       const results = interpolateRules(rules, context);
 
       expect(results).toEqual(['Project: test', 'Editor: cursor']);
-   });
-});
-
-describe('hasUnresolvedVariables', () => {
-   it('returns true for content with variables', () => {
-      expect(hasUnresolvedVariables('{{project.name}}')).toBe(true);
-   });
-
-   it('returns false for content without variables', () => {
-      expect(hasUnresolvedVariables('No variables')).toBe(false);
-   });
-
-   it('returns true for partial variable syntax', () => {
-      expect(hasUnresolvedVariables('prefix {{var}} suffix')).toBe(true);
    });
 });
 

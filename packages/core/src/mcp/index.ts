@@ -1,7 +1,6 @@
 export {
    resolveEnvVars,
    resolveEnvObject,
-   hasUnresolvedEnvVars,
    extractEnvVarNames,
    getSoleEnvVarName,
    validateEnvVars,
