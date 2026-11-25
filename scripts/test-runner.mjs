@@ -46,6 +46,10 @@ try {
             `   (subpath ${JSON.stringify(join(repoRoot, 'node_modules', '.vite'))})`,
             `   (subpath ${JSON.stringify(join(repoRoot, 'node_modules', '.vite-temp'))}))`,
             '(allow file-write* (literal "/dev/null") (literal "/dev/tty"))',
+            // On a GitHub runner the test reporter appends its results to the job summary file.
+            ...(process.env.GITHUB_STEP_SUMMARY
+               ? [ `(allow file-write* (literal ${JSON.stringify(realpathSync(process.env.GITHUB_STEP_SUMMARY))}))` ]
+               : []),
             `(deny file-write* (subpath ${JSON.stringify(protectedDirectory)}))`,
          ].join('\n'),
          command = process.platform === 'darwin' ? '/usr/bin/sandbox-exec' : process.execPath,
