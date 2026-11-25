@@ -51,8 +51,8 @@ When you press Enter on a result, aix:
 2. Installs that section of `ai.json` to the editors listed in its `editors` field, or to
    every detected editor when it lists none.
 
-The install uses the scope in the `scope` field of `ai.json`, or project scope when the file
-has no such field.
+The install uses the scope in the `scope` field of `ai.json`, or user scope when the file
+has no such field, the same as `aix install`.
 
 An installed item gets a check mark. If no editor received the item, the install counts as
 failed and the item gets no check mark. The entry stays in `ai.json`.

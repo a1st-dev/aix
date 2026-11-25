@@ -27,15 +27,20 @@ user-scope and project-scope path for every feature.
 
 ## How each command chooses a scope
 
-| Command                                 | Scope when you pass no scope flag                                 |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| `aix install`                           | The `scope` field in `ai.json`. User scope if it has no field.    |
-| `aix install <source> --type <type>`    | Project scope.                                                    |
-| `aix add <type>`                        | User scope.                                                       |
-| `aix remove <type>`                     | User scope.                                                       |
-| `aix sync`                              | User scope, for both the editor it reads and the one it writes.   |
-| `aix list`                              | User scope.                                                       |
-| `aix search`, when it installs a result | The `scope` field in `ai.json`. Project scope if it has no field. |
+| Command                                 | Scope when you pass no scope flag                               |
+| --------------------------------------- | --------------------------------------------------------------- |
+| `aix install`                           | The `scope` field in `ai.json`. User scope if it has no field.  |
+| `aix add <type> --save`                 | The `scope` field in `ai.json`. User scope if it has no field.  |
+| `aix remove <type> --save`              | The `scope` field in `ai.json`. User scope if it has no field.  |
+| `aix search`, when it installs a result | The `scope` field in `ai.json`. User scope if it has no field.  |
+| `aix add <type>` without `--save`       | User scope. No `ai.json` is read.                               |
+| `aix remove <type>` without `--save`    | User scope. No `ai.json` is read.                               |
+| `aix install <source> --type <type>`    | Project scope.                                                  |
+| `aix sync`                              | User scope, for both the editor it reads and the one it writes. |
+| `aix list`                              | User scope.                                                     |
+
+Every command that reads an `ai.json` resolves its scope the same way: a scope flag, then the
+`scope` field, then user scope.
 
 `aix install`, `aix add`, `aix remove`, and `aix list` take the same three flags:
 
@@ -69,10 +74,10 @@ Every line of install output, and of `--dry-run` output, then shows the path it 
 Paths under the working directory start with `./` and paths under your home directory start
 with `~/`, so a change to your home directory is visible before you run the install for real.
 
-`aix init` writes `"scope": "user"` into a new `ai.json` when you pass `--user` or
-`--scope user`. Otherwise it writes no `scope` field, and `aix install` then uses user scope
-unless you pass `--project`. To make a project's `ai.json` install into the project by default,
-add the field yourself:
+`aix init` records the scope you pass it. `aix init --project` writes `"scope": "project"` into
+the new `ai.json`, and `aix init --user` writes `"scope": "user"`. With no scope flag it writes
+no `scope` field, and `aix install` then uses user scope unless you pass `--project`. To make an
+existing `ai.json` install into the project by default, add the field yourself:
 
 ```json
 {
@@ -82,11 +87,11 @@ add the field yourself:
 
 ### `aix add` and `aix remove`
 
-`aix add` and `aix remove` do not read the `scope` field. They work at user scope unless you
-pass `--project` or `--scope project`, including when `--save` makes them edit an `ai.json`
-that declares `"scope": "project"`.
+Without `--save`, `aix add` and `aix remove` read no `ai.json`, so they work at user scope
+unless you pass `--project` or `--scope project`. With `--save` they load `ai.json` and follow
+its `scope` field the way `aix install` does.
 
-`aix remove` only looks at the scope it was given. An item installed at project scope is not
+`aix remove` only looks at the scope it resolved. An item installed at project scope is not
 removed by an `aix remove` that runs at user scope.
 
 ## What an install skips
@@ -111,11 +116,8 @@ project-scope file for them, and prints a warning that names what it skipped.
 
 `aix sync` with a project destination scope skips the same items.
 
-:::caution
-`aix add mcp --project` is not as strict. For Windsurf and Codex it still writes the server to
-the user-scope file, because that is the only place those editors read MCP servers from. Use
-`--target` to leave those editors out.
-:::
+`aix add --project` and `aix remove mcp --project` follow the same rule. To add or remove a
+Windsurf or Codex MCP server, run the command at user scope.
 
 ### At user scope
 

@@ -50,9 +50,10 @@ run [`aix install`](/cli/install/) yourself.
 
 ### Scope
 
-`aix add` installs at user scope unless you pass `--project` or `--scope project`. It does
-not read the `scope` field of `ai.json`, with or without `--save`. See
-[User scope and project scope](/concepts/scopes/).
+`aix add` installs at user scope unless you pass `--project` or `--scope project`. With
+`--save` it follows the `scope` field of the `ai.json` it loads when no scope flag is passed.
+A project-scope add leaves config that an editor only reads at user scope alone, such as
+Windsurf and Codex MCP servers. See [User scope and project scope](/concepts/scopes/).
 
 ## Shared flags
 

@@ -70,11 +70,11 @@ under your home directory, or `"project"` for the editor config inside the proje
 `--user`, or `--project`), then this field, then user scope. A file without the field is
 therefore installed at user scope.
 
-`aix init --scope user` writes `"scope": "user"`. `aix init` with `--project` or with no scope
-flag writes no `scope` field.
+`aix init` writes the scope you pass it: `--user` gives `"scope": "user"` and `--project` gives
+`"scope": "project"`. With no scope flag it writes no `scope` field.
 
-`aix add` and `aix remove` do not read this field. They work at user scope unless you pass
-`--project`. See [User scope and project scope](/concepts/scopes/).
+`aix add --save`, `aix remove --save`, and installs from `aix search` follow this field the
+same way. See [User scope and project scope](/concepts/scopes/).
 
 ---
 

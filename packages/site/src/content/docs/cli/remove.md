@@ -27,8 +27,9 @@ aix remove <type> <name> [flags]
 3. It asks for confirmation, unless you pass `--yes`.
 4. It removes the item from the editors, and with `--save` from `ai.json`.
 
-`aix remove` works at user scope unless you pass `--project` or `--scope project`. It only
-looks at that one scope, and it does not read the `scope` field of `ai.json`. See
+`aix remove` works at user scope unless you pass `--project` or `--scope project`. With
+`--save` it follows the `scope` field of the `ai.json` it loads when no scope flag is passed.
+It only looks at the one scope it resolved. See
 [User scope and project scope](/concepts/scopes/).
 
 ### Confirmation
@@ -87,9 +88,9 @@ aix remove mcp <name>
 Removes the server entry from each editor's MCP config file at the chosen scope. aix backs
 up the file before it changes it.
 
-Windsurf and Codex keep MCP servers only in a user-scope file, so for those editors the
-command edits `~/.codeium/windsurf/mcp_config.json` and `~/.codex/config.toml` at either
-scope.
+Windsurf and Codex keep MCP servers only in a user-scope file
+(`~/.codeium/windsurf/mcp_config.json` and `~/.codex/config.toml`). A project-scope removal
+leaves those files alone, so remove a server from those editors at user scope.
 
 `--no-sync` leaves editor config alone. Combined with `--save`, it only edits `ai.json`.
 

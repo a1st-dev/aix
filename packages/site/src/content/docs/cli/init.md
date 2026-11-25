@@ -45,12 +45,12 @@ aix init --scope user
 
 ## The scope field
 
-`aix init --user` (or `--scope user`) writes `"scope": "user"` into the new file.
+`aix init --user` (or `--scope user`) writes `"scope": "user"` into the new file, and
+`aix init --project` (or `--scope project`) writes `"scope": "project"`.
 
-With `--project`, `--scope project`, or no scope flag, `aix init` writes no `scope` field.
-[`aix install`](/cli/install/#scope) treats a file without the field as user scope. To make
-`aix install` write into the project by default, add `"scope": "project"` to `ai.json`
-yourself, or pass `--project` each time you install.
+With no scope flag, `aix init` writes no `scope` field.
+[`aix install`](/cli/install/#scope) treats a file without the field as user scope, so run
+`aix init --project` when the config should install into the project.
 
 ## Importing config
 
