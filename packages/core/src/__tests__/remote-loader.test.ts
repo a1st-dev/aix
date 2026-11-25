@@ -2,9 +2,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { loadFromLocalPath, loadFromSource } from '../remote-loader.js';
+import { fetchWithTimeout, loadFromLocalPath, loadFromSource } from '../remote-loader.js';
 import { ConfigNotFoundError, ConfigParseError, UnsupportedUrlError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
+import {
+   nodeRuntimeAdapter,
+   withRuntimeAdapter,
+   type RuntimeAdapter,
+   type RuntimeFetchResponse,
+   type RuntimeNetworkAdapter,
+} from '../runtime/index.js';
 
 const testDir = join(tmpdir(), 'aix-test-remote-loader');
 
@@ -127,6 +134,81 @@ describe('loadFromSource', () => {
 
       expect(result.content).toEqual(config);
       expect(result.source).toBe('local');
+   });
+});
+
+function rejectOnAbort<T>(signal: AbortSignal | undefined): Promise<T> {
+   return new Promise<T>((_resolve, reject) => {
+      signal?.addEventListener('abort', () => {
+         reject(new DOMException('This operation was aborted', 'AbortError'));
+      });
+   });
+}
+
+function createResponse(overrides: Partial<RuntimeFetchResponse>): RuntimeFetchResponse {
+   return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => {
+         return '';
+      },
+      ...overrides,
+   };
+}
+
+describe('fetchWithTimeout', () => {
+   const TIMEOUT_MS = 20;
+
+   function fetchWith(fetch: RuntimeNetworkAdapter['fetch'], timeoutMs?: number): Promise<string> {
+      const adapter: RuntimeAdapter = {
+         ...nodeRuntimeAdapter,
+         network: { ...nodeRuntimeAdapter.network, fetch },
+      };
+
+      return withRuntimeAdapter(adapter, () => {
+         return fetchWithTimeout('https://example.com/rules.md', timeoutMs);
+      });
+   }
+
+   it('returns the response body', async () => {
+      const body = await fetchWith(async () => {
+         return createResponse({
+            text: async () => {
+               return 'body text';
+            },
+         });
+      });
+
+      expect(body).toBe('body text');
+   });
+
+   it('times out when the headers arrive but the body stalls', async () => {
+      const stalledBody = fetchWith(async (_url, init) => {
+         return createResponse({
+            text: () => {
+               return rejectOnAbort(init?.signal);
+            },
+         });
+      }, TIMEOUT_MS);
+
+      await expect(stalledBody).rejects.toThrow(`Request timed out after ${TIMEOUT_MS}ms`);
+   });
+
+   it('times out when the server never sends headers', async () => {
+      const stalledHeaders = fetchWith((_url, init) => {
+         return rejectOnAbort(init?.signal);
+      }, TIMEOUT_MS);
+
+      await expect(stalledHeaders).rejects.toThrow(`Request timed out after ${TIMEOUT_MS}ms`);
+   });
+
+   it('reports a failed HTTP status', async () => {
+      const notFound = fetchWith(async () => {
+         return createResponse({ ok: false, status: 404, statusText: 'Not Found' });
+      });
+
+      await expect(notFound).rejects.toThrow('HTTP 404: Not Found');
    });
 });
 

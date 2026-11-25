@@ -9,6 +9,7 @@ import {
    RemoteFetchError,
    UnsupportedRuntimeCapabilityError,
 } from './errors.js';
+import { fetchWithTimeout } from './remote-loader.js';
 import { convertBlobToRawUrl } from './url-parsing.js';
 import { deepMergeJson } from './json.js';
 import type { AiJsonConfig } from '@a1st/aix-schema';
@@ -149,12 +150,7 @@ async function resolveRemoteExtends(
    let content: string;
 
    try {
-      const response = await getRuntimeAdapter().network.fetch(rawUrl);
-
-      if (!response.ok) {
-         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      content = await response.text();
+      content = await fetchWithTimeout(rawUrl);
    } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 

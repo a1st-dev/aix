@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'pathe';
 import { resolveExtends } from '../inheritance.js';
-import { CircularDependencyError } from '../errors.js';
+import { CircularDependencyError, RemoteFetchError } from '../errors.js';
 import { safeRm } from '../fs/safe-rm.js';
 import { nodeRuntimeAdapter, withRuntimeAdapter } from '../runtime/index.js';
 import type { RuntimeAdapter } from '../runtime/index.js';
@@ -213,7 +213,7 @@ describe('resolveExtends', () => {
          typescript: '^1.0.0',
          react: '^1.0.0',
       });
-      expect(fetchMock).toHaveBeenCalledWith('https://example.com/ai.json');
+      expect(fetchMock).toHaveBeenCalledWith('https://example.com/ai.json', { signal: expect.any(AbortSignal) });
    });
 
    it('converts GitHub blob URL extends to raw URL', async () => {
@@ -231,7 +231,43 @@ describe('resolveExtends', () => {
 
       await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
 
-      expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json');
+      expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json', { signal: expect.any(AbortSignal) });
+   });
+
+   it('gives up on an HTTPS extends whose server never finishes responding', async () => {
+      const requestedUrls: string[] = [],
+            adapter: RuntimeAdapter = {
+               ...nodeRuntimeAdapter,
+               network: {
+                  ...nodeRuntimeAdapter.network,
+                  fetch: (url, init) => {
+                     requestedUrls.push(url);
+
+                     return new Promise((_resolve, reject) => {
+                        init?.signal?.addEventListener('abort', () => {
+                           reject(new DOMException('This operation was aborted', 'AbortError'));
+                        });
+                     });
+                  },
+               },
+            };
+
+      vi.useFakeTimers();
+
+      try {
+         const result = withRuntimeAdapter(adapter, () => {
+            return resolveExtends({ extends: 'https://example.com/ai.json' }, { baseDir: testDir, projectRoot: testDir });
+         });
+
+         const assertion = expect(result).rejects.toThrow(RemoteFetchError);
+
+         await vi.advanceTimersByTimeAsync(60_000);
+         await assertion;
+      } finally {
+         vi.useRealTimers();
+      }
+
+      expect(requestedUrls).toEqual(['https://example.com/ai.json']);
    });
 
    describe('local paths in an extended config', () => {
