@@ -11,6 +11,7 @@ import {
    ClaudeCodeMarketplacesStrategy,
    isFallbackClaudeMd,
    CLAUDE_FALLBACK_WARNING,
+   getRulePaths,
 } from '../strategies/claude-code/index.js';
 import {
    MarkdownAgentsStrategy,
@@ -168,34 +169,43 @@ export class ClaudeCodeAdapter extends BaseEditorAdapter {
                homeDir,
                this.rulesStrategy.getGlobalRulesPath() ?? join(this.configDir, 'CLAUDE.md'),
             ),
-            ruleChanges = await Promise.all(
+            plannedRules = await Promise.all(
                rules.map(async (rule) => {
                   const fileName = this.sanitizeFileName(this.deriveRuleName(rule)) +
                            this.rulesStrategy.getFileExtension(),
                         filePath = join(rulesDir, fileName),
                         content = this.rulesStrategy.formatRule(rule),
                         existing = await this.readExisting(filePath),
-                        action = this.determineAction(existing, content);
+                        action = this.determineAction(existing, content),
+                        change: FileChange = { path: filePath, action, content, category: 'rule' };
 
-                  return { path: filePath, action, content, category: 'rule' as const };
+                  return { change, isPathScoped: getRulePaths(rule).length > 0 };
                }),
             ),
-            managedContent = this.formatUserRuleImports(ruleChanges),
+            ruleChanges = plannedRules.map(({ change }) => {
+               return change;
+            }),
+            // Claude Code loads every file in the rules directory itself and honors `paths` when
+            // it does. An @import loads its file unconditionally, so importing a path-scoped rule
+            // would put it in every session.
+            importedRules = plannedRules.filter(({ isPathScoped }) => {
+               return !isPathScoped;
+            });
+
+      if (importedRules.length === 0) {
+         return ruleChanges;
+      }
+
+      const importLines = importedRules.map(({ change }) => {
+               return `@rules/${basename(change.path)}`;
+            }),
             existing = await this.readExisting(claudePath),
-            content = upsertManagedSection(existing, managedContent),
+            content = upsertManagedSection(existing, [ '## aix rules', '', ...importLines ].join('\n')),
             action = this.determineAction(existing, content);
 
       return [
          { path: claudePath, action, content, category: 'rule', managedSectionMerge: 'lines' },
          ...ruleChanges,
       ];
-   }
-
-   private formatUserRuleImports(ruleChanges: FileChange[]): string {
-      const importLines = ruleChanges.map((change) => {
-         return `@rules/${basename(change.path)}`;
-      });
-
-      return ['## aix rules', '', ...importLines].join('\n');
    }
 }

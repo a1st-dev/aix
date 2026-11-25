@@ -55,6 +55,8 @@ version may appear here with no changes to this package.
   create; it used to delete the directory and replace it with a link
 - Back up an editor config file before `removeMcpFromEditor`, `removeHookFromEditor`,
   `removePluginFromEditor`, or `removeMarketplaceFromEditor` rewrites it
+- Stop importing path-scoped Claude Code rules from `~/.claude/CLAUDE.md`; the import
+  loaded every rule in every session, so a rule's `paths` had no effect
 
 ## [0.6.0] - 2026-08-12
 

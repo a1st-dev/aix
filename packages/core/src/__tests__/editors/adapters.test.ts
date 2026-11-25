@@ -615,7 +615,7 @@ describe('Editor Adapters', () => {
          expect(mcpConfig.mcpServers.server).toBeDefined();
       });
 
-      it('writes user-scope rules as separate files imported from CLAUDE.md', async () => {
+      it('writes user-scope rules as separate files and imports only the ones without paths from CLAUDE.md', async () => {
          const fakeHome = join(testDir, 'fake-home');
 
          process.env.HOME = fakeHome;
@@ -659,13 +659,37 @@ describe('Editor Adapters', () => {
          expect(claudeContent).toContain('Keep this user-authored note.');
          expect(claudeContent).toContain(AIX_SECTION_BEGIN);
          expect(claudeContent).toContain('## aix rules');
-         expect(claudeContent).toContain('@rules/typescript.md');
+         expect(claudeContent).not.toContain('@rules/typescript.md');
          expect(claudeContent).toContain('@rules/testing.md');
          expect(claudeContent).toContain(AIX_SECTION_END);
          expect(claudeContent).not.toContain('Use TypeScript carefully.');
          expect(typescriptContent).toContain('paths:');
          expect(typescriptContent).toContain('Use TypeScript carefully.');
          expect(testingContent).toContain('Run relevant tests.');
+      });
+
+      it('drops the CLAUDE.md import list once every user-scope rule is limited to paths', async () => {
+         const fakeHome = join(testDir, 'fake-home'),
+               claudePath = join(fakeHome, '.claude/CLAUDE.md'),
+               pathScopedOnly = createConfig({
+                  rules: { swift: { activation: 'glob', globs: ['**/*.swift'], content: 'Prefer value types.' } },
+               }),
+               withUnscopedRule = createConfig({
+                  rules: { ...pathScopedOnly.rules, general: { activation: 'always', content: 'Be direct.' } },
+               });
+
+         process.env.HOME = fakeHome;
+         await mkdir(join(fakeHome, '.claude'), { recursive: true });
+         await writeFile(claudePath, '# Personal Claude rules\n', 'utf-8');
+         await installToEditor('claude-code', withUnscopedRule, testDir, { targetScope: 'user', scopes: ['rules'] });
+
+         await installToEditor('claude-code', pathScopedOnly, testDir, { targetScope: 'user', scopes: ['rules'] });
+
+         const claudeContent = await readFile(claudePath, 'utf-8');
+
+         expect(claudeContent).toContain('# Personal Claude rules');
+         expect(claudeContent).not.toContain('@rules/');
+         expect(await readFile(join(fakeHome, '.claude/rules/swift.md'), 'utf-8')).toContain('paths:');
       });
 
       it('detects Claude Code when .claude directory exists', async () => {

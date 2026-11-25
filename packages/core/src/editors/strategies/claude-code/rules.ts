@@ -6,6 +6,11 @@ import { extractFrontmatter, parseYamlValue, quoteYamlString } from '../../../fr
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 import { isFallbackClaudeMd } from './fallback.js';
 
+/** The globs that limit when Claude Code loads a rule. Empty for a rule that always loads. */
+export function getRulePaths(rule: EditorRule): string[] {
+   return rule.activation.type === 'glob' ? rule.activation.globs ?? [] : [];
+}
+
 /**
  * Claude Code rules strategy. Uses markdown files with optional YAML frontmatter. Only adds
  * frontmatter when there are paths (globs) or description to specify.
@@ -131,9 +136,10 @@ export class ClaudeCodeRulesStrategy implements RulesStrategy {
          frontmatter.description = rule.activation.description;
       }
 
-      // Add paths for glob activation mode
-      if (rule.activation.type === 'glob' && rule.activation.globs?.length) {
-         frontmatter.paths = rule.activation.globs;
+      const paths = getRulePaths(rule);
+
+      if (paths.length > 0) {
+         frontmatter.paths = paths;
       }
 
       // Build output - only include frontmatter if we have fields
