@@ -1,0 +1,51 @@
+---
+/**
+ * Horizontal scroll container for content that cannot shrink, such as a wide table. It is
+ * keyboard focusable so it can be scrolled without a pointer, and it shows a shadow on
+ * whichever edge has more content.
+ */
+interface Props {
+   /** ID of the element that names the region, such as the table caption. */
+   labelledby: string;
+}
+
+const { labelledby } = Astro.props;
+---
+
+<div class="scroll-region" role="region" aria-labelledby={labelledby} tabindex="0">
+   <slot />
+</div>
+
+<style>
+   .scroll-region {
+      --scroll-region-bg: var(--sl-color-bg);
+      --scroll-region-shadow: color-mix(in srgb, var(--sl-color-white) 28%, transparent);
+
+      overflow-x: auto;
+      border: 1px solid var(--sl-color-hairline-light);
+      border-radius: 0.5rem;
+
+      /*
+         The two `local` layers scroll with the content and cover the shadows, which are
+         fixed to the container, so a shadow is visible only on an edge that can scroll.
+      */
+      background:
+         linear-gradient(to right, var(--scroll-region-bg) 40%, transparent) left / 2rem 100% no-repeat local,
+         linear-gradient(to left, var(--scroll-region-bg) 40%, transparent) right / 2rem 100% no-repeat local,
+         radial-gradient(farthest-side at 0 50%, var(--scroll-region-shadow), transparent) left / 0.75rem 100% no-repeat scroll,
+         radial-gradient(farthest-side at 100% 50%, var(--scroll-region-shadow), transparent) right / 0.75rem 100% no-repeat scroll,
+         var(--scroll-region-bg);
+   }
+
+   .scroll-region:focus-visible {
+      outline: 2px solid var(--sl-color-accent);
+      outline-offset: 2px;
+   }
+
+   /* Starlight makes content tables scroll on their own; here the region does it. */
+   .scroll-region :global(table) {
+      display: table;
+      overflow: visible;
+      margin: 0;
+   }
+</style>

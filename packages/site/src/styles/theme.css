@@ -255,3 +255,41 @@ body::after {
    background-size: 600px;
    opacity: var(--aix-pattern-opacity);
 }
+
+/* ---- Shared component utilities ---- */
+
+/*
+   Starlight adds a 1rem top margin between adjacent content siblings. Flex and grid
+   containers that space their children with `gap` opt out with this class.
+*/
+.sl-markdown-content .aix-layout > * {
+   margin-block-start: 0;
+}
+
+.aix-card {
+   padding: 1rem 1.15rem;
+   border: 1px solid var(--sl-color-hairline-light);
+   border-radius: 0.75rem;
+   background: color-mix(in srgb, var(--sl-color-bg) 88%, var(--sl-color-accent-low));
+}
+
+.aix-eyebrow {
+   color: var(--aix-text-muted);
+   font-size: var(--sl-text-xs);
+   font-weight: 600;
+   letter-spacing: 0.06em;
+   text-transform: uppercase;
+}
+
+/* Link lists that flow into as many columns as fit. */
+.sl-markdown-content .aix-columns {
+   columns: 16rem;
+   column-gap: 2rem;
+}
+
+/* Starlight's gap between list items would push the second column down. */
+.sl-markdown-content .aix-columns > li {
+   padding-block: 0.125rem;
+   margin-block-start: 0;
+   break-inside: avoid;
+}

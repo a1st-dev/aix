@@ -5,41 +5,100 @@ import {
    getEditorSupportRoute,
    getFeatureConceptRoute,
 } from '../lib/editor-support';
+import ScrollRegion from './ScrollRegion.astro';
 import SupportStatusBadge from './SupportStatusBadge.astro';
 
-const { profiles } = Astro.props as {
+interface Props {
    profiles: readonly EditorSupportProfile[];
-};
+}
+
+const { profiles } = Astro.props;
+
+const labelID = 'support-matrix-label';
 ---
 
-<table>
-   <caption>Feature support across all supported editors.</caption>
-   <thead>
-      <tr>
-          <th scope="col">Editor</th>
-          {editorFeatureDefinitions.map((feature) => {
-             const conceptRoute = getFeatureConceptRoute(feature.id);
+<p class="support-matrix__label" id={labelID}>
+   aix support by editor and feature. The table scrolls sideways when it does not fit.
+</p>
 
-             return (
-                <th scope="col">
-                   {conceptRoute ? <a href={conceptRoute}>{feature.label}</a> : feature.label}
-                </th>
-             );
-          })}
-      </tr>
-   </thead>
-   <tbody>
-      {profiles.map((profile) => (
+<ScrollRegion labelledby={labelID}>
+   <table class="support-matrix" aria-labelledby={labelID}>
+      <thead>
          <tr>
-            <th scope="row">
-               <a href={getEditorSupportRoute(profile.id)}>{profile.name}</a>
-            </th>
-            {editorFeatureDefinitions.map((feature) => (
-               <td>
-                  <SupportStatusBadge compact status={profile.features[feature.id].summary} />
-               </td>
-            ))}
+            <th scope="col">Editor</th>
+            {editorFeatureDefinitions.map((feature) => {
+               const conceptRoute = getFeatureConceptRoute(feature.id);
+
+               return (
+                  <th scope="col" title={feature.shortDescription}>
+                     {conceptRoute ? <a href={conceptRoute}>{feature.label}</a> : feature.label}
+                  </th>
+               );
+            })}
          </tr>
-      ))}
-   </tbody>
-</table>
+      </thead>
+      <tbody>
+         {profiles.map((profile) => (
+            <tr>
+               <th scope="row">
+                  <a href={getEditorSupportRoute(profile.id)}>{profile.name}</a>
+               </th>
+               {editorFeatureDefinitions.map((feature) => (
+                  <td>
+                     <SupportStatusBadge compact status={profile.features[feature.id].summary} />
+                  </td>
+               ))}
+            </tr>
+         ))}
+      </tbody>
+   </table>
+</ScrollRegion>
+
+<style>
+   .support-matrix__label {
+      color: var(--sl-color-gray-2);
+      font-size: var(--sl-text-sm);
+   }
+
+   /*
+      Separate borders, because collapsed borders do not travel with a sticky cell. Each
+      cell draws its own bottom and end edge instead.
+   */
+   .support-matrix {
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: var(--sl-text-sm);
+   }
+
+   .support-matrix th,
+   .support-matrix td {
+      padding: 0.5rem 0.65rem;
+      border: 0;
+      border-block-end: 1px solid var(--sl-color-hairline-light);
+      border-inline-end: 1px solid var(--sl-color-hairline-light);
+      text-align: start;
+      white-space: nowrap;
+   }
+
+   .support-matrix tr > :last-child {
+      border-inline-end: 0;
+   }
+
+   .support-matrix tbody tr:last-child > * {
+      border-block-end: 0;
+   }
+
+   /* The editor column stays in view while the feature columns scroll under it. */
+   .support-matrix tr > :first-child {
+      position: sticky;
+      z-index: 1;
+      inset-inline-start: 0;
+      min-inline-size: 6.5rem;
+      background: var(--sl-color-bg);
+      white-space: normal;
+   }
+
+   .support-matrix tbody tr:nth-child(even) > :first-child {
+      background: linear-gradient(var(--aix-accent-glow), var(--aix-accent-glow)), var(--sl-color-bg);
+   }
+</style>

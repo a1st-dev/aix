@@ -1,0 +1,55 @@
+---
+/**
+ * Pill that names a support level. The label carries the meaning; the tone only adds color.
+ */
+interface Props {
+   label: string;
+   description: string;
+   tone: 'positive' | 'partial' | 'negative';
+   compact?: boolean;
+}
+
+const { label, description, tone, compact = false } = Astro.props;
+---
+
+<span
+   aria-label={`${label}: ${description}`}
+   class:list={[ 'support-badge', `support-badge--${tone}`, compact && 'support-badge--compact' ]}
+   title={description}
+>
+   {label}
+</span>
+
+<style>
+   .support-badge {
+      display: inline-block;
+      inline-size: fit-content;
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 999px;
+      color: var(--sl-color-white);
+      font-size: 0.78rem;
+      line-height: 1;
+      white-space: nowrap;
+   }
+
+   .support-badge--compact {
+      padding-inline: 0.45rem;
+      font-size: 0.72rem;
+   }
+
+   .support-badge--positive {
+      background: color-mix(in srgb, var(--sl-color-green) 14%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-green) 45%, var(--sl-color-gray-5));
+   }
+
+   .support-badge--partial {
+      background: color-mix(in srgb, var(--sl-color-orange) 14%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-orange) 45%, var(--sl-color-gray-5));
+   }
+
+   .support-badge--negative {
+      background: color-mix(in srgb, var(--sl-color-red) 12%, transparent);
+      border-color: color-mix(in srgb, var(--sl-color-red) 45%, var(--sl-color-gray-5));
+   }
+</style>
