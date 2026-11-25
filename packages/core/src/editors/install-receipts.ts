@@ -1,8 +1,8 @@
 import { dirname, join, isAbsolute } from 'pathe';
-import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, modifyJsonc, type ConfigScope } from '@a1st/aix-schema';
 import { canonicalJson, hashBytes, hashCanonicalJson } from '../entity-hash.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import { parseToml, updateToml } from '../toml.js';
 import { getStatePath } from '../state/tracker.js';
 import { isRecord } from '../type-guards.js';
 import type { ConfigSection } from '../merge.js';
@@ -220,7 +220,7 @@ async function snapshotChange(change: FileChange): Promise<InstalledFile | undef
 }
 
 function parseStructured(file: InstalledFile, content: string): Record<string, unknown> {
-   const parsed: unknown = file.kind === 'toml' ? parseTOML(content) : parseJsonc(content).data;
+   const parsed: unknown = file.kind === 'toml' ? parseToml(content) : parseJsonc(content).data;
 
    if (!isRecord(parsed) || (file.kind === 'json' && parseJsonc(content).errors.length > 0)) {
       throw new Error(`Cannot reconcile invalid editor config: ${file.path}`);
@@ -331,7 +331,7 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
       }
    }));
 
-   return file.kind === 'toml' ? stringifyTOML(current) : result;
+   return file.kind === 'toml' ? updateToml(content, current) : result;
 }
 
 async function stripFile(file: InstalledFile, content: string, protectedFiles: InstalledFile[]): Promise<string | undefined> {

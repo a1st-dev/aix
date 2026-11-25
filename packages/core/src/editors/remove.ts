@@ -1,9 +1,9 @@
 import { basename, join } from 'pathe';
 import { isRecord } from '../type-guards.js';
-import { parseTOML, stringifyTOML } from 'confbox';
 import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
 import { getRuntimeAdapter } from '../runtime/index.js';
+import { parseToml, updateToml } from '../toml.js';
 import { applyFileChanges } from './apply-file-changes.js';
 import { getAdapter } from './install.js';
 import { importFromEditor } from './import.js';
@@ -143,7 +143,7 @@ function removeFromJsonMcpConfig(content: string, serverName: string): string | 
 }
 
 function removeFromTomlMcpConfig(content: string, serverName: string): string | undefined {
-   const config = parseTOML(content) as Record<string, unknown>,
+   const config = parseToml(content),
          servers = config.mcp_servers;
 
    if (!isRecord(servers) || !(serverName in servers)) {
@@ -153,7 +153,7 @@ function removeFromTomlMcpConfig(content: string, serverName: string): string | 
    delete servers[serverName];
    config.mcp_servers = servers;
 
-   return stringifyTOML(config);
+   return updateToml(content, config);
 }
 
 export async function removeMcpFromEditor(

@@ -2,7 +2,7 @@ import pMap from 'p-map';
 import { join } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
-import { parseTOML, stringifyTOML } from 'confbox';
+import { stringifyTOML } from 'confbox';
 import { parseJsonc, modifyJsonc } from '@a1st/aix-schema';
 import { isRecord } from '../type-guards.js';
 import { planInstallReceipt } from './install-receipts.js';
@@ -28,6 +28,7 @@ import {
    GrokAdapter,
 } from './adapters/index.js';
 import { analyzeGlobalChanges, planGlobalChanges } from '../global/processor.js';
+import { parseToml, updateToml } from '../toml.js';
 import { UnsupportedRuntimeCapabilityError } from '../errors.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
@@ -313,7 +314,7 @@ async function processGlobalFeatures(
              managedContent = change.promptContent;
 
          if (change.type === 'mcp') {
-            const parsed: unknown = change.format === 'toml' ? parseTOML(content) : parseJsonc(content).data,
+            const parsed: unknown = change.format === 'toml' ? parseToml(content) : parseJsonc(content).data,
                   key = change.format === 'toml' ? 'mcp_servers' : 'mcpServers',
                   servers = isRecord(parsed) ? parsed[key] : undefined,
                   entry = change.mcpEntry ?? (isRecord(servers) ? servers[change.name] : undefined);
@@ -329,7 +330,7 @@ async function processGlobalFeatures(
                   merged = deepMergeJson(parsed, contribution, { resolver: mcpConfigMergeResolver });
 
             managedContent = change.format === 'toml' ? stringifyTOML(contribution) : JSON.stringify(contribution);
-            desiredContent = change.format === 'toml' ? stringifyTOML(merged) : modifyJsonc(content, [key, change.name], entry);
+            desiredContent = change.format === 'toml' ? updateToml(content, merged) : modifyJsonc(content, [key, change.name], entry);
             if (change.configsMatch) {
                desiredContent = content;
             }

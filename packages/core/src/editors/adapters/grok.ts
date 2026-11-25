@@ -1,6 +1,6 @@
 import type { AiJsonConfig, ParsedSkill } from '@a1st/aix-schema';
 import { join } from 'pathe';
-import { parseTOML, stringifyTOML } from 'confbox';
+import { parseTOML } from 'confbox';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
 import type {
    EditorConfig,
@@ -35,6 +35,7 @@ import type {
 } from '../strategies/types.js';
 import { isRecord } from '../../type-guards.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
+import { parseToml, updateToml } from '../../toml.js';
 
 /**
  * Grok CLI editor adapter. Grok Build CLI uses `.grok/` for project configuration and
@@ -184,7 +185,7 @@ export class GrokAdapter extends BaseEditorAdapter {
 
       if (existing) {
          try {
-            config = parseTOML(existing) as Record<string, unknown>;
+            config = parseToml(existing);
          } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
 
@@ -199,7 +200,7 @@ export class GrokAdapter extends BaseEditorAdapter {
          ...(isRecord(formattedMcp.mcp_servers) ? formattedMcp.mcp_servers : {}),
       };
 
-      const content = stringifyTOML(config),
+      const content = updateToml(existing, config),
             action = this.determineAction(existing, content);
 
       return [{ path: mcpPath, action, content, managedContent: this.mcpStrategy.formatConfig(mcp), category: 'mcp', items: mcpEntries }];

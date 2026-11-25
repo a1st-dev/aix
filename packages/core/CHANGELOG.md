@@ -96,6 +96,9 @@ version may appear here with no changes to this package.
   project, and stop treating a glob that names one file as a directory
 - Remove `astro`, `@astrojs/starlight`, `@astrojs/vercel`, `vitest`, `c12`, and `defu`
   from the runtime dependencies; none is imported
+- Keep the comments, key order, and formatting of `~/.codex/config.toml` and Grok's
+  `config.toml` when adding, changing, or removing an MCP server; every write used to
+  re-serialize the whole file
 
 ## [0.6.0] - 2026-08-12
 

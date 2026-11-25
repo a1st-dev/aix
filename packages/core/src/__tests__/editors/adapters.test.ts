@@ -2066,6 +2066,39 @@ Skill instructions.
          expect(Object.keys(servers).toSorted()).toEqual([ 'added', 'existing' ]);
       });
 
+      it('keeps the comments and layout of a Codex config.toml when adding and removing a server', async ({ skip }) => {
+         const fakeHome = join(testDir, 'fake-home'),
+               configPath = join(fakeHome, '.codex/config.toml'),
+               handWritten = [
+                  '# My hand-written Codex config',
+                  'model = "gpt-5"          # the model I like',
+                  '',
+                  '# Servers I maintain by hand',
+                  '[mcp_servers.existing]',
+                  'command = "node"',
+                  'args = ["existing.js"]   # keep this',
+                  '',
+               ].join('\n');
+
+         skip(await isCI());
+         process.env.HOME = fakeHome;
+         await mkdir(dirname(configPath), { recursive: true });
+         await writeFile(configPath, handWritten);
+
+         await installToEditor('codex', createConfig({ mcp: { added: createMcpServer('added-cmd') } }), testDir);
+
+         const afterInstall = await readFile(configPath, 'utf-8');
+
+         await installToEditor('codex', createConfig({}), testDir);
+
+         expect(afterInstall).toContain('[mcp_servers.added]');
+         expect(afterInstall).toContain('added-cmd');
+         for (const line of handWritten.split('\n')) {
+            expect(afterInstall).toContain(line);
+         }
+         expect(await readFile(configPath, 'utf-8')).toStrictEqual(handWritten);
+      });
+
       it('replaces a Codex server whose transport changed, leaving none of the old fields', async ({ skip }) => {
          const fakeHome = join(testDir, 'fake-home'),
                configPath = join(fakeHome, '.codex/config.toml');
