@@ -29,6 +29,8 @@ export default class Validate extends BaseCommand<typeof Validate> {
          const result = await coreLoadConfig({
             explicitPath: configPath,
             lockfileMode: this.flags.lock ? 'ignore' : 'auto',
+            // Checking a config must not run a package manager for a git `extends`.
+            installExtendsDependencies: false,
          });
 
          if (!result) {

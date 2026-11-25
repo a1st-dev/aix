@@ -127,6 +127,8 @@ version may appear here with no changes to this package.
 - Fail `aix install` with a non-zero exit status when no editor is detected and none is
   named. It used to print a warning, install nothing, and exit 0, and with `--json` it
   printed nothing
+- Stop `aix validate` from running a package manager for a git `extends` that has a
+  `package.json`
 
 ## [0.6.0] - 2026-08-12
 
