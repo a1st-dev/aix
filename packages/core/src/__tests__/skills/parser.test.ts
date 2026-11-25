@@ -142,6 +142,54 @@ Content here.
       expect(result.source).toBe('local');
    });
 
+   it('parses frontmatter in a file saved with CRLF line endings', async () => {
+      const skillDir = join(testDir, 'crlf-skill');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '---\r\nname: crlf-skill\r\ndescription: Saved on Windows\r\n---\r\n\r\nBody text.\r\n');
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter).toEqual({ name: 'crlf-skill', description: 'Saved on Windows' });
+      expect(result.body).toBe('Body text.');
+   });
+
+   it('parses frontmatter in a file that starts with a byte order mark', async () => {
+      const skillDir = join(testDir, 'bom-skill');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '\uFEFF---\nname: bom-skill\ndescription: Has a BOM\n---\n\nBody text.\n');
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter).toEqual({ name: 'bom-skill', description: 'Has a BOM' });
+      expect(result.body).toBe('Body text.');
+   });
+
+   it('parses frontmatter when the file ends at the closing delimiter', async () => {
+      const skillDir = join(testDir, 'frontmatter-only');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '---\nname: frontmatter-only\ndescription: No body\n---');
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter).toEqual({ name: 'frontmatter-only', description: 'No body' });
+      expect(result.body).toBe('');
+   });
+
+   it('uses the folder name and keeps the body when the frontmatter block is empty', async () => {
+      const skillDir = join(testDir, 'empty-frontmatter');
+
+      await mkdir(skillDir, { recursive: true });
+      await writeFile(join(skillDir, 'SKILL.md'), '---\n---\n\nBody text.\n');
+
+      const result = await parseSkillMd(skillDir, 'local');
+
+      expect(result.frontmatter).toEqual({ name: 'empty-frontmatter' });
+      expect(result.body).toBe('Body text.');
+   });
+
    it('uses folder name when frontmatter has no name', async () => {
       const skillDir = join(testDir, 'my-skill-folder');
 
