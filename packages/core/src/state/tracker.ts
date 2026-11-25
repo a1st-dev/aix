@@ -1,6 +1,7 @@
-import { join, dirname } from 'pathe';
+import { join } from 'pathe';
 import type { ConfigScope } from '@a1st/aix-schema';
 import type { StateFile, StateSection, InstalledItemMeta, InstalledItems } from './types.js';
+import { replaceFile } from '../fs/replace-file.js';
 import { getRuntimeAdapter } from '../runtime/index.js';
 
 export interface TrackInstallOptions {
@@ -95,8 +96,7 @@ export async function writeState(
 ): Promise<void> {
    const path = getStatePath(scope, projectRoot);
 
-   await getRuntimeAdapter().fs.mkdir(dirname(path), { recursive: true });
-   await getRuntimeAdapter().fs.writeFile(path, JSON.stringify(state, null, 2) + '\n', 'utf-8');
+   await replaceFile(path, JSON.stringify(state, null, 2) + '\n');
 }
 
 /**

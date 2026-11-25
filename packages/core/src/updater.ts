@@ -4,6 +4,7 @@ import { parseConfig, parseLocalConfig, applyJsoncDiff, type AiJsonConfig } from
 import { parseConfigContent } from './discovery.js';
 import { createBackup } from './backup.js';
 import { ConfigNotFoundError } from './errors.js';
+import { replaceFile } from './fs/replace-file.js';
 import { getRuntimeAdapter } from './runtime/index.js';
 
 const DEFAULT_INDENT = 2;
@@ -25,7 +26,7 @@ export async function updateConfig(
 ): Promise<void> {
    const { backup = true } = options,
          absolutePath = resolve(configPath),
-         { fs, process: runtimeProcess } = getRuntimeAdapter();
+         { fs } = getRuntimeAdapter();
 
    if (!fs.existsSync(absolutePath)) {
       throw new ConfigNotFoundError(absolutePath);
@@ -43,8 +44,6 @@ export async function updateConfig(
          indent = detectIndent(existingContent).indent || DEFAULT_INDENT,
          rawConfig = parseConfigContent(existingContent) as AiJsonConfig,
          updated = await updater(rawConfig),
-         // Use unique temp file name to avoid collisions (pid + timestamp)
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
          tabSize = typeof indent === 'string' ? indent.length : indent;
 
    // Validation only checks the result. What gets written is the updater's own output: the
@@ -54,15 +53,7 @@ export async function updateConfig(
 
    const output = applyJsoncDiff(existingContent, updated, { tabSize });
 
-   try {
-      await fs.writeFile(tempPath, output, 'utf-8');
-      await fs.rename(tempPath, absolutePath);
-   } catch (error) {
-      if (fs.existsSync(tempPath)) {
-         await fs.unlink(tempPath);
-      }
-      throw error;
-   }
+   await replaceFile(absolutePath, output);
 }
 
 /**
@@ -78,7 +69,7 @@ export async function updateLocalConfig(
    options: UpdateOptions = {},
 ): Promise<void> {
    const { backup = true } = options,
-         { fs, process: runtimeProcess } = getRuntimeAdapter();
+         { fs } = getRuntimeAdapter();
 
    // If localPath is a directory, append ai.local.json
    let absolutePath = resolve(localPath);
@@ -106,7 +97,6 @@ export async function updateLocalConfig(
    }
 
    const updated = await updater(existingConfig),
-         tempPath = `${absolutePath}.${runtimeProcess.pid()}.${Date.now()}.tmp`,
          tabSize = typeof indent === 'string' ? indent.length : indent;
 
    // Validate as local config (no extends allowed). As in updateConfig, the parsed form is
@@ -117,13 +107,5 @@ export async function updateLocalConfig(
       ? applyJsoncDiff(existingContent, updated, { tabSize })
       : JSON.stringify(updated, null, indent) + '\n';
 
-   try {
-      await fs.writeFile(tempPath, output, 'utf-8');
-      await fs.rename(tempPath, absolutePath);
-   } catch (error) {
-      if (fs.existsSync(tempPath)) {
-         await fs.unlink(tempPath);
-      }
-      throw error;
-   }
+   await replaceFile(absolutePath, output);
 }

@@ -99,6 +99,9 @@ version may appear here with no changes to this package.
 - Keep the comments, key order, and formatting of `~/.codex/config.toml` and Grok's
   `config.toml` when adding, changing, or removing an MCP server; every write used to
   re-serialize the whole file
+- Write editor config, aix state, and `ai.json` through a temporary file that is renamed
+  into place, so an interrupted write cannot leave a truncated file. The file keeps its
+  permissions, and a symlinked config is written through, not replaced
 
 ## [0.6.0] - 2026-08-12
 
