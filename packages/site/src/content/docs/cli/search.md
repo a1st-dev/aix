@@ -33,10 +33,10 @@ Type to change the query. The results update as you type.
 | Tab      | Switch between the Skills and MCP tabs.                                 |
 | Esc      | Clear the query. With an empty query, exit.                             |
 | `?`      | Show or hide the list of keys.                                          |
+| Ctrl+R   | Run the search again after it failed.                                   |
 
-Only the arrow keys move the selection and only Enter installs. Space, `j`, and `k` are
-ordinary characters and go into the query. When a search fails, the status line offers `r` to
-try it again.
+Only the arrow keys move the selection and only Enter installs. Letters and the space bar are
+ordinary characters and go into the query. `?` is the one character a query cannot contain.
 
 ### Installing from the results
 
@@ -54,12 +54,12 @@ When you press Enter on a result, aix:
 The install uses the scope in the `scope` field of `ai.json`, or user scope when the file
 has no such field, the same as `aix install`.
 
-An installed item gets a check mark. If no editor received the item, the install counts as
-failed and the item gets no check mark. The entry stays in `ai.json`.
+An installed item gets a check mark. If the install fails, for example because no editor
+received the item, the status line says why and the item gets no check mark. The entry stays
+in `ai.json`.
 
-Pressing Enter on an item you installed in this session takes it out of `ai.json` again.
-That does not always remove it from your editors. Check with [`aix list`](/cli/list/) and
-use [`aix remove`](/cli/remove/) if it is still there.
+Pressing Enter on an item you installed in this session takes it out of `ai.json` and out of
+the editors it was installed to.
 
 When you exit, aix prints the items you installed.
 

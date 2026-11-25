@@ -84,8 +84,8 @@ export function useKeyboard(options: UseKeyboardOptions): void {
          return;
       }
 
-      // Retry
-      if (input === 'r' && error) {
+      // Retry. A plain "r" is part of the query.
+      if (key.ctrl && input === 'r' && error) {
          retry();
          return;
       }

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { safeRm } from '@a1st/aix-core';
-import { addMcp, addSkill, removeSkill } from '../lib/add-helper.js';
+import { addMcp, addSkill, removeMcp, removeSkill } from '../lib/add-helper.js';
 
 function createTestDir(): string {
    return join(tmpdir(), `aix-add-helper-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -253,5 +253,33 @@ describe('addMcp helper', () => {
 
       expect(result).toEqual({ success: true, name: 'filesystem' });
       expect(config.mcp.filesystem.command).toContain('official-filesystem');
+   });
+});
+
+describe('removeMcp helper', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   it('removes the server from the editor as well as from ai.json', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json'),
+            editorConfigPath = join(testDir, '.mcp.json'),
+            server = { command: 'node', args: [ 'docs.js' ] };
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+      await writeFile(configPath, JSON.stringify({ scope: 'project', editors: [ 'claude-code' ], mcp: { docs: server } }));
+      await writeFile(editorConfigPath, JSON.stringify({ mcpServers: { docs: server, mine: server } }));
+
+      const result = await removeMcp({ configPath, name: 'docs' }),
+            config = JSON.parse(await readFile(configPath, 'utf-8')),
+            editorConfig = JSON.parse(await readFile(editorConfigPath, 'utf-8'));
+
+      expect(result).toEqual({ success: true, name: 'docs' });
+      expect(config.mcp.docs).toBeUndefined();
+      expect(Object.keys(editorConfig.mcpServers)).toEqual([ 'mine' ]);
    });
 });

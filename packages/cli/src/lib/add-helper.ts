@@ -1,4 +1,4 @@
-import { updateConfig, loadConfig, type EditorName } from '@a1st/aix-core';
+import { detectEditors, loadConfig, removeMcpFromEditors, updateConfig, type EditorName } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
 import { normalizeEditors, type ConfigScope } from '@a1st/aix-schema';
 import { dirname } from 'pathe';
@@ -244,11 +244,34 @@ export async function removeMcp(options: { configPath: string; name: string }): 
    const { configPath, name } = options;
 
    try {
+      const loaded = await loadConfig(configPath),
+            projectRoot = dirname(configPath),
+            configuredEditors = loaded?.config.editors ? Object.keys(normalizeEditors(loaded.config.editors)) : [],
+            editors = configuredEditors.length > 0 ? configuredEditors : await detectEditors(projectRoot);
+
       await updateConfig(configPath, (config) => {
          const { [name]: _, ...remainingMcp } = config.mcp ?? {};
 
          return { ...config, mcp: remainingMcp };
       });
+
+      // The entry in ai.json is only half of it: the editors still have the server.
+      const removals = await removeMcpFromEditors(editors, name, projectRoot, {
+               targetScope: resolveTargetScope({}, loaded?.config),
+            }),
+            failures = removals.filter((removal) => {
+               return !removal.success;
+            });
+
+      if (failures.length > 0) {
+         return {
+            success: false,
+            name,
+            error: failures.map((failure) => {
+               return `${failure.editor}: ${failure.errors.join(', ')}`;
+            }).join('; '),
+         };
+      }
 
       return { success: true, name };
    } catch (error) {

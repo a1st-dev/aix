@@ -39,7 +39,7 @@ export function SearchApp({
          [selectedIndex, setSelectedIndex] = useState(0),
          [showHelp, setShowHelp] = useState(false);
 
-   const { installedItems, installingItem, uninstallingItem, installedRef, installItem, uninstallItem } = useInstall({
+   const { installedItems, installingItem, uninstallingItem, actionError, installedRef, installItem, uninstallItem } = useInstall({
       alreadyInstalled,
       onInstall,
       onUninstall,
@@ -56,6 +56,11 @@ export function SearchApp({
          isCurrentInstalled = currentResult ? installedItems.has(currentResult.name) : false,
          isCurrentInstalling = currentResult ? installingItem === currentResult.name : false,
          isCurrentUninstalling = currentResult ? uninstallingItem === currentResult.name : false;
+
+   // "?" toggles the help, and the text input sees the same keypress.
+   const handleQueryChange = useCallback((value: string) => {
+      setQuery(value.replaceAll('?', ''));
+   }, [setQuery]);
 
    const handleExit = useCallback(() => {
       onExit(installedRef.current);
@@ -92,7 +97,7 @@ export function SearchApp({
       <Box flexDirection="column" width={columns}>
          <SearchInput
             value={query}
-            onChange={setQuery}
+            onChange={handleQueryChange}
             loading={loading}
          />
          {hasMultipleTabs && (
@@ -131,7 +136,7 @@ export function SearchApp({
             </Box>
          )}
          <Box marginTop={1}>
-            <StatusBar error={error} showHelp={showHelp} showTabHint={hasMultipleTabs} />
+            <StatusBar error={error} actionError={actionError} showHelp={showHelp} showTabHint={hasMultipleTabs} />
          </Box>
       </Box>
    );

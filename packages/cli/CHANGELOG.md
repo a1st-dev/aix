@@ -29,6 +29,8 @@ version may appear here with no changes to this package.
   `ai.json`, then user scope. `aix add --save` ignored the config's scope, and
   `aix search` defaulted to project scope for a config that `aix install` installed at
   user scope
+- Retry a failed search with Ctrl+R in `aix search`; a plain `r` was also typed into the
+  query, as was the `?` that toggles help
 
 ### Removed
 
@@ -96,6 +98,11 @@ version may appear here with no changes to this package.
   the config from running a package manager for a git `extends`; only a real `aix install`
   does
 - Back up a skill directory before `aix remove skill` deletes it
+- Show why an install or uninstall failed in `aix search`; a failure only left the check
+  mark off
+- Remove an MCP server from the editors, not only from `ai.json`, when it is uninstalled
+  in `aix search`
+- Print JSON from `aix search --json` when there are no results
 
 ## [0.6.0] - 2026-08-12
 
