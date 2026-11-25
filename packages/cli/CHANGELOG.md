@@ -35,6 +35,9 @@ version may appear here with no changes to this package.
 ### Removed
 
 - Remove about 450 lines of `aix list` code that nothing called
+- Remove `aix update` and the background update check that ran with every command. They
+  looked for release tarballs that were never published, so the command could not succeed.
+  Update with `npm install -g @a1st/aix@latest`
 
 ### Fixed
 

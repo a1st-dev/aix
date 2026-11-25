@@ -38,11 +38,13 @@ supported shells are bash, zsh, and PowerShell.
 
 ## Update
 
-aix can self-update:
+aix is distributed through npm, so update it the way you installed it:
 
 ```bash
-aix update
+npm install -g @a1st/aix@latest
 ```
+
+`aix version` prints the version you have.
 
 ## What's next
 

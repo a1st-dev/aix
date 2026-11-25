@@ -58,7 +58,6 @@
       "@oclif/plugin-autocomplete": "^3.2.25",
       "@oclif/plugin-help": "^6.2.27",
       "@oclif/plugin-not-found": "^3.2.39",
-      "@oclif/plugin-update": "4.7.57",
       "@oclif/plugin-version": "^2.2.24",
       "@oclif/table": "0.3.6",
       "chalk": "^5.4.1",
@@ -94,8 +93,7 @@
          "@oclif/plugin-help",
          "@oclif/plugin-version",
          "@oclif/plugin-autocomplete",
-         "@oclif/plugin-not-found",
-         "@oclif/plugin-update"
+         "@oclif/plugin-not-found"
       ],
       "theme": "theme.json",
       "topicSeparator": " ",
@@ -111,11 +109,6 @@
          },
          "remove": {
             "description": "Remove skills, MCP servers, agents, rules, prompts, hooks, plugins, or marketplaces"
-         }
-      },
-      "update": {
-         "s3": {
-            "host": "https://github.com/a1st-dev/aix/releases/download/"
          }
       }
    }

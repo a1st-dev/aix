@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { cp, mkdtemp, mkdir, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
@@ -67,6 +68,11 @@ describe('aixd', () => {
                   destination = join(checkout, 'packages', name);
 
             await cp(join(source, 'src'), join(destination, 'src'), { recursive: true });
+            // npm keeps a dependency inside the package when the root already holds another
+            // version of it, so the root node_modules alone is not the whole dependency tree.
+            if (existsSync(join(source, 'node_modules'))) {
+               await symlink(join(source, 'node_modules'), join(destination, 'node_modules'), 'junction');
+            }
             await Promise.all([
                cp(join(source, 'package.json'), join(destination, 'package.json')),
                symlink(destination, join(checkout, 'node_modules', '@a1st', packageName), 'junction'),
@@ -82,7 +88,7 @@ describe('aixd', () => {
          await writeFile(join(cliRoot, 'oclif.manifest.json'), JSON.stringify({ version: '0.0.0', commands: {} }));
          await writeFile(join(project, 'ai.json'), JSON.stringify({ version: '1.0' }));
 
-         const env = { ...process.env, HOME: sandbox, AIX_DISABLE_AUTOUPDATE: '1' },
+         const env = { ...process.env, HOME: sandbox },
                launcher = join(cliRoot, 'bin', 'aixd.mjs'),
                help = await run(process.execPath, [ launcher, '--help' ], { cwd: project, env }),
                validation = await run(process.execPath, [ launcher, 'validate', '--json' ], { cwd: project, env });

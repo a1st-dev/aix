@@ -26,7 +26,6 @@ subcommands separates them with a space, as in `aix add skill` or `aix list mcp`
 | [`aix cache clear`](/cli/cache/)                                        | Delete the files aix downloaded.                                  |
 | [`aix backups`](/cli/backups/)                                          | List the backups aix made.                                        |
 | [`aix backups restore`](/cli/backups/#aix-backups-restore)              | Copy a backup over the file it was taken from.                    |
-| [`aix update`](/getting-started/installation/#update)                   | Update the aix CLI.                                               |
 | [`aix autocomplete`](/getting-started/installation/#shell-autocomplete) | Print the steps to set up shell completion.                       |
 
 `init --from`, `sync`, and `install` sound similar, but they solve different problems:

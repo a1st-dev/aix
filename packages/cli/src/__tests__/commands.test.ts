@@ -37,7 +37,6 @@ function runCli(args: string[], _unused?: unknown): Promise<CommandResult> {
                AIX_CACHE_DIR: join(process.cwd(), '.oclif', 'cache'),
                AIX_CONFIG_DIR: join(process.cwd(), '.oclif', 'config'),
                AIX_DATA_DIR: join(process.cwd(), '.oclif', 'data'),
-               AIX_DISABLE_AUTOUPDATE: '1',
                NODE_ENV: 'production',
             },
             maxBuffer,
@@ -3061,7 +3060,6 @@ You debug issues.
                               cwd: testDir,
                               env: {
                                  ...process.env,
-                                 AIX_DISABLE_AUTOUPDATE: '1',
                                  NODE_ENV: 'development',
                               },
                            },
