@@ -117,7 +117,7 @@ description: Does x, y, and z
 3. Save it to `ai.json` and install it:
 
 ```bash
-aix add skill ./skills/my-skill --save --no-install
+aix add skill ./skills/my-skill --save --config-only
 aix install
 ```
 

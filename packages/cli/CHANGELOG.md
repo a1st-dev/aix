@@ -31,6 +31,9 @@ version may appear here with no changes to this package.
   user scope
 - Retry a failed search with Ctrl+R in `aix search`; a plain `r` was also typed into the
   query, as was the `?` that toggles help
+- Name the flag that changes `ai.json` and leaves the editors alone `--config-only` on
+  every `aix add` and `aix remove` command. `--no-install`, `--no-sync`, and `--no-delete`
+  are still accepted on all of them
 
 ### Removed
 
@@ -109,10 +112,14 @@ version may appear here with no changes to this package.
 - Mark the skills and MCP servers that `ai.json` already declares as installed in
   `aix search`; every result looked uninstalled
 - Reject `--scope` combined with `--user` or `--project`. A command given
-  `--scope project --user` used to follow `--scope` and ignore the other flag.
+  `--scope project --user` used to follow `--scope` and ignore the other flag
 - Make `aix cache clear` clear the cache beside the `ai.json` it finds, as
   `aix install --clean` does. Run from a subdirectory, it used to report an empty cache
-  and delete nothing.
+  and delete nothing
+- Reject `--local`, `--lock`, and `--config-only` on `aix remove` without `--save`, as
+  `aix add` does. They were ignored without a message
+- Leave the list of editors out of the `aix remove` preview when `--config-only` means no
+  editor is changed
 
 ## [0.6.0] - 2026-08-12
 

@@ -7,7 +7,7 @@ export default class RemoveAgent extends RemoveFileItemCommand {
    static override examples = [
       '<%= config.bin %> <%= command.id %> reviewer',
       '<%= config.bin %> <%= command.id %> reviewer --yes',
-      '<%= config.bin %> <%= command.id %> reviewer --no-delete',
+      '<%= config.bin %> <%= command.id %> reviewer --save --config-only',
    ];
 
    static override args = {

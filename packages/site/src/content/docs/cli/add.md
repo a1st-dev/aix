@@ -45,8 +45,8 @@ aix writes the item to `ai.json` first and then installs it:
 With `--local`, the item is written to `ai.local.json` beside `ai.json`, and only that item
 is installed.
 
-`--no-install` writes the config file and skips the install, so you can review the change and
-run [`aix install`](/cli/install/) yourself.
+`--config-only` writes the config file and skips the install, so you can review the change
+and run [`aix install`](/cli/install/) yourself.
 
 ### Scope
 
@@ -63,13 +63,15 @@ Every `aix add` command takes these flags:
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `--save` / `-s`                                          | Also write the item to `ai.json`.                                                          |
 | `--local` / `-l`                                         | With `--save`, write to `ai.local.json` instead of `ai.json`.                              |
-| `--no-install`                                           | With `--save`, write the config file and skip the install.                                 |
+| `--config-only`                                          | With `--save`, write the config file and skip the install.                                 |
 | `--lock`                                                 | With `--save`, create or refresh `ai.lock.json` after adding. Needs an existing `ai.json`. |
 | `--target <editor>` / `-t`                               | Install to this editor only. Repeatable.                                                   |
 | `--scope <scope>` / `--user` (`-u`) / `--project` (`-p`) | Install at user scope or project scope. The default is user scope.                         |
 
-`--local`, `--lock`, and `--no-install` are rejected without `--save`. When `ai.lock.json`
-already exists, `--save` refreshes it whether or not you pass `--lock`.
+`--local`, `--lock`, and `--config-only` are rejected without `--save`, and `--scope` cannot
+be combined with `--user` or `--project`. `--no-install` is another spelling of
+`--config-only`. When `ai.lock.json` already exists, `--save` refreshes it whether or not you
+pass `--lock`.
 
 The [global flags](/cli/overview/#global-flags) also apply. `--config` is only read with
 `--save`.
@@ -302,7 +304,7 @@ aix add rule ./rules/typescript.md --target cursor --project
 **Save a skill to `ai.json` without installing it:**
 
 ```bash
-aix add skill ./skills/review --save --no-install
+aix add skill ./skills/review --save --config-only
 ```
 
 **Save a personal rule to `ai.local.json`:**

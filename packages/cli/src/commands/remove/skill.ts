@@ -9,7 +9,7 @@ export default class RemoveSkill extends RemoveFileItemCommand {
    static override examples = [
       '<%= config.bin %> <%= command.id %> typescript',
       '<%= config.bin %> <%= command.id %> react --yes',
-      '<%= config.bin %> <%= command.id %> react --no-delete',
+      '<%= config.bin %> <%= command.id %> react --save --config-only',
    ];
 
    static override args = {

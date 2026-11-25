@@ -7,7 +7,7 @@ export default class RemoveRule extends RemoveFileItemCommand {
    static override examples = [
       '<%= config.bin %> <%= command.id %> coding-standards',
       '<%= config.bin %> <%= command.id %> coding-standards --yes',
-      '<%= config.bin %> <%= command.id %> coding-standards --no-delete',
+      '<%= config.bin %> <%= command.id %> coding-standards --save --config-only',
    ];
 
    static override args = {

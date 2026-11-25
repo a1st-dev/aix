@@ -7,7 +7,7 @@ export default class RemovePrompt extends RemoveFileItemCommand {
    static override examples = [
       '<%= config.bin %> <%= command.id %> review',
       '<%= config.bin %> <%= command.id %> review --yes',
-      '<%= config.bin %> <%= command.id %> review --no-delete',
+      '<%= config.bin %> <%= command.id %> review --save --config-only',
    ];
 
    static override args = {

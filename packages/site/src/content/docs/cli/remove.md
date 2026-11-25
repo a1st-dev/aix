@@ -69,9 +69,6 @@ editors.
 With `--save`, aix installs the affected sections of `ai.json` again after deleting the
 files, so that content derived from them is rebuilt.
 
-`--no-delete` leaves the editor files in place. Combined with `--save`, it only edits
-`ai.json`.
-
 aix backs up each file or directory before it deletes it. A symbolic link is removed without
 a backup, because the file it points to stays.
 
@@ -95,8 +92,6 @@ Windsurf and Codex keep MCP servers only in a user-scope file
 (`~/.codeium/windsurf/mcp_config.json` and `~/.codex/config.toml`). A project-scope removal
 leaves those files alone, so remove a server from those editors at user scope.
 
-`--no-sync` leaves editor config alone. Combined with `--save`, it only edits `ai.json`.
-
 ```bash
 aix remove mcp github
 aix remove mcp github --save --yes
@@ -114,8 +109,6 @@ Hooks belonging to other events survive even when they share a native event name
 `pre_file_write` group matching `Write|Edit` in place. aix backs up each hooks file before it
 changes it.
 
-`--no-sync` leaves editor config alone. Combined with `--save`, it only edits `ai.json`.
-
 ```bash
 aix remove hook pre_command
 aix remove hook session_start --target claude-code
@@ -130,8 +123,6 @@ aix remove plugin <name>
 Removes the plugin from each editor's plugin config at the chosen scope. aix backs up the
 file before it changes it.
 
-`--no-install` leaves editor config alone. Combined with `--save`, it only edits `ai.json`.
-
 ```bash
 aix remove plugin skill-creator@claude-plugins-official --yes
 ```
@@ -144,8 +135,6 @@ aix remove marketplace <name>
 
 Removes the marketplace from each editor's config at the chosen scope. aix backs up the file
 before it changes it.
-
-`--no-install` leaves editor config alone. Combined with `--save`, it only edits `ai.json`.
 
 ```bash
 aix remove marketplace claude-plugins-official --yes
@@ -163,14 +152,11 @@ Every `aix remove` command takes these flags:
 | `--save` / `-s`                                          | Also remove the entry from `ai.json`.                             |
 | `--local` / `-l`                                         | With `--save`, remove the entry from `ai.local.json` instead.     |
 | `--lock`                                                 | With `--save`, create or refresh `ai.lock.json` after removing.   |
+| `--config-only`                                          | With `--save`, edit the config file and leave the editors alone.  |
 
-One more flag depends on the type:
-
-| Flag           | Commands                           | Description                       |
-| -------------- | ---------------------------------- | --------------------------------- |
-| `--no-delete`  | `skill`, `rule`, `prompt`, `agent` | Do not delete files from editors. |
-| `--no-sync`    | `mcp`, `hook`                      | Do not change editor config.      |
-| `--no-install` | `plugin`, `marketplace`            | Do not change editor config.      |
+`--local`, `--lock`, and `--config-only` are rejected without `--save`, and `--scope` cannot
+be combined with `--user` or `--project`. `--no-delete`, `--no-sync`, and `--no-install` are
+other spellings of `--config-only`.
 
 The [global flags](/cli/overview/#global-flags) also apply. `--config` is only read with
 `--save`.

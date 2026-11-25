@@ -3,10 +3,11 @@ import { select } from '@inquirer/prompts';
 import { assertInteractive } from '../../lib/confirm.js';
 import { BaseCommand } from '../../base-command.js';
 import { getLockableConfigPath } from '../../lib/lockfile-helper.js';
+import { configOnlyFlag } from '../../flags/config-only.js';
 import { addLockFlag } from '../../flags/lock.js';
 import { localFlag } from '../../flags/local.js';
 import { configScopeFlags } from '../../flags/scope.js';
-import { saveFlag } from '../../flags/save.js';
+import { rejectFlagsWithoutSave, saveFlag } from '../../flags/save.js';
 import { resolveTargetEditors, targetFlag, validateTargetEditors } from '../../flags/target.js';
 import { updateConfig, updateLocalConfig } from '@a1st/aix-core';
 import { McpRegistryClient, type ServerResponse } from '@a1st/mcp-registry-client';
@@ -17,7 +18,6 @@ import {
    installAddedItem,
    isUserScopeAdd,
    persistAddedItem,
-   rejectUserScopeProjectConfigFlags,
    resolveAddTargetScope,
    refreshLockfileAfterAdd,
 } from '../../lib/add-command-helper.js';
@@ -31,7 +31,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       '<%= config.bin %> <%= command.id %> github --command "npx @modelcontextprotocol/server-github"',
       '<%= config.bin %> <%= command.id %> filesystem --command "npx @modelcontextprotocol/server-filesystem" --args "/path/to/dir"',
       '<%= config.bin %> <%= command.id %> custom --url "http://localhost:3000/mcp"',
-      '<%= config.bin %> <%= command.id %> github --command "npx @modelcontextprotocol/server-github" --no-install',
+      '<%= config.bin %> <%= command.id %> github --command "npx @modelcontextprotocol/server-github" --save --config-only',
    ];
 
    static override args = {
@@ -59,10 +59,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       env: Flags.string({
          description: 'Environment variables (KEY=value,KEY2=value2)',
       }),
-      'no-install': Flags.boolean({
-         description: 'Skip installing to editors after adding',
-         default: false,
-      }),
+      ...configOnlyFlag,
    };
 
    async run(): Promise<void> {
@@ -77,10 +74,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
       let serverName = args.name;
       let lockfilePath: string | undefined;
 
-      rejectUserScopeProjectConfigFlags({
-         flags,
-         error: this.error.bind(this),
-      });
+      rejectFlagsWithoutSave(flags, this.error.bind(this));
       if (flags.lock && !lockableConfigPath) {
          this.error('--lock requires a local ai.json. Run `aix init` first, or omit --lock.');
       }
@@ -154,7 +148,7 @@ export default class AddMcp extends BaseCommand<typeof AddMcp> {
          logInstallResults: (results) => {
             this.logInstallResults(results);
          },
-         skipInstall: flags['no-install'],
+         skipInstall: flags['config-only'],
          loaded,
          local: flags.local,
          installSections: ['mcp'],

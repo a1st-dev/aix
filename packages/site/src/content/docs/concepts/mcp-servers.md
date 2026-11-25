@@ -113,7 +113,7 @@ server to `ai.json`:
 aix add mcp playwright --command "npx @playwright/mcp@latest"
 
 # Save to ai.json, then install from it
-aix add mcp playwright --command "npx @playwright/mcp@latest" --save --no-install
+aix add mcp playwright --command "npx @playwright/mcp@latest" --save --config-only
 aix install
 ```
 
