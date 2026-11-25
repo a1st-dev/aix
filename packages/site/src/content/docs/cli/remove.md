@@ -72,7 +72,8 @@ files, so that content derived from them is rebuilt.
 `--no-delete` leaves the editor files in place. Combined with `--save`, it only edits
 `ai.json`.
 
-These commands delete files without making a backup.
+aix backs up each file or directory before it deletes it. A symbolic link is removed without
+a backup, because the file it points to stays.
 
 ```bash
 aix remove skill react
