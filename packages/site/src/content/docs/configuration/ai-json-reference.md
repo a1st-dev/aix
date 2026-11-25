@@ -5,7 +5,8 @@ title: ai.json reference
 description: Complete reference for every field in the ai.json configuration file.
 ---
 
-`ai.json` is the single configuration file that aix uses to sync your AI editor settings. It supports JSONC (comments and trailing commas).
+`ai.json` is the file aix reads to configure your editors. It supports JSONC (comments and
+trailing commas).
 
 ## Lockfiles
 
@@ -26,7 +27,7 @@ content matches the lockfile. They do not prove publisher identity.
 
 ## Schema
 
-Add the `$schema` field for IDE autocompletion and inline validation:
+Add the `$schema` field to get autocompletion and inline validation while you edit the file:
 
 ```json
 {
@@ -38,7 +39,7 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 
 | Field          | Type                 | Description                                                                   |
 | -------------- | -------------------- | ----------------------------------------------------------------------------- |
-| `$schema`      | `string`             | JSON Schema URL for IDE validation                                            |
+| `$schema`      | `string`             | JSON Schema URL for validation                                                |
 | `scope`        | `string`             | `"project"` (default) or `"user"`. Marks the file as a project or user config |
 | `extends`      | `string \| string[]` | Inherit from other configs                                                    |
 | `skills`       | `object`             | Map of skill names to skill references                                        |
@@ -47,7 +48,7 @@ Add the `$schema` field for IDE autocompletion and inline validation:
 | `prompts`      | `object`             | Map of prompt names to prompt definitions                                     |
 | `agents`       | `object`             | Map of agent names to agent definitions                                       |
 | `editors`      | `object \| string[]` | Editor targeting and editor-specific rules                                    |
-| `hooks`        | `object`             | Lifecycle hooks for AI agent events                                           |
+| `hooks`        | `object`             | Lifecycle hooks for editor events                                             |
 | `plugins`      | `object`             | Map of plugin names to plugin configurations                                  |
 | `marketplaces` | `object`             | Map of marketplace names to marketplace sources                               |
 | `aix`          | `object`             | aix tool settings (cache, backups)                                            |
@@ -409,7 +410,7 @@ are the settings aix reads for each editor. See
 
 ## `hooks`
 
-Lifecycle hooks for AI agent events. See [Hooks](/concepts/hooks/).
+Lifecycle hooks for editor events. See [Hooks](/concepts/hooks/).
 
 ```json
 {

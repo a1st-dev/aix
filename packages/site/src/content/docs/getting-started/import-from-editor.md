@@ -76,7 +76,7 @@ ai.local.json
 !.aix/imported/
 ```
 
-## init --from vs sync
+## Choosing between `init --from` and `sync`
 
 - `aix init --from cursor` reads Cursor and creates `ai.json`.
 - `aix sync cursor --to claude-code` reads Cursor and writes Claude Code directly.

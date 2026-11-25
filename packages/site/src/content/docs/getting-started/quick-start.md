@@ -79,7 +79,7 @@ step 3 can preview the install before anything is written.
 You can also edit `ai.json` by hand. The [ai.json reference](/configuration/ai-json-reference/)
 lists every field.
 
-:::note[`aix add` without `--save`]
+:::note[Adding without saving]
 Without `--save`, `aix add` does not touch `ai.json`. It installs the item straight into the
 user-scope config of every editor it detects. That is useful for a personal one-off, and it is
 not recorded anywhere a teammate can see.
