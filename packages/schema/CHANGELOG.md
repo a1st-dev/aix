@@ -11,6 +11,7 @@ version may appear here with no changes to this package.
 
 - Export `editorNames`, `editorAliasNames`, and `editorInputNames` as the one list of
   editors, which core now reuses
+- Declare the MIT license in `package.json`
 
 ### Fixed
 

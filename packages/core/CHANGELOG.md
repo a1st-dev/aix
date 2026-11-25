@@ -15,6 +15,7 @@ version may appear here with no changes to this package.
   or agent through the editor's importer
 - Add `listAllBackups`, `pruneBackups`, and `getBackupStoreDir`; `restoreBackup` can now
   find the original path itself and backs up the file it replaces
+- Declare the MIT license in `package.json`
 
 ### Changed
 
@@ -93,6 +94,8 @@ version may appear here with no changes to this package.
   merging the old and new fields into one entry
 - Keep a Codex rule glob such as `../../other/**` from writing `AGENTS.md` outside the
   project, and stop treating a glob that names one file as a directory
+- Remove `astro`, `@astrojs/starlight`, `@astrojs/vercel`, `vitest`, `c12`, and `defu`
+  from the runtime dependencies; none is imported
 
 ## [0.6.0] - 2026-08-12
 

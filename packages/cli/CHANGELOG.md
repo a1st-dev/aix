@@ -13,6 +13,7 @@ version may appear here with no changes to this package.
   user-scope editor config and aix's `~/.aix/` state to another directory
 - Add `aix backups restore <backup file>`, which copies a backup back over the file it was
   taken from and backs up what it replaces
+- Declare the MIT license in `package.json`
 
 ### Changed
 
@@ -60,6 +61,9 @@ version may appear here with no changes to this package.
   found
 - Describe `--lock` and `--scope` correctly on remove commands, and stop claiming
   `--target` is case-insensitive
+- Stop installing Astro, Starlight, and the Vercel adapter with the CLI; they were listed
+  as runtime dependencies and never imported. Declare `pathe` and `p-map`, which the CLI
+  imports
 
 ## [0.6.0] - 2026-08-12
 
