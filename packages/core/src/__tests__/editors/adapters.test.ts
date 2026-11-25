@@ -24,6 +24,7 @@ import {
 } from '../../editors/index.js';
 import { nodeRuntimeAdapter } from '../../runtime/index.js';
 import { extractGlobDirectoryPrefix } from '../../editors/adapters/codex.js';
+import { getGlobalZedDir } from '../../editors/strategies/zed/paths.js';
 import { isCI } from '../../env/index.js';
 import { safeRm } from '../../fs/safe-rm.js';
 import { AIX_SECTION_BEGIN, AIX_SECTION_END } from '../../editors/section-managed-markdown.js';
@@ -1264,10 +1265,12 @@ description: Demo skill
 
          await installToEditor('zed', config, testDir, { targetScope: 'user' });
 
-         expect(existsSync(join(testDir, '.rules'))).toBe(false);
-         expect(existsSync(join(testDir, '.config', 'zed', 'AGENTS.md'))).toBe(true);
+         const userAgentsPath = join(testDir, getGlobalZedDir(), 'AGENTS.md');
 
-         const agentsContent = await readFile(join(testDir, '.config', 'zed', 'AGENTS.md'), 'utf-8');
+         expect(existsSync(join(testDir, '.rules'))).toBe(false);
+         expect(existsSync(userAgentsPath)).toBe(true);
+
+         const agentsContent = await readFile(userAgentsPath, 'utf-8');
 
          expect(agentsContent).toContain('<!-- BEGIN AIX MANAGED SECTION');
          expect(agentsContent).toContain('my-rule');

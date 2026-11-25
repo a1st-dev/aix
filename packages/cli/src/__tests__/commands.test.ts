@@ -547,17 +547,15 @@ describe('CLI Commands', () => {
 
    describe('exit status', () => {
       it('is non-zero when an editor could not be installed to, after the others were', async () => {
-         const codexConfig = join(process.env.HOME ?? '', '.codex', 'config.toml');
-
-         await mkdir(dirname(codexConfig), { recursive: true });
-         await writeFile(codexConfig, 'args = [ "unfinished"\n');
+         // Project-scope files, because aix leaves user-level config alone when it runs in CI.
+         await writeFile(join(testDir, '.mcp.json'), '{ "mcpServers": ');
          await writeValidConfig(join(testDir, 'ai.json'), { mcp: { docs: { command: 'node', args: ['docs.js'] } } });
 
-         const installed = await runCli(['install', '--user', '--target', 'codex', '--target', 'claude-code']);
+         const installed = await runCli(['install', '--project', '--target', 'claude-code', '--target', 'cursor']);
 
          expect(installed.error).toBeDefined();
-         expect(installed.stdout + installed.stderr).toContain('Failed to install to codex');
-         expect(existsSync(join(process.env.HOME ?? '', '.claude.json'))).toStrictEqual(true);
+         expect(installed.stdout + installed.stderr).toContain('Failed to install to claude-code');
+         expect(existsSync(join(testDir, '.cursor', 'mcp.json'))).toStrictEqual(true);
       });
    });
 
