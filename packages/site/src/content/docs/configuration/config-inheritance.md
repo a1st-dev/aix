@@ -96,6 +96,10 @@ aix deep-merges the extended configs in order and then merges your `ai.json` on 
 - **An item with the same name is merged field by field.** If a base config defines an MCP
   server and your `ai.json` sets only its `env`, the server keeps the base `command` and
   `args`.
+- **Choosing a different source replaces the inherited one.** A rule, prompt, or agent has one
+  content source (`content`, `path`, `git`, or `npm`), and an MCP server has one transport
+  (`command` or `url`). If your `ai.json` sets a different one for an inherited item, the
+  inherited source is dropped and the item's other fields are kept.
 - **Arrays and plain values are replaced.** Your `args` array replaces the inherited one. The
   same goes for the list of hooks under one event: defining `pre_tool_use` in your `ai.json`
   replaces the inherited `pre_tool_use` hooks, while inherited hooks for other events stay.

@@ -110,6 +110,9 @@ version may appear here with no changes to this package.
   editors share
 - Do not edit home-directory MCP config when `removeMcpFromEditor` targets project scope,
   or project config when it targets user scope for an editor with no user-level path
+- Let a config that extends another change an inherited item's content source or MCP
+  transport; the inherited source was merged in beside the new one and the result failed
+  validation
 
 ## [0.6.0] - 2026-08-12
 

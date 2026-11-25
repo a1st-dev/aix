@@ -61,6 +61,36 @@ describe('resolveExtends', () => {
       });
    });
 
+   it('lets an override change the content source of an inherited rule', async () => {
+      const baseConfigPath = join(testDir, 'base.json');
+
+      await writeFile(baseConfigPath, JSON.stringify({
+         rules: { style: { content: 'Inline base rule.', description: 'Style' } },
+      }), 'utf-8');
+
+      const result = await resolveExtends(
+         { extends: './base.json', rules: { style: { path: './style.md' } } },
+         { baseDir: testDir, projectRoot: testDir },
+      );
+
+      expect(result.rules.style).toEqual({ path: './style.md', description: 'Style' });
+   });
+
+   it('lets an override change the transport of an inherited MCP server and keeps its other fields', async () => {
+      const baseConfigPath = join(testDir, 'base.json');
+
+      await writeFile(baseConfigPath, JSON.stringify({
+         mcp: { docs: { command: 'npx', args: [ 'docs-server' ], env: { TOKEN: 'abc' } } },
+      }), 'utf-8');
+
+      const result = await resolveExtends(
+         { extends: './base.json', mcp: { docs: { url: 'https://example.com/mcp' } } },
+         { baseDir: testDir, projectRoot: testDir },
+      );
+
+      expect(result.mcp.docs).toEqual({ url: 'https://example.com/mcp', env: { TOKEN: 'abc' } });
+   });
+
    it('deep merges objects', async () => {
       const baseConfig = {
                skills: { typescript: '^1.0.0' },

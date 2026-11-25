@@ -105,14 +105,77 @@ async function resolveExtendsChain(
       // eslint-disable-next-line no-await-in-loop -- Sequential: inheritance chain order matters
       const resolvedConfig = await resolveExtendsPath(extendPath, options);
 
-      merged = deepMergeJson(merged, resolvedConfig, { resolver: aiJsonMergeResolver });
+      merged = mergeInheritedConfig(merged, resolvedConfig);
    }
 
    const { extends: _, ...currentConfig } = config;
 
-   merged = deepMergeJson(merged, currentConfig, { resolver: aiJsonMergeResolver });
+   merged = mergeInheritedConfig(merged, currentConfig);
 
    return merged as AiJsonConfig;
+}
+
+/** For fields of which an item sets exactly one: each field supersedes all the others. */
+function mutuallyExclusive(fields: readonly string[]): Record<string, readonly string[]> {
+   return Object.fromEntries(fields.map((field) => {
+      return [ field, fields.filter((other) => {
+         return other !== field;
+      }) ];
+   }));
+}
+
+const CONTENT_SOURCE_FIELDS = mutuallyExclusive([ 'content', 'path', 'git', 'npm' ]);
+
+/** Per section, the fields of an inherited item that give way when an override sets the key. */
+const SUPERSEDED_FIELDS: Record<string, Record<string, readonly string[]>> = {
+   rules: CONTENT_SOURCE_FIELDS,
+   prompts: CONTENT_SOURCE_FIELDS,
+   agents: CONTENT_SOURCE_FIELDS,
+   mcp: { command: [ 'url', 'headers' ], url: [ 'command', 'args' ] },
+};
+
+/**
+ * Items are merged field by field, so an overriding config can change one field of an inherited
+ * item. Some fields exclude each other, though: a rule has one content source and an MCP server
+ * one transport. When the override picks a different one, the inherited choice has to go, or
+ * the merged item would carry both and fail validation with neither config being wrong.
+ */
+function dropSupersededFields(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+   const result = { ...base };
+
+   for (const [ section, supersededBy ] of Object.entries(SUPERSEDED_FIELDS)) {
+      const baseItems = base[section],
+            overrideItems = override[section];
+
+      if (!isRecord(baseItems) || !isRecord(overrideItems)) {
+         continue;
+      }
+
+      const items = { ...baseItems };
+
+      for (const [ name, overrideItem ] of Object.entries(overrideItems)) {
+         const baseItem = baseItems[name];
+
+         if (!isRecord(baseItem) || !isRecord(overrideItem)) {
+            continue;
+         }
+
+         const superseded = new Set(Object.keys(overrideItem).flatMap((field) => {
+            return supersededBy[field] ?? [];
+         }));
+
+         items[name] = Object.fromEntries(Object.entries(baseItem).filter(([ field ]) => {
+            return !superseded.has(field);
+         }));
+      }
+      result[section] = items;
+   }
+
+   return result;
+}
+
+function mergeInheritedConfig(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+   return deepMergeJson(dropSupersededFields(base, override), override, { resolver: aiJsonMergeResolver });
 }
 
 async function resolveExtendsPath(
