@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 70
-title: Plugins & Marketplaces
+title: Plugins and marketplaces
 description: Manage AI editor plugins, marketplaces, and compatibility unpacking across editors.
 ---
 
@@ -34,7 +34,7 @@ Add plugins and marketplaces to `ai.json`:
 }
 ```
 
-### CLI Commands
+### CLI commands
 
 ```bash
 # Add a marketplace
@@ -55,7 +55,7 @@ aix remove marketplace claude-plugins-official
 
 ---
 
-## Native Support vs Compatibility Unpacking
+## Native support and compatibility unpacking
 
 Different editors have different levels of support for plugins and marketplaces:
 

@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 40
-title: MCP Servers
+title: MCP servers
 description: Extend your AI with Model Context Protocol servers.
 ---
 
@@ -9,11 +9,11 @@ description: Extend your AI with Model Context Protocol servers.
 
 aix provides first-class support for configuring MCP servers and syncing that configuration to any editor that supports MCP (Cursor, GitHub Copilot, Claude Code, Windsurf, Zed, Codex, Antigravity, OpenCode, Grok CLI).
 
-## Configuring Servers
+## Configuring servers
 
 Define servers in the `mcp` object in `ai.json`. There are two ways to connect to an MCP server:
 
-### 1. Stdio (Local Process)
+### Stdio (local process)
 
 Run a local command (like `npx` or a python script) that speaks MCP over standard input/output.
 
@@ -31,7 +31,7 @@ Run a local command (like `npx` or a python script) that speaks MCP over standar
 }
 ```
 
-### 2. HTTP (Streamable HTTP)
+### HTTP (Streamable HTTP)
 
 Connect to a remote MCP server over HTTP.
 
@@ -45,7 +45,7 @@ Connect to a remote MCP server over HTTP.
 }
 ```
 
-## Tool & Resource Filtering
+## Tool and resource filtering
 
 You can restrict which tools and resources an MCP server exposes to the AI.
 
@@ -75,7 +75,7 @@ aix handles this complexity for you:
 - For global-only editors, it **merges** your project's MCP config into the global config and tracks which project added which server.
 - When you remove a server or delete the project, aix automatically cleans up the global config using its state tracking system.
 
-## Finding Servers
+## Finding servers
 
 Use `aix search` to browse the official MCP Registry:
 

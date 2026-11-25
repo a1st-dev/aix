@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 3
-title: Config Inheritance
+title: Config inheritance
 description: Share and layer configurations using the extends field.
 ---
 
@@ -36,7 +36,7 @@ Multiple sources are supported. They are processed in order, with later configur
 
 The final configuration is the result of merging all extended configs into your project's `ai.json`.
 
-## Source Types
+## Source types
 
 aix supports extending from:
 
@@ -80,7 +80,7 @@ Relative paths to other JSON files:
 { "extends": "../shared/ai.json" }
 ```
 
-## Merge Logic
+## Merge logic
 
 When merging configurations:
 
@@ -113,7 +113,7 @@ Your config:
 }
 ```
 
-## Resolution Process
+## Resolution process
 
 1. references in `extends` are resolved and downloaded (cached in `.aix/cache`).
 2. Configs are loaded in order.

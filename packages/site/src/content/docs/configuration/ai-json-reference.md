@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 1
-title: ai.json Reference
+title: ai.json reference
 description: Complete reference for every field in the ai.json configuration file.
 ---
 
@@ -91,7 +91,7 @@ Source types:
 - **URL**: `"https://raw.githubusercontent.com/..."`
 - **Local path**: `"./configs/base.json"`
 
-See [Config Inheritance](/configuration/config-inheritance/) for merge semantics.
+See [Config inheritance](/configuration/config-inheritance/) for merge semantics.
 
 ---
 
@@ -145,7 +145,7 @@ Map of skill names to skill references. Skill names must be lowercase alphanumer
 
 ## `mcp`
 
-Map of server names to MCP server configurations. See [MCP Servers](/concepts/mcp-servers/) for the full concept.
+Map of server names to MCP server configurations. See [MCP servers](/concepts/mcp-servers/) for the full concept.
 
 ### Stdio transport
 
@@ -404,7 +404,7 @@ Configure which editors to install to and provide editor-specific settings.
 }
 ```
 
-If `editors` is omitted, aix auto-detects installed editors at install time. See [Editor Configuration](/configuration/editor-configuration/).
+If `editors` is omitted, aix auto-detects installed editors at install time. See [Editor configuration](/configuration/editor-configuration/).
 
 ---
 
@@ -435,7 +435,7 @@ Lifecycle hooks for AI agent events. See [Hooks](/concepts/hooks/).
 
 ## `plugins`
 
-Map of plugin names to plugin configurations. See [Plugins & Marketplaces](/concepts/plugins/) for architecture and conflict resolution rules.
+Map of plugin names to plugin configurations. See [Plugins and marketplaces](/concepts/plugins/) for architecture and conflict resolution rules.
 
 ```json
 {
@@ -455,7 +455,7 @@ Supports boolean enablement, string sources, or structured configuration objects
 
 ## `marketplaces`
 
-Map of marketplace names to marketplace sources. See [Plugins & Marketplaces](/concepts/plugins/).
+Map of marketplace names to marketplace sources. See [Plugins and marketplaces](/concepts/plugins/).
 
 ```json
 {

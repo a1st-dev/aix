@@ -74,7 +74,7 @@ against the config's source directory. For example, `node ./hooks/check.mjs` use
 script from the extended config while keeping the editor's working directory. For
 commands with shell operators or variable expansion, use an explicit script path.
 
-### Hooks and Plugins
+### Hooks and plugins
 
 In editors with native plugin support (such as Claude Code), hooks defined in `ai.json` and hooks bundled within enabled [plugins](/concepts/plugins/) both trigger on matching lifecycle events. Claude Code executes matching hooks in sequence (both project/user hooks and active plugin hooks run for the given event).
 

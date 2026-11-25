@@ -27,7 +27,7 @@ Define prompts in `ai.json`:
 }
 ```
 
-## Editor Support
+## Editor support
 
 aix maps these prompts to the native feature in each editor when one exists:
 
@@ -43,7 +43,7 @@ aix maps these prompts to the native feature in each editor when one exists:
 - **Grok CLI**: Prompts are converted to instruction-only Agent Skills in `.grok/skills/`.
 - **Zed**: Not supported.
 
-## Prompt Files
+## Prompt files
 
 Prompt files are standard markdown. Markdown is preserved as-is.
 

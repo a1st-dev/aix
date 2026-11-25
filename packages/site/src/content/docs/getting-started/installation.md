@@ -42,4 +42,4 @@ aix update
 
 ## What's next
 
-Create your first `ai.json` — follow the [Quick Start](/getting-started/quick-start/) guide.
+Create your first `ai.json` — follow the [Quick start](/getting-started/quick-start/) guide.

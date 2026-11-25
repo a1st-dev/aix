@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 3
-title: Import from an Editor
+title: Import from an editor
 description: Bootstrap ai.json from your existing editor configuration.
 ---
 

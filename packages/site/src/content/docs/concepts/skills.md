@@ -30,7 +30,7 @@ You are an expert in React. Follow these principles:
 
 The frontmatter contains metadata, and the markdown body contains the instructions (system prompt context).
 
-## Configuring Skills
+## Configuring skills
 
 Add skills to the `skills` object in `ai.json`:
 
@@ -47,13 +47,13 @@ Add skills to the `skills` object in `ai.json`:
 }
 ```
 
-### Source Types
+### Source types
 
 - **npm**: An installed package name (e.g. `aix-skill-react` or `@scope/skill`).
 - **git**: A git URL, shorthand (`github:user/repo`), or repo-path source like `owner/repo/path-to-skill`. To target a subfolder explicitly, use the `path` option in the object form.
 - **local**: A relative path to a directory containing a `SKILL.md`.
 
-## Installing Skills
+## Installing skills
 
 When you run `aix install`, skills are:
 
@@ -81,14 +81,14 @@ aix install ./skills/review --type skill --target claude-code --user
 aix install github:org/aix-skills/review#v1.0.0 --type skill --target cursor
 ```
 
-### Precedence with Plugins
+### Precedence with plugins
 
 If your project defines a skill in `ai.json` that is also bundled inside an enabled [plugin](/concepts/plugins/):
 
 - **Native Plugin Editors (e.g. Claude Code)**: The local project skill in `.claude/skills/<name>` takes precedence over the plugin's bundled version.
 - **Non-Native Editors (e.g. Codex, Windsurf, Zed)**: Unpacked plugin skills are automatically prefixed with the plugin name (`${pluginName}-${skillName}`) to prevent naming collisions. If you explicitly author a skill with the exact same name in `ai.json`, your explicit configuration overrides the unpacked plugin version.
 
-## Creating a Skill
+## Creating a skill
 
 1. Create a directory: `mkdir skills/my-skill`
 2. Create `skills/my-skill/SKILL.md`:

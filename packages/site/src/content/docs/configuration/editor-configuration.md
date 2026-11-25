@@ -1,13 +1,13 @@
 ---
 sidebar:
    order: 4
-title: Editor Configuration
+title: Editor configuration
 description: Configure target editors and editor-specific settings.
 ---
 
 By default, `aix install` detects all supported editors installed on your system and syncs configuration to them. You can control this behavior and pass editor-specific settings using the `editors` field.
 
-## Limiting Installation
+## Limiting installation
 
 To only install to specific editors, provide an array of strings:
 
@@ -30,7 +30,7 @@ Or use the object form:
 }
 ```
 
-## Editor-Specific Settings
+## Editor-specific settings
 
 The object form allows you to pass additional configuration to specific editors.
 
@@ -144,7 +144,7 @@ Antigravity uses `.agents/` project-level configuration (and `~/.gemini/config/`
 }
 ```
 
-## Editor-Specific Rules
+## Editor-specific rules
 
 Sometimes you need to give instructions to one specific AI model but not others. You can define rules nested under the editor config:
 

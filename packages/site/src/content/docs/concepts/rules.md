@@ -31,7 +31,7 @@ Define rules in `ai.json`:
 }
 ```
 
-## Activation Modes
+## Activation modes
 
 | Mode     | Description                                                        | Editor Support                   |
 | -------- | ------------------------------------------------------------------ | -------------------------------- |
@@ -65,7 +65,7 @@ You can install one rule without creating `ai.json`:
 aix install ./rules/typescript.md --type rule --name typescript --target claude-code
 ```
 
-## Common Use Cases
+## Common use cases
 
 - **Code Style**: Indentation, naming conventions, preferred libraries.
 - **Workflow**: "Always write tests before code", "Update documentation when changing APIs".

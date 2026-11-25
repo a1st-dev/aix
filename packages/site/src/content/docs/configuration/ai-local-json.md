@@ -25,7 +25,7 @@ Create a file named `ai.local.json` in the same directory as your `ai.json`:
 
 When you run `aix install`, settings in `ai.local.json` are merged **on top** of `ai.json`.
 
-## Best Practices
+## Best practices
 
 ### 1. Ignore it in git
 
@@ -60,7 +60,7 @@ Use `ai.local.json` to enable or disable tools locally without affecting teammat
 
 Unlike the main `ai.json`, `ai.local.json` does **not** support the `extends` field. It is designed to be a flat patch file, not part of a complex inheritance chain.
 
-## CLI Support
+## CLI support
 
 Most aix commands support a `--local` (or `-l`) flag to operate on the local config instead of the shared one.
 

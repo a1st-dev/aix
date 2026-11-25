@@ -1,7 +1,7 @@
 ---
 sidebar:
    order: 2
-title: Quick Start
+title: Quick start
 description: Create your first ai.json and install it to your editors in under a minute.
 ---
 
