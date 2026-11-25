@@ -16,6 +16,7 @@ version may appear here with no changes to this package.
 - Add `listAllBackups`, `pruneBackups`, and `getBackupStoreDir`; `restoreBackup` can now
   find the original path itself and backs up the file it replaces
 - Declare the MIT license in `package.json`
+- Export `replaceFile`
 
 ### Changed
 

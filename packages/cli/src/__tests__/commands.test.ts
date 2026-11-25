@@ -471,6 +471,56 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('small command fixes', () => {
+      it('adds several agents in one command', async () => {
+         await writeFile(join(testDir, 'reviewer.md'), 'Review the change.');
+         await writeFile(join(testDir, 'planner.md'), 'Plan the change.');
+
+         const added = await runCli(['add', 'agent', './reviewer.md', './planner.md', '--project', '--target', 'claude-code']);
+
+         expect(added.error).toBeUndefined();
+         expect(existsSync(join(testDir, '.claude', 'agents', 'reviewer.md'))).toStrictEqual(true);
+         expect(existsSync(join(testDir, '.claude', 'agents', 'planner.md'))).toStrictEqual(true);
+      });
+
+      it('says that there is nothing to remove instead of asking to confirm', async () => {
+         const removed = await runCli(['remove', 'rule', 'missing', '--project', '--target', 'claude-code']);
+
+         expect(removed.error).toBeUndefined();
+         expect(removed.stdout).toContain('No rule named "missing" found at project scope in: claude-code');
+      });
+
+      it('backs up a rule file before deleting it', async () => {
+         const ruleFile = join(testDir, '.claude', 'rules', 'style.md');
+
+         await mkdir(dirname(ruleFile), { recursive: true });
+         await writeFile(ruleFile, 'Be brief.');
+
+         await runCli(['remove', 'rule', 'style', '--yes', '--project', '--target', 'claude-code']);
+
+         expect(existsSync(ruleFile)).toStrictEqual(false);
+         expect(await listBackups(ruleFile)).toHaveLength(1);
+      });
+
+      it('backs up the ai.json that init --force replaces', async () => {
+         const configPath = join(testDir, 'ai.json');
+
+         await writeValidConfig(configPath, { rules: { style: { content: 'Be brief.' } } });
+
+         await runCli(['init', '--force']);
+
+         expect(await listBackups(configPath)).toHaveLength(1);
+      });
+
+      it('lists subcommands the way they are typed', async () => {
+         const { stdout } = await runCli(['list', '--help']);
+
+         expect(stdout).toContain('list skills');
+         expect(stdout).not.toContain('list:skills');
+         expect(stdout).not.toMatch(/list skills.*alias: ls/);
+      });
+   });
+
    describe('exit status', () => {
       it('is non-zero when an editor could not be installed to, after the others were', async () => {
          const codexConfig = join(process.env.HOME ?? '', '.codex', 'config.toml');

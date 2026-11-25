@@ -1,6 +1,11 @@
 import { Command, Help, Interfaces } from '@oclif/core';
 
 export default class CustomHelp extends Help {
+   /** oclif stores ids with colons. Show them the way they are typed. */
+   private formatCommandId(id: string): string {
+      return id.replaceAll(':', this.config.topicSeparator);
+   }
+
    protected formatTopics(topics: Interfaces.Topic[]): string {
       if (topics.length === 0) {
          return '';
@@ -8,9 +13,7 @@ export default class CustomHelp extends Help {
 
       const body = this.renderList(
          topics.map((c) => {
-            const name = this.config.topicSeparator !== ':' ? c.name.replaceAll(':', this.config.topicSeparator) : c.name;
-
-            return [name, c.description ? `${c.description.split('\n')[0]}` : ''];
+            return [this.formatCommandId(c.name), c.description ? `${c.description.split('\n')[0]}` : ''];
          }),
          { indentation: 2, spacer: '\n', stripAnsi: this.opts.stripAnsi },
       );
@@ -43,10 +46,10 @@ ${super.formatRoot()}`;
       const body = this.renderList(
          filteredCommands.map((cmd) => {
             const aliases = aliasMap.get(cmd.id);
-            const aliasText = aliases && aliases.length > 0 ? ` (alias: ${aliases.join(', ')})` : '';
+            const aliasText = aliases && aliases.length > 0 ? ` (alias: ${aliases.map(this.formatCommandId, this).join(', ')})` : '';
             const summary = this.summary(cmd);
 
-            return [cmd.id, summary ? `${summary}${aliasText}` : aliasText];
+            return [this.formatCommandId(cmd.id), summary ? `${summary}${aliasText}` : aliasText];
          }),
          { indentation: 2, spacer: '\n', stripAnsi: this.opts.stripAnsi },
       );

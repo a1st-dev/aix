@@ -109,6 +109,11 @@ export abstract class RemoveFileItemCommand extends BaseCommand<typeof RemoveFil
                return files;
             }).length;
 
+      if (fileCount === 0 && !loaded && !flags['no-delete']) {
+         this.output.info(`No ${noun} named "${args.name}" found at ${scope} scope in: ${editors.join(', ') || 'any editor'}`);
+         return;
+      }
+
       printRemovalPreview(this.output, filesToDelete);
 
       if (!flags.yes) {

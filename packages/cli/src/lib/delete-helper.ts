@@ -1,7 +1,8 @@
 import pMap from 'p-map';
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync } from 'node:fs';
 import { join } from 'pathe';
 import {
+   createBackup,
    findNativeItemPath,
    getInstalledItem,
    getRuntimeAdapter,
@@ -91,6 +92,10 @@ async function deleteFile(
 ): Promise<{ file: string; status: 'deleted' | 'missing' | 'error'; error?: string }> {
    try {
       if (existsSync(file)) {
+         // A directory or a link holds nothing the backup store can keep as one file.
+         if (lstatSync(file).isFile()) {
+            await createBackup(file);
+         }
          await safeRm(file, { force: true });
          return { file, status: 'deleted' };
       }

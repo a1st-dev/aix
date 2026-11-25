@@ -29,3 +29,4 @@ export * from './lockfile.js';
 export * from './runtime/index.js';
 export * from './direct-install.js';
 export { safeRm, UnsafePathError } from './fs/safe-rm.js';
+export { replaceFile } from './fs/replace-file.js';

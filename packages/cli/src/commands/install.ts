@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
 import { Args, Flags } from '@oclif/core';
 import { dirname, join } from 'pathe';
 import { checkbox } from '@inquirer/prompts';
@@ -27,6 +26,7 @@ import {
    filterConfigBySections,
    cleanStaleCache,
    clearCache,
+   replaceFile,
    discoverConfig,
    localizeRemoteConfig,
    commitImport,
@@ -988,7 +988,7 @@ export default class Install extends BaseCommand<typeof Install> {
 
       // Write the final config
       try {
-         await writeFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n', 'utf-8');
+         await replaceFile(localPath, JSON.stringify(finalConfig, null, 2) + '\n');
          // Commit the imported files (only if we copied files, not for git refs)
          if (configBaseDir && !useGitRefs) {
             await commitImport(projectRoot);

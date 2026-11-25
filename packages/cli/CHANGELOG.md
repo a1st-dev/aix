@@ -81,6 +81,17 @@ version may appear here with no changes to this package.
   so a later `aix install` stays in the project
 - Leave global-only editor config untouched in a project-scope `aix add` or
   `aix remove mcp`, as `aix install --project` already does
+- Accept several sources in `aix add agent`; the default value of `--mode` made every
+  multi-source call fail
+- Back up a rule, prompt, or agent file before `aix remove` deletes it, and the `ai.json`
+  that `aix init --force` replaces
+- Say that nothing matched when `aix remove skill`, `rule`, `prompt`, or `agent` finds no
+  such item, without asking for confirmation first
+- Ask to remove a plugin or marketplace "from editor configs" unless `--save` is passed;
+  the question always named `ai.json`
+- Show subcommands with spaces in help output (`list skills`, not `list:skills`), and stop
+  every `list` subcommand from claiming the `ls` alias
+- Write `ai.json` through a temporary file in `aix init` and `aix install --save`
 
 ## [0.6.0] - 2026-08-12
 

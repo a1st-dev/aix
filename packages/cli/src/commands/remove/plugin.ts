@@ -82,7 +82,9 @@ export default class RemovePlugin extends BaseCommand<typeof RemovePlugin> {
       // Confirm removal
       if (!flags.yes) {
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json',
-               message = `Remove plugin "${pluginName}" from ${targetFile}?`;
+               message = loaded
+                  ? `Remove plugin "${pluginName}" from ${targetFile}?`
+                  : `Remove plugin "${pluginName}" from editor configs?`;
 
          const confirmed = await confirmAction(message, this.error.bind(this));
 

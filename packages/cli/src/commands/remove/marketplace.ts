@@ -82,7 +82,9 @@ export default class RemoveMarketplace extends BaseCommand<typeof RemoveMarketpl
       // Confirm removal
       if (!flags.yes) {
          const targetFile = flags.local ? 'ai.local.json' : 'ai.json',
-               message = `Remove marketplace "${marketplaceName}" from ${targetFile}?`;
+               message = loaded
+                  ? `Remove marketplace "${marketplaceName}" from ${targetFile}?`
+                  : `Remove marketplace "${marketplaceName}" from editor configs?`;
 
          const confirmed = await confirmAction(message, this.error.bind(this));
 
