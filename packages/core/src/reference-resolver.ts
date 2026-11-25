@@ -181,11 +181,12 @@ export function validateReference(
 
          if (ghTree) {
             const subpath = ghTree.subdir ? `/${ghTree.subdir}` : '';
-            const ref = ghTree.ref !== 'main' && ghTree.ref !== 'master' ? `#${ghTree.ref}` : '';
 
+            // The ref is always kept: a shorthand without one is downloaded from `main`, which
+            // is a different branch, or none at all, in a repository whose URL said `master`.
             return {
                sourceType,
-               normalized: `github:${ghTree.owner}/${ghTree.repo}${subpath}${ref}`,
+               normalized: `github:${ghTree.owner}/${ghTree.repo}${subpath}#${ghTree.ref}`,
             };
          }
          // Non-GitHub repo URL — keep as-is
