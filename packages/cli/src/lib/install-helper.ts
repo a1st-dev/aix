@@ -292,6 +292,10 @@ export async function installSingleItem(
             return await installToEditor(editor, config, projectRoot, {
                scopes: [section],
                targetScope: scope,
+               // Each item is its own install source. Sharing the project's ai.json source would
+               // make this one-item config look like the whole config, and reconciling against it
+               // would remove everything installed before.
+               configSource: `direct:${section}:${name}`,
             });
          } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

@@ -686,6 +686,24 @@ describe('CLI Commands', () => {
       });
    });
 
+   describe('add without --save', () => {
+      it('keeps what an earlier add and an earlier install put in the same editor config', async () => {
+         const mcpPath = join(testDir, '.mcp.json');
+
+         await writeValidConfig(join(testDir, 'ai.json'), {
+            mcp: { fromconfig: { command: 'node', args: ['config.js'] } },
+         });
+         await runCli(['install', '--project', '--target', 'claude-code']);
+         await runCli(['add', 'mcp', 'alpha', '--command', 'node alpha.js', '--project', '--target', 'claude-code']);
+
+         const second = await runCli(['add', 'mcp', 'beta', '--command', 'node beta.js', '--project', '--target', 'claude-code']),
+               servers = JSON.parse(await readFile(mcpPath, 'utf-8')).mcpServers;
+
+         expect(second.error).toBeUndefined();
+         expect(Object.keys(servers).toSorted()).toEqual(['alpha', 'beta', 'fromconfig']);
+      });
+   });
+
    describe('add mcp and remove mcp', () => {
       it('removes a user-scope MCP server from the same detected editors add installs to', async () => {
          const fakeHome = join(testDir, 'fake-home');

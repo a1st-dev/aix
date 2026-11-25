@@ -28,6 +28,8 @@ version may appear here with no changes to this package.
   from only some editors
 - Fail with a pointer to `--yes` when a remove command needs confirmation and there is no
   interactive terminal
+- Stop `aix add` without `--save` from removing what an earlier `aix add` or `aix install`
+  from the same directory installed
 
 ## [0.6.0] - 2026-08-12
 
