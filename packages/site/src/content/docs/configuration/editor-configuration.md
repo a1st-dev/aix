@@ -53,9 +53,6 @@ When `editors` is set, aix installs to the listed, enabled editors and does not 
 If you later take an editor off the list, the next `aix install` also removes what this
 `ai.json` had installed for that editor.
 
-The array form does not accept `codex` at the moment. To target Codex from `ai.json`, use the
-object form: `"editors": { "codex": { "enabled": true } }`.
-
 ### Overriding the list for one run
 
 `--target` (or `-t`) takes precedence over `editors` for a single command and can be repeated:

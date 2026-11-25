@@ -1015,16 +1015,16 @@
                                     "propertyNames": {
                                        "enum": [
                                           "windsurf",
-                                          "devin",
                                           "cursor",
                                           "claude-code",
                                           "copilot",
                                           "zed",
-                                          "neovim",
+                                          "codex",
                                           "antigravity",
-                                          "agy",
                                           "opencode",
                                           "grok",
+                                          "devin",
+                                          "agy",
                                           "grok-cli"
                                        ]
                                     },
@@ -1060,16 +1060,16 @@
                               "type": "string",
                               "enum": [
                                  "windsurf",
-                                 "devin",
                                  "cursor",
                                  "claude-code",
                                  "copilot",
                                  "zed",
-                                 "neovim",
+                                 "codex",
                                  "antigravity",
-                                 "agy",
                                  "opencode",
                                  "grok",
+                                 "devin",
+                                 "agy",
                                  "grok-cli"
                               ],
                               "description": "Supported editor/agent"
@@ -2646,16 +2646,16 @@
                                     "propertyNames": {
                                        "enum": [
                                           "windsurf",
-                                          "devin",
                                           "cursor",
                                           "claude-code",
                                           "copilot",
                                           "zed",
-                                          "neovim",
+                                          "codex",
                                           "antigravity",
-                                          "agy",
                                           "opencode",
                                           "grok",
+                                          "devin",
+                                          "agy",
                                           "grok-cli"
                                        ]
                                     },

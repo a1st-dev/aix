@@ -6,6 +6,7 @@ import type {
    PluginsConfig,
    MarketplacesConfig,
 } from '@a1st/aix-schema';
+import { editorAliasNames, editorInputNames, editorNames } from '@a1st/aix-schema';
 import type { ConfigScope } from '../merge.js';
 import type { ManagedSectionMerge } from './section-managed-markdown.js';
 import type { EditorStrategyBundle, UnsupportedHookField } from './strategies/types.js';
@@ -79,34 +80,13 @@ export interface TargetScopeLimitations {
    };
 }
 
-export const editorNames = [
-   'windsurf',
-   'cursor',
-   'claude-code',
-   'copilot',
-   'zed',
-   'codex',
-   'antigravity',
-   'opencode',
-   'grok',
-] as const;
+export { editorNames, editorAliasNames, editorInputNames };
 
 export type EditorName = (typeof editorNames)[number];
-
-export const editorAliasNames = [
-   'devin',
-   'agy',
-   'grok-cli',
-] as const;
 
 export type EditorAliasName = (typeof editorAliasNames)[number];
 
 export type EditorInputName = EditorName | EditorAliasName;
-
-export const editorInputNames = [
-   ...editorNames,
-   ...editorAliasNames,
-] as const;
 
 export function normalizeEditorName(editor: string): EditorName {
    switch (editor.toLowerCase()) {

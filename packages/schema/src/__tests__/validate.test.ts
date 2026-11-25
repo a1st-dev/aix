@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateConfig, parseConfig } from '../validate.js';
 import { aiJsonConfigSchema } from '../config.js';
+import { editorInputNames } from '../editors.js';
 
 describe('validateConfig', () => {
    it('validates a minimal valid config', () => {
@@ -147,6 +148,19 @@ describe('validateConfig', () => {
       const result = validateConfig(config);
 
       expect(result.success).toBe(true);
+   });
+
+   it('accepts every editor aix installs to, and every alias, in the array shorthand', () => {
+      const result = validateConfig({ editors: [ ...editorInputNames ] });
+
+      expect(editorInputNames).toContain('codex');
+      expect(result.success).toStrictEqual(true);
+   });
+
+   it('rejects an editor aix cannot install to', () => {
+      const result = validateConfig({ editors: [ 'neovim' ] });
+
+      expect(result.success).toStrictEqual(false);
    });
 
    it('validates devin as a Windsurf alias', () => {

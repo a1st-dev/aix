@@ -7,11 +7,18 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Export `editorNames`, `editorAliasNames`, and `editorInputNames` as the one list of
+  editors, which core now reuses
+
 ### Fixed
 
 - Accept the `{ "npm", "path", "version" }` object form for skill and plugin sources
 - Describe the `scope` field as the scope `aix install` targets, with user scope as the
   default
+- Accept `codex` in the `editors` array shorthand and reject `neovim`, which aix cannot
+  install to
 
 ## [0.6.0] - 2026-08-12
 

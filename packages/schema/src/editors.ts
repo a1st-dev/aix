@@ -22,8 +22,33 @@ export const antigravityConfigSchema = baseEditorConfigSchema.extend({
    antigravitySettings: z.record(z.unknown()).optional().describe('Antigravity settings'),
 });
 
+/** Every editor aix installs to, under the name aix uses for it. */
+export const editorNames = [
+   'windsurf',
+   'cursor',
+   'claude-code',
+   'copilot',
+   'zed',
+   'codex',
+   'antigravity',
+   'opencode',
+   'grok',
+] as const;
+
+/** Other names accepted for an editor: `devin` for Windsurf, `agy` for Antigravity, `grok-cli` for Grok. */
+export const editorAliasNames = [
+   'devin',
+   'agy',
+   'grok-cli',
+] as const;
+
+export const editorInputNames = [
+   ...editorNames,
+   ...editorAliasNames,
+] as const;
+
 export const editorEnum = z
-   .enum(['windsurf', 'devin', 'cursor', 'claude-code', 'copilot', 'zed', 'neovim', 'antigravity', 'agy', 'opencode', 'grok', 'grok-cli'])
+   .enum(editorInputNames)
    .describe('Supported editor/agent');
 
 /**
