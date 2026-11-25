@@ -678,9 +678,7 @@ export default class Install extends BaseCommand<typeof Install> {
       const detected = await detectEditors(projectRoot);
 
       if (detected.length === 0) {
-         this.output.warn('No editors detected.');
-         this.output.log(this.output.dim('  Hint: Run `aix install --target <editor>` to target an editor not listed'));
-         return null;
+         this.error('No editors detected, so nothing was installed. Pass --target <editor>, or list editors under "editors" in ai.json.');
       }
       if (detected.length === 1) {
          this.output.info(`Detected editor: ${detected[0]}`);

@@ -613,6 +613,15 @@ describe('CLI Commands', () => {
          expect(added.error).toBeUndefined();
          expect(added.stdout + added.stderr).toContain('Not installed to any editor');
       });
+
+      it('fails an install, which would otherwise do nothing and exit 0', async () => {
+         await writeValidConfig(join(testDir, 'ai.json'), { rules: { style: { content: 'Use direct language.' } } });
+
+         const installed = await runCli(['install', '--project']);
+
+         expect(installed.error).toBeDefined();
+         expect(installed.stderr).toContain('No editors detected, so nothing was installed');
+      });
    });
 
    describe('install scope', () => {

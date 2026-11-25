@@ -124,6 +124,9 @@ version may appear here with no changes to this package.
   editor is changed
 - Report a user-level change that `aix add` skipped, such as a Codex or Windsurf MCP
   server in CI. The command used to print nothing and exit 0
+- Fail `aix install` with a non-zero exit status when no editor is detected and none is
+  named. It used to print a warning, install nothing, and exit 0, and with `--json` it
+  printed nothing
 
 ## [0.6.0] - 2026-08-12
 
