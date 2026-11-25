@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'pathe';
 import { loadConfig, requireConfig } from '../loader.js';
 import { safeRm } from '../fs/safe-rm.js';
-import { ConfigNotFoundError } from '../errors.js';
+import { ConfigNotFoundError, ConfigValidationError } from '../errors.js';
 
 // Use a temp directory to avoid finding ai.json in parent directories
 const testDir = join(tmpdir(), 'aix-test-loader');
@@ -62,6 +62,49 @@ describe('loadConfig', () => {
       expect(result?.config.skills).toEqual({
          typescript: '^1.0.0',
          react: '^1.0.0',
+      });
+   });
+
+   describe('validation errors', () => {
+      async function getLoadError(options: Parameters<typeof loadConfig>[0]): Promise<unknown> {
+         return loadConfig(options).catch((error: unknown) => {
+            return error;
+         });
+      }
+
+      it('reports the received value for a wrong-typed field in a discovered config', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ skills: 'not-an-object' }), 'utf-8');
+
+         const error = await getLoadError({ startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof ConfigValidationError && error.errors).toEqual([
+            { path: 'skills', message: 'Expected object, received string ("not-an-object")' },
+         ]);
+      });
+
+      it('reports the received value for a wrong-typed field in a config loaded by source', async () => {
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ mcp: { docs: 42 } }), 'utf-8');
+
+         const error = await getLoadError({ remoteSource: './ai.json', startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof Error && error.message).toContain('received number (42)');
+         expect(error instanceof Error && error.message).not.toContain('received undefined');
+      });
+
+      it('reports invalid hooks in an extended config with their full path', async () => {
+         const baseConfig = { hooks: { pre_command: [{ hooks: 'not-an-array' }] } };
+
+         await writeFile(join(testDir, 'base.json'), JSON.stringify(baseConfig), 'utf-8');
+         await writeFile(join(testDir, 'ai.json'), JSON.stringify({ extends: './base.json' }), 'utf-8');
+
+         const error = await getLoadError({ startDir: testDir });
+
+         expect(error).toBeInstanceOf(ConfigValidationError);
+         expect(error instanceof ConfigValidationError && error.errors).toEqual([
+            { path: 'hooks.pre_command.0.hooks', message: 'Expected array, received string ("not-an-array")' },
+         ]);
       });
    });
 

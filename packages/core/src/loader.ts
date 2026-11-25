@@ -2,7 +2,7 @@ import { dirname, resolve } from 'pathe';
 import { parseConfig, parseLocalConfig, type AiJsonConfig, type AiLockFile } from '@a1st/aix-schema';
 import { discoverConfig, parseConfigContent } from './discovery.js';
 import { resolveExtends } from './inheritance.js';
-import { ConfigNotFoundError, ConfigParseError } from './errors.js';
+import { ConfigNotFoundError, ConfigParseError, ConfigValidationError } from './errors.js';
 import { extractValidationIssues, isZodErrorLike, toConfigValidationError } from './format-error.js';
 import { loadFromSource, type GitSourceInfo } from './remote-loader.js';
 import { mergeConfigs } from './merge.js';
@@ -109,12 +109,10 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
    let validated: AiJsonConfig;
 
    try {
-      validated = parseConfig(resolved);
+      validated = parseResolvedConfig(resolved);
    } catch (error) {
-      const validationError = toConfigValidationError(error);
-
-      if (validationError) {
-         throw validationError;
+      if (error instanceof ConfigValidationError) {
+         throw error;
       }
       throw new ConfigParseError(error instanceof Error ? error.message : String(error), source);
    }
@@ -129,6 +127,14 @@ async function loadFromRemoteSource(source: string, cwd: string): Promise<Loaded
       configBaseDir: remote.baseUrl,
       gitSource: remote.gitSource,
    };
+}
+
+function parseResolvedConfig(resolved: unknown): AiJsonConfig {
+   try {
+      return parseConfig(resolved);
+   } catch (error) {
+      throw toConfigValidationError(error, resolved) ?? error;
+   }
 }
 
 /**
@@ -178,7 +184,7 @@ async function loadFromDiscovered(discovered: {
             baseDir = dirname(discovered.path),
             resolved = await resolveExtends(parsed, { baseDir, projectRoot: baseDir });
 
-      let validated = parseConfig(resolved);
+      let validated = parseResolvedConfig(resolved);
 
       const warnings: string[] = [];
 
@@ -224,14 +230,8 @@ async function loadFromDiscovered(discovered: {
          ...lockfile,
       };
    } catch (error) {
-      if (error instanceof ConfigParseError) {
+      if (error instanceof ConfigParseError || error instanceof ConfigValidationError) {
          throw error;
-      }
-
-      const validationError = toConfigValidationError(error);
-
-      if (validationError) {
-         throw validationError;
       }
       if (error instanceof Error) {
          throw new ConfigParseError(error.message, discovered.path);

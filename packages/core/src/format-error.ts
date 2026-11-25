@@ -22,10 +22,12 @@ interface ZodErrorLike {
 
 /**
  * Convert a ZodError to a ConfigValidationError. Returns undefined if the error is not a ZodError.
+ * @param error - The value that was thrown
+ * @param input - The data that failed validation, so messages can show what was received
  */
-export function toConfigValidationError(error: unknown): ConfigValidationError | undefined {
+export function toConfigValidationError(error: unknown, input: unknown): ConfigValidationError | undefined {
    if (isZodErrorLike(error)) {
-      return new ConfigValidationError(extractValidationIssues(error));
+      return new ConfigValidationError(extractValidationIssues(error, input));
    }
 
    return undefined;

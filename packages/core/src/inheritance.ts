@@ -295,8 +295,12 @@ function normalizeLocalPaths(
       }
    }
 
-   if (result.hooks) {
-      result.hooks = Object.fromEntries(Object.entries(hooksSchema.parse(result.hooks)).map(([event, matchers]) => {
+   // Invalid hooks are left as they are: validating the merged config reports them with the
+   // full path and the received value, which an error thrown from here could not.
+   const hooks = hooksSchema.safeParse(result.hooks);
+
+   if (hooks.success) {
+      result.hooks = Object.fromEntries(Object.entries(hooks.data).map(([event, matchers]) => {
          return [event, matchers?.map((matcher) => {
             return { ...matcher, hooks: matcher.hooks.map((action) => normalizeHookAction(action, baseDir)) };
          })];
