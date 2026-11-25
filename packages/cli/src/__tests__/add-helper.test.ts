@@ -2,9 +2,9 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'pathe';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { safeRm } from '@a1st/aix-core';
-import { addSkill, removeSkill } from '../lib/add-helper.js';
+import { addMcp, addSkill, removeSkill } from '../lib/add-helper.js';
 
 function createTestDir(): string {
    return join(tmpdir(), `aix-add-helper-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -201,5 +201,55 @@ description: Demo skill
       expect(existsSync(join(testDir, '.aix', 'skills', 'react-components'))).toBe(false);
       expect(existsSync(join(testDir, '.github', 'skills', 'react-components'))).toBe(false);
       await expect(readFile(configPath, 'utf-8')).resolves.not.toContain('react-components');
+   });
+});
+
+describe('addMcp helper', () => {
+   const testDirs: string[] = [];
+
+   afterEach(async () => {
+      await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
+   });
+
+   function registryServer(name: string, identifier: string): object {
+      return {
+         server: {
+            name,
+            description: name,
+            version: '1.0.0',
+            packages: [ { registryType: 'npm', identifier, version: '1.0.0', transport: { type: 'stdio' } } ],
+         },
+      };
+   }
+
+   it('adds the server the caller selected, not the first search result', async () => {
+      const testDir = createTestDir(),
+            configPath = join(testDir, 'ai.json'),
+            servers = [
+               registryServer('io.github.someone/filesystem', 'someone-filesystem'),
+               registryServer('io.github.official/filesystem', 'official-filesystem'),
+            ];
+
+      testDirs.push(testDir);
+      await mkdir(testDir, { recursive: true });
+      await writeFile(configPath, JSON.stringify({ mcp: {} }));
+      vi.stubGlobal('fetch', async () => {
+         return new Response(JSON.stringify({ servers, metadata: { count: servers.length } }), {
+            headers: { 'content-type': 'application/json' },
+         });
+      });
+
+      const result = await addMcp({
+               configPath,
+               name: 'filesystem',
+               serverName: 'io.github.official/filesystem',
+               skipInstall: true,
+            }),
+            config = JSON.parse(await readFile(configPath, 'utf-8'));
+
+      vi.unstubAllGlobals();
+
+      expect(result).toEqual({ success: true, name: 'filesystem' });
+      expect(config.mcp.filesystem.command).toContain('official-filesystem');
    });
 });

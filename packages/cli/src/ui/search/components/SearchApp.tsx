@@ -94,7 +94,6 @@ export function SearchApp({
             value={query}
             onChange={setQuery}
             loading={loading}
-            blockSpace={currentResults.length > 0}
          />
          {hasMultipleTabs && (
             <TabBar

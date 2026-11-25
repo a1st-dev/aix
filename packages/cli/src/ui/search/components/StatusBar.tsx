@@ -22,8 +22,8 @@ export function StatusBar({ error, showHelp, showTabHint }: StatusBarProps): Rea
       return (
          <Box flexDirection="column">
             <Text bold>Keyboard Shortcuts:</Text>
-            <Text>↑/↓ or j/k Navigate</Text>
-            <Text>Space/Enter Install highlighted item</Text>
+            <Text>↑/↓ Navigate</Text>
+            <Text>Enter Install or uninstall the highlighted item</Text>
             {showTabHint && <Text>Tab Switch Skills/MCP</Text>}
             <Text>Esc Clear query/Exit</Text>
             <Text>? Toggle help</Text>
@@ -35,7 +35,7 @@ export function StatusBar({ error, showHelp, showTabHint }: StatusBarProps): Rea
 
    return (
       <Box>
-         <Text dimColor>[↑↓] Navigate [Space/Enter] Install [Esc] Exit [?] Help{tabHint}</Text>
+         <Text dimColor>[↑↓] Navigate [Enter] Install [Esc] Exit [?] Help{tabHint}</Text>
       </Box>
    );
 }

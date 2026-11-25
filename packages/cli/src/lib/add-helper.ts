@@ -17,7 +17,10 @@ export interface AddSkillOptions {
 
 export interface AddMcpOptions {
    configPath: string;
+   /** Text to search the registry for. */
    name: string;
+   /** Registry name of the server to add. Without it, the first search result is used. */
+   serverName?: string;
    skipInstall?: boolean;
 }
 
@@ -56,11 +59,10 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
          },
       }));
 
-      if (!skipInstall) {
-         await installAfterAdd({
-            configPath,
-            sections: ['skills'],
-         });
+      const installError = skipInstall ? undefined : await installAddedSection(configPath, 'skills');
+
+      if (installError) {
+         return { success: false, name: skillName, error: installError };
       }
 
       return { success: true, name: skillName };
@@ -74,27 +76,49 @@ export async function addSkill(options: AddSkillOptions): Promise<AddResult> {
 }
 
 /**
+ * Install one section after an item was saved to it. Returns what went wrong, so the caller
+ * does not report an item as installed when no editor received it.
+ */
+async function installAddedSection(configPath: string, section: 'skills' | 'mcp'): Promise<string | undefined> {
+   const installed = await installAfterAdd({ configPath, sections: [ section ] }),
+         failures = installed.results.filter((result) => {
+            return !result.success;
+         });
+
+   if (!installed.installed) {
+      return 'Saved to ai.json, but no editor was found to install to';
+   }
+
+   return failures.length === 0 ? undefined : failures.map((failure) => {
+      return `${failure.editor}: ${failure.errors.join(', ')}`;
+   }).join('; ');
+}
+
+/**
  * Add an MCP server to ai.json programmatically by searching the MCP Registry.
  */
 export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
-   const { configPath, name, skipInstall } = options;
+   const { configPath, name, serverName, skipInstall } = options;
 
    try {
       const client = new McpRegistryClient(),
-            response = await client.search(name),
-            results = response.servers ?? [];
+            response = await client.search(serverName ?? name),
+            results: ServerResponse[] = response.servers ?? [],
+            selected = serverName
+               ? results.find((result) => {
+                  return result.server.name === serverName;
+               })
+               : results[0];
 
-      if (results.length === 0) {
+      if (!selected) {
          return {
             success: false,
             name,
-            error: `No MCP servers found matching "${name}"`,
+            error: `No MCP servers found matching "${serverName ?? name}"`,
          };
       }
 
-      // Use the first result
-      const selected = results[0] as ServerResponse,
-            pkg = findCompatibleNpmPackage(selected.server.packages);
+      const pkg = findCompatibleNpmPackage(selected.server.packages);
 
       if (!pkg) {
          return {
@@ -116,11 +140,10 @@ export async function addMcp(options: AddMcpOptions): Promise<AddResult> {
          },
       }));
 
-      if (!skipInstall) {
-         await installAfterAdd({
-            configPath,
-            sections: ['mcp'],
-         });
+      const installError = skipInstall ? undefined : await installAddedSection(configPath, 'mcp');
+
+      if (installError) {
+         return { success: false, name: friendlyName, error: installError };
       }
 
       return { success: true, name: friendlyName };

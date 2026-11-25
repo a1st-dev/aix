@@ -11,6 +11,13 @@ import { addSkill, addMcp, removeSkill, removeMcp, findConfigPath } from '../lib
 
 type OutputMode = 'interactive' | 'plain' | 'json';
 
+/** The registry's own name for a search result, which identifies it where a short name cannot. */
+function getRegistryServerName(result: SearchResult): string | undefined {
+   const fullName = result.meta?.fullName;
+
+   return typeof fullName === 'string' ? fullName : undefined;
+}
+
 function getOutputMode(flags: { json: boolean; plain: boolean }): OutputMode {
    if (flags.json) {
       return 'json';
@@ -153,7 +160,7 @@ export default class Search extends BaseCommand<typeof Search> {
          const result =
             item.type === 'skills'
                ? await addSkill({ configPath, name: skillInstallRequest?.name ?? itemName, source })
-               : await addMcp({ configPath, name: itemName });
+               : await addMcp({ configPath, name: itemName, serverName: getRegistryServerName(item.result) });
 
          return result.success;
       };

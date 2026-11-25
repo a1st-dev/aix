@@ -23,6 +23,8 @@ version may appear here with no changes to this package.
   changes, so a line that touches the home directory is recognizable in `--dry-run` output
 - Leave global-only editor config, such as Windsurf and Codex MCP servers, untouched in a
   project-scope `aix install` and report it as skipped
+- Use only the arrow keys to move and Enter to install in `aix search`. `j`, `k`, and
+  Space also typed into the query, so a two-word search triggered an install
 
 ### Fixed
 
@@ -64,6 +66,9 @@ version may appear here with no changes to this package.
 - Stop installing Astro, Starlight, and the Vercel adapter with the CLI; they were listed
   as runtime dependencies and never imported. Declare `pathe` and `p-map`, which the CLI
   imports
+- Install the MCP server that is highlighted in `aix search`; it searched again by short
+  name and installed the first match
+- Report an install from `aix search` as failed when no editor received the item
 
 ## [0.6.0] - 2026-08-12
 
