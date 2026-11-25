@@ -1,8 +1,8 @@
 ---
 sidebar:
    order: 5
-title: Install from your own tool
-description: Call @a1st/aix-core from a CLI or library to install a skill, an MCP server, or other config into the user's AI editors.
+title: Use aix as a library
+description: Call @a1st/aix-core from your own CLI or library to install its skill, MCP server, or other config into your users' AI editors.
 ---
 
 If you publish a CLI or a library and you wrote a skill (or an MCP server, a rule, a prompt)

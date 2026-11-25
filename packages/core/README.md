@@ -37,7 +37,7 @@ await removeItem(skill);
 `section` is a section of `ai.json` (`skills`, `mcp`, `rules`, `prompts`, `agents`, `hooks`,
 `plugins`, `marketplaces`) and `value` is what `ai.json` would have under `name`. aix backs up
 every file before it changes it. See
-[Install from your own tool](https://aix.a1st.dev/getting-started/use-as-a-library/) for a
+[Use aix as a library](https://aix.a1st.dev/getting-started/use-as-a-library/) for a
 setup prompt, subcommands, the options, and bundling notes.
 
 ## Other exports
