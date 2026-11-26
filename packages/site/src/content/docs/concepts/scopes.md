@@ -101,9 +101,9 @@ the item somewhere else in that case. It skips the item and says so in the outpu
 
 ### At project scope
 
-Windsurf and Codex read <abbr class="aix-term" title="Model Context Protocol">MCP</abbr>
-servers only from a user-scope file (`~/.codeium/windsurf/mcp_config.json` and
-`~/.codex/config.toml`). A project-scope `aix install` leaves those files alone and lists
+aix writes <abbr class="aix-term" title="Model Context Protocol">MCP</abbr> servers for
+its Windsurf and Codex targets to their user-scope files
+(`~/.codeium/windsurf/mcp_config.json` and `~/.codex/config.toml`). A project-scope `aix install` leaves those files alone and lists
 each server as skipped:
 
 ```text
@@ -121,7 +121,7 @@ Windsurf or Codex MCP server, run the command at user scope.
 
 ### At user scope
 
-- Cursor, GitHub Copilot, and Grok CLI have no user-scope rules file that aix writes, so a
+- Cursor and Grok CLI have no user-scope rules file that aix writes, so a
   user-scope install skips rules for them and prints a warning.
 - An editor with no user-scope file for hooks, plugins, or marketplaces gets a warning that
   names the skipped items.

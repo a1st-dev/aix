@@ -71,7 +71,9 @@ A few behaviors are worth knowing before you install:
   section of `~/.claude/CLAUDE.md`. A rule with `glob` activation is not imported, so that
   Claude Code loads it only for matching files. Your own notes in `CLAUDE.md` stay as they
   are.
-- Cursor, GitHub Copilot, and Grok CLI have no user-scope rules file that aix writes. A
+- For Copilot CLI at user scope, aix writes individual rules under
+  `~/.copilot/instructions/`. `COPILOT_HOME` selects an alternate directory.
+- Cursor and Grok CLI have no user-scope rules file that aix writes. A
   user-scope install skips rules for those editors and prints a warning. Use `--project` to
   write their project rules.
 

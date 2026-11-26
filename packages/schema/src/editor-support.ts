@@ -624,13 +624,14 @@ export const editorSupportProfiles = [
    {
       id: 'windsurf',
       name: 'Windsurf',
-      summary: 'Native rules, workflows, skills, and hooks, but MCP remains global-only.',
+      summary: 'Windsurf-format rules, workflows, skills, hooks, and user-scope MCP.',
       migrationPitch: 'Windsurf is strongest when project rules matter more than project-scoped MCP.',
       notes: [
-         'Windsurf MCP installs are tracked as global state because the editor only supports global MCP today.',
+         'aix tracks Windsurf MCP installs as global state. Devin Local supports native project MCP in .devin/mcp_config.json.',
          'Its prompt surface is called workflows, not commands.',
          'Hooks do not load or run while a workspace is open in Restricted Mode, as of Devin Desktop 3.8.20.',
-         'Devin Local imports Windsurf rules, skills, and MCP servers by default, but excludes Windsurf workflows, so aix-managed prompts do not reach it.',
+         'Devin Local imports Windsurf rules, project skills, and user MCP. Its native project MCP settings take precedence for matching names.',
+         'The devin alias uses the Windsurf adapter. Devin Local has separate native hooks, workflows, and user skill discovery.',
       ],
       terminology: [
          { featureId: 'prompts', aixTerm: 'Prompts', editorTerm: 'Workflows' },
@@ -672,7 +673,10 @@ export const editorSupportProfiles = [
             'native',
             'MCP servers',
             'Global-only JSON MCP configuration.',
-            unsupportedScope('Windsurf does not have a project-scoped MCP config file in aix.'),
+            unsupportedScope('aix does not write Devin Local project MCP configuration.', {
+               editorSupported: true,
+               editorPath: '.devin/mcp_config.json',
+            }),
             nativeScope('~/.codeium/windsurf/mcp_config.json'),
             {
                notes: [ 'Project-scoped syncs report MCP as a skipped global-only write.' ],

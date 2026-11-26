@@ -7,6 +7,10 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add the Claude Code inline skill-shell hook event and native OpenCode v2 MCP options
+
 ## [0.10.1] - 2026-11-26
 
 - No changes

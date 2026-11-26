@@ -92,6 +92,29 @@ Each editor page lists its MCP paths:
 [OpenCode](/editors/opencode/#opencode-feature-mcp), and
 [Grok CLI](/editors/grok/#grok-feature-mcp).
 
+### Devin Local compatibility
+
+The `windsurf` target and its `devin` alias write the same Windsurf-format files.
+Devin Local and the Devin CLI read project rules and skills from `.windsurf/` and
+import the user MCP file under `~/.codeium/windsurf/`. A server with the same name
+in a project's `.devin/mcp_config.json` takes precedence over the imported user server.
+
+Devin Local also has its own project and user configuration. For a project-specific
+MCP server, use `.devin/mcp_config.json` in Devin. Configure Devin Local hooks in
+`.devin/hooks.v1.json` or in its user configuration. aix's Windsurf hook output
+uses Cascade event names and paths. Devin Local uses its own workflow and skill discovery.
+
+See [Devin Local customizations](https://docs.devin.ai/desktop/devin-local/customizations).
+
+### Codex workspace trust
+
+Codex 0.169.0 and later skip project settings and project MCP servers when the
+workspace is untrusted. The workspace-write sandbox setting does not grant trust.
+Codex lets an operator explicitly trust a workspace with `codex exec --trust`
+or `codex review --trust`. aix leaves that decision to the operator.
+
+See [Codex 0.169.0 release notes](https://github.com/openai/codex/releases/tag/rust-v0.169.0).
+
 ### Copilot CLI user configuration
 
 aix uses `~/.copilot` for personal Copilot CLI configuration. Set `COPILOT_HOME` to

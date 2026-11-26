@@ -163,7 +163,8 @@ Claude Code 2.1.332 and later support `pre_skill_shell_command` for shell comman
 embedded in a skill or slash command. Claude Code accepts `fail_closed` on supported
 synchronous command and HTTP hooks starting in 2.1.295, and on MCP tool hooks starting
 in 2.1.328. Grok Build 1.0.71 and later support it for pre-tool and prompt-submission
-gates.
+gates. Claude Code 2.1.329 also reports monitor tasks separately in the Stop and
+SubagentStop hook payloads. Update hook scripts that read `background_tasks`.
 
 ## Per-editor coverage
 

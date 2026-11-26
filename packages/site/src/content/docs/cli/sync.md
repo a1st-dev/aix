@@ -83,7 +83,7 @@ Examples:
 
 - Codex converts prompts into skills instead of installing native prompts.
 - Zed reads skills from the shared `.agents/skills/` folder rather than a Zed-specific one.
-- Windsurf and Codex accept MCP servers only at user scope, so a sync with a project
+- The aix Windsurf and Codex targets write MCP servers at user scope, so a sync with a project
   destination scope skips those servers and says so.
 
 ## Output

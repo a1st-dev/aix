@@ -60,8 +60,8 @@ agent tools.
      supports it, needs a follow-up, or does not need code.
    - `## Baseline evidence` with local files, tests, git commits, or docs that show the
      current aix behavior.
-8. After writing the research documents, load `.aix/skills/plan/SKILL.md` and create an
-   implementation plan using the research as input. The plan must include steps to update
+8. After writing the research documents, load `.aix/skills/plan/SKILL.md` or the installed
+   `plan` skill and create an implementation plan. The plan must include steps to update
    each research document with how every documented change was addressed in this repo.
 9. If the research finds no implementation change for an editor, still write the
    editor/version document and say why no aix change is needed.
@@ -94,14 +94,13 @@ it in a research document.
    - Docs: `https://docs.cursor.com/`
 - Grok CLI:
    - Docs: `https://x.ai/cli`
-   - Config & rules docs: `https://x.ai/cli/docs`
-   - Changelog: `https://x.ai/cli/changelog`
+   - Config and rules docs: `https://docs.x.ai/build/settings`
+   - Changelog: `https://x.ai/changelog/build`
 - Antigravity:
-   - Docs: `https://github.com/google-gemini/gemini-cli/tree/main/docs`
-   - Changelog index:
-     `https://github.com/google-gemini/gemini-cli/blob/main/docs/changelogs/index.md`
-   - Repository releases: `https://github.com/google-gemini/gemini-cli/releases`
-   - Package metadata: `npm view @google/gemini-cli version`
+   - App, IDE, and CLI changelog: `https://antigravity.google/docs/changelog`
+   - Discovery and paths: `https://antigravity.google/docs/customization-discovery/`
+   - Gemini CLI has a separate release feed. Check Antigravity evidence before attributing a
+     Gemini CLI change to the App, IDE, or Antigravity CLI.
 - OpenCode:
    - Config docs: `https://opencode.ai/docs/config/`
    - Agent docs: `https://opencode.ai/docs/agents/`

@@ -72,6 +72,10 @@ written for Cursor, GitHub Copilot, and Claude Code.
 Cursor has no user-scope plugin configuration, so a user-scope install skips its plugins and
 marketplaces with a warning. Use `--project` for Cursor.
 
+Claude Code lets a marketplace source pin a branch, tag, or commit with
+`source: { "git": "...", "ref": "..." }`. A full commit ID requires Claude Code
+2.1.325 or later. aix preserves the ref when importing the marketplace.
+
 ### Antigravity personal plugins
 
 For a local Antigravity plugin, set `editor.antigravity.native` and install at user

@@ -137,7 +137,7 @@ An install can succeed for an editor and still leave some items out. The output 
 ```
 
 The editor has no file for that feature at the scope of the install. The same message exists
-for skills, hooks, plugins, and marketplaces. Cursor, GitHub Copilot, and Grok CLI have no
+for skills, hooks, plugins, and marketplaces. Cursor and Grok CLI have no
 user-scope rules file that aix writes, so install rules for them with `--project`.
 
 ```text
@@ -154,8 +154,8 @@ agents, plugins, and marketplaces. The page of each editor under
     - <server> (Requested target scope is project, so aix did not write global-only config)
 ```
 
-Windsurf and Codex read MCP servers only from a user-scope file, and a project-scope install
-does not write it. Install those servers at user scope. In a CI environment the reason is
+The aix Windsurf and Codex targets write MCP servers at user scope. Install those servers
+at user scope. In a CI environment the reason is
 `Skipped in CI environment`, and aix does not write these servers at either scope. See
 [What an install skips](/concepts/scopes/#what-an-install-skips) and
 [Use aix in CI and scripts](/getting-started/ci-and-scripts/#what-aix-skips-in-ci).

@@ -88,7 +88,7 @@ aix remove mcp <name>
 Removes the server entry from each editor's MCP config file at the chosen scope. aix backs
 up the file before it changes it.
 
-Windsurf and Codex keep MCP servers only in a user-scope file
+aix writes Windsurf and Codex MCP servers to user-scope files
 (`~/.codeium/windsurf/mcp_config.json` and `~/.codex/config.toml`). A project-scope removal
 leaves those files alone, so remove a server from those editors at user scope.
 
