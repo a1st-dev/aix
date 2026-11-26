@@ -1088,7 +1088,7 @@ describe('CLI Commands', () => {
          expect(added.error).toBeUndefined();
 
          const claudePath = join(fakeHome, '.claude.json'),
-               copilotPath = join(fakeHome, '.config', 'github-copilot', 'mcp-config.json'),
+               copilotPath = join(fakeHome, '.copilot', 'mcp-config.json'),
                antigravityPath = join(fakeHome, '.gemini', 'config', 'mcp_config.json'),
                opencodePath = join(fakeHome, '.config', 'opencode', 'opencode.json');
 
@@ -1128,7 +1128,7 @@ describe('CLI Commands', () => {
          expect(added.error).toBeUndefined();
 
          const claudePath = join(fakeHome, '.claude.json'),
-               copilotPath = join(fakeHome, '.config', 'github-copilot', 'mcp-config.json');
+               copilotPath = join(fakeHome, '.copilot', 'mcp-config.json');
 
          expect(JSON.parse(await readFile(claudePath, 'utf-8')).mcpServers.targeted).toBeDefined();
          expect(existsSync(copilotPath)).toStrictEqual(false);
@@ -2622,8 +2622,7 @@ description: Devin skill
          const fakeHome = join(testDir, 'home'),
                userSkillDir = join(
                   fakeHome,
-                  '.config',
-                  'github-copilot',
+                  '.copilot',
                   'skills',
                   'user-copilot-skill',
                );
