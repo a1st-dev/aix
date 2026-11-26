@@ -282,9 +282,12 @@ export interface EditorAdapter {
 
    /**
     * Get the global data/config paths for this editor by platform. Used to detect if the editor is
-    * installed globally on the system. Paths are relative to the user's home directory.
+    * installed globally on the system. Relative paths are resolved from the user's home.
     */
    getGlobalDataPaths(): Partial<Record<NodeJS.Platform, string[]>>;
+
+   /** Read config written by older aix installs before the active user config. */
+   getLegacyUserStrategies?(): EditorStrategyBundle | undefined;
 
    /**
     * Check if this editor's config directory exists in the project.

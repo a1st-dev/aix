@@ -1,4 +1,4 @@
-import { join } from 'pathe';
+import { join, resolve } from 'pathe';
 import {
    createEmptyConfig,
    type AiJsonConfig,
@@ -10,6 +10,7 @@ import {
 import { normalizeEditorName } from './types.js';
 import type {
    EditorImportScope,
+   EditorStrategyBundle,
    ImportedSkillsResult,
    McpStrategy,
    PromptsStrategy,
@@ -56,7 +57,7 @@ function readdir(path: string, options?: { withFileTypes: true }): Promise<strin
 }
 
 function buildGlobalPath(relativePath: string | null): string | null {
-   return relativePath ? join(homedir(), relativePath) : null;
+   return relativePath ? resolve(homedir(), relativePath) : null;
 }
 
 function buildProjectPath(
@@ -176,23 +177,27 @@ export async function importFromEditor(
             warnings: [],
             sources: { global: false, local: false },
          },
-         strategies = getAdapter(editorName).getStrategyBundle(),
+         adapter = getAdapter(editorName),
+         strategies = adapter.getStrategyBundle(),
          projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
          scope = options.scope ?? 'all';
 
    if (scope === 'all' || scope === 'user') {
       assertGlobalHomeAccess(`importing global ${editorName} configuration`);
-      mergeImportMcp(result, await importMcpConfig(strategies.mcpStrategy, strategies.configDir, 'global'));
-      mergeImportRules(result, await importGlobalRules(strategies.rulesStrategy, strategies.configDir));
-      mergeImportPrompts(result, await importPrompts(strategies.promptsStrategy, strategies.configDir, 'global'));
-      mergeImportAgents(result, await importAgents(strategies.agentsStrategy, strategies.configDir, 'global'));
-      mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'user', projectRoot));
-      mergeImportHooks(result, await importHooks(strategies.hooksStrategy, strategies.configDir, 'global'));
-      mergeImportPlugins(result, await importPlugins(strategies.pluginsStrategy, strategies.configDir, 'global'));
-      mergeImportMarketplaces(
-         result,
-         await importMarketplaces(strategies.marketplacesStrategy, strategies.configDir, 'global'),
-      );
+      const legacy = adapter.getLegacyUserStrategies?.();
+
+      if (legacy) {
+         await mergeGlobalEditorImport(result, legacy, projectRoot);
+      }
+      const previousPaths = legacy ? Object.fromEntries(Object.entries(result.paths).map(([section, paths]) => {
+         return [section, { ...paths }];
+      })) : undefined;
+
+      await mergeGlobalEditorImport(result, strategies, projectRoot);
+
+      if (previousPaths) {
+         reportLegacyPathConflicts(result, previousPaths);
+      }
    }
 
    if (scope === 'all' || scope === 'project') {
@@ -229,6 +234,40 @@ export async function importFromEditor(
    }
 
    return result;
+}
+
+function reportLegacyPathConflicts(result: ImportResult, previousPaths: Record<string, Record<string, string>>): void {
+   result.rules = result.rules.filter((rule) => {
+      return result.paths.rules[rule.name] === rule.path;
+   });
+
+   for (const [section, paths] of Object.entries(result.paths)) {
+      const legacyPaths = previousPaths[section] ?? {};
+
+      for (const [name, path] of Object.entries(paths)) {
+         if (Object.hasOwn(legacyPaths, name) && legacyPaths[name] !== path) {
+            result.warnings.push(`Using ${section} entry "${name}" from ${path} over the legacy user config at ${legacyPaths[name]}`);
+         }
+      }
+   }
+}
+
+async function mergeGlobalEditorImport(
+   result: ImportResult,
+   strategies: EditorStrategyBundle,
+   projectRoot: string,
+): Promise<void> {
+   mergeImportMcp(result, await importMcpConfig(strategies.mcpStrategy, strategies.configDir, 'global'));
+   mergeImportRules(result, await importGlobalRules(strategies.rulesStrategy, strategies.configDir));
+   mergeImportPrompts(result, await importPrompts(strategies.promptsStrategy, strategies.configDir, 'global'));
+   mergeImportAgents(result, await importAgents(strategies.agentsStrategy, strategies.configDir, 'global'));
+   mergeImportSkills(result, await importSkills(strategies.skillsStrategy, 'user', projectRoot));
+   mergeImportHooks(result, await importHooks(strategies.hooksStrategy, strategies.configDir, 'global'));
+   mergeImportPlugins(result, await importPlugins(strategies.pluginsStrategy, strategies.configDir, 'global'));
+   mergeImportMarketplaces(
+      result,
+      await importMarketplaces(strategies.marketplacesStrategy, strategies.configDir, 'global'),
+   );
 }
 
 function mergeImportMcp(
@@ -914,7 +953,7 @@ async function importGlobalRules(
          scopes: Record<string, ImportScope> = {};
 
    if (rulesPath) {
-      const fullPath = join(homedir(), rulesPath);
+      const fullPath = resolve(homedir(), rulesPath);
 
       try {
          const content = await readFile(fullPath, 'utf-8'),
@@ -940,7 +979,7 @@ async function importGlobalRules(
    const ruleDirs = strategy.getGlobalRuleImportDirs?.() ?? [];
 
    for (const ruleDir of ruleDirs) {
-      const fullPath = join(homedir(), ruleDir);
+      const fullPath = resolve(homedir(), ruleDir);
 
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic
@@ -1157,7 +1196,7 @@ async function importSkills(
          root = source === 'user' ? homedir() : projectRoot;
 
    for (const skillDir of skillDirs) {
-      const fullPath = join(root, skillDir);
+      const fullPath = resolve(root, skillDir);
 
       try {
          // eslint-disable-next-line no-await-in-loop -- Sequential keeps warning order deterministic

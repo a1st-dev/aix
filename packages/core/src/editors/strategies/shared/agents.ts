@@ -1,4 +1,4 @@
-import { join, basename } from 'pathe';
+import { join, basename, resolve } from 'pathe';
 import type { EditorAgent } from '../../types.js';
 import type { AgentsStrategy, ImportedAgentsResult } from '../types.js';
 import { parseAgentFrontmatter } from '../../../agents/parser.js';
@@ -147,7 +147,7 @@ export class MarkdownAgentsStrategy implements AgentsStrategy {
          return Promise.resolve({ agents: {}, paths: {}, scopes: {}, warnings: [] });
       }
 
-      return importAgentsFromDir(join(getRuntimeAdapter().os.homedir(), userAgentsDir), 'user', this);
+      return importAgentsFromDir(resolve(getRuntimeAdapter().os.homedir(), userAgentsDir), 'user', this);
    }
 
    importProjectAgents(projectRoot: string, editorConfigDir: string): Promise<ImportedAgentsResult> {

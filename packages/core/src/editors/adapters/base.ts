@@ -1,4 +1,4 @@
-import { join, basename } from 'pathe';
+import { join, basename, resolve } from 'pathe';
 import { isRecord } from '../../type-guards.js';
 import type { AiJsonConfig, HooksConfig, McpServerConfig, ParsedSkill } from '@a1st/aix-schema';
 import { parseJsonc, mergeJsonc } from '@a1st/aix-schema';
@@ -97,7 +97,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
    /**
     * Get the global data/config paths for this editor by platform. Used to detect if the editor is
-    * installed globally on the system. Paths are relative to the user's home directory.
+    * installed globally on the system. Relative paths are resolved from the user's home.
     */
    abstract getGlobalDataPaths(): Partial<Record<NodeJS.Platform, string[]>>;
 
@@ -304,10 +304,11 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       // Rules (markdown files - always overwrite, no merge)
       if (scopes.includes('rules') && editorConfig.rules.length > 0) {
-         const globalRulesPath = this.rulesStrategy.getGlobalRulesPath();
+         const globalRulesPath = this.rulesStrategy.getGlobalRulesPath(),
+               globalRulesDir = this.rulesStrategy.getGlobalRulesDir?.();
 
-         if (targetScope === 'user' && globalRulesPath) {
-            const filePath = join(getRuntimeAdapter().os.homedir(), globalRulesPath),
+         if (targetScope === 'user' && globalRulesPath && !globalRulesDir) {
+            const filePath = resolve(getRuntimeAdapter().os.homedir(), globalRulesPath),
                   managedContent = editorConfig.rules
                      .map((rule) => this.rulesStrategy.formatGlobalRule?.(rule) ?? this.rulesStrategy.formatRule(rule))
                      .join('\n\n'),
@@ -316,8 +317,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
                   action = this.determineAction(existing, content);
 
             changes.push({ path: filePath, action, content, category: 'rule' });
-         } else if (targetScope === 'project') {
-            const rulesDir = join(configDir, this.rulesStrategy.getRulesDir()),
+         } else if (targetScope === 'project' || globalRulesDir) {
+            const rulesDir = targetScope === 'user' && globalRulesDir
+                     ? resolve(getRuntimeAdapter().os.homedir(), globalRulesDir)
+                     : join(configDir, this.rulesStrategy.getRulesDir()),
                   ext = this.rulesStrategy.getFileExtension();
 
             const ruleChanges = await Promise.all(
@@ -349,7 +352,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
                   defaultPath =
                      targetScope === 'user' && globalMcpPath
-                        ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
+                        ? resolve(getRuntimeAdapter().os.homedir(), globalMcpPath)
                         : join(
                            this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
                            this.mcpStrategy.getConfigPath(),
@@ -416,7 +419,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
          const globalAgentsPath = this.agentsStrategy.getGlobalAgentsPath(),
                agentsDir =
                   targetScope === 'user' && globalAgentsPath
-                     ? join(getRuntimeAdapter().os.homedir(), globalAgentsPath)
+                     ? resolve(getRuntimeAdapter().os.homedir(), globalAgentsPath)
                      : join(configDir, this.agentsStrategy.getAgentsDir()),
                ext = this.agentsStrategy.getFileExtension();
 

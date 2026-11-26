@@ -34,7 +34,7 @@ describe('Editor Config Import', () => {
       it('returns path for copilot', () => {
          const path = getGlobalConfigPath('copilot');
 
-         expect(path).toContain('.config/github-copilot');
+         expect(path).toContain('.copilot');
          expect(path).toContain('mcp-config.json');
       });
 

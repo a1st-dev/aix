@@ -9,9 +9,12 @@ const ENTRY_OPTIONS = { transportTypes: { stdio: 'local', http: 'http' } } as co
 
 /**
  * GitHub Copilot MCP strategy. Copilot CLI uses `.mcp.json` at the project root and
- * `.config/github-copilot/mcp-config.json` for user-scoped config.
+ * `.copilot/mcp-config.json` for user-scoped config.
  */
 export class CopilotMcpStrategy implements McpStrategy {
+
+   constructor(private readonly globalDir: string = getGlobalCopilotDir()) {}
+
    isSupported(): boolean {
       return true;
    }
@@ -25,7 +28,7 @@ export class CopilotMcpStrategy implements McpStrategy {
    }
 
    getGlobalMcpConfigPath(): string | null {
-      return `${getGlobalCopilotDir()}/mcp-config.json`;
+      return `${this.globalDir}/mcp-config.json`;
    }
 
    getProjectImportPaths(projectRoot: string): readonly string[] {
@@ -33,6 +36,21 @@ export class CopilotMcpStrategy implements McpStrategy {
          join(projectRoot, this.getConfigPath()),
          join(projectRoot, '.github', 'mcp.json'),
       ];
+   }
+
+   getJsonServerPaths(config: Record<string, unknown>, name: string): string[][] {
+      const servers = getServerEntries(config);
+
+      if (!Object.hasOwn(servers, name) || !isFlatServerEntry(servers[name])) {
+         return [];
+      }
+      if (servers === config.mcpServers) {
+         return [[ 'mcpServers', name ]];
+      }
+      if (servers === config.servers) {
+         return [[ 'servers', name ]];
+      }
+      return [[ name ]];
    }
 
    formatConfig(mcp: Record<string, McpServerConfig>): string {

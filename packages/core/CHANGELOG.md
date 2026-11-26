@@ -20,6 +20,9 @@ version may appear here with no changes to this package.
 
 ### Fixed
 
+- Use the current Copilot CLI user config directory and respect `COPILOT_HOME`, while keeping
+  imports and removals from the previous aix directory
+
 - Preserve the ref of pinned Claude Code marketplaces on import and install
 
 - Resolve the relative paths of a config extended by a GitHub blob URL inside that config's

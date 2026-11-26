@@ -1,4 +1,4 @@
-import { basename, join } from 'pathe';
+import { basename, join, resolve } from 'pathe';
 import { isRecord } from '../type-guards.js';
 import { parseJsonc, removeJsoncProperty, modifyJsonc } from '@a1st/aix-schema';
 import type { ConfigScope, HookEvent } from '@a1st/aix-schema';
@@ -7,7 +7,7 @@ import { parseToml, updateToml } from '../toml.js';
 import { applyFileChanges } from './apply-file-changes.js';
 import { getAdapter } from './install.js';
 import { importFromEditor } from './import.js';
-import type { EditorName } from './types.js';
+import type { EditorAdapter, EditorName } from './types.js';
 import { normalizeEditorName, normalizeEditorNames } from './types.js';
 import type { HooksStrategy, McpStrategy } from './strategies/types.js';
 import {
@@ -87,6 +87,36 @@ export async function findNativeItemPath(options: FindNativeItemPathOptions): Pr
    return fileName === name || fileName.startsWith(`${name}.`) ? path : undefined;
 }
 
+async function resolveImportedUserPath(options: {
+   adapter: EditorAdapter;
+   section: 'mcp' | 'hooks' | 'plugins' | 'marketplaces';
+   name: string;
+   projectRoot: string;
+   scope: ConfigScope;
+}): Promise<string | undefined> {
+   const { adapter, section, name, projectRoot, scope } = options;
+
+   if (scope !== 'user' || !adapter.getLegacyUserStrategies) {
+      return undefined;
+   }
+
+   const imported = await importFromEditor(adapter.name, { projectRoot, scope });
+
+   const paths = imported.paths[section];
+
+   if (Object.hasOwn(paths, name)) {
+      return paths[name];
+   }
+   if (section === 'plugins') {
+      const match = Object.keys(paths).findLast((key) => {
+         return key.startsWith(`${name}@`);
+      });
+
+      return match === undefined ? undefined : paths[match];
+   }
+   return undefined;
+}
+
 interface RemoveMcpFromEditorOptions {
    targetScope?: ConfigScope;
 }
@@ -110,7 +140,7 @@ function getMcpConfigPath(
       if (!globalPath) {
          return undefined;
       }
-      const path = join(getRuntimeAdapter().os.homedir(), globalPath);
+      const path = resolve(getRuntimeAdapter().os.homedir(), globalPath);
 
       return strategy.resolveConfigPath?.(path) ?? path;
    }
@@ -197,7 +227,8 @@ export async function removeMcpFromEditor(
       return result;
    }
 
-   const configPath = getMcpConfigPath(mcpStrategy, projectRoot, configDir, targetScope);
+   const configPath = await resolveImportedUserPath({ adapter, section: 'mcp', name: serverName, projectRoot, scope: targetScope })
+      ?? getMcpConfigPath(mcpStrategy, projectRoot, configDir, targetScope);
 
    if (!configPath || !getRuntimeAdapter().fs.existsSync(configPath)) {
       return result;
@@ -342,11 +373,8 @@ export async function removeHookFromEditor(
       return { ...result, unsupported: true };
    }
 
-   const configPath = resolveHooksConfigPath(
-      hooksStrategy,
-      join(projectRoot, configDir),
-      targetScope,
-   );
+   const configPath = await resolveImportedUserPath({ adapter, section: 'hooks', name: event, projectRoot, scope: targetScope })
+      ?? resolveHooksConfigPath(hooksStrategy, join(projectRoot, configDir), targetScope);
 
    if (!configPath) {
       return { ...result, unsupportedScope: true };
@@ -446,12 +474,8 @@ export async function removeMarketplaceFromEditor(
       return result;
    }
 
-   const configPath = resolveMarketplacesConfigPath(
-      marketplacesStrategy,
-      join(projectRoot, configDir),
-      targetScope,
-      projectRoot,
-   );
+   const configPath = await resolveImportedUserPath({ adapter, section: 'marketplaces', name: marketplaceName, projectRoot, scope: targetScope })
+      ?? resolveMarketplacesConfigPath(marketplacesStrategy, join(projectRoot, configDir), targetScope, projectRoot);
 
    if (!configPath || !getRuntimeAdapter().fs.existsSync(configPath)) {
       return result;
@@ -556,12 +580,8 @@ export async function removePluginFromEditor(
       return result;
    }
 
-   const configPath = resolvePluginsConfigPath(
-      pluginsStrategy,
-      join(projectRoot, configDir),
-      targetScope,
-      projectRoot,
-   );
+   const configPath = await resolveImportedUserPath({ adapter, section: 'plugins', name: pluginName, projectRoot, scope: targetScope })
+      ?? resolvePluginsConfigPath(pluginsStrategy, join(projectRoot, configDir), targetScope, projectRoot);
 
    if (!configPath || !getRuntimeAdapter().fs.existsSync(configPath)) {
       return result;

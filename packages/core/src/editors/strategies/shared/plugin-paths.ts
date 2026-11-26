@@ -1,4 +1,4 @@
-import { join } from 'pathe';
+import { join, resolve } from 'pathe';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 import type { PluginsStrategy, MarketplacesStrategy } from '../types.js';
 
@@ -19,7 +19,7 @@ export function resolvePluginsConfigPath(
    if (targetScope === 'user') {
       const globalPath = strategy.getGlobalConfigPath?.();
 
-      return globalPath ? join(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
+      return globalPath ? resolve(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
    }
 
    const relPath = strategy.getConfigPath?.(targetScope);
@@ -50,7 +50,7 @@ export function resolveMarketplacesConfigPath(
    if (targetScope === 'user') {
       const globalPath = strategy.getGlobalConfigPath?.();
 
-      return globalPath ? join(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
+      return globalPath ? resolve(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
    }
 
    const relPath = strategy.getConfigPath?.(targetScope);

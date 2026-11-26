@@ -92,6 +92,14 @@ Each editor page lists its MCP paths:
 [OpenCode](/editors/opencode/#opencode-feature-mcp), and
 [Grok CLI](/editors/grok/#grok-feature-mcp).
 
+### Copilot CLI user configuration
+
+aix uses `~/.copilot` for personal Copilot CLI configuration. Set `COPILOT_HOME` to
+use a different directory. An explicit aix home, set through `--user-home` or
+`AIX_USER_HOME`, limits the override to paths inside that home. Imports prefer the
+active directory when an item also exists under the previous aix path,
+`~/.config/github-copilot`. Legacy-only entries remain available for import and removal.
+
 ### OpenCode configuration
 
 aix preserves an existing OpenCode v2 `mcp.servers` layout and can read v1 and v2

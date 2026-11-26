@@ -15,6 +15,7 @@ import {
    NativeSkillsStrategy,
 } from '../strategies/shared/index.js';
 import type {
+   EditorStrategyBundle,
    RulesStrategy,
    McpStrategy,
    SkillsStrategy,
@@ -26,13 +27,13 @@ import type {
 } from '../strategies/types.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
-import { getGlobalCopilotDir } from '../strategies/copilot/paths.js';
+import { getGlobalCopilotDir, LEGACY_COPILOT_DIR } from '../strategies/copilot/paths.js';
 
 /**
  * GitHub Copilot editor adapter. Writes rules to `.github/instructions/*.instructions.md`,
- * MCP config to `.mcp.json` (or `.config/github-copilot/mcp-config.json` for user scope),
- * skills to `.github/skills/` / `.config/github-copilot/skills/`, and hooks to
- * `.github/hooks/hooks.json` / `.config/github-copilot/hooks/hooks.json`. Project-scope prompts
+ * MCP config to `.mcp.json` (or `.copilot/mcp-config.json` for user scope),
+ * skills to `.github/skills/` / `.copilot/skills/`, and hooks to
+ * `.github/hooks/hooks.json` / `.copilot/hooks/hooks.json`. Project-scope prompts
  * stay native, while user-scope prompts are converted into skills and installed through Copilot's
  * native skills directories.
  */
@@ -40,13 +41,38 @@ export class CopilotAdapter extends BaseEditorAdapter {
    readonly name = 'copilot' as const;
    readonly configDir = '.vscode';
 
+   constructor(private readonly globalDir: string = getGlobalCopilotDir()) {
+      super();
+
+      this.rulesStrategy = new CopilotRulesStrategy(globalDir);
+      this.mcpStrategy = new CopilotMcpStrategy(globalDir);
+      this.skillsStrategy = new NativeSkillsStrategy({
+         editorSkillsDir: '.github/skills',
+         userEditorSkillsDir: `${globalDir}/skills`,
+      });
+      this.agentsStrategy = new MarkdownAgentsStrategy({
+         projectAgentsDir: '../.github/agents',
+         userAgentsDir: `${globalDir}/agents`,
+         extraFrontmatter: (agent) => {
+            return { ...(agent.mcp ? { 'mcp-servers': agent.mcp } : {}), ...agent.editor?.copilot };
+         },
+      });
+      this.hooksStrategy = new CopilotHooksStrategy(globalDir);
+      this.pluginsStrategy = new CopilotPluginsStrategy(globalDir);
+      this.marketplacesStrategy = new CopilotMarketplacesStrategy(globalDir);
+   }
+
+   getLegacyUserStrategies(): EditorStrategyBundle | undefined {
+      return this.globalDir === LEGACY_COPILOT_DIR ? undefined : new CopilotAdapter(LEGACY_COPILOT_DIR).getStrategyBundle();
+   }
+
    getGlobalDataPaths(): Record<string, string[]> {
-      const globalDir = getGlobalCopilotDir();
+      const candidates = [ this.globalDir, LEGACY_COPILOT_DIR ];
 
       return {
-         darwin: [globalDir, 'Library/Application Support/Code'],
-         linux: [globalDir, '.config/Code'],
-         win32: [globalDir, 'AppData/Roaming/Code'],
+         darwin: [...candidates, 'Library/Application Support/Code'],
+         linux: [...candidates, '.config/Code'],
+         win32: [...candidates, 'AppData/Roaming/Code'],
       };
    }
 
@@ -77,24 +103,14 @@ export class CopilotAdapter extends BaseEditorAdapter {
       return false;
    }
 
-   protected readonly rulesStrategy: RulesStrategy = new CopilotRulesStrategy();
-   protected readonly mcpStrategy: McpStrategy = new CopilotMcpStrategy();
-   protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
-      editorSkillsDir: '.github/skills',
-      userEditorSkillsDir: `${getGlobalCopilotDir()}/skills`,
-   });
+   protected readonly rulesStrategy: RulesStrategy;
+   protected readonly mcpStrategy: McpStrategy;
+   protected readonly skillsStrategy: SkillsStrategy;
    protected readonly promptsStrategy: PromptsStrategy = new CopilotPromptsStrategy();
-   protected readonly agentsStrategy: AgentsStrategy = new MarkdownAgentsStrategy({
-      projectAgentsDir: '../.github/agents',
-      userAgentsDir: `${getGlobalCopilotDir()}/agents`,
-      extraFrontmatter: (agent) => ({
-         ...(agent.mcp ? { 'mcp-servers': agent.mcp } : {}),
-         ...agent.editor?.copilot,
-      }),
-   });
-   protected readonly hooksStrategy: HooksStrategy = new CopilotHooksStrategy();
-   protected readonly pluginsStrategy: PluginsStrategy = new CopilotPluginsStrategy();
-   protected readonly marketplacesStrategy: MarketplacesStrategy = new CopilotMarketplacesStrategy();
+   protected readonly agentsStrategy: AgentsStrategy;
+   protected readonly hooksStrategy: HooksStrategy;
+   protected readonly pluginsStrategy: PluginsStrategy;
+   protected readonly marketplacesStrategy: MarketplacesStrategy;
 
    private pendingSkillChanges: FileChange[] = [];
 

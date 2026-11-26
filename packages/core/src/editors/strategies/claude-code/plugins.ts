@@ -1,5 +1,6 @@
 import { parseJsonc, type PluginsConfig } from '@a1st/aix-schema';
 import type { PluginsStrategy } from '../types.js';
+import { getEnabledPlugins } from '../shared/declarative-plugins.js';
 
 /**
  * Claude Code plugins strategy. Formats plugins into Claude Code's `enabledPlugins`
@@ -19,23 +20,7 @@ export class ClaudeCodePluginsStrategy implements PluginsStrategy {
    }
 
    formatConfig(plugins: PluginsConfig): string {
-      const enabledPlugins: Record<string, boolean> = {};
-
-      for (const [ key, value ] of Object.entries(plugins)) {
-         if (value === false) {
-            enabledPlugins[key] = false;
-         } else if (value === true || typeof value === 'string') {
-            enabledPlugins[key] = true;
-         } else if (typeof value === 'object' && value !== null) {
-            const pluginKey = !key.includes('@') && value.marketplace
-               ? `${key}@${value.marketplace}`
-               : key;
-
-            enabledPlugins[pluginKey] = value.enabled !== false;
-         }
-      }
-
-      return JSON.stringify({ enabledPlugins }, null, 2) + '\n';
+      return JSON.stringify({ enabledPlugins: getEnabledPlugins(plugins) }, null, 2) + '\n';
    }
 
    getUnsupportedPlugins(_plugins: PluginsConfig): string[] {

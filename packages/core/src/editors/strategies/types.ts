@@ -113,6 +113,9 @@ export interface RulesStrategy {
    /** Get the global rules path relative to home directory, or null if not supported */
    getGlobalRulesPath(): string | null;
 
+   /** Get a user directory for writing individual rule files. */
+   getGlobalRulesDir?(): string;
+
    /** Get extra global rule directories relative to home directory, if any. */
    getGlobalRuleImportDirs?(): readonly string[];
 

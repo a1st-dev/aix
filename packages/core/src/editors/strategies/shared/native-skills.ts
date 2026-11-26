@@ -1,5 +1,5 @@
 import pMap from 'p-map';
-import { join, dirname, relative } from 'pathe';
+import { join, dirname, relative, resolve } from 'pathe';
 import type { ParsedSkill } from '@a1st/aix-schema';
 import type { SkillsStrategy, NativeSkillsConfig } from '../types.js';
 import type { EditorRule, FileChange } from '../../types.js';
@@ -99,7 +99,7 @@ export class NativeSkillsStrategy implements SkillsStrategy {
                category: 'skill',
             });
 
-            const editorSkillPath = join(installRoot, editorSkillsDir, name),
+            const editorSkillPath = resolve(installRoot, editorSkillsDir, name),
                   relativePath = relative(dirname(editorSkillPath), aixSkillDir);
 
             const linkExists = await hasReplaceableEntry(editorSkillPath, name, installedPaths);

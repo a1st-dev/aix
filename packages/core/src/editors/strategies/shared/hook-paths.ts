@@ -1,4 +1,4 @@
-import { join } from 'pathe';
+import { join, resolve } from 'pathe';
 import { getRuntimeAdapter } from '../../../runtime/index.js';
 import type { HooksStrategy } from '../types.js';
 
@@ -37,7 +37,7 @@ export function resolveHooksConfigPath(
    }
 
    if (targetScope === 'user') {
-      return join(getRuntimeAdapter().os.homedir(), String(strategy.getGlobalConfigPath()));
+      return resolve(getRuntimeAdapter().os.homedir(), String(strategy.getGlobalConfigPath()));
    }
 
    return join(configDir, strategy.getConfigPath());

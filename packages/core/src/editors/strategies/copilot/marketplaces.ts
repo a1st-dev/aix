@@ -1,12 +1,21 @@
 import { parseJsonc, type MarketplacesConfig } from '@a1st/aix-schema';
 import type { MarketplacesStrategy } from '../types.js';
-import { getGlobalCopilotDir } from './paths.js';
+import { isRecord } from '../../../type-guards.js';
+import { getGlobalCopilotDir, LEGACY_COPILOT_DIR } from './paths.js';
+import {
+   formatImportedMarketplaceSource,
+   parseDeclarativeMarketplaceSource,
+   type DeclarativeMarketplaceEntry,
+} from '../shared/declarative-plugins.js';
 
 /**
  * GitHub Copilot marketplaces strategy. Formats marketplace catalogs into `.github/copilot-marketplaces.json`
- * (or `~/.config/github-copilot/marketplaces.json`).
+ * or the user-level `extraKnownMarketplaces` setting.
  */
 export class CopilotMarketplacesStrategy implements MarketplacesStrategy {
+
+   constructor(private readonly globalDir: string = getGlobalCopilotDir()) {}
+
    isSupported(): boolean {
       return true;
    }
@@ -20,10 +29,20 @@ export class CopilotMarketplacesStrategy implements MarketplacesStrategy {
    }
 
    getGlobalConfigPath(): string {
-      return `${getGlobalCopilotDir()}/marketplaces.json`;
+      return `${this.globalDir}/${this.globalDir === LEGACY_COPILOT_DIR ? 'marketplaces.json' : 'settings.json'}`;
    }
 
-   formatConfig(marketplaces: MarketplacesConfig): string {
+   formatConfig(marketplaces: MarketplacesConfig, targetScope: 'project' | 'user' = 'project'): string {
+      if (targetScope === 'user') {
+         const extraKnownMarketplaces = Object.fromEntries(Object.entries(marketplaces).flatMap(([name, value]) => {
+            const source = parseDeclarativeMarketplaceSource(value);
+
+            return source ? [[name, { source }]] : [];
+         }));
+
+         return JSON.stringify({ extraKnownMarketplaces }, null, 2) + '\n';
+      }
+
       const activeMarketplaces: Record<string, unknown> = {};
 
       for (const [ name, value ] of Object.entries(marketplaces)) {
@@ -53,8 +72,18 @@ export class CopilotMarketplacesStrategy implements MarketplacesStrategy {
    }
 
    parseImportedConfig(content: string): { marketplaces: MarketplacesConfig; warnings: string[] } {
-      const parsed = parseJsonc<{ marketplaces?: MarketplacesConfig }>(content);
+      const parsed = parseJsonc<{
+         extraKnownMarketplaces?: Record<string, DeclarativeMarketplaceEntry>;
+         marketplaces?: MarketplacesConfig;
+      }>(content);
+      const native = Object.fromEntries(Object.entries(parsed.data?.extraKnownMarketplaces ?? {}).flatMap(([name, entry]) => {
+         if (!isRecord(entry?.source) || typeof entry.source.source !== 'string') {
+            return [];
+         }
 
-      return { marketplaces: parsed.data?.marketplaces ?? {}, warnings: parsed.errors.map((error) => error.message) };
+         return [[name, formatImportedMarketplaceSource(entry.source)]];
+      }));
+
+      return { marketplaces: { ...parsed.data?.marketplaces, ...native }, warnings: parsed.errors.map((error) => error.message) };
    }
 }

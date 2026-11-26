@@ -2652,7 +2652,7 @@ description: User Copilot skill
             scope: 'user',
          });
          expect(parsed.items.find((item: Record<string, unknown>) => item.name === 'user-copilot-skill').path).toContain(
-            '.config/github-copilot/skills/user-copilot-skill',
+            '.copilot/skills/user-copilot-skill',
          );
       });
 

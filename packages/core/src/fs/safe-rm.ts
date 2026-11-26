@@ -1,6 +1,7 @@
-import { resolve, normalize, sep } from 'pathe';
+import { relative, resolve, normalize, sep } from 'pathe';
 import { getRuntimeAdapter } from '../runtime/index.js';
 import type { RuntimeRemoveOptions } from '../runtime/index.js';
+import { getGlobalCopilotDir } from '../editors/strategies/copilot/paths.js';
 
 /**
  * Error thrown when attempting to remove a protected path.
@@ -115,6 +116,7 @@ const EDITOR_CONFIG_DIRS = [
    '.opencode',
    '.config/opencode',
    '.config/github-copilot',
+   '.copilot',
    '.grok',
 ] as const;
 
@@ -132,6 +134,15 @@ function isInsideDirNamed(normalizedPath: string, dirName: string): boolean {
 
 function isInAixDir(normalizedPath: string): boolean {
    return isInsideDirNamed(normalizedPath, '.aix');
+}
+
+function isInCopilotCustomizationDir(normalizedPath: string): boolean {
+   const home = getRuntimeAdapter().os.homedir(),
+         path = relative(resolve(home, getGlobalCopilotDir()), normalizedPath),
+         [section, name, ...rest] = path.split(sep);
+
+   return name !== undefined && rest.length === 0
+      && (section === 'skills' || section === 'agents' || section === 'instructions');
 }
 
 function isInEditorConfigDir(normalizedPath: string): boolean {
@@ -183,6 +194,7 @@ export async function safeRm(
       isInTempDir(normalized) ||
       isInAixDir(normalized) ||
       isInEditorConfigDir(normalized) ||
+      isInCopilotCustomizationDir(normalized) ||
       isInTestFixturesDir(normalized);
 
    if (!isAllowed) {

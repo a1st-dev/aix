@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, readdir, writeFile, unlink } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, readdir, symlink, writeFile, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { dirname, join } from 'pathe';
@@ -99,6 +99,54 @@ describe('editor install receipts', () => {
       expect(content).toContain('// OpenCode settings');
       expect(parseJsonc(content).data).to.eql({ ...initial, mcp: { legacy, timeout, servers: {} } });
       expect(existsSync(join(projectRoot, 'opencode.json'))).toStrictEqual(false);
+   });
+
+   it('uses the active Copilot home and still removes legacy-only MCP entries', async () => {
+      const copilotHome = join(projectRoot, 'copilot-settings'),
+            legacyPath = join(homedir(), '.config/github-copilot', 'mcp-config.json'),
+            activePath = join(copilotHome, 'mcp-config.json'),
+            settingsPath = join(copilotHome, 'settings.json'),
+            target = join(projectRoot, 'user-mcp.json'),
+            config: AiJsonConfig = {
+               ...createEmptyConfig(),
+               mcp: { shared: { command: 'active' } },
+               rules: { language: { content: 'Use English.', activation: 'always' } },
+               hooks: { pre_command: [{ hooks: [{ command: 'echo ready' }] }] },
+               plugins: { 'printer@example': true },
+               marketplaces: { example: 'github:example/plugins' },
+            };
+
+      vi.stubEnv('COPILOT_HOME', copilotHome);
+
+      try {
+         await mkdir(dirname(legacyPath), { recursive: true });
+         await mkdir(copilotHome);
+         await writeFile(legacyPath, JSON.stringify({ mcpServers: { shared: { command: 'legacy' }, old: { command: 'old' } } }));
+         await writeFile(target, JSON.stringify({ mcpServers: { personal: { command: 'personal' } } }));
+         await symlink(target, activePath);
+         await writeFile(settingsPath, JSON.stringify({ trustedSetting: 'personal' }));
+
+         const installed = await installToEditor('copilot', config, projectRoot, { targetScope: 'user' }),
+               synced = await installToEditor('copilot', config, projectRoot, { targetScope: 'user' }),
+               imported = await importFromEditor('copilot', { projectRoot, scope: 'user' }),
+               removed = await removeMcpFromEditor('copilot', 'old', projectRoot, { targetScope: 'user' });
+
+         expect(installed.errors).to.eql([]);
+         expect(synced.errors).to.eql([]);
+         expect((await lstat(activePath)).isSymbolicLink()).toStrictEqual(true);
+         expect(imported.mcp.shared).to.eql({ command: 'active' });
+         expect(imported.paths.mcp.old).toStrictEqual(legacyPath);
+         expect(imported.paths.hooks.pre_command).toStrictEqual(join(copilotHome, 'hooks', 'hooks.json'));
+         expect(imported.paths.rules.language).toStrictEqual(join(copilotHome, 'instructions', 'language.instructions.md'));
+         expect(imported.plugins).to.eql(config.plugins);
+         expect(imported.marketplaces).to.eql(config.marketplaces);
+         expect(removed.removed).toStrictEqual(true);
+         expect(parseJsonc(await readFile(settingsPath, 'utf-8')).data).toMatchObject({ trustedSetting: 'personal' });
+         expect(parseJsonc(await readFile(target, 'utf-8')).data).toMatchObject({ mcpServers: { personal: { command: 'personal' } } });
+      } finally {
+         vi.unstubAllEnvs();
+         await safeRm(dirname(legacyPath), { force: true });
+      }
    });
 
    it('replaces changed hooks and removes events that disappear from ai.json', async () => {

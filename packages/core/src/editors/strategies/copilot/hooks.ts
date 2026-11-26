@@ -217,9 +217,12 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 
 /**
  * GitHub Copilot CLI hooks strategy. Writes hooks to `.github/hooks/hooks.json` (project)
- * or `~/.config/github-copilot/hooks/hooks.json` (user). Wraps output with `version: 1`.
+ * or `~/.copilot/hooks/hooks.json` (user). Wraps output with `version: 1`.
  */
 export class CopilotHooksStrategy implements HooksStrategy {
+
+   constructor(private readonly globalDir: string = getGlobalCopilotDir()) {}
+
    isSupported(): boolean {
       return true;
    }
@@ -230,7 +233,7 @@ export class CopilotHooksStrategy implements HooksStrategy {
    }
 
    getGlobalConfigPath(): string {
-      return `${getGlobalCopilotDir()}/hooks/hooks.json`;
+      return `${this.globalDir}/hooks/hooks.json`;
    }
 
    getUnsupportedEvents(hooks: HooksConfig): string[] {
