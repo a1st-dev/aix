@@ -174,6 +174,13 @@ describe('editor install receipts', () => {
 
          expect(parseJsonc(await readFile(manifestPath, 'utf-8')).data).to.eql({ entries: [ handwritten ] });
          expect(existsSync(join(pluginPath, 'plugin.json'))).toStrictEqual(true);
+
+         const remotePlugin = { ...plugin, source: { git: 'github:example/plugins', path: './managed-plugin' } },
+               invalidConfig = { ...config, plugins: { 'managed-plugin': remotePlugin } };
+
+         await expect(installToEditor('antigravity', invalidConfig, projectRoot, options))
+            .rejects.toThrow('needs a local plugin manifest');
+         expect(parseJsonc(await readFile(manifestPath, 'utf-8')).data).to.eql({ entries: [ handwritten ] });
       } finally {
          await unlink(manifestPath);
       }

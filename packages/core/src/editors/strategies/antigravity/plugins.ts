@@ -56,7 +56,9 @@ export class AntigravityPluginsStrategy implements PluginsStrategy {
             return [];
          }
 
-         const path = resolvePluginLocalPath(value, configBaseDir);
+         const source = typeof value === 'object' ? value.source : undefined,
+               isRemote = isRecord(source) && ('git' in source || 'npm' in source),
+               path = isRemote ? null : resolvePluginLocalPath(value, configBaseDir);
 
          if (!path || readManifestName(path) !== name) {
             throw new Error(`Antigravity plugin "${name}" needs a local plugin manifest with a matching name.`);
