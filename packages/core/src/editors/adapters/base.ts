@@ -555,7 +555,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
             existingInChanges = existingChanges.find((c) => c.path === pluginsPath),
             baseContent = existingInChanges ? existingInChanges.content : undefined;
 
-      const change = await this.planJsonFileChange(pluginsPath, formatted, { baseContent });
+      const change = await this.planJsonFileChange(pluginsPath, formatted, {
+         baseContent,
+         mergeIncoming: this.pluginsStrategy.mergeConfig?.bind(this.pluginsStrategy),
+      });
 
       if (existingInChanges) {
          existingInChanges.content = change.content;
@@ -652,6 +655,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       options: {
          baseContent?: string | null;
          normalizeExisting?: (config: Record<string, unknown>) => Record<string, unknown>;
+         mergeIncoming?: (existing: Record<string, unknown>, incoming: Record<string, unknown>) => Record<string, unknown>;
       } = {},
    ): Promise<FileChange> {
       const existing = options.baseContent !== undefined ? options.baseContent : await this.readExisting(filePath);
@@ -674,7 +678,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       try {
          const existingJson = options.normalizeExisting?.(existingParseResult.data) ?? existingParseResult.data,
                newContent = typeof format === 'string' ? format : format(existingJson),
-               newJson = await preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
+               incoming = await preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>),
+               newJson = options.mergeIncoming?.(existingJson, incoming) ?? incoming;
 
          let mergedContent: string;
 
@@ -952,6 +957,10 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       };
    }
 
+   protected usesCompatibilityPlugins(): boolean {
+      return this.pluginsStrategy.isCompatibility?.() ?? false;
+   }
+
    /**
     * If this adapter uses a compatibility unpacker strategy for plugins, unpack local plugin
     * skills, MCP servers, and rules and merge them into the config for project-scope installs.
@@ -966,7 +975,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       if (
          targetScope !== 'project' ||
          !this.pluginsStrategy.isSupported() ||
-         !this.pluginsStrategy.isCompatibility?.() ||
+         !this.usesCompatibilityPlugins() ||
          !config.plugins ||
          Object.keys(config.plugins).length === 0
       ) {

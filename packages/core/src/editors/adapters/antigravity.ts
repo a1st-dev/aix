@@ -1,18 +1,19 @@
 import type { AiJsonConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import { BaseEditorAdapter, filterMcpConfig } from './base.js';
-import type { EditorConfig, EditorRule, FileChange, ApplyOptions, UnsupportedFeatures } from '../types.js';
+import type { EditorConfig, EditorRule, FileChange, ApplyOptions, TargetScopeLimitations, UnsupportedFeatures } from '../types.js';
 import {
    AntigravityRulesStrategy,
    AntigravityMcpStrategy,
    AntigravityPromptsStrategy,
    AntigravityHooksStrategy,
 } from '../strategies/antigravity/index.js';
+import { AntigravityPluginsStrategy, isNativeAntigravityPlugin } from '../strategies/antigravity/plugins.js';
+import { isDisabledConfigValue } from '../../type-guards.js';
 import {
    MarkdownAgentsStrategy,
    NativeSkillsStrategy,
    NoMarketplacesStrategy,
-   PluginCompatibilityStrategy,
    formatPlainMarkdownRule,
 } from '../strategies/shared/index.js';
 import { installPromptsAsSkills } from '../prompt-skill-installer.js';
@@ -23,7 +24,6 @@ import type {
    PromptsStrategy,
    AgentsStrategy,
    HooksStrategy,
-   PluginsStrategy,
    MarketplacesStrategy,
 } from '../strategies/types.js';
 import { upsertManagedSection } from '../section-managed-markdown.js';
@@ -68,6 +68,7 @@ export class AntigravityAdapter extends BaseEditorAdapter {
    protected readonly skillsStrategy: SkillsStrategy = new NativeSkillsStrategy({
       editorSkillsDir: '.agents/skills',
       userEditorSkillsDir: '.gemini/config/skills',
+      globalImportDirs: [ '.agents/skills', '.gemini/config/skills', '.gemini/skills', '.gemini/antigravity-cli/skills' ],
    });
 
    protected readonly promptsStrategy: PromptsStrategy = new AntigravityPromptsStrategy();
@@ -77,7 +78,7 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       extraFrontmatter: (agent) => agent.editor?.antigravity ?? {},
    });
    protected readonly hooksStrategy: HooksStrategy = new AntigravityHooksStrategy();
-   protected readonly pluginsStrategy: PluginsStrategy = new PluginCompatibilityStrategy();
+   protected readonly pluginsStrategy = new AntigravityPluginsStrategy();
    protected readonly marketplacesStrategy: MarketplacesStrategy = new NoMarketplacesStrategy();
 
    private pendingSkillChanges: FileChange[] = [];
@@ -87,7 +88,15 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       projectRoot: string,
       options: ApplyOptions = {},
    ): Promise<EditorConfig> {
-      const resolvedConfig = await this.unpackCompatibilityPlugins(config, projectRoot, options),
+      const configuredPlugins = config.plugins ?? {},
+            compatibilityPlugins = Object.fromEntries(Object.entries(configuredPlugins).filter(([, plugin]) => {
+               return !isNativeAntigravityPlugin(plugin);
+            })),
+            installPlugins = !options.scopes || options.scopes.includes('plugins') || options.scopes.includes('editors'),
+            plugins = options.targetScope === 'user' && installPlugins
+               ? this.pluginsStrategy.getUserRegistrations(configuredPlugins, options.configBaseDir ?? projectRoot)
+               : {},
+            resolvedConfig = await this.unpackCompatibilityPlugins({ ...config, plugins: compatibilityPlugins }, projectRoot, options),
             { rules, skillChanges, skills } = await this.loadRules(resolvedConfig, projectRoot, {
                dryRun: options.dryRun,
                scopes: options.scopes,
@@ -112,7 +121,31 @@ export class AntigravityAdapter extends BaseEditorAdapter {
       });
 
       this.pendingSkillChanges = [...skillChanges, ...promptSkillChanges];
-      return { rules, prompts: [], agents, mcp, hooks, plugins: config.plugins };
+      return { rules, prompts: [], agents, mcp, hooks, plugins };
+   }
+
+   protected override usesCompatibilityPlugins(): boolean {
+      return true;
+   }
+
+   override getTargetScopeLimitations(config: AiJsonConfig, targetScope: 'project' | 'user'): TargetScopeLimitations {
+      const limitations = super.getTargetScopeLimitations(config, targetScope),
+            plugins = Object.entries(config.plugins ?? {}).filter(([, plugin]) => {
+               return !isDisabledConfigValue(plugin) && isNativeAntigravityPlugin(plugin) !== (targetScope === 'user');
+            }).map(([name]) => {
+               return name;
+            });
+
+      if (plugins.length === 0) {
+         delete limitations.plugins;
+      } else {
+         const reason = targetScope === 'user'
+            ? 'Antigravity needs an opt-in native local plugin at user scope'
+            : 'aix supports native Antigravity plugin registration at user scope';
+
+         limitations.plugins = { reason, plugins };
+      }
+      return limitations;
    }
 
    override getUnsupportedFeatures(config: AiJsonConfig): UnsupportedFeatures {

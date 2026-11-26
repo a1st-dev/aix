@@ -242,7 +242,11 @@ function stripTargetScopeLimitedFeatures(
    }
 
    if (limitations.plugins) {
-      nextConfig.plugins = {};
+      const limited = new Set(limitations.plugins.plugins);
+
+      nextConfig.plugins = Object.fromEntries(Object.entries(nextConfig.plugins ?? {}).filter(([name]) => {
+         return !limited.has(name);
+      }));
    }
 
    if (limitations.marketplaces) {

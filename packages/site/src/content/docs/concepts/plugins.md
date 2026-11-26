@@ -63,8 +63,6 @@ by default and leave `ai.json` unchanged. Pass `--save` to write the change to `
 
 ## Native support and compatibility unpacking
 
-Editors fall into two groups.
-
 ### Editors with a plugin system
 
 Cursor, GitHub Copilot, Claude Code, and OpenCode load plugins themselves. aix writes the
@@ -74,11 +72,31 @@ written for Cursor, GitHub Copilot, and Claude Code.
 Cursor has no user-scope plugin configuration, so a user-scope install skips its plugins and
 marketplaces with a warning. Use `--project` for Cursor.
 
-### Editors without a plugin system
+### Antigravity personal plugins
 
-Windsurf, Zed, Codex, Google Antigravity, and Grok CLI cannot load a plugin bundle. For these
-editors aix looks inside the plugin and installs the parts it finds as ordinary skills,
-rules, and MCP servers:
+For a local Antigravity plugin, set `editor.antigravity.native` and install at user
+scope. The name in the local plugin manifest must match the plugin key.
+
+```json
+{
+   "plugins": {
+      "custom-tools": {
+         "source": "./plugins/custom-tools",
+         "editor": { "antigravity": { "native": true } }
+      }
+   }
+}
+```
+
+aix registers the existing directory in `~/.gemini/config/plugins.json`.
+Antigravity loads the bundle in place, so hooks retain access to files alongside
+their manifest. Removing the registration leaves the bundle on disk. Project
+installs continue to use compatibility unpacking.
+
+### Compatibility unpacking
+
+aix expands local plugins for Windsurf, Zed, Codex, Antigravity projects, and Grok CLI.
+It installs the parts it finds as ordinary skills, rules, and MCP servers:
 
 - **Skills** from `<plugin>/skills/*/SKILL.md`, or a single `<plugin>/SKILL.md`.
 - **Rules** from `<plugin>/rules/*.md` and `*.mdc`.
@@ -107,7 +125,7 @@ The editor decides, because it loads the plugin itself. In Claude Code:
   event.
 - **MCP servers**: servers from your config run alongside servers started by enabled plugins.
 
-### In editors without a plugin system
+### In compatibility installs
 
 aix prefixes every unpacked item with the plugin name. A plugin `skill-creator` that contains
 a skill `eval-viewer` and a rule `guidelines.md` is unpacked as `skill-creator-eval-viewer`

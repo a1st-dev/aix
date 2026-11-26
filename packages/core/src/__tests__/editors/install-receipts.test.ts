@@ -149,6 +149,36 @@ describe('editor install receipts', () => {
       }
    });
 
+   it('registers an opt-in Antigravity bundle without altering existing manifest entries', async () => {
+      const pluginPath = join(projectRoot, 'managed-plugin'),
+            manifestPath = join(homedir(), '.gemini/config/plugins.json'),
+            handwritten = { path: './personal-plugins', exclude: [ 'hidden' ] },
+            plugin = { source: { path: './managed-plugin' }, editor: { antigravity: { native: true } } },
+            options = { targetScope: 'user' as const, strictTargetScope: true },
+            config: AiJsonConfig = { ...createEmptyConfig(), plugins: { 'managed-plugin': plugin, 'legacy-plugin': './other' } };
+
+      await mkdir(pluginPath);
+      await mkdir(dirname(manifestPath), { recursive: true });
+      await writeFile(join(pluginPath, 'plugin.json'), JSON.stringify({ name: 'managed-plugin', version: '1.0.0' }));
+      await writeFile(manifestPath, JSON.stringify({ entries: [ handwritten ] }));
+
+      try {
+         const result = await installToEditor('antigravity', config, projectRoot, options),
+               imported = await importFromEditor('antigravity', { projectRoot, scope: 'user' });
+
+         expect(result.errors).to.eql([]);
+         expect(imported.plugins['managed-plugin']).to.eql({ ...plugin, source: { path: pluginPath } });
+         expect(parseJsonc(await readFile(manifestPath, 'utf-8')).data).to.eql({ entries: [ handwritten, { path: pluginPath } ] });
+
+         await installToEditor('antigravity', createEmptyConfig(), projectRoot, options);
+
+         expect(parseJsonc(await readFile(manifestPath, 'utf-8')).data).to.eql({ entries: [ handwritten ] });
+         expect(existsSync(join(pluginPath, 'plugin.json'))).toStrictEqual(true);
+      } finally {
+         await unlink(manifestPath);
+      }
+   });
+
    it('replaces changed hooks and removes events that disappear from ai.json', async () => {
       const settingsPath = join(projectRoot, '.claude', 'settings.json'),
             oldConfig = { ...createEmptyConfig(), hooks: {

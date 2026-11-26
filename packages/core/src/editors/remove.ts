@@ -591,7 +591,9 @@ export async function removePluginFromEditor(
 
    try {
       const content = await getRuntimeAdapter().fs.readFile(configPath, 'utf-8'),
-            nextContent = removeFromJsonPluginsConfig(content, pluginName);
+            nextContent = pluginsStrategy.removeFromConfig
+               ? pluginsStrategy.removeFromConfig(content, pluginName)
+               : removeFromJsonPluginsConfig(content, pluginName);
 
       if (nextContent === undefined) {
          return result;

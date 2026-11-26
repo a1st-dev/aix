@@ -407,6 +407,12 @@ export interface PluginsStrategy {
    /** Whether this strategy unpacks plugins into other components instead of writing a config file */
    isCompatibility?(): boolean;
 
+   /** Merge a native registration list without discarding hand-written entries. */
+   mergeConfig?(existing: Record<string, unknown>, incoming: Record<string, unknown>): Record<string, unknown>;
+
+   /** Remove a named registration when it is stored outside the usual key-value maps. */
+   removeFromConfig?(content: string, name: string): string | undefined;
+
    /** Format plugins configuration into the editor-specific config string/JSON */
    formatConfig(plugins: PluginsConfig, targetScope?: 'project' | 'user'): string;
 

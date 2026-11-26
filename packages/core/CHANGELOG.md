@@ -11,6 +11,9 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Register local Antigravity bundles at user scope without unpacking the plugin
+- Import Antigravity CLI skills from its additional Gemini and shared Agent Skills directories
+
 - Manage native OpenCode v2 MCP servers, including existing JSONC files
 
 - Support fail-closed Claude Code and Grok hooks and the Claude Code inline skill shell event

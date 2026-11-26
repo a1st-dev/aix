@@ -1,4 +1,4 @@
-import { join, resolve } from 'pathe';
+import { isAbsolute, join, resolve } from 'pathe';
 import type { PluginsConfig, McpServerConfig } from '@a1st/aix-schema';
 import { parseJsonc } from '@a1st/aix-schema';
 import type { PluginsStrategy } from '../types.js';
@@ -96,8 +96,8 @@ export async function unpackPluginDirectory(
 /**
  * Resolves local filesystem path for a plugin entry if applicable.
  */
-function resolvePluginLocalPath(value: unknown, projectRoot: string): string | null {
-   if (typeof value === 'string' && (value.startsWith('.') || value.startsWith('/'))) {
+export function resolvePluginLocalPath(value: unknown, projectRoot: string): string | null {
+   if (typeof value === 'string' && (value.startsWith('.') || isAbsolute(value))) {
       return resolve(projectRoot, value);
    }
 
@@ -111,7 +111,7 @@ function resolvePluginLocalPath(value: unknown, projectRoot: string): string | n
       return null;
    }
 
-   if (typeof obj.source === 'string' && (obj.source.startsWith('.') || obj.source.startsWith('/'))) {
+   if (typeof obj.source === 'string' && (obj.source.startsWith('.') || isAbsolute(obj.source))) {
       return resolve(projectRoot, obj.source);
    }
 
