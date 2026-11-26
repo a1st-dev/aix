@@ -235,6 +235,82 @@
                                     "type": "boolean",
                                     "description": "Whether server is active (default: true)"
                                  },
+                                 "editor": {
+                                    "type": "object",
+                                    "properties": {
+                                       "opencode": {
+                                          "type": "object",
+                                          "properties": {
+                                             "timeout": {
+                                                "type": "object",
+                                                "properties": {
+                                                   "startup": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   },
+                                                   "catalog": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   },
+                                                   "execution": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   }
+                                                },
+                                                "additionalProperties": false
+                                             },
+                                             "protocol": {
+                                                "type": "string",
+                                                "enum": ["legacy", "auto", "2026-07-28"]
+                                             },
+                                             "pool": {
+                                                "type": "boolean"
+                                             },
+                                             "codemode": {
+                                                "type": "boolean"
+                                             },
+                                             "oauth": {
+                                                "anyOf": [
+                                                   {
+                                                      "type": "boolean",
+                                                      "const": false
+                                                   },
+                                                   {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "client_id": {
+                                                            "type": "string"
+                                                         },
+                                                         "client_secret": {
+                                                            "type": "string",
+                                                            "description": "Environment variable value. Use ${VAR_NAME} for dynamic resolution."
+                                                         },
+                                                         "scope": {
+                                                            "type": "string"
+                                                         },
+                                                         "callback_port": {
+                                                            "type": "integer",
+                                                            "minimum": 1,
+                                                            "maximum": 65535
+                                                         },
+                                                         "redirect_uri": {
+                                                            "type": "string"
+                                                         },
+                                                         "auth_server_metadata_url": {
+                                                            "type": "string"
+                                                         }
+                                                      },
+                                                      "additionalProperties": false
+                                                   }
+                                                ]
+                                             }
+                                          },
+                                          "additionalProperties": false,
+                                          "description": "Native OpenCode v2 MCP options"
+                                       }
+                                    },
+                                    "additionalProperties": false
+                                 },
                                  "tools": {
                                     "anyOf": [
                                        {
@@ -356,6 +432,82 @@
                                  "enabled": {
                                     "type": "boolean",
                                     "description": "Whether server is active (default: true)"
+                                 },
+                                 "editor": {
+                                    "type": "object",
+                                    "properties": {
+                                       "opencode": {
+                                          "type": "object",
+                                          "properties": {
+                                             "timeout": {
+                                                "type": "object",
+                                                "properties": {
+                                                   "startup": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   },
+                                                   "catalog": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   },
+                                                   "execution": {
+                                                      "type": "integer",
+                                                      "exclusiveMinimum": 0
+                                                   }
+                                                },
+                                                "additionalProperties": false
+                                             },
+                                             "protocol": {
+                                                "type": "string",
+                                                "enum": ["legacy", "auto", "2026-07-28"]
+                                             },
+                                             "pool": {
+                                                "type": "boolean"
+                                             },
+                                             "codemode": {
+                                                "type": "boolean"
+                                             },
+                                             "oauth": {
+                                                "anyOf": [
+                                                   {
+                                                      "type": "boolean",
+                                                      "const": false
+                                                   },
+                                                   {
+                                                      "type": "object",
+                                                      "properties": {
+                                                         "client_id": {
+                                                            "type": "string"
+                                                         },
+                                                         "client_secret": {
+                                                            "type": "string",
+                                                            "description": "Environment variable value. Use ${VAR_NAME} for dynamic resolution."
+                                                         },
+                                                         "scope": {
+                                                            "type": "string"
+                                                         },
+                                                         "callback_port": {
+                                                            "type": "integer",
+                                                            "minimum": 1,
+                                                            "maximum": 65535
+                                                         },
+                                                         "redirect_uri": {
+                                                            "type": "string"
+                                                         },
+                                                         "auth_server_metadata_url": {
+                                                            "type": "string"
+                                                         }
+                                                      },
+                                                      "additionalProperties": false
+                                                   }
+                                                ]
+                                             }
+                                          },
+                                          "additionalProperties": false,
+                                          "description": "Native OpenCode v2 MCP options"
+                                       }
+                                    },
+                                    "additionalProperties": false
                                  },
                                  "tools": {
                                     "anyOf": [
@@ -722,6 +874,86 @@
                                                    "type": "boolean",
                                                    "description": "Whether server is active (default: true)"
                                                 },
+                                                "editor": {
+                                                   "type": "object",
+                                                   "properties": {
+                                                      "opencode": {
+                                                         "type": "object",
+                                                         "properties": {
+                                                            "timeout": {
+                                                               "type": "object",
+                                                               "properties": {
+                                                                  "startup": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  },
+                                                                  "catalog": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  },
+                                                                  "execution": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  }
+                                                               },
+                                                               "additionalProperties": false
+                                                            },
+                                                            "protocol": {
+                                                               "type": "string",
+                                                               "enum": [
+                                                                  "legacy",
+                                                                  "auto",
+                                                                  "2026-07-28"
+                                                               ]
+                                                            },
+                                                            "pool": {
+                                                               "type": "boolean"
+                                                            },
+                                                            "codemode": {
+                                                               "type": "boolean"
+                                                            },
+                                                            "oauth": {
+                                                               "anyOf": [
+                                                                  {
+                                                                     "type": "boolean",
+                                                                     "const": false
+                                                                  },
+                                                                  {
+                                                                     "type": "object",
+                                                                     "properties": {
+                                                                        "client_id": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "client_secret": {
+                                                                           "type": "string",
+                                                                           "description": "Environment variable value. Use ${VAR_NAME} for dynamic resolution."
+                                                                        },
+                                                                        "scope": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "callback_port": {
+                                                                           "type": "integer",
+                                                                           "minimum": 1,
+                                                                           "maximum": 65535
+                                                                        },
+                                                                        "redirect_uri": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "auth_server_metadata_url": {
+                                                                           "type": "string"
+                                                                        }
+                                                                     },
+                                                                     "additionalProperties": false
+                                                                  }
+                                                               ]
+                                                            }
+                                                         },
+                                                         "additionalProperties": false,
+                                                         "description": "Native OpenCode v2 MCP options"
+                                                      }
+                                                   },
+                                                   "additionalProperties": false
+                                                },
                                                 "tools": {
                                                    "anyOf": [
                                                       {
@@ -843,6 +1075,86 @@
                                                 "enabled": {
                                                    "type": "boolean",
                                                    "description": "Whether server is active (default: true)"
+                                                },
+                                                "editor": {
+                                                   "type": "object",
+                                                   "properties": {
+                                                      "opencode": {
+                                                         "type": "object",
+                                                         "properties": {
+                                                            "timeout": {
+                                                               "type": "object",
+                                                               "properties": {
+                                                                  "startup": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  },
+                                                                  "catalog": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  },
+                                                                  "execution": {
+                                                                     "type": "integer",
+                                                                     "exclusiveMinimum": 0
+                                                                  }
+                                                               },
+                                                               "additionalProperties": false
+                                                            },
+                                                            "protocol": {
+                                                               "type": "string",
+                                                               "enum": [
+                                                                  "legacy",
+                                                                  "auto",
+                                                                  "2026-07-28"
+                                                               ]
+                                                            },
+                                                            "pool": {
+                                                               "type": "boolean"
+                                                            },
+                                                            "codemode": {
+                                                               "type": "boolean"
+                                                            },
+                                                            "oauth": {
+                                                               "anyOf": [
+                                                                  {
+                                                                     "type": "boolean",
+                                                                     "const": false
+                                                                  },
+                                                                  {
+                                                                     "type": "object",
+                                                                     "properties": {
+                                                                        "client_id": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "client_secret": {
+                                                                           "type": "string",
+                                                                           "description": "Environment variable value. Use ${VAR_NAME} for dynamic resolution."
+                                                                        },
+                                                                        "scope": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "callback_port": {
+                                                                           "type": "integer",
+                                                                           "minimum": 1,
+                                                                           "maximum": 65535
+                                                                        },
+                                                                        "redirect_uri": {
+                                                                           "type": "string"
+                                                                        },
+                                                                        "auth_server_metadata_url": {
+                                                                           "type": "string"
+                                                                        }
+                                                                     },
+                                                                     "additionalProperties": false
+                                                                  }
+                                                               ]
+                                                            }
+                                                         },
+                                                         "additionalProperties": false,
+                                                         "description": "Native OpenCode v2 MCP options"
+                                                      }
+                                                   },
+                                                   "additionalProperties": false
                                                 },
                                                 "tools": {
                                                    "anyOf": [

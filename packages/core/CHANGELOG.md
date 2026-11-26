@@ -11,6 +11,8 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Manage native OpenCode v2 MCP servers, including existing JSONC files
+
 - Support fail-closed Claude Code and Grok hooks and the Claude Code inline skill shell event
 
 - Add `rebuildPackages` to `RuntimeNpmAdapter`, which runs the install scripts of the named

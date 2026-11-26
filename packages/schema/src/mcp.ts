@@ -52,11 +52,34 @@ export const resourceFilterSchema = z.union([
    }),
 ]);
 
+export const openCodeMcpOptionsSchema = z.object({
+   timeout: z.object({
+      startup: z.number().int().positive().optional(),
+      catalog: z.number().int().positive().optional(),
+      execution: z.number().int().positive().optional(),
+   }).optional(),
+   protocol: z.enum(['legacy', 'auto', '2026-07-28']).optional(),
+   pool: z.boolean().optional(),
+   codemode: z.boolean().optional(),
+   oauth: z.union([
+      z.literal(false),
+      z.object({
+         client_id: z.string().optional(),
+         client_secret: envVarSchema.optional(),
+         scope: z.string().optional(),
+         callback_port: z.number().int().min(1).max(65535).optional(),
+         redirect_uri: z.string().optional(),
+         auth_server_metadata_url: z.string().optional(),
+      }),
+   ]).optional(),
+}).describe('Native OpenCode v2 MCP options');
+
 /**
  * Common MCP server options (non-transport).
  */
 const mcpServerOptionsSchema = z.object({
    enabled: z.boolean().optional().describe('Whether server is active (default: true)'),
+   editor: z.object({ opencode: openCodeMcpOptionsSchema.optional() }).optional(),
    tools: toolFilterSchema.optional().describe('Tool access control'),
    disabledTools: z.array(z.string()).optional().describe('Tools to disable (Windsurf format)'),
    resources: resourceFilterSchema.optional().describe('Resource access control'),

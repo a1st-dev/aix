@@ -1,8 +1,14 @@
-import { parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
+import { openCodeMcpOptionsSchema, parseJsonc, type McpServerConfig } from '@a1st/aix-schema';
 import { join } from 'pathe';
 import type { McpStrategy } from '../types.js';
 import { parseStringRecord } from '../shared/mcp-import-utils.js';
 import { getOpenCodeConfigImportPaths } from './import-utils.js';
+import { isRecord } from '../../../type-guards.js';
+import { getRuntimeAdapter } from '../../../runtime/index.js';
+
+function isServerEntry(value: unknown): boolean {
+   return isRecord(value) && (value.type === 'local' || value.type === 'remote' || typeof value.enabled === 'boolean');
+}
 
 /**
  * OpenCode stores MCP servers in the top-level `mcp` object in `opencode.json`.
@@ -32,14 +38,59 @@ export class OpenCodeMcpStrategy implements McpStrategy {
       return getOpenCodeConfigImportPaths(join(projectRoot, this.getConfigPath()));
    }
 
-   formatConfig(mcp: Record<string, McpServerConfig>): string {
-      const openCodeMcp: Record<string, unknown> = {};
+   resolveConfigPath(defaultPath: string): string {
+      const { fs } = getRuntimeAdapter();
 
-      for (const [name, serverConfig] of Object.entries(mcp)) {
-         openCodeMcp[name] = formatServerConfig(serverConfig);
+      return getOpenCodeConfigImportPaths(defaultPath).find((path) => fs.existsSync(path)) ?? defaultPath;
+   }
+
+   getJsonServerPaths(config: Record<string, unknown>, name: string): string[][] {
+      if (!isRecord(config.mcp)) {
+         return [];
+      }
+      const mcp = config.mcp,
+            native = getNativeOpenCodeMcpServers(mcp),
+            paths: string[][] = [];
+
+      if (native && Object.hasOwn(native, name)) {
+         paths.push([ 'mcp', 'servers', name ]);
+      }
+      if (Object.hasOwn(mcp, name) && ((name !== 'servers' && name !== 'timeout') || isServerEntry(mcp[name]))) {
+         paths.push([ 'mcp', name ]);
+      }
+      return paths;
+   }
+
+   formatConfig(mcp: Record<string, McpServerConfig>, existing?: Record<string, unknown>): string {
+      const current = isRecord(existing?.mcp) ? existing.mcp : {},
+            native = getNativeOpenCodeMcpServers(current),
+            hasNativeLayout = native !== undefined || (isRecord(current.timeout) && !isServerEntry(current.timeout)),
+            flatServers: Record<string, unknown> = {},
+            nativeServers: Record<string, unknown> = {};
+
+      for (const [name, server] of Object.entries(mcp)) {
+         const existingFlat = isServerEntry(current[name]) && !Object.hasOwn(native ?? {}, name),
+               useNative = Boolean(server.editor?.opencode || (hasNativeLayout && !existingFlat));
+
+         if (useNative && isServerEntry(current.servers)) {
+            throw new Error('Cannot add an OpenCode v2 MCP server while a legacy server is named "servers"');
+         }
+
+         const output = useNative ? nativeServers : flatServers;
+
+         Object.defineProperty(output, name, { enumerable: true, value: formatServerConfig(server, useNative) });
       }
 
-      return JSON.stringify({ $schema: 'https://opencode.ai/config.json', mcp: openCodeMcp }, null, 2) + '\n';
+      if (Object.keys(nativeServers).length > 0) {
+         if (Object.hasOwn(flatServers, 'servers')) {
+            throw new Error('Cannot combine OpenCode v2 MCP options with a legacy server named "servers"');
+         }
+         flatServers.servers = nativeServers;
+      }
+
+      const metadata = existing ? {} : { $schema: 'https://opencode.ai/config.json' };
+
+      return JSON.stringify({ ...metadata, mcp: flatServers }, null, 2) + '\n';
    }
 
    parseGlobalMcpConfig(content: string): {
@@ -57,14 +108,20 @@ export class OpenCodeMcpStrategy implements McpStrategy {
             return { mcp, warnings };
          }
 
-         const config = parsed.data,
-               servers = config.mcp ?? {};
+         const servers = parsed.data.mcp ?? {},
+               native = getNativeOpenCodeMcpServers(servers),
+               entries = [
+                  ...Object.entries(servers).filter(([name, value]) => {
+                     return (name !== 'servers' && name !== 'timeout') || isServerEntry(value);
+                  }),
+                  ...Object.entries(native ?? {}),
+               ];
 
-         for (const [name, server] of Object.entries(servers)) {
+         for (const [name, server] of entries) {
             const serverConfig = parseServerConfig(name, server, warnings);
 
             if (serverConfig) {
-               mcp[name] = serverConfig;
+               Object.defineProperty(mcp, name, { configurable: true, enumerable: true, value: serverConfig });
             }
          }
       } catch (err) {
@@ -75,7 +132,11 @@ export class OpenCodeMcpStrategy implements McpStrategy {
    }
 }
 
-function formatServerConfig(serverConfig: McpServerConfig): Record<string, unknown> {
+function getNativeOpenCodeMcpServers(mcp: Record<string, unknown>): Record<string, unknown> | undefined {
+   return isRecord(mcp.servers) && !isServerEntry(mcp.servers) ? mcp.servers : undefined;
+}
+
+function formatServerConfig(serverConfig: McpServerConfig, useNative: boolean): Record<string, unknown> {
    if ('command' in serverConfig) {
       const server: Record<string, unknown> = {
          type: 'local',
@@ -85,7 +146,10 @@ function formatServerConfig(serverConfig: McpServerConfig): Record<string, unkno
       if (serverConfig.env && Object.keys(serverConfig.env).length > 0) {
          server.environment = serverConfig.env;
       }
-      addCommonServerOptions(server, serverConfig);
+      if (useNative && serverConfig.cwd !== undefined) {
+         server.cwd = serverConfig.cwd;
+      }
+      addCommonServerOptions(server, serverConfig, useNative);
 
       return server;
    }
@@ -98,7 +162,7 @@ function formatServerConfig(serverConfig: McpServerConfig): Record<string, unkno
    if (serverConfig.headers && Object.keys(serverConfig.headers).length > 0) {
       server.headers = serverConfig.headers;
    }
-   addCommonServerOptions(server, serverConfig);
+   addCommonServerOptions(server, serverConfig, useNative);
 
    return server;
 }
@@ -106,7 +170,26 @@ function formatServerConfig(serverConfig: McpServerConfig): Record<string, unkno
 function addCommonServerOptions(
    target: Record<string, unknown>,
    source: McpServerConfig,
+   useNative: boolean,
 ): void {
+   if (useNative) {
+      const { oauth, ...options } = source.editor?.opencode ?? {};
+
+      Object.assign(target, options);
+
+      if (!('command' in source) && oauth !== undefined) {
+         target.oauth = oauth;
+      }
+      if (source.enabled !== undefined) {
+         target.disabled = !source.enabled;
+      }
+      if (!target.timeout && 'timeout' in source && source.timeout !== undefined) {
+         target.timeout = { startup: source.timeout, catalog: source.timeout, execution: source.timeout };
+      }
+
+      return;
+   }
+
    if (source.enabled !== undefined) {
       target.enabled = source.enabled;
    }
@@ -162,7 +245,10 @@ function parseLocalServerConfig(
    if (env) {
       serverConfig.env = env;
    }
-   addParsedCommonOptions(serverConfig, raw);
+   if (typeof raw.cwd === 'string') {
+      serverConfig.cwd = raw.cwd;
+   }
+   addParsedCommonOptions(serverConfig, raw, name, warnings);
 
    return serverConfig as McpServerConfig;
 }
@@ -183,7 +269,7 @@ function parseRemoteServerConfig(
    if (headers) {
       serverConfig.headers = headers;
    }
-   addParsedCommonOptions(serverConfig, raw);
+   addParsedCommonOptions(serverConfig, raw, name, warnings);
 
    return serverConfig as McpServerConfig;
 }
@@ -191,11 +277,32 @@ function parseRemoteServerConfig(
 function addParsedCommonOptions(
    target: Record<string, unknown>,
    raw: Record<string, unknown>,
+   name: string,
+   warnings: string[],
 ): void {
-   if (typeof raw.enabled === 'boolean') {
+   if (typeof raw.disabled === 'boolean') {
+      target.enabled = !raw.disabled;
+   } else if (typeof raw.enabled === 'boolean') {
       target.enabled = raw.enabled;
    }
    if (typeof raw.timeout === 'number') {
       target.timeout = raw.timeout;
+   }
+
+   const { timeout, protocol, pool, codemode, oauth } = raw,
+         options = openCodeMcpOptionsSchema.safeParse({
+            ...(isRecord(timeout) ? { timeout } : {}),
+            ...(protocol === undefined ? {} : { protocol }),
+            ...(pool === undefined ? {} : { pool }),
+            ...(codemode === undefined ? {} : { codemode }),
+            ...(oauth === undefined ? {} : { oauth }),
+         });
+
+   if (!options.success) {
+      const fields = options.error.issues.map((issue) => issue.path.join('.')).join(', ');
+
+      warnings.push(`Skipping invalid OpenCode v2 options for MCP server "${name}": ${fields}`);
+   } else if (Object.keys(options.data).length > 0) {
+      target.editor = { opencode: options.data };
    }
 }

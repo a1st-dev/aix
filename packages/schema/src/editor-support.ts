@@ -1117,7 +1117,7 @@ export const editorSupportProfiles = [
       summary: 'Native AGENTS.md rules, markdown commands, MCP, and skills with user-scope support.',
       migrationPitch: 'OpenCode stays close to Claude-style commands and skills while keeping AGENTS.md as the rule surface.',
       notes: [
-         'OpenCode uses `opencode.json` with a top-level `mcp` object instead of `mcpServers`.',
+         'OpenCode MCP entries use a flat `mcp` map in v1 and `mcp.servers` in v2. aix also reads and updates an existing `opencode.jsonc` file.',
          'Rules are written with section-managed markdown so user-owned AGENTS.md content is preserved.',
       ],
       terminology: [

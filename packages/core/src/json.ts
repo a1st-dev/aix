@@ -184,9 +184,29 @@ function matchesPattern(path: string, pattern: string): boolean {
  * Covers the key each editor keeps its servers under: `mcpServers` (most editors),
  * `context_servers` (Zed), `mcp_servers` (Codex and Grok), and `mcp` (OpenCode).
  */
-export const mcpConfigMergeResolver: MergeResolver = createPathResolver({
+const replaceMcpEntries = createPathResolver({
    'mcpServers.*': 'replace',
    'context_servers.*': 'replace',
    'mcp_servers.*': 'replace',
    'mcp.*': 'replace',
 });
+
+export const mcpConfigMergeResolver: MergeResolver = (context) => {
+   const { key, path, oldValue, newValue } = context;
+
+   if (path.length === 1 && path[0] === 'mcp' && key === 'servers' &&
+       isPlainObject(newValue) && !['local', 'remote'].includes(String(newValue.type)) && typeof newValue.enabled !== 'boolean') {
+      return undefined;
+   }
+
+   if (path[0] === 'mcp' && path[1] === 'servers') {
+      if (path.length === 2 && isPlainObject(oldValue) && isPlainObject(newValue) && oldValue.type !== newValue.type) {
+         return 'replace';
+      }
+      if (path.length === 3 && (key === 'headers' || key === 'environment' || key === 'command')) {
+         return 'replace';
+      }
+   }
+
+   return replaceMcpEntries(context);
+};

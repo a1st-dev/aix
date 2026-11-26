@@ -107,7 +107,12 @@ function getMcpConfigPath(
    const globalPath = strategy.getGlobalMcpConfigPath();
 
    if (targetScope === 'user') {
-      return globalPath ? join(getRuntimeAdapter().os.homedir(), globalPath) : undefined;
+      if (!globalPath) {
+         return undefined;
+      }
+      const path = join(getRuntimeAdapter().os.homedir(), globalPath);
+
+      return strategy.resolveConfigPath?.(path) ?? path;
    }
 
    // An editor that keeps MCP servers only in the home directory has nothing at project scope.
@@ -116,10 +121,12 @@ function getMcpConfigPath(
       return undefined;
    }
 
-   return join(strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir), strategy.getConfigPath());
+   const path = join(strategy.isProjectRootConfig?.() ? projectRoot : join(projectRoot, configDir), strategy.getConfigPath());
+
+   return strategy.resolveConfigPath?.(path) ?? path;
 }
 
-function removeFromJsonMcpConfig(content: string, serverName: string): string | undefined {
+function removeFromJsonMcpConfig(content: string, serverName: string, strategy: McpStrategy): string | undefined {
    const parsed = parseJsonc<Record<string, unknown>>(content);
 
    if (parsed.errors.length > 0 || !parsed.data) {
@@ -127,6 +134,17 @@ function removeFromJsonMcpConfig(content: string, serverName: string): string | 
    }
 
    const config = parsed.data;
+
+   const nativePaths = strategy.getJsonServerPaths?.(config, serverName);
+
+   if (nativePaths) {
+      if (nativePaths.length === 0) {
+         return undefined;
+      }
+      return nativePaths.reduce((memo, path) => {
+         return removeJsoncProperty(memo, path);
+      }, content);
+   }
 
    for (const key of MCP_KEYS) {
       const servers = config[key];
@@ -191,7 +209,7 @@ export async function removeMcpFromEditor(
       const content = await getRuntimeAdapter().fs.readFile(configPath, 'utf-8'),
             nextContent = configPath.endsWith('.toml')
                ? removeFromTomlMcpConfig(content, serverName)
-               : removeFromJsonMcpConfig(content, serverName);
+               : removeFromJsonMcpConfig(content, serverName, mcpStrategy);
 
       if (nextContent === undefined) {
          return result;

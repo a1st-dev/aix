@@ -92,6 +92,17 @@ Each editor page lists its MCP paths:
 [OpenCode](/editors/opencode/#opencode-feature-mcp), and
 [Grok CLI](/editors/grok/#grok-feature-mcp).
 
+### OpenCode configuration
+
+aix preserves an existing OpenCode v2 `mcp.servers` layout and can read v1 and v2
+server entries in the same file. Add `editor.opencode` to a server in `ai.json` to use
+v2 options such as `pool`, `protocol`, `oauth`, or separate `timeout` values for
+startup, discovery, and execution. aix preserves shared timeouts in the editor config
+and leaves omitted protocol settings to OpenCode.
+
+OpenCode v1 plugin implementations need a port to run on v2. aix can register a plugin
+package for either version. Use a package release that supports your OpenCode runtime.
+
 ## Finding servers
 
 Use `aix search` to browse the official MCP Registry:

@@ -3,9 +3,11 @@ import { mkdtemp, mkdir, readFile, readdir, writeFile, unlink } from 'node:fs/pr
 import { existsSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { dirname, join } from 'pathe';
-import { createEmptyConfig, type AiJsonConfig } from '@a1st/aix-schema';
+import { createEmptyConfig, parseJsonc, type AiJsonConfig } from '@a1st/aix-schema';
 import { parseTOML } from 'confbox';
 import { installToEditor } from '../../editors/install.js';
+import { importFromEditor } from '../../editors/import.js';
+import { removeMcpFromEditor } from '../../editors/remove.js';
 import { getRuntimeAdapter } from '../../runtime/index.js';
 import * as ciEnvironment from '../../env/ci.js';
 import { safeRm } from '../../fs/safe-rm.js';
@@ -65,6 +67,38 @@ describe('editor install receipts', () => {
       expect(existsSync(join(projectRoot, '.claude', 'skills', 'managed'))).toBe(false);
       expect(existsSync(join(projectRoot, '.aix', 'skills', 'managed'))).toBe(false);
       expect(existsSync(skillPath)).toBe(true);
+   });
+
+   it('manages nested OpenCode MCP in a mixed JSONC file and preserves unrelated settings', async () => {
+      const path = join(projectRoot, 'opencode.jsonc'),
+            timeout = { startup: 500, catalog: 1000, execution: 2000 },
+            native = { type: 'remote', url: 'https://example.com/mcp', disabled: true, timeout, pool: true },
+            legacy = { type: 'local', command: [ 'native-command' ] },
+            initial = { mcp: { legacy, timeout, servers: { native } }, theme: 'example' },
+            config: AiJsonConfig = {
+               ...createEmptyConfig(),
+               mcp: { managed: { url: 'https://example.org/mcp', editor: { opencode: { protocol: 'legacy', oauth: false } } } },
+            };
+
+      await writeFile(path, `// OpenCode settings\n${JSON.stringify(initial, null, 3)}\n`);
+      const installed = await installToEditor('opencode', config, projectRoot),
+            imported = await importFromEditor('opencode', { projectRoot, scope: 'project' }),
+            removed = await removeMcpFromEditor('opencode', 'native', projectRoot);
+
+      expect(installed.errors).to.eql([]);
+      expect(imported.mcp).to.eql({
+         legacy: { command: 'native-command' },
+         native: { url: native.url, enabled: false, editor: { opencode: { timeout, pool: true } } },
+         managed: config.mcp?.managed,
+      });
+      expect(removed.removed).toStrictEqual(true);
+
+      await installToEditor('opencode', createEmptyConfig(), projectRoot);
+      const content = await readFile(path, 'utf-8');
+
+      expect(content).toContain('// OpenCode settings');
+      expect(parseJsonc(content).data).to.eql({ ...initial, mcp: { legacy, timeout, servers: {} } });
+      expect(existsSync(join(projectRoot, 'opencode.json'))).toStrictEqual(false);
    });
 
    it('replaces changed hooks and removes events that disappear from ai.json', async () => {

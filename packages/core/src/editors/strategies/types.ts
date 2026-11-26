@@ -147,7 +147,13 @@ export interface McpStrategy {
    isGlobalOnly?(): boolean;
 
    /** Format MCP config for this editor */
-   formatConfig(mcp: Record<string, McpServerConfig>): string;
+   formatConfig(mcp: Record<string, McpServerConfig>, existing?: Record<string, unknown>): string;
+
+   /** Select an existing alternate filename for writes and removals when the default file is absent. */
+   resolveConfigPath?(defaultPath: string): string;
+
+   /** Locate all native registrations of a named server inside this JSON file. */
+   getJsonServerPaths?(config: Record<string, unknown>, name: string): string[][];
 
    /**
     * Reshape an existing config file into the layout {@link formatConfig} writes, before aix

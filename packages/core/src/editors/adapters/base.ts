@@ -347,17 +347,20 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
          if (mcpEntries.length > 0) {
             const globalMcpPath = this.mcpStrategy.getGlobalMcpConfigPath(),
-                  mcpPath =
+                  defaultPath =
                      targetScope === 'user' && globalMcpPath
                         ? join(getRuntimeAdapter().os.homedir(), globalMcpPath)
                         : join(
                            this.mcpStrategy.isProjectRootConfig?.() ? projectRoot : configDir,
                            this.mcpStrategy.getConfigPath(),
-                        );
+                        ),
+                  mcpPath = this.mcpStrategy.resolveConfigPath?.(defaultPath) ?? defaultPath;
 
             // Only merge JSON files that we directly write to (MCP config files)
             if (this.isJsonFile(mcpPath)) {
-               const change = await this.planJsonFileChange(mcpPath, this.mcpStrategy.formatConfig(editorConfig.mcp), {
+               const change = await this.planJsonFileChange(mcpPath, (existing) => {
+                  return this.mcpStrategy.formatConfig(editorConfig.mcp, existing);
+               }, {
                   normalizeExisting: this.mcpStrategy.normalizeExistingConfig?.bind(this.mcpStrategy),
                });
 
@@ -632,7 +635,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     * Check if a file path is a JSON file based on extension.
     */
    protected isJsonFile(filePath: string): boolean {
-      return filePath.endsWith('.json');
+      return filePath.endsWith('.json') || filePath.endsWith('.jsonc');
    }
 
    /**
@@ -642,7 +645,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
     */
    protected async planJsonFileChange(
       filePath: string,
-      newContent: string,
+      format: string | ((existing?: Record<string, unknown>) => string),
       options: {
          baseContent?: string | null;
          normalizeExisting?: (config: Record<string, unknown>) => Record<string, unknown>;
@@ -651,6 +654,8 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
       const existing = options.baseContent !== undefined ? options.baseContent : await this.readExisting(filePath);
 
       if (existing === null) {
+         const newContent = typeof format === 'string' ? format : format();
+
          return { path: filePath, action: this.determineAction(existing, newContent), content: newContent, managedContent: newContent };
       }
 
@@ -665,6 +670,7 @@ export abstract class BaseEditorAdapter implements EditorAdapter {
 
       try {
          const existingJson = options.normalizeExisting?.(existingParseResult.data) ?? existingParseResult.data,
+               newContent = typeof format === 'string' ? format : format(existingJson),
                newJson = await preserveNativeHooks(existingJson, JSON.parse(newContent) as Record<string, unknown>);
 
          let mergedContent: string;

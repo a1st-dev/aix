@@ -204,7 +204,7 @@ async function snapshotChange(change: FileChange): Promise<InstalledFile | undef
 
    if (managed !== null) {
       kind = 'section';
-   } else if (change.path.endsWith('.json')) {
+   } else if (change.path.endsWith('.json') || change.path.endsWith('.jsonc')) {
       kind = 'json';
    } else if (change.path.endsWith('.toml')) {
       kind = 'toml';
@@ -252,7 +252,7 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
    let result = content;
 
    async function removeValue(
-      path: [string] | [string, string],
+      path: [string, ...string[]],
       value: unknown,
       previous: unknown,
       protectedEntries: unknown[],
@@ -306,12 +306,45 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
       } else {
          const parent = current[path[0]];
 
-         if (isRecord(parent)) {
+         const name = path[1];
+
+         if (isRecord(parent) && name !== undefined) {
             if (replacement === undefined) {
-               delete parent[path[1]];
+               delete parent[name];
             } else {
-               parent[path[1]] = replacement;
+               parent[name] = replacement;
             }
+         }
+      }
+   }
+
+   async function removeEntries(
+      path: [string, ...string[]],
+      currentEntries: Record<string, unknown>,
+      previousEntries: Record<string, unknown>,
+      protectedEntries: unknown[],
+   ): Promise<void> {
+      for (const [name, previous] of Object.entries(previousEntries)) {
+         const value = currentEntries[name],
+               nextPath: [string, ...string[]] = [ ...path, name ],
+               others = protectedEntries.filter(isRecord).map((entry) => {
+                  return entry[name];
+               }).filter((entry) => {
+                  return entry !== undefined;
+               });
+
+         if (value === undefined) {
+            continue;
+         }
+
+         const isOpenCodeServerMap = file.section === 'mcp' && path.length === 1 && path[0] === 'mcp' && name === 'servers';
+
+         if (isOpenCodeServerMap && isRecord(value) && isRecord(previous) && typeof previous.type !== 'string') {
+            // eslint-disable-next-line no-await-in-loop -- JSONC mutations must remain sequential.
+            await removeEntries(nextPath, value, previous, others);
+         } else {
+            // eslint-disable-next-line no-await-in-loop -- JSONC mutations must remain sequential.
+            await removeValue(nextPath, value, previous, others);
          }
       }
    }
@@ -320,6 +353,8 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
       const value = current[key],
             protectedEntries = protectedValues.map((entry) => {
                return entry[key];
+            }).filter((entry) => {
+               return entry !== undefined;
             });
 
       if (value === undefined) {
@@ -327,20 +362,9 @@ async function stripStructuredFile(file: InstalledFile, content: string, protect
       }
       if (isRecord(value) && isRecord(previous)) {
          // Entries such as MCP servers are compared whole, so a user's edit is preserved.
-         for (const [name, oldValue] of Object.entries(previous)) {
-            if (value[name] !== undefined) {
-               // eslint-disable-next-line no-await-in-loop -- JSONC mutations must remain sequential.
-               await removeValue([key, name], value[name], oldValue, protectedEntries.map((entry) => {
-                  return isRecord(entry) ? entry[name] : undefined;
-               }).filter((entry) => {
-                  return entry !== undefined;
-               }));
-            }
-         }
+         await removeEntries([key], value, previous, protectedEntries);
       } else {
-         await removeValue([key], value, previous, protectedEntries.filter((entry) => {
-            return entry !== undefined;
-         }));
+         await removeValue([key], value, previous, protectedEntries);
       }
    }));
 
