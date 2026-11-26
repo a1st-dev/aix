@@ -168,6 +168,15 @@ describe('ClaudeCodeMarketplacesStrategy', () => {
       expect(parsed.extraKnownMarketplaces.disabledObj).toBeUndefined();
    });
 
+   it('keeps a pinned GitHub marketplace on the same ref after import and export', () => {
+      const source = { source: 'github', repo: 'example/plugins', ref: '0196c42f450d16aa27aee70b28dcf176a166b608' },
+            content = JSON.stringify({ extraKnownMarketplaces: { pinned: { source } } }),
+            { marketplaces } = strategy.parseImportedConfig(content),
+            result: unknown = JSON.parse(strategy.formatConfig(marketplaces));
+
+      expect(result).to.eql({ extraKnownMarketplaces: { pinned: { source } } });
+   });
+
    it('returns empty array for unsupported marketplaces', () => {
       expect(strategy.getUnsupportedMarketplaces({ official: 'github:org/repo' })).toEqual([]);
    });

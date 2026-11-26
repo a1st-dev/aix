@@ -10,7 +10,13 @@ interface ClaudeMarketplaceEntry {
    source: ClaudeMarketplaceSource;
 }
 
-function formatImportedMarketplaceSource(source: ClaudeMarketplaceSource): string {
+function formatImportedMarketplaceSource(source: ClaudeMarketplaceSource): MarketplaceValue {
+   const git = source.source === 'github' && typeof source.repo === 'string' ? `github:${source.repo}` : source.url;
+
+   if ((source.source === 'github' || source.source === 'git') && typeof git === 'string' && typeof source.ref === 'string') {
+      return { source: { git, ref: source.ref } };
+   }
+
    if (source.source === 'github' && typeof source.repo === 'string') {
       return `github:${source.repo}`;
    }
@@ -24,6 +30,19 @@ function formatImportedMarketplaceSource(source: ClaudeMarketplaceSource): strin
    }
 
    return JSON.stringify(source);
+}
+
+function formatGitSource(git: string, ref?: string): ClaudeMarketplaceSource {
+   const githubMatch = git.match(/^https?:\/\/github\.com\/([^/]+)\/([^/#?]+?)(?:\.git)?(?:[#?].*)?$/),
+         pin = ref === undefined ? {} : { ref };
+
+   if (git.startsWith('github:')) {
+      return { source: 'github', repo: git.slice(7), ...pin };
+   }
+   if (githubMatch) {
+      return { source: 'github', repo: `${githubMatch[1]}/${githubMatch[2]}`, ...pin };
+   }
+   return { source: 'git', url: git, ...pin };
 }
 
 function parseClaudeMarketplaceSource(value: MarketplaceValue | false | undefined): ClaudeMarketplaceSource | null {
@@ -41,33 +60,20 @@ function parseClaudeMarketplaceSource(value: MarketplaceValue | false | undefine
    }
 
    if (typeof rawSource === 'string') {
-      if (rawSource.startsWith('github:')) {
-         return { source: 'github', repo: rawSource.slice(7) };
-      }
-
-      const githubMatch = rawSource.match(/^https?:\/\/github\.com\/([^/]+)\/([^/#?]+?)(?:\.git)?(?:[#?].*)?$/);
-
-      if (githubMatch) {
-         return { source: 'github', repo: `${githubMatch[1]}/${githubMatch[2]}` };
-      }
-
       if (rawSource.startsWith('.') || rawSource.startsWith('/') || rawSource.startsWith('~')) {
          return { source: 'directory', path: rawSource };
       }
 
-      return { source: 'git', url: rawSource };
+      return formatGitSource(rawSource);
    }
 
    if (typeof rawSource === 'object' && rawSource !== null) {
       const sourceObj = rawSource as Record<string, unknown>;
 
       if (typeof sourceObj.git === 'string') {
-         const githubMatch = sourceObj.git.match(/^https?:\/\/github\.com\/([^/]+)\/([^/#?]+?)(?:\.git)?(?:[#?].*)?$/);
+         const ref = typeof sourceObj.ref === 'string' ? sourceObj.ref : undefined;
 
-         if (githubMatch) {
-            return { source: 'github', repo: `${githubMatch[1]}/${githubMatch[2]}` };
-         }
-         return { source: 'git', url: sourceObj.git };
+         return formatGitSource(sourceObj.git, ref);
       }
 
       if (typeof sourceObj.path === 'string') {

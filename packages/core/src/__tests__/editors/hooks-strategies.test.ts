@@ -683,8 +683,28 @@ describe('ClaudeCodeHooksStrategy', () => {
             event: 'pre_tool_use',
             matcherIndex: 0,
             actionIndex: 0,
-            fields: [ 'show_output', 'working_directory', 'fail_closed' ],
+            fields: [ 'show_output', 'working_directory' ],
          },
+      ]);
+   });
+
+   it('round-trips the inline skill shell hook and synchronous failure policies', () => {
+      const hooks: HooksConfig = {
+         pre_skill_shell_command: [{ matcher: 'Bash|PowerShell', hooks: [{ command: 'check', fail_closed: true }] }],
+         pre_tool_use: [{ hooks: [
+            { type: 'http', url: 'https://example.com/check', fail_closed: false },
+            { type: 'mcp_tool', mcp_server: 'policy', mcp_tool: 'verify', fail_closed: true },
+         ] }],
+         agent_stop: [{ hooks: [{ command: 'stop', fail_closed: true }] }],
+      };
+
+      const formatted = strategy.formatConfig(hooks),
+            { hooks: imported } = strategy.parseImportedConfig(formatted);
+
+      expect(formatted).toContain('"PreSkillShellCommand"');
+      expect(imported).to.eql({ ...hooks, agent_stop: [{ hooks: [{ command: 'stop' }] }] });
+      expect(strategy.getUnsupportedFields(hooks)).to.eql([
+         { event: 'agent_stop', matcherIndex: 0, actionIndex: 0, fields: [ 'fail_closed' ] },
       ]);
    });
 
@@ -1488,22 +1508,22 @@ describe('GrokHooksStrategy', () => {
       expect(strategy.getUnsupportedEvents(hooks)).toEqual(['worktree_setup']);
    });
 
-   it('reports unsupported fields like name and fail_closed', () => {
+   it('round-trips fail-closed gates and warns on events that cannot block', () => {
       const hooks: HooksConfig = {
-         pre_tool_use: [{
-            hooks: [{ command: 'cmd', name: 'my-hook', fail_closed: true }],
-         }],
+         pre_tool_use: [{ hooks: [{ type: 'command', command: 'cmd', fail_closed: true }] }],
+         pre_prompt: [{ hooks: [{ type: 'http', url: 'https://example.com/check', fail_closed: false }] }],
+         agent_stop: [{ hooks: [{ type: 'command', command: 'stop', fail_closed: true }] }],
       };
 
-      const fields = strategy.getUnsupportedFields(hooks);
+      const formatted = strategy.formatConfig(hooks),
+            { hooks: imported } = strategy.parseImportedConfig(formatted);
 
-      expect(fields).toEqual([
-         {
-            event: 'pre_tool_use',
-            matcherIndex: 0,
-            actionIndex: 0,
-            fields: ['name', 'fail_closed'],
-         },
+      expect(imported).to.eql({
+         ...hooks,
+         agent_stop: [{ hooks: [{ type: 'command', command: 'stop' }] }],
+      });
+      expect(strategy.getUnsupportedFields(hooks)).to.eql([
+         { event: 'agent_stop', matcherIndex: 0, actionIndex: 0, fields: [ 'fail_closed' ] },
       ]);
    });
 

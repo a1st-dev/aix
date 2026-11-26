@@ -576,6 +576,7 @@ export const editorSupportProfiles = [
                   'TaskCreated',
                   'TeammateIdle',
                   'UserPromptExpansion',
+                  'PreSkillShellCommand',
                   'UserPromptSubmit',
                   'WorktreeCreate',
                   'WorktreeRemove',

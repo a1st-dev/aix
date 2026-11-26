@@ -11,10 +11,14 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Support fail-closed Claude Code and Grok hooks and the Claude Code inline skill shell event
+
 - Add `rebuildPackages` to `RuntimeNpmAdapter`, which runs the install scripts of the named
   packages in a directory. A custom runtime adapter must now implement it
 
 ### Fixed
+
+- Preserve the ref of pinned Claude Code marketplaces on import and install
 
 - Resolve the relative paths of a config extended by a GitHub blob URL inside that config's
   directory. `resolveExtends` now downloads the directory, as it does for the git form of

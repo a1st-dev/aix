@@ -30,6 +30,7 @@ const EVENT_MAP: Record<string, string> = {
    pre_file_write: 'PreToolUse',
    post_file_write: 'PostToolUse',
    pre_command: 'PreToolUse',
+   pre_skill_shell_command: 'PreSkillShellCommand',
    post_command: 'PostToolUse',
    pre_mcp_tool: 'PreToolUse',
    post_mcp_tool: 'PostToolUse',
@@ -93,11 +94,22 @@ const UNSUPPORTED_ACTION_FIELDS: ReadonlySet<keyof HookAction> = new Set([
    'env',
    'description',
    'name',
-   'fail_closed',
    'loop_limit',
 ]);
 
+type ClaudeFailurePolicy = 'continue' | 'block';
+
+const NO_FAILURE_POLICY_EVENTS = new Set([ 'Stop', 'SubagentStop', 'TaskCompleted', 'TeammateIdle' ]);
+
+function supportsFailurePolicy(event: string | undefined, action: HookAction): boolean {
+   const type = action.type ?? 'command';
+
+   return event !== undefined && !NO_FAILURE_POLICY_EVENTS.has(event)
+      && (type === 'http' || type === 'mcp_tool' || (type === 'command' && !action.async && !action.async_rewake));
+}
+
 interface ClaudeCommandHookEntry {
+   onFailure?: ClaudeFailurePolicy;
    type: 'command';
    command: string;
    timeout?: number;
@@ -110,6 +122,7 @@ interface ClaudeCommandHookEntry {
 }
 
 interface ClaudeHttpHookEntry {
+   onFailure?: ClaudeFailurePolicy;
    type: 'http';
    url: string;
    timeout?: number;
@@ -118,6 +131,7 @@ interface ClaudeHttpHookEntry {
 }
 
 interface ClaudeMcpToolHookEntry {
+   onFailure?: ClaudeFailurePolicy;
    type: 'mcp_tool';
    server: string;
    tool: string;
@@ -266,7 +280,9 @@ function parseClaudeHookAction(value: unknown): HookAction | null {
       return null;
    }
 
-   const entry = value as Record<string, unknown>;
+   const entry = value as Record<string, unknown>,
+         hasFailurePolicy = entry.onFailure === 'block' || entry.onFailure === 'continue',
+         failurePolicy = hasFailurePolicy ? { fail_closed: entry.onFailure === 'block' } : {};
 
    if (entry.type === 'http') {
       if (typeof entry.url !== 'string' || entry.url.length === 0) {
@@ -276,6 +292,7 @@ function parseClaudeHookAction(value: unknown): HookAction | null {
       const action: HookAction = {
          type: 'http',
          url: entry.url,
+         ...failurePolicy,
       };
 
       if (typeof entry.timeout === 'number' && entry.timeout > 0) {
@@ -300,6 +317,7 @@ function parseClaudeHookAction(value: unknown): HookAction | null {
          type: 'mcp_tool',
          mcp_server: entry.server,
          mcp_tool: entry.tool,
+         ...failurePolicy,
       };
 
       if (typeof entry.timeout === 'number' && entry.timeout > 0) {
@@ -336,7 +354,7 @@ function parseClaudeHookAction(value: unknown): HookAction | null {
       return null;
    }
 
-   const action: HookAction = { command: entry.command };
+   const action: HookAction = { command: entry.command, ...failurePolicy };
 
    if (typeof entry.timeout === 'number' && entry.timeout > 0) {
       action.timeout = entry.timeout;
@@ -401,6 +419,12 @@ export class ClaudeCodeHooksStrategy implements HooksStrategy {
                const fields = (Object.keys(action) as (keyof HookAction)[])
                   .filter((field) => UNSUPPORTED_ACTION_FIELDS.has(field));
 
+               if (action.fail_closed !== undefined && !supportsFailurePolicy(EVENT_MAP[event], action)) {
+                  fields.push('fail_closed');
+               }
+               if (event === 'pre_skill_shell_command' && (action.type === 'prompt' || action.type === 'agent')) {
+                  fields.push('type');
+               }
                if (fields.length > 0) {
                   result.push({ event, matcherIndex, actionIndex, fields });
                }
@@ -449,8 +473,30 @@ export class ClaudeCodeHooksStrategy implements HooksStrategy {
          const toolMatcher = TOOL_MATCHER_MAP[event];
          const mapped: ClaudeMatcherGroup[] = matchers.map((matcher: HookMatcher) => ({
             matcher: toolMatcher ?? matcher.matcher ?? '',
-            hooks: matcher.hooks.flatMap((action) => claudeEntriesFromAction(action)),
-         }));
+            hooks: matcher.hooks.flatMap((action) => {
+               if (claudeEvent === 'PreSkillShellCommand' && (action.type === 'prompt' || action.type === 'agent')) {
+                  return [];
+               }
+
+               const entries = claudeEntriesFromAction(action),
+                     failClosed = action.fail_closed;
+
+               if (failClosed === undefined || !supportsFailurePolicy(claudeEvent, action)) {
+                  return entries;
+               }
+
+               const onFailure: ClaudeFailurePolicy = failClosed ? 'block' : 'continue';
+
+               for (const entry of entries) {
+                  Object.assign(entry, { onFailure });
+               }
+               return entries;
+            }),
+         })).filter((group) => group.hooks.length > 0);
+
+         if (mapped.length === 0) {
+            continue;
+         }
 
          claudeHooks[claudeEvent] = (claudeHooks[claudeEvent] ?? []).concat(mapped);
       }

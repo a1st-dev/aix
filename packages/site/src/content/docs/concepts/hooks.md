@@ -108,7 +108,7 @@ install, each name is mapped to the editor's native event.
 - `permission_request`, `permission_denied`
 - `pre_file_read`, `post_file_read`
 - `pre_file_write`, `post_file_write`
-- `pre_command`, `post_command`
+- `pre_command`, `post_command`, `pre_skill_shell_command`
 - `pre_mcp_tool`, `post_mcp_tool`
 - `pre_tab_file_read`, `post_tab_file_edit` (Cursor Tab)
 
@@ -155,9 +155,15 @@ the target editor supports and reports the rest as warnings at install time.
 | `mcp_server`, `mcp_tool`, `mcp_input` | MCP tool dispatch (Claude Code `mcp_tool`).                                                                                                                                      |
 | `prompt`, `model`                     | LLM-evaluated prompt or agent (Claude Code, Cursor, GitHub Copilot `sessionStart`).                                                                                              |
 | `description`, `name`                 | Documentation / log identifier.                                                                                                                                                  |
-| `fail_closed`                         | Block the action when the hook itself fails (Cursor).                                                                                                                            |
+| `fail_closed`                         | Block the action when the hook itself fails on supported hooks.                                                                                                                  |
 | `loop_limit`                          | Max auto-triggered follow-ups (Cursor).                                                                                                                                          |
 | `show_output`                         | Surface output in the editor UI (Windsurf).                                                                                                                                      |
+
+Claude Code 2.1.332 and later support `pre_skill_shell_command` for shell commands
+embedded in a skill or slash command. Claude Code accepts `fail_closed` on supported
+synchronous command and HTTP hooks starting in 2.1.295, and on MCP tool hooks starting
+in 2.1.328. Grok Build 1.0.71 and later support it for pre-tool and prompt-submission
+gates.
 
 ## Per-editor coverage
 
@@ -181,6 +187,7 @@ editor. Zed and OpenCode have no hooks support and are left out.
 | `post_file_read`, `pre_file_write`                                                       |     yes     |        —        |      yes       |   yes    |  yes  |         —          |   yes    |
 | `post_file_write`                                                                        |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
 | `pre_command`, `post_command`                                                            |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
+| `pre_skill_shell_command`                                                                |     yes     |        —        |       —        |    —     |   —   |         —          |    —     |
 | `pre_mcp_tool`, `post_mcp_tool`                                                          |     yes     |       yes       |      yes       |   yes    |  yes  |         —          |   yes    |
 | `pre_tab_file_read`, `post_tab_file_edit`                                                |      —      |       yes       |       —        |    —     |   —   |         —          |    —     |
 | `pre_response_chunk`                                                                     |      —      |       yes       |       —        |    —     |   —   |         —          |    —     |

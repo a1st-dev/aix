@@ -62,13 +62,20 @@ const GROK_HOOK_FIELDS: ReadonlySet<keyof HookAction> = new Set([
    'headers',
 ]);
 
+function supportsFailurePolicy(event: string | undefined, action: HookAction): boolean {
+   return (event === 'PreToolUse' || event === 'UserPromptSubmit')
+      && (!action.type || action.type === 'command' || action.type === 'http');
+}
+
 interface GrokCommandHookEntry {
+   failClosed?: boolean;
    type: 'command';
    command: string;
    timeout?: number;
 }
 
 interface GrokHttpHookEntry {
+   failClosed?: boolean;
    type: 'http';
    url: string;
    headers?: Record<string, string>;
@@ -82,7 +89,13 @@ interface GrokMatcherGroup {
    hooks: GrokHookEntry[];
 }
 
-function buildGrokHook(action: HookAction): GrokHookEntry | undefined {
+function buildGrokHook(event: string, action: HookAction): GrokHookEntry | undefined {
+   if (action.type && action.type !== 'command' && action.type !== 'http') {
+      return undefined;
+   }
+
+   const failClosed = supportsFailurePolicy(event, action) ? action.fail_closed : undefined;
+
    if (action.type === 'http' || (!action.type && action.url)) {
       if (!action.url) {
          return undefined;
@@ -90,6 +103,7 @@ function buildGrokHook(action: HookAction): GrokHookEntry | undefined {
       const httpEntry: GrokHttpHookEntry = {
          type: 'http',
          url: action.url,
+         failClosed,
       };
 
       if (action.headers && Object.keys(action.headers).length > 0) {
@@ -110,6 +124,7 @@ function buildGrokHook(action: HookAction): GrokHookEntry | undefined {
    const entry: GrokCommandHookEntry = {
       type: 'command',
       command,
+      failClosed,
    };
 
    if (typeof action.timeout === 'number' && action.timeout > 0) {
@@ -124,12 +139,14 @@ function parseGrokHook(value: unknown): HookAction | null {
       return null;
    }
 
-   const entry = value as Record<string, unknown>;
+   const entry = value as Record<string, unknown>,
+         failurePolicy = typeof entry.failClosed === 'boolean' ? { fail_closed: entry.failClosed } : {};
 
    if (entry.type === 'http' && typeof entry.url === 'string') {
       const action: HookAction = {
          type: 'http',
          url: entry.url,
+         ...failurePolicy,
       };
 
       if (entry.headers && typeof entry.headers === 'object') {
@@ -145,6 +162,7 @@ function parseGrokHook(value: unknown): HookAction | null {
       const action: HookAction = {
          type: 'command',
          command: entry.command,
+         ...failurePolicy,
       };
 
       if (typeof entry.timeout === 'number') {
@@ -180,7 +198,9 @@ export class GrokHooksStrategy implements HooksStrategy {
          matchers?.forEach((matcher: HookMatcher, matcherIndex: number) => {
             matcher.hooks?.forEach((action, actionIndex) => {
                const fields = (Object.keys(action) as (keyof HookAction)[])
-                  .filter((field) => !GROK_HOOK_FIELDS.has(field));
+                  .filter((field) => {
+                     return field === 'fail_closed' ? !supportsFailurePolicy(EVENT_MAP[event], action) : !GROK_HOOK_FIELDS.has(field);
+                  });
 
                if (action.type && action.type !== 'command' && action.type !== 'http') {
                   fields.push('type');
@@ -233,7 +253,7 @@ export class GrokHooksStrategy implements HooksStrategy {
          const toolMatcher = TOOL_MATCHER_MAP[event];
          const groups = matchers.map((matcher: HookMatcher) => {
             const entries = matcher.hooks
-               .map((action) => buildGrokHook(action))
+               .map((action) => buildGrokHook(grokEvent, action))
                .filter((entry): entry is GrokHookEntry => entry !== undefined);
             const group: GrokMatcherGroup = { hooks: entries };
 

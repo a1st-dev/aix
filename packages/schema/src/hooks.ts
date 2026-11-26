@@ -32,6 +32,7 @@ export const hookEventSchema = z
       'pre_file_write',
       'post_file_write',
       'pre_command',
+      'pre_skill_shell_command',
       'post_command',
       'pre_mcp_tool',
       'post_mcp_tool',
@@ -168,9 +169,9 @@ export const hookActionSchema = z
       description: z.string().optional().describe('Free-form description for logs / UI.'),
       name: z.string().optional().describe('Friendly identifier for logs and CLI commands.'),
 
-      // Cursor-specific behaviors.
+      // Failure handling and follow-up limits.
       fail_closed: z.boolean().optional().describe(
-         'Block the action when the hook itself fails (Cursor).',
+         'Block the action when the hook itself fails, where supported by the editor.',
       ),
       loop_limit: z.number().int().nullable().optional().describe(
          'Max auto-triggered follow-ups for stop-style events (Cursor).',

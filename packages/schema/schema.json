@@ -2451,7 +2451,7 @@
                                  },
                                  "fail_closed": {
                                     "type": "boolean",
-                                    "description": "Block the action when the hook itself fails (Cursor)."
+                                    "description": "Block the action when the hook itself fails, where supported by the editor."
                                  },
                                  "loop_limit": {
                                     "anyOf": [
@@ -2496,6 +2496,7 @@
                      "pre_file_write",
                      "post_file_write",
                      "pre_command",
+                     "pre_skill_shell_command",
                      "post_command",
                      "pre_mcp_tool",
                      "post_mcp_tool",
