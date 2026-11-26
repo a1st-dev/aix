@@ -85,9 +85,8 @@ function listSourceHosts(sourceURLs: readonly string[]): string[] {
                {pluralize(group.releases.length, 'release')} reviewed, most recently on {latest?.reviewedOn}.
                {upstreamNames.length > 0 && (
                   <>
-                     {' '}Most of these notes follow {formatList(upstreamNames)} releases, which is where aix
-                     tracks changes that affect {group.editorName}. The version in each title belongs to
-                     the product named beside it.
+                     {' '}This section also includes reviews of {formatList(upstreamNames)} releases.
+                     The version in each title belongs to the named product.
                   </>
                )}
             </p>
