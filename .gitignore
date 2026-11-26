@@ -43,4 +43,5 @@ plans/
 .beads-credential-key
 
 # Local agent-generated config and skills
+.agent/
 .agents/
