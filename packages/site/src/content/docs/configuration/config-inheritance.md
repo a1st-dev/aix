@@ -85,6 +85,18 @@ Direct HTTPS URLs to a JSON file. Plain HTTP is rejected.
 { "extends": "https://raw.githubusercontent.com/user/repo/main/ai.json" }
 ```
 
+aix fetches that one file and nothing beside it, so the config cannot use relative paths
+for its skills, rules, prompts, or agents. aix rejects a config that does, and
+`aix validate` reports it.
+
+A GitHub file URL (`https://github.com/user/repo/blob/<ref>/<path>`) is the exception. aix
+treats it as the [git source](#git-repositories) for the file's directory, so
+`https://github.com/company/repo/blob/main/configs/web/ai.json` behaves like
+`github:company/repo/configs/web#main`. The directory is copied to `.aix/extends/`, and
+relative paths in the config resolve inside it. The file can have any name. A path that
+leaves the directory, such as `../shared/rules.md`, does not resolve: extend the directory
+that contains everything the config uses.
+
 ### Local paths
 
 Relative paths to other JSON files:

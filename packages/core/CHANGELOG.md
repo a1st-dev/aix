@@ -7,6 +7,14 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve the relative paths of a config extended by a GitHub blob URL inside that config's
+  directory. `resolveExtends` now downloads the directory, as it does for the git form of
+  the same address; the paths were read from the extending project before
+- Reject a config extended by any other URL when it uses relative paths, which cannot be
+  resolved from one fetched file
+
 ## [0.10.0] - 2026-11-25
 
 ### Added

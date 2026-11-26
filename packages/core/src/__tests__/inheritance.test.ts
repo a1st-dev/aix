@@ -261,22 +261,48 @@ describe('resolveExtends', () => {
       expect(fetchMock).toHaveBeenCalledWith('https://example.com/ai.json', { signal: expect.any(AbortSignal) });
    });
 
-   it('converts GitHub blob URL extends to raw URL', async () => {
-      const baseConfig = { skills: { typescript: '^1.0.0' } },
-            config = {
-               extends: 'https://github.com/org/repo/blob/main/ai.json',
-               skills: { react: '^1.0.0' },
+   it('resolves the relative paths of a GitHub blob URL extends inside the downloaded folder', async () => {
+      const templates: string[] = [],
+            adapter: RuntimeAdapter = {
+               ...nodeRuntimeAdapter,
+               git: {
+                  downloadTemplate: async (template, options) => {
+                     const dir = options.dir ?? '';
+
+                     templates.push(template);
+                     await mkdir(join(dir, 'my-skill'), { recursive: true });
+                     await writeFile(join(dir, 'team.json'), '{ "skills": { "my-skill": { "path": "./my-skill/" } } }', 'utf-8');
+                     await writeFile(join(dir, 'my-skill', 'SKILL.md'), '# My skill', 'utf-8');
+
+                     return { dir };
+                  },
+               },
             },
-            fetchMock = vi.fn().mockResolvedValue({
-               ok: true,
-               text: () => Promise.resolve(JSON.stringify(baseConfig)),
-            });
+            template = 'github:org/repo/packages/skills#main';
 
-      global.fetch = fetchMock;
+      const result = await withRuntimeAdapter(adapter, () => {
+         return resolveExtends(
+            { extends: 'https://github.com/org/repo/blob/main/packages/skills/team.json' },
+            { baseDir: testDir, projectRoot: testDir },
+         );
+      });
 
-      await resolveExtends(config, { baseDir: testDir, projectRoot: testDir });
+      expect(templates).toEqual([ template ]);
+      expect(result.skills).toEqual({
+         'my-skill': { path: join(testDir, '.aix', 'extends', createDownloadKey(template), 'my-skill') },
+      });
+      expect(existsSync(join(testDir, '.aix', 'extends', createDownloadKey(template), 'my-skill', 'SKILL.md'))).toStrictEqual(true);
+   });
 
-      expect(fetchMock).toHaveBeenCalledWith('https://raw.githubusercontent.com/org/repo/main/ai.json', { signal: expect.any(AbortSignal) });
+   it('rejects relative paths in a config extended by a plain URL', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+         ok: true,
+         text: () => Promise.resolve('{ "rules": { "style": { "path": "./rules/style.md" }, "inline": { "content": "Be brief" } } }'),
+      });
+
+      const result = resolveExtends({ extends: 'https://example.com/ai.json' }, { baseDir: testDir, projectRoot: testDir });
+
+      await expect(result).rejects.toThrow('cannot use relative paths (rules.style: ./rules/style.md)');
    });
 
    it('gives up on an HTTPS extends whose server never finishes responding', async () => {
