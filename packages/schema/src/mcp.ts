@@ -74,12 +74,14 @@ export const openCodeMcpOptionsSchema = z.object({
    ]).optional(),
 }).describe('Native OpenCode v2 MCP options');
 
+const mcpEditorOptionsSchema = z.object({ opencode: openCodeMcpOptionsSchema.optional() });
+
 /**
  * Common MCP server options (non-transport).
  */
 const mcpServerOptionsSchema = z.object({
    enabled: z.boolean().optional().describe('Whether server is active (default: true)'),
-   editor: z.object({ opencode: openCodeMcpOptionsSchema.optional() }).optional(),
+   editor: mcpEditorOptionsSchema.optional(),
    tools: toolFilterSchema.optional().describe('Tool access control'),
    disabledTools: z.array(z.string()).optional().describe('Tools to disable (Windsurf format)'),
    resources: resourceFilterSchema.optional().describe('Resource access control'),
@@ -103,6 +105,11 @@ export const mcpServerConfigStdioSchema = mcpServerOptionsSchema.extend({
  * HTTP MCP server config (url at top level).
  */
 export const mcpServerConfigHttpSchema = mcpServerOptionsSchema.extend({
+   editor: mcpEditorOptionsSchema.extend({
+      grok: z.object({
+         headers_helper: z.string().regex(/\S/).describe('Shell command that prints HTTP headers as a JSON object'),
+      }).optional(),
+   }).optional(),
    url: z.string().url().describe('MCP endpoint URL (Streamable HTTP)'),
    headers: z.record(envVarSchema).optional().describe('HTTP headers'),
    timeout: z.number().positive().optional().describe('Connection timeout (ms)'),

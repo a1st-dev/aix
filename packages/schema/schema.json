@@ -505,6 +505,18 @@
                                           },
                                           "additionalProperties": false,
                                           "description": "Native OpenCode v2 MCP options"
+                                       },
+                                       "grok": {
+                                          "type": "object",
+                                          "properties": {
+                                             "headers_helper": {
+                                                "type": "string",
+                                                "pattern": "\\S",
+                                                "description": "Shell command that prints HTTP headers as a JSON object"
+                                             }
+                                          },
+                                          "required": ["headers_helper"],
+                                          "additionalProperties": false
                                        }
                                     },
                                     "additionalProperties": false
@@ -1152,6 +1164,18 @@
                                                          },
                                                          "additionalProperties": false,
                                                          "description": "Native OpenCode v2 MCP options"
+                                                      },
+                                                      "grok": {
+                                                         "type": "object",
+                                                         "properties": {
+                                                            "headers_helper": {
+                                                               "type": "string",
+                                                               "pattern": "\\S",
+                                                               "description": "Shell command that prints HTTP headers as a JSON object"
+                                                            }
+                                                         },
+                                                         "required": ["headers_helper"],
+                                                         "additionalProperties": false
                                                       }
                                                    },
                                                    "additionalProperties": false

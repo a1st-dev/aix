@@ -10,6 +10,7 @@ version may appear here with no changes to this package.
 ### Added
 
 - Add the Claude Code inline skill-shell hook event and native OpenCode v2 MCP options
+- Allow an explicit Grok CLI headers helper command for HTTP MCP servers
 
 ## [0.10.1] - 2026-11-26
 

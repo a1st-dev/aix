@@ -32,6 +32,10 @@ export class GrokMcpStrategy implements McpStrategy {
          server.enabled = false;
       }
 
+      if ('url' in serverConfig && serverConfig.editor?.grok) {
+         server.headers_helper = serverConfig.editor.grok.headers_helper;
+      }
+
       return server;
    }
 
@@ -62,13 +66,17 @@ export class GrokMcpStrategy implements McpStrategy {
          for (const [name, server] of Object.entries(parsed.mcp_servers)) {
             const entry = parseStandardServerEntry(server);
 
-            if (!entry) {
+            if (!entry || !isRecord(server)) {
                warnings.push(`MCP server "${name}" in Grok config has neither a command nor a URL, skipping.`);
                continue;
             }
 
-            if (isRecord(server) && server.enabled === false) {
+            if (server.enabled === false) {
                entry.enabled = false;
+            }
+
+            if ('url' in entry && typeof server.headers_helper === 'string' && server.headers_helper.trim()) {
+               entry.editor = { grok: { headers_helper: server.headers_helper } };
             }
 
             mcp[name] = entry;

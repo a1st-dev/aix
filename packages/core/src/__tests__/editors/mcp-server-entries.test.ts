@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { McpServerConfig } from '@a1st/aix-schema';
+import { mcpServerConfigSchema, type McpServerConfig } from '@a1st/aix-schema';
 import type { McpStrategy } from '../../editors/strategies/types.js';
 import { ClaudeCodeMcpStrategy } from '../../editors/strategies/claude-code/mcp.js';
 import { CodexMcpStrategy } from '../../editors/strategies/codex/mcp.js';
@@ -70,6 +70,24 @@ describe('MCP server entries', () => {
    });
 
    describe('editor-specific entry shapes', () => {
+      it('round-trips an explicit Grok HTTP headers helper without exporting it to other editors', () => {
+         const strategy = new GrokMcpStrategy(),
+               server = mcpServerConfigSchema.parse({
+                  ...REMOTE_SERVER,
+                  editor: { grok: { headers_helper: '"${TOOLS_DIR}/mint-headers"' } },
+               }),
+               written = strategy.formatConfig({ docs: server }),
+               imported = strategy.parseGlobalMcpConfig(written);
+
+         expect(written).toContain('headers_helper');
+         expect(imported).toEqual({ mcp: { docs: server }, warnings: [] });
+         expect(new StandardMcpStrategy().formatConfig({ docs: server })).not.toContain('mint-headers');
+         expect(mcpServerConfigSchema.safeParse({
+            ...REMOTE_SERVER,
+            editor: { grok: { headers_helper: '  ' } },
+         }).success).toStrictEqual(false);
+      });
+
       it('writes Claude Code stdio and http transport types', () => {
          const written = JSON.parse(new ClaudeCodeMcpStrategy().formatConfig({
             docs: REMOTE_SERVER,

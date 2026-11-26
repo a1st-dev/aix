@@ -14,6 +14,8 @@ version may appear here with no changes to this package.
 
 - Manage native OpenCode v2 MCP servers, including existing JSONC files
 
+- Preserve explicit Grok CLI HTTP MCP header helpers through import and install
+
 - Support fail-closed Claude Code and Grok hooks and the Claude Code inline skill shell event
 
 ### Fixed

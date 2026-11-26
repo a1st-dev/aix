@@ -1273,6 +1273,11 @@ export const editorSupportProfiles = [
             'TOML MCP server configuration in `.grok/config.toml`.',
             nativeScope('.grok/config.toml'),
             nativeScope('~/.grok/config.toml'),
+            {
+               notes: [
+                  'Grok CLI 1.0.88+ supports `editor.grok.headers_helper` for HTTP servers. Project helpers require folder trust.',
+               ],
+            },
          ),
          skills: feature(
             'skills',

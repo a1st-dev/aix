@@ -134,6 +134,13 @@ and leaves omitted protocol settings to OpenCode.
 OpenCode v1 plugin implementations need a port to run on v2. aix can register a plugin
 package for either version. Use a package release that supports your OpenCode runtime.
 
+### Grok CLI dynamic headers
+
+Grok CLI 1.0.88 and later can run a command when connecting to a remote MCP server.
+Set `editor.grok.headers_helper` on an HTTP server in `ai.json` to write the command to
+Grok's TOML config. The command prints a JSON object of header names and string values.
+Grok requires folder trust for project helpers and applies its managed MCP policy.
+
 ## Finding servers
 
 Use `aix search` to browse the official MCP Registry:
