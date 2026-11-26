@@ -14,6 +14,9 @@ version may appear here with no changes to this package.
   the same address; the paths were read from the extending project before
 - Reject a config extended by any other URL when it uses relative paths, which cannot be
   resolved from one fetched file
+- Resolve a GitHub URL of a `SKILL.md` file in `resolveDirectInstallConfig` to the skill's
+  directory, and name the skill after that directory. It resolved to the file and named
+  the skill `skill`
 
 ## [0.10.0] - 2026-11-25
 

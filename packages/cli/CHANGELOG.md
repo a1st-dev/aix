@@ -14,6 +14,9 @@ version may appear here with no changes to this package.
   failed, while `aix validate` reported the config as valid
 - Report relative paths in a config extended by any other URL as an error in
   `aix validate` and `aix install`
+- Install a skill from the GitHub URL of its `SKILL.md` file with
+  `aix install <url> --type skill`. It failed with "SKILL.md not found"; `aix add skill`
+  already accepted the same URL
 
 ## [0.10.0] - 2026-11-25
 

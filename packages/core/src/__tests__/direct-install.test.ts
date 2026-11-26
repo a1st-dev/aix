@@ -66,6 +66,30 @@ describe('direct install config resolution', () => {
       });
    });
 
+   it('resolves a GitHub URL of a SKILL.md file to the skill directory', async () => {
+      const result = await resolveDirectInstallConfig({
+         type: 'skill',
+         source: 'https://github.com/org/repo/blob/main/skills/brainstorming/SKILL.md',
+         cwd: testDir,
+      });
+
+      expect(result.name).toBe('brainstorming');
+      expect(result.config.skills).toEqual({
+         brainstorming: { git: 'https://github.com/org/repo', ref: 'main', path: 'skills/brainstorming' },
+      });
+   });
+
+   it('names a skill whose SKILL.md is at the repository root after the repository', async () => {
+      const result = await resolveDirectInstallConfig({
+         type: 'skill',
+         source: 'https://github.com/org/pdf-tools/blob/main/SKILL.md',
+         cwd: testDir,
+      });
+
+      expect(result.name).toBe('pdf-tools');
+      expect(result.config.skills).toEqual({ 'pdf-tools': { git: 'https://github.com/org/pdf-tools', ref: 'main' } });
+   });
+
    it('resolves a local prompt source', async () => {
       await writeFile(join(testDir, 'review.md'), 'Review this code.', 'utf-8');
 

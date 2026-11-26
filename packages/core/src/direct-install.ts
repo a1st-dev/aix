@@ -235,22 +235,35 @@ function createConfigForSection(
    };
 }
 
+const SKILL_FILE_NAME = 'skill.md',
+      CURRENT_DIR = '.';
+
+/**
+ * A skill is a directory. When a source names the SKILL.md file inside it, use the directory.
+ * Returns nothing when that directory is the root that the path is relative to.
+ */
+function getSkillDirPath(path: string): string | undefined {
+   const dir = basename(path).toLowerCase() === SKILL_FILE_NAME ? dirname(path) : path;
+
+   return dir === CURRENT_DIR ? undefined : dir;
+}
+
 function normalizeSkillSource(source: string, name: string | undefined, ref: string | undefined): unknown {
    if (source.startsWith('npm:')) {
       return getPackageNameFromNpmSource(source);
    }
    if (isLocalPath(source)) {
-      const path = source.replace(/^file:/, ''),
-            normalizedPath = basename(path).toLowerCase() === 'skill.md' ? dirname(path) : path;
+      const path = source.replace(/^file:/, '');
 
-      return { path: normalizedPath };
+      return { path: getSkillDirPath(path) ?? CURRENT_DIR };
    }
 
    const parsed = parseSourceReference(source, { type: 'skill', refOverride: ref });
 
    if (isRecord(parsed.value) && 'git' in parsed.value && isRecord(parsed.value.git)) {
       const git = parsed.value.git,
-            gitUrl = typeof git.url === 'string' ? git.url : undefined;
+            gitUrl = typeof git.url === 'string' ? git.url : undefined,
+            skillDir = typeof git.path === 'string' ? getSkillDirPath(git.path) : undefined;
 
       if (!gitUrl) {
          throw new Error(`Invalid skill git source: ${source}`);
@@ -258,7 +271,7 @@ function normalizeSkillSource(source: string, name: string | undefined, ref: str
       return {
          git: gitUrl,
          ...(typeof git.ref === 'string' ? { ref: git.ref } : {}),
-         ...(typeof git.path === 'string' ? { path: git.path } : {}),
+         ...(skillDir ? { path: skillDir } : {}),
       };
    }
 
@@ -278,15 +291,21 @@ function inferSkillName(source: string): string | undefined {
       return getPackageBasename(getPackageNameFromNpmSource(source));
    }
    if (isLocalPath(source)) {
-      const path = source.replace(/^file:/, ''),
-            parent = basename(path).toLowerCase() === 'skill.md' ? dirname(path) : path;
+      const path = source.replace(/^file:/, '');
 
-      return normalizeName(inferNameFromPath(parent, ['.md']));
+      return normalizeName(inferNameFromPath(getSkillDirPath(path) ?? path, ['.md']));
    }
 
-   const parsed = parseSourceReference(source, { type: 'skill' });
+   const parsed = parseSourceReference(source, { type: 'skill' }),
+         git = typeof parsed.value === 'object' && 'git' in parsed.value ? parsed.value.git : undefined;
 
-   return normalizeName(parsed.inferredName);
+   if (!git?.path || basename(git.path).toLowerCase() !== SKILL_FILE_NAME) {
+      return normalizeName(parsed.inferredName);
+   }
+
+   // The file is always called SKILL.md, so the name comes from its directory, or from the
+   // repository when the file is at its root.
+   return normalizeName(basename(getSkillDirPath(git.path) ?? git.url));
 }
 
 async function resolveDirectSkill(options: ResolveDirectInstallOptions): Promise<DirectInstallConfig> {
