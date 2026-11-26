@@ -8,11 +8,23 @@ interface RecordedInstall {
    ignoreScripts: string | undefined;
 }
 
+interface RecordedCommand {
+   command: string;
+   args: string[];
+   options: unknown;
+}
+
 const nypm = vi.hoisted(() => {
    const installs: RecordedInstall[] = [],
          pendingInstalls: Array<() => void> = [];
 
    return { installs, pendingInstalls, failNextInstall: false, holdInstalls: false };
+});
+
+const tinyexec = vi.hoisted(() => {
+   const commands: RecordedCommand[] = [];
+
+   return { commands, exitCode: 0 };
 });
 
 /**
@@ -45,6 +57,16 @@ vi.mock('nypm', () => {
    };
 });
 
+vi.mock('tinyexec', () => {
+   return {
+      x: async (command: string, args: string[], options: unknown) => {
+         tinyexec.commands.push({ command, args, options });
+
+         return { exitCode: tinyexec.exitCode, stdout: '', stderr: 'postinstall: download failed' };
+      },
+   };
+});
+
 describe('node runtime adapter package installs', () => {
    const originalIgnoreScripts = process.env[IGNORE_SCRIPTS_ENV_VAR];
 
@@ -54,6 +76,8 @@ describe('node runtime adapter package installs', () => {
       nypm.pendingInstalls.length = 0;
       nypm.failNextInstall = false;
       nypm.holdInstalls = false;
+      tinyexec.commands.length = 0;
+      tinyexec.exitCode = 0;
    });
 
    afterEach(() => {
@@ -129,5 +153,45 @@ describe('node runtime adapter package installs', () => {
 
       expect(whileSecondRuns).toBe('true');
       expect(process.env[IGNORE_SCRIPTS_ENV_VAR]).toBeUndefined();
+   });
+
+   describe('running install scripts', () => {
+      it('rebuilds only the named packages, with nothing after `--` read as an option', async () => {
+         await nodeRuntimeAdapter.npm.rebuildPackages(['@acme/linter@1.2.0', '--ignore-scripts=false'], '/project/.aix/.tmp/config');
+
+         expect(tinyexec.commands).toEqual([
+            {
+               command: 'npm',
+               args: ['rebuild', '--', '@acme/linter@1.2.0', '--ignore-scripts=false'],
+               options: { nodeOptions: { cwd: '/project/.aix/.tmp/config', env: {} } },
+            },
+         ]);
+      });
+
+      it('does not inherit the setting that a config install still in progress holds on', async () => {
+         nypm.holdInstalls = true;
+
+         const install = nodeRuntimeAdapter.npm.installDependencies('/project/.aix/extends/first');
+
+         await vi.waitFor(() => {
+            expect(nypm.pendingInstalls).toHaveLength(1);
+         });
+
+         await nodeRuntimeAdapter.npm.rebuildPackages(['@acme/linter'], '/project/.aix/.tmp/second');
+         nypm.pendingInstalls[0]?.();
+         await install;
+
+         expect(tinyexec.commands[0]?.options).toEqual({
+            nodeOptions: { cwd: '/project/.aix/.tmp/second', env: { [IGNORE_SCRIPTS_ENV_VAR]: 'false' } },
+         });
+      });
+
+      it('fails with the output of npm when a script fails', async () => {
+         tinyexec.exitCode = 1;
+
+         await expect(nodeRuntimeAdapter.npm.rebuildPackages(['@acme/linter'], '/project/.aix/.tmp/config')).rejects.toThrow(
+            'postinstall: download failed',
+         );
+      });
    });
 });

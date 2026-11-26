@@ -17,6 +17,10 @@ version may appear here with no changes to this package.
 - Install a skill from the GitHub URL of its `SKILL.md` file with
   `aix install <url> --type skill`. It failed with "SKILL.md not found"; `aix add skill`
   already accepted the same URL
+- Make `aix install` run the install scripts of the packages that a git `extends` repository
+  approves in the `allowScripts` field of its `package.json`. No script ran before, so a hook
+  that depends on a binary downloaded in `postinstall`, such as vale, stopped working after
+  each install
 
 ## [0.10.0] - 2026-11-25
 

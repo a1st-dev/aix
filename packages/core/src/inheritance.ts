@@ -22,6 +22,9 @@ const SOURCE_REF_SECTIONS = ['skills', 'rules', 'prompts', 'agents'] as const,
       // Files that decide what `npm install` puts in node_modules
       DEPENDENCY_MANIFESTS = ['package.json', 'package-lock.json', 'npm-shrinkwrap.json', '.npmrc'] as const,
       INSTALL_FINGERPRINT_FILE = '.aix-install-fingerprint',
+      // Part of every install fingerprint. Raise it when aix changes what an install leaves
+      // in node_modules, so that packages installed by another procedure are not reused.
+      INSTALL_PROCEDURE_VERSION = '2',
       DEFAULT_CONFIG_FILE = 'ai.json',
       CURRENT_DIR = '.';
 
@@ -384,9 +387,35 @@ function getDependencyFingerprint(dir: string): string | undefined {
       return undefined;
    }
 
-   return createCacheKey(...DEPENDENCY_MANIFESTS.map((name) => {
+   return createCacheKey(INSTALL_PROCEDURE_VERSION, ...DEPENDENCY_MANIFESTS.map((name) => {
       return fs.existsSync(join(dir, name)) ? fs.readFileSync(join(dir, name), 'utf-8') : undefined;
    }));
+}
+
+/**
+ * The packages whose install scripts the repository in `dir` approves: the keys set to
+ * `true` in the `allowScripts` field of its package.json, which is where npm reads its own
+ * install script policy. A key is a package name, or a name and an exact version.
+ */
+function listApprovedScriptPackages(dir: string): string[] {
+   const manifest: unknown = JSON.parse(getRuntimeAdapter().fs.readFileSync(join(dir, 'package.json'), 'utf-8')),
+         allowScripts = isRecord(manifest) ? manifest.allowScripts : undefined;
+
+   if (!isRecord(allowScripts)) {
+      return [];
+   }
+
+   return Object.keys(allowScripts).filter((packageSpec) => {
+      return allowScripts[packageSpec] === true;
+   });
+}
+
+async function runApprovedInstallScripts(dir: string): Promise<void> {
+   const approvedPackages = listApprovedScriptPackages(dir);
+
+   if (approvedPackages.length > 0) {
+      await getRuntimeAdapter().npm.rebuildPackages(approvedPackages, dir);
+   }
 }
 
 /**
@@ -408,6 +437,12 @@ function needsDependencyInstall(dir: string, previousDir: string): boolean {
  * manager runs only when the dependency manifests differ from those the copy being replaced
  * was installed from; otherwise that copy's packages are moved over, so that loading a config
  * does not reinstall every time.
+ *
+ * The install runs no lifecycle script. Some packages are unusable without theirs, such as a
+ * linter that downloads its binary in `postinstall`, so the install scripts of the packages
+ * that the repository approves run afterwards. The repository can already install a hook
+ * command that the user's editor runs, so an approval lets its author run nothing new. It
+ * only moves the first run to the install. A dependency that nobody approved runs nothing.
  */
 async function installExtendsDependencies(dir: string, previousDir: string): Promise<void> {
    const { fs, npm } = getRuntimeAdapter(),
@@ -425,6 +460,7 @@ async function installExtendsDependencies(dir: string, previousDir: string): Pro
    }
 
    await npm.installDependencies(dir);
+   await runApprovedInstallScripts(dir);
    await fs.mkdir(modulesDir, { recursive: true });
    await fs.writeFile(join(modulesDir, INSTALL_FINGERPRINT_FILE), fingerprint, 'utf-8');
 }

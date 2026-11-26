@@ -27,6 +27,9 @@ const unsupportedNpmAdapter: RuntimeNpmAdapter = {
    installDependencies: async () => {
       return unsupported('npm-install', 'installing npm dependencies');
    },
+   rebuildPackages: async () => {
+      return unsupported('npm-install', 'running npm install scripts');
+   },
    resolvePackagePath: async () => {
       return unsupported('npm-resolution', 'resolving npm package paths');
    },

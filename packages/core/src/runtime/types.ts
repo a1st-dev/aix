@@ -93,7 +93,13 @@ export interface RuntimeGitAdapter {
 
 export interface RuntimeNpmAdapter {
    ensureDependencyInstalled(packageSpec: string, cwd: string): Promise<void>;
+   /** Install the dependencies of the package in `cwd` without running a lifecycle script. */
    installDependencies(cwd: string): Promise<void>;
+   /**
+    * Run the install scripts of the packages installed in `cwd` that match `packageSpecs`,
+    * each a name or a name and version such as `@acme/tool@1.2.0`.
+    */
+   rebuildPackages(packageSpecs: readonly string[], cwd: string): Promise<void>;
    resolvePackagePath(packageName: string, projectRoot: string, subpath?: string): Promise<string>;
 }
 

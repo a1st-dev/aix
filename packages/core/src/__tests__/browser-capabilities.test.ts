@@ -55,6 +55,9 @@ function createBrowserLikeAdapter(): RuntimeAdapter {
          installDependencies: async () => {
             throw new UnsupportedRuntimeCapabilityError('npm-install', 'installing npm dependencies');
          },
+         rebuildPackages: async () => {
+            throw new UnsupportedRuntimeCapabilityError('npm-install', 'running npm install scripts');
+         },
          resolvePackagePath: async () => {
             throw new UnsupportedRuntimeCapabilityError('npm-resolution', 'resolving npm package paths');
          },

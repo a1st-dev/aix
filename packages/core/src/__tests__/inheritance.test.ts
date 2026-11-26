@@ -19,10 +19,12 @@ interface FakeRemote {
    installFails?: boolean;
    /** Directories the package manager was asked to install in */
    installs: string[];
+   /** The packages whose install scripts the package manager was asked to run, per request */
+   rebuilds: string[][];
 }
 
 function createRemote(files: Record<string, string>): FakeRemote {
-   return { files, installs: [] };
+   return { files, installs: [], rebuilds: [] };
 }
 
 describe('resolveExtends', () => {
@@ -535,6 +537,9 @@ describe('resolveExtends', () => {
                   await mkdir(join(cwd, 'node_modules', 'dependency'), { recursive: true });
                   await writeFile(join(cwd, 'node_modules', 'dependency', 'index.js'), '', 'utf-8');
                },
+               rebuildPackages: async (packageSpecs) => {
+                  remote.rebuilds.push([...packageSpecs]);
+               },
             },
          };
 
@@ -587,6 +592,27 @@ describe('resolveExtends', () => {
          expect(remote.installs).toHaveLength(1);
          expect(remote.installs[0]?.startsWith(join(testDir, '.aix', 'extends'))).toStrictEqual(false);
          expect(existsSync(join(copyDir, 'node_modules', 'dependency', 'index.js'))).toStrictEqual(true);
+      });
+
+      it('runs the install scripts of only the packages that the repository approves', async () => {
+         const remote = createRemote({
+            'ai.json': '{}',
+            'package.json': '{ "allowScripts": { "@acme/linter@1.2.0": true, "tracker": false } }',
+         });
+
+         await loadConfigExtending(remote);
+         await loadConfigExtending(remote);
+
+         expect(remote.rebuilds).toEqual([['@acme/linter@1.2.0']]);
+      });
+
+      it('runs no install script for a repository that approves none', async () => {
+         const remote = createRemote({ 'ai.json': '{}', 'package.json': '{ "dependencies": { "left-pad": "1.3.0" } }' });
+
+         await loadConfigExtending(remote);
+
+         expect(remote.installs).toHaveLength(1);
+         expect(remote.rebuilds).toEqual([]);
       });
 
       it('skips the install when the extends copy has no package.json', async () => {

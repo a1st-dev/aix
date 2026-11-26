@@ -117,6 +117,7 @@ let activeConfigInstalls = 0,
  * config that may have been downloaded, so nothing in them is allowed to pick what runs:
  * callers pin the package manager to npm (nypm would otherwise take the command name from
  * the directory's `packageManager` field or lockfiles) and no lifecycle script is run.
+ * `rebuildPackages` is the only way to run one, and its caller lists the packages.
  *
  * nypm cannot pass flags or an environment to the package manager, so the setting goes into
  * this process's environment, which the child inherits. Installs can overlap, so the previous
@@ -161,6 +162,30 @@ async function installDependencies(cwd: string): Promise<void> {
    await withLifecycleScriptsIgnored(() => {
       return nypmInstallDependencies({ cwd, silent: true, packageManager: 'npm' });
    });
+}
+
+/**
+ * The environment override for an npm run that follows the user's own `ignore-scripts`
+ * setting. A config install that is still running holds the setting on in this process's
+ * environment, and a child process started now would inherit that.
+ */
+function getUserScriptsEnv(): Record<string, string> {
+   if (activeConfigInstalls === 0) {
+      return {};
+   }
+
+   return { [IGNORE_SCRIPTS_ENV_VAR]: ignoreScriptsBeforeInstalls ?? 'false' };
+}
+
+async function rebuildPackages(packageSpecs: readonly string[], cwd: string): Promise<void> {
+   const { x } = await import('tinyexec'),
+         // `--` ends npm's options, so a spec that starts with a dash is not read as a flag.
+         args = ['rebuild', '--', ...packageSpecs],
+         { exitCode, stdout, stderr } = await x('npm', args, { nodeOptions: { cwd, env: getUserScriptsEnv() } });
+
+   if (exitCode !== 0) {
+      throw new Error([`\`npm ${args.join(' ')}\` failed in ${cwd}.`, stdout, stderr].join('\n'));
+   }
 }
 
 async function resolvePackagePath(packageName: string, projectRoot: string, subpath = 'package.json'): Promise<string> {
@@ -328,6 +353,7 @@ export const nodeRuntimeAdapter: RuntimeAdapter = {
    npm: {
       ensureDependencyInstalled,
       installDependencies,
+      rebuildPackages,
       resolvePackagePath,
    },
    os: {

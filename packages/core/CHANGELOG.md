@@ -7,6 +7,11 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add `rebuildPackages` to `RuntimeNpmAdapter`, which runs the install scripts of the named
+  packages in a directory. A custom runtime adapter must now implement it
+
 ### Fixed
 
 - Resolve the relative paths of a config extended by a GitHub blob URL inside that config's
@@ -17,6 +22,12 @@ version may appear here with no changes to this package.
 - Resolve a GitHub URL of a `SKILL.md` file in `resolveDirectInstallConfig` to the skill's
   directory, and name the skill after that directory. It resolved to the file and named
   the skill `skill`
+- Run the install scripts of the packages that a git `extends` repository approves in the
+  `allowScripts` field of its `package.json`. The install ran no script at all, so a package
+  that downloads its binary in `postinstall`, such as `@vvago/vale`, had no binary and the
+  hooks that call it stopped working after each install
+- Install the dependencies of a git `extends` copy again when an earlier version of aix
+  installed them
 
 ## [0.10.0] - 2026-11-25
 

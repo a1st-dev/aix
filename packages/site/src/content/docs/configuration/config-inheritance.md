@@ -77,6 +77,28 @@ config, such as `aix validate` and `aix install --dry-run`, never run npm. When 
 config has changed in a way that needs an install, they keep reading the copy that is already
 installed until the next `aix install`.
 
+Some packages do not work until their install script has run. A package that downloads a binary
+in `postinstall` is one example. To run the install scripts of such a package, approve it in the
+`allowScripts` field of the repository's `package.json`. This is the field that npm reads its own
+install script policy from, and `npm approve-scripts` writes it:
+
+```json
+{
+   "devDependencies": {
+      "@vvago/vale": "3.17.1"
+   },
+   "allowScripts": {
+      "@vvago/vale@3.17.1": true
+   }
+}
+```
+
+After the install, aix runs `npm rebuild` for the packages set to `true` and for no others. Use a
+package name, or a name and an exact version. npm rejects any other kind of key, and the install
+then fails and keeps the copy that was already installed. A package without an entry, or with an
+entry set to `false`, runs no script. If your own npm config sets `ignore-scripts`, npm runs none
+of them.
+
 ### URLs
 
 Direct HTTPS URLs to a JSON file. Plain HTTP is rejected.
