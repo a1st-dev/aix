@@ -7,6 +7,8 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-26
+
 ### Fixed
 
 - Install skills, rules, prompts, and agents that a config extended by a GitHub blob URL

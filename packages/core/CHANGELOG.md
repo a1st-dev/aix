@@ -7,6 +7,8 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-26
+
 ### Added
 
 - Add `rebuildPackages` to `RuntimeNpmAdapter`, which runs the install scripts of the named
