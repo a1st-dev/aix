@@ -29,7 +29,7 @@
       "yaml": "2.8.4"
    },
    "devDependencies": {
-      "@astrojs/check": "0.9.9",
+      "@astrojs/check": "0.9.12",
       "sass": "1.108.2"
    }
 }
