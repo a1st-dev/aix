@@ -1,0 +1,194 @@
+:root[data-has-sidebar] {
+   --sl-sidebar-width: 16.5rem;
+}
+
+// The navigation and reading surfaces share Starlight's layout and breakpoints.
+.page {
+   --aix-docs-surface: color-mix(in oklab, var(--sl-color-bg) 40%, var(--sl-color-bg-nav));
+   --aix-docs-border: var(--sl-color-hairline-light);
+   --aix-docs-radius: 0.5rem;
+   --aix-docs-label-size: var(--sl-text-2xs);
+   --aix-docs-label-spacing: 0.09em;
+   --sl-color-bg-sidebar: var(--aix-docs-surface);
+   --sl-color-hairline-shade: var(--aix-docs-border);
+   --sl-line-height: 1.65;
+
+   // Match the main reading area's spacing to the rail at its desktop breakpoint.
+   @media (min-width: 50rem) {
+      --sl-sidebar-pad-x: 1.25rem;
+   }
+
+   @media (min-width: 72rem) {
+      --sl-content-pad-x: clamp(1.5rem, 2.5vw, 2.75rem);
+   }
+
+   // Keep the geometric pattern inside the title instead of behind prose and code.
+   .docsPageTitle {
+      position: relative;
+      isolation: isolate;
+      overflow: clip;
+      padding: 1.5rem clamp(1.25rem, 3vw, 2rem);
+      border: 1px solid var(--aix-docs-border);
+      border-radius: var(--aix-docs-radius);
+      background: var(--aix-docs-surface);
+
+      &::after {
+         position: absolute;
+         z-index: -1;
+         inset: 0;
+         background: url("/pattern.svg") right center / 22rem repeat;
+         opacity: calc(var(--aix-pattern-opacity) * 1.5);
+         mask-image: linear-gradient(to left, black, transparent 55%);
+         pointer-events: none;
+         content: "";
+      }
+
+      &-section {
+         margin-block-end: 0.55rem;
+         color: var(--sl-color-accent);
+         font-family: var(--sl-font-system-mono);
+         font-size: var(--aix-docs-label-size);
+         font-weight: 600;
+         letter-spacing: var(--aix-docs-label-spacing);
+         text-transform: uppercase;
+      }
+
+      h1 {
+         margin-block-start: 0;
+         font-size: var(--sl-text-5xl);
+         line-height: 1.04;
+         overflow-wrap: anywhere;
+         text-wrap: balance;
+
+         @media (min-width: 50rem) {
+            font-size: 3.45rem;
+         }
+      }
+   }
+
+   .content-panel {
+      &:has(.docsPageTitle) {
+         padding-block-end: 0;
+      }
+
+      &:has(.docsPageTitle) + .content-panel {
+         padding-block-start: 1.65rem;
+         border-block-start: 0;
+      }
+   }
+
+   .sidebar-content {
+      padding-block-start: 1.25rem;
+
+      .top-level > li + li {
+         margin-block-start: 0.8rem;
+      }
+
+      summary,
+      a {
+         border-radius: var(--aix-docs-radius);
+      }
+
+      a {
+         margin-block: 0.125rem;
+         padding-block: 0.38rem;
+      }
+
+      a[aria-current="page"] {
+         background: var(--sl-color-accent-low);
+         color: var(--sl-color-accent-high);
+         box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--sl-color-accent) 30%, transparent);
+      }
+
+      @media (hover: hover) {
+         summary:hover,
+         a:not([aria-current="page"]):hover {
+            background: var(--aix-accent-ghost);
+         }
+      }
+   }
+
+   .right-sidebar-panel {
+      padding-block-start: 1.65rem;
+
+      #starlight__on-this-page {
+         margin-block-end: 0.75rem;
+         color: var(--sl-color-gray-3);
+         font-family: var(--sl-font-system-mono);
+         font-size: var(--aix-docs-label-size);
+         letter-spacing: var(--aix-docs-label-spacing);
+         text-transform: uppercase;
+      }
+
+      a {
+         padding-block: 0.35rem;
+      }
+
+      a[aria-current="true"] {
+         background: var(--sl-color-accent-low);
+         color: var(--sl-color-accent-high);
+         font-weight: 600;
+      }
+   }
+
+   .sl-markdown-content {
+      > :is(p, ul, ol, blockquote) {
+         max-inline-size: 72ch;
+         overflow-wrap: anywhere;
+      }
+
+      > p:first-child {
+         font-size: var(--sl-text-lg);
+      }
+
+      :is(h2, h3, h4) {
+         text-wrap: pretty;
+      }
+
+      h2 {
+         font-size: var(--sl-text-3xl);
+      }
+
+      h3 {
+         font-size: var(--sl-text-2xl);
+      }
+
+      a:not(:where(.sl-anchor-link, .sl-link-button)) {
+         text-underline-offset: 0.2em;
+         text-decoration-thickness: 0.06em;
+      }
+
+      .starlight-aside {
+         border: 1px solid color-mix(in oklab, var(--sl-color-asides-border) 48%, transparent);
+         border-radius: var(--aix-docs-radius);
+      }
+
+      thead {
+         background: var(--aix-docs-surface);
+         color: var(--sl-color-white);
+      }
+   }
+
+   .pagination-links {
+      padding-block-start: 0.75rem;
+      border-block-start: 1px solid var(--aix-docs-border);
+
+      a {
+         gap: 0.8rem;
+         border-color: var(--aix-docs-border);
+         border-radius: var(--aix-docs-radius);
+         background: var(--aix-docs-surface);
+         font-size: var(--sl-text-xs);
+         box-shadow: none;
+
+         &:is(:hover, :focus-visible) {
+            border-color: var(--sl-color-accent);
+         }
+      }
+
+      .link-title {
+         font-size: var(--sl-text-base);
+         font-weight: 600;
+      }
+   }
+}

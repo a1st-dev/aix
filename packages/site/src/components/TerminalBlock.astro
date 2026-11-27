@@ -6,12 +6,9 @@
 interface Props {
   title?: string;
   lines: string[];
-  typing?: boolean;
 }
 
-const { title = 'Terminal', lines, typing = false } = Astro.props;
-
-const LINE_STAGGER_SECONDS = 0.12;
+const { title = 'Terminal', lines } = Astro.props;
 ---
 
 <div class="terminal-block">
@@ -22,8 +19,8 @@ const LINE_STAGGER_SECONDS = 0.12;
     <span class="terminal-title">{title}</span>
   </div>
   <div class="terminal-body">
-    {lines.map((line, i) => (
-      <div class="terminal-line reveal" style={`--reveal-delay: ${i * LINE_STAGGER_SECONDS}s`}>
+    {lines.map((line) => (
+      <div class="terminal-line">
         {line.startsWith("$") ? (
           <>
             <span class="terminal-prompt">$</span>
@@ -36,14 +33,11 @@ const LINE_STAGGER_SECONDS = 0.12;
         )}
       </div>
     ))}
-    {typing && <div class="terminal-cursor" aria-hidden="true" />}
   </div>
 </div>
 
 <style>
   .terminal-block {
-    --reveal-distance: 0.25rem;
-
     background: var(--aix-surface-deep);
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 12px;
@@ -110,25 +104,5 @@ const LINE_STAGGER_SECONDS = 0.12;
   .terminal-comment {
     color: var(--aix-text-muted);
     font-style: italic;
-  }
-  .terminal-cursor {
-    display: inline-block;
-    width: 8px;
-    height: 16px;
-    background: var(--sl-color-accent);
-    margin-block-start: 4px;
-    vertical-align: text-bottom;
-  }
-
-  /* The cursor blinks a few times and then rests, so nothing on the page moves forever. */
-  @media (prefers-reduced-motion: no-preference) {
-    .terminal-cursor {
-      animation: terminal-blink 1s step-end 4;
-    }
-  }
-  @keyframes terminal-blink {
-    50% {
-      opacity: 0;
-    }
   }
 </style>

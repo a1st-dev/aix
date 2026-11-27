@@ -113,23 +113,30 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
       <!-- Hero -->
       <section class="hero">
         <div class="hero__container">
-          <div class="hero__accent-line reveal" aria-hidden="true"></div>
-          <h1 class="hero__title">
-            <span class="hero__title-line hero__title-line--1 reveal">One config file.</span>
-            <span class="hero__title-line hero__title-line--2 reveal">Every AI editor.</span>
-          </h1>
-          <p class="hero__subtitle reveal">
-            Define your
-            <a href="/concepts/skills/" class="highlight">skills</a>,
-            <a href="/concepts/rules/" class="highlight">rules</a>,
-            <a href="/concepts/prompts/" class="highlight">prompts</a>,
-            <a href="/concepts/agents/" class="highlight">subagents</a>,
-            <a href="/concepts/mcp-servers/" class="highlight">MCP servers</a>,
-            <a href="/concepts/hooks/" class="highlight">hooks</a>, and
-            <a href="/concepts/plugins/" class="highlight">plugins</a> in
-            <code>ai.json</code>. Install to {supportedEditorsText} with one command.
-          </p>
-          <div class="hero__terminal reveal">
+          <div class="hero__intro">
+            <h1 class="hero__title">
+              <span class="hero__title-line">One config file.</span>
+              <span class="hero__title-line hero__title-line--2">Every AI editor.</span>
+            </h1>
+            <p class="hero__subtitle">
+              Define your
+              <a href="/concepts/skills/" class="highlight">skills</a>,
+              <a href="/concepts/rules/" class="highlight">rules</a>,
+              <a href="/concepts/prompts/" class="highlight">prompts</a>,
+              <a href="/concepts/agents/" class="highlight">subagents</a>,
+              <a href="/concepts/mcp-servers/" class="highlight">MCP servers</a>,
+              <a href="/concepts/hooks/" class="highlight">hooks</a>, and
+              <a href="/concepts/plugins/" class="highlight">plugins</a> in
+              <code>ai.json</code>. Install that configuration across your editors with one command.
+            </p>
+            <div class="hero__cta-row">
+              <a href="/getting-started/installation/" class="hero__cta">Get started</a>
+              <a href="/getting-started/quick-start/" class="hero__cta hero__cta--secondary">
+                Quick start →
+              </a>
+            </div>
+          </div>
+          <div class="hero__terminal">
             <TerminalBlock
               lines={[
                 "$ npm install -g @a1st/aix",
@@ -137,14 +144,7 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
                 "$ aix add skill obra/superpowers/skills/brainstorming --save",
                 "$ aix install",
               ]}
-              typing
             />
-          </div>
-          <div class="hero__cta-row reveal">
-            <a href="/getting-started/installation/" class="hero__cta">Get started</a>
-            <a href={repositoryUrl} class="hero__cta hero__cta--secondary" rel="noopener noreferrer">
-              GitHub →
-            </a>
           </div>
         </div>
       </section>

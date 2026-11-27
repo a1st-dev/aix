@@ -14,24 +14,28 @@ export const docsSidebar = [
    },
    {
       label: 'Concepts',
+      collapsed: true,
       items: [
          { autogenerate: { directory: 'concepts' } },
       ],
    },
    {
       label: 'Configuration',
+      collapsed: true,
       items: [
          { autogenerate: { directory: 'configuration' } },
       ],
    },
    {
       label: 'CLI reference',
+      collapsed: true,
       items: [
          { autogenerate: { directory: 'cli' } },
       ],
    },
    {
       label: 'Editors',
+      collapsed: true,
       items: [
          {
             label: 'Supported editors',
@@ -39,6 +43,7 @@ export const docsSidebar = [
          },
          {
             label: 'By editor',
+            collapsed: true,
             items: editorDetailLinks,
          },
          {

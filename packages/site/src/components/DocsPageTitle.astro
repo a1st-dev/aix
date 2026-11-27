@@ -1,0 +1,18 @@
+---
+import PageTitle from '@astrojs/starlight/components/PageTitle.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+
+function containsCurrentPage(entry: (typeof sidebar)[number]): boolean {
+   return entry.type === 'link' ? entry.isCurrent : entry.entries.some(containsCurrentPage);
+}
+
+const section = sidebar.find((entry) => {
+   return entry.type === 'group' && containsCurrentPage(entry);
+});
+---
+
+<div class="docsPageTitle">
+   {section && <p class="docsPageTitle-section" data-pagefind-ignore>{section.label}</p>}
+   <PageTitle />
+</div>

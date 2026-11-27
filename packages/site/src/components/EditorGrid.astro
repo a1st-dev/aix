@@ -33,12 +33,12 @@ const editors = editorSupportProfiles.map((editor) => ({
   </ul>
 </div>
 
-<style>
+<style lang="scss">
   .editor-grid {
     container-type: inline-size;
     position: relative;
     padding-block: 2rem;
-    max-width: 720px;
+    max-inline-size: 52rem;
     margin-inline: auto;
   }
   .editor-grid__line {
@@ -57,12 +57,19 @@ const editors = editorSupportProfiles.map((editor) => ({
     opacity: 0.3;
   }
   .editor-grid__items {
+    --editor-grid-columns: 3;
+    --editor-grid-gap: 0.5rem;
+
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.5rem;
+    gap: var(--editor-grid-gap);
     position: relative;
     list-style: none;
+  }
+  .editor-grid__items > li {
+    flex: 0 0 calc((100% + var(--editor-grid-gap)) / var(--editor-grid-columns) - var(--editor-grid-gap));
+    min-inline-size: 0;
   }
   .editor-grid__item {
     display: flex;
@@ -102,7 +109,8 @@ const editors = editorSupportProfiles.map((editor) => ({
     font-size: 0.75rem;
     color: var(--aix-text-muted);
     letter-spacing: 0.03em;
-    white-space: nowrap;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
   .editor-grid__dot {
     display: none;
@@ -115,11 +123,19 @@ const editors = editorSupportProfiles.map((editor) => ({
     bottom: -14px;
   }
 
-  /* Wide enough for one row: spread the editors out and thread the line through them. */
-  @container (min-width: 44rem) {
+  @container (min-width: 35rem) {
     .editor-grid__items {
-      flex-wrap: nowrap;
+      --editor-grid-columns: 5;
+    }
+  }
+
+  /* Wide enough for one row: spread the editors out and thread the line through them. */
+  @container (min-width: 51rem) {
+    .editor-grid__items {
       justify-content: space-between;
+    }
+    .editor-grid__items > li {
+      flex-basis: auto;
     }
     .editor-grid__line,
     .editor-grid__dot {

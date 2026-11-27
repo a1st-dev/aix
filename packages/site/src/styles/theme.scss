@@ -233,27 +233,8 @@ nav.sidebar .top-level > li > details > summary .large {
    color: inherit;
 }
 
-/* ---- Background Pattern ---- */
 html {
-   background-color: var(--sl-color-bg);
-}
-
-body {
-   background-color: transparent;
-}
-
-body::after {
-   content: "";
-   display: block;
-   position: fixed;
-   inset: 0;
-   pointer-events: none;
-   z-index: -1;
-
-   background-image: url("/pattern.svg");
-   background-repeat: repeat;
-   background-size: 600px;
-   opacity: var(--aix-pattern-opacity);
+   background: var(--sl-color-bg);
 }
 
 /* ---- Shared component utilities ---- */
