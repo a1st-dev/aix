@@ -5,6 +5,7 @@ import CodeBlock from '../components/CodeBlock.astro';
 import TerminalBlock from '../components/TerminalBlock.astro';
 import EditorGrid from '../components/EditorGrid.astro';
 import FeatureCard from '../components/FeatureCard.astro';
+import MigrationPairLinks from '../components/MigrationPairLinks.astro';
 import ComparisonStrip from '../components/ComparisonStrip.astro';
 import logoDarkSrc from '../assets/logo-dark.svg?url';
 import logoLightSrc from '../assets/logo-light.svg?url';
@@ -168,10 +169,10 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
       <!-- Comparison -->
       <section class="section comparison-section" aria-labelledby="comparison-title">
         <div class="section__inner">
-          <h2 class="section__title" id="comparison-title">One skill, three editors</h2>
+          <h2 class="section__title" id="comparison-title">Share AI configuration with your team</h2>
           <p class="section__desc">
-            Here’s how a team can share a code review skill across Cursor, Claude Code,
-            and GitHub Copilot.
+            Give your team a shared set of skills, rules, prompts, agents, MCP servers,
+            hooks, plugins, and marketplaces across editors with one <code>ai.json</code>.
           </p>
           <ComparisonStrip />
         </div>
@@ -183,9 +184,22 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
           <h2 class="section__title" id="features-title">What you can do with aix</h2>
           <div class="features-section__cards">
             <FeatureCard
+              label="aix sync"
+              title="Migrate between editors in one command"
+              description="Copy skills, rules, MCP servers, and other config to your new editor, converting them to its native format."
+              language="bash"
+              code="aix sync codex --to claude-code"
+              exampleLabel="Terminal"
+              href="/getting-started/migrate-between-editors/"
+              linkLabel="Learn how to migrate between editors"
+            >
+              <MigrationPairLinks />
+            </FeatureCard>
+
+            <FeatureCard
               label="aix install"
-              title="Install one config across editors"
-              description="Write ai.json once. aix translates it into each editor’s native format and installs it for your user account or the current project."
+              title="Set up your AI editors from one file"
+              description="aix reads your ai.json and writes settings in the native format of each editor you choose. Apply them to your account or just the current project."
               language="bash"
               code="aix install"
               exampleLabel="Terminal"

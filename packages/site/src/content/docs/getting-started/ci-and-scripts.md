@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 4
+   order: 5
 title: Use aix in CI and scripts
 description: Run aix without a terminal, choose editors and scope explicitly, and read its exit status and JSON output.
 ---

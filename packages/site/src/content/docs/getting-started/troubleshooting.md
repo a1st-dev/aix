@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 6
+   order: 7
 title: Troubleshooting
 description: Messages aix prints and results you may not expect, with the cause and the fix for each.
 ---

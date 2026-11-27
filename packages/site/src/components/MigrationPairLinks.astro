@@ -1,0 +1,71 @@
+---
+import { Icon } from 'astro-icon/components';
+import { editorIconNames, getEditorById, getMigrationRoute } from '../lib/editor-support';
+
+const pairs = [
+   { from: 'cursor', to: 'claude-code' },
+   { from: 'claude-code', to: 'codex' },
+   { from: 'codex', to: 'cursor' },
+] as const;
+---
+
+<ul class="migrationPairLinks" aria-label="More editor migrations" role="list">
+   {pairs.map(({ from, to }) => {
+      const label = `Migrate from ${getEditorById(from).name} to ${getEditorById(to).name}`;
+
+      return (
+         <li>
+            <a class="migrationPairLinks-link" href={getMigrationRoute(from, to)} aria-label={label} title={label}>
+               <Icon class="migrationPairLinks-logo" name={editorIconNames[from]} aria-hidden="true" />
+               <Icon class="migrationPairLinks-arrow" name="lucide:arrow-right" aria-hidden="true" />
+               <Icon class="migrationPairLinks-logo" name={editorIconNames[to]} aria-hidden="true" />
+            </a>
+         </li>
+      );
+   })}
+</ul>
+
+<style lang="scss">
+   .migrationPairLinks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-block-start: 1px solid var(--sl-color-hairline-light);
+      list-style: none;
+
+      &-link {
+         display: flex;
+         align-items: center;
+         gap: 0.4rem;
+         min-block-size: 2.75rem;
+         padding-inline: 0.65rem;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 0.4rem;
+         background: var(--aix-surface-sunken);
+         color: var(--sl-color-white);
+
+         &:focus-visible {
+            border-color: var(--sl-color-accent);
+         }
+
+         @media (hover: hover) {
+            &:hover {
+               border-color: var(--sl-color-accent);
+               background: var(--aix-accent-ghost);
+            }
+         }
+      }
+
+      &-logo {
+         inline-size: 1.25rem;
+         block-size: 1.25rem;
+      }
+
+      &-arrow {
+         inline-size: 0.875rem;
+         block-size: 0.875rem;
+         color: var(--sl-color-accent);
+      }
+   }
+</style>

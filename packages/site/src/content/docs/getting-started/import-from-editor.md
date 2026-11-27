@@ -9,8 +9,8 @@ If you already have rules, <abbr class="aix-term" title="Model Context Protocol"
 servers, or other AI config in your editor, `aix init --from` can convert it into an `ai.json`
 for you.
 
-If you do not want an intermediate `ai.json` yet, and just want to move supported config from
-one editor to another, use `aix sync <from> --to <to>` instead.
+To copy config directly into a different editor, follow
+[Migrate between editors](/getting-started/migrate-between-editors/).
 
 ## Usage
 

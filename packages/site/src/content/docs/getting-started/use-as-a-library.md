@@ -1,6 +1,6 @@
 ---
 sidebar:
-   order: 5
+   order: 6
 title: Use aix as a library
 description: Call @a1st/aix-core from your own CLI or library to install its skill, MCP server, or other config into your users' AI editors.
 ---
