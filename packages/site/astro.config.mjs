@@ -83,7 +83,7 @@ export default defineConfig({
                href: 'https://github.com/a1st-dev/aix',
             },
          ],
-         customCss: ['./src/styles/fonts.css', './src/styles/theme.css'],
+         customCss: ['./src/styles/fonts.css', './src/styles/theme.scss'],
          expressiveCode: {
             themes: ['vitesse-dark', 'vitesse-light'],
             useStarlightUiThemeColors: true,
