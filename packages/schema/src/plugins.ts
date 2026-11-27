@@ -19,9 +19,9 @@ export const pluginObjectSchema = z
       marketplace: z.string().optional().describe('Marketplace name where plugin is published'),
       source: sourceRefSchema.optional().describe('Direct source reference (path, git URL, npm package, or registry)'),
       enabled: z.boolean().optional().describe('Whether the plugin is active (default: true)'),
-      options: z.record(z.unknown()).optional().describe('Plugin-specific configuration options'),
+      options: z.record(z.string(), z.unknown()).optional().describe('Plugin-specific configuration options'),
       editor: z
-         .record(editorEnum, z.record(z.unknown()))
+         .partialRecord(editorEnum, z.record(z.string(), z.unknown()))
          .optional()
          .describe('Editor-specific plugin configuration fields'),
    })

@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-export const activationModeSchema = z
+const activationMode = z
    .enum(['always', 'auto', 'glob', 'manual'])
-   .default('always')
    .describe('When the rule should be activated');
+
+export const activationModeSchema = activationMode.default('always');
 
 export const gitSourceSchema = z
    .object({
@@ -31,7 +32,7 @@ export const npmSourceSchema = z
 export const ruleObjectSchema = z
    .object({
       description: z.string().optional().describe('When the rule should apply (required for auto mode)'),
-      activation: activationModeSchema.optional(),
+      activation: activationMode.optional().meta({ default: 'always' }),
       globs: z.array(z.string()).optional().describe('File patterns (required for glob mode)'),
       content: z.string().optional().describe('Inline rule content'),
       path: z.string().optional().describe('Local file path to rule content'),

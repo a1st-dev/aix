@@ -10,21 +10,21 @@ export const cacheSettingsSchema = z
          .int()
          .min(1)
          .max(100)
-         .default(5)
+         .meta({ default: 5 })
          .describe('Maximum number of backup files to keep per file'),
       maxBackupAgeDays: z
          .number()
          .int()
          .min(1)
          .max(365)
-         .default(30)
+         .meta({ default: 30 })
          .describe('Delete backups older than this many days'),
       maxCacheAgeDays: z
          .number()
          .int()
          .min(1)
          .max(365)
-         .default(7)
+         .meta({ default: 7 })
          .describe('Delete git-sourced cache entries older than this many days'),
    })
    .partial();

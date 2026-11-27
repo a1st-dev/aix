@@ -38,7 +38,7 @@ export const lockedEntitySchema = z
       integrity: sha512IntegritySchema,
       size: z.number().int().nonnegative(),
       source: z.unknown().optional(),
-      resolved: z.record(z.unknown()).optional(),
+      resolved: z.record(z.string(), z.unknown()).optional(),
       metadataDigest: sha256DigestSchema.optional(),
       files: z.array(lockedFileSchema).optional(),
    })
@@ -46,14 +46,14 @@ export const lockedEntitySchema = z
 
 export const lockedEntitiesSchema = z
    .object({
-      skills: z.record(lockedEntitySchema).default({}),
-      rules: z.record(lockedEntitySchema).default({}),
-      prompts: z.record(lockedEntitySchema).default({}),
-      agents: z.record(lockedEntitySchema).default({}),
-      mcp: z.record(lockedEntitySchema).default({}),
-      hooks: z.record(lockedEntitySchema).default({}),
-      editors: z.record(lockedEntitySchema).default({}),
-      aix: z.record(lockedEntitySchema).default({}),
+      skills: z.record(z.string(), lockedEntitySchema).default({}),
+      rules: z.record(z.string(), lockedEntitySchema).default({}),
+      prompts: z.record(z.string(), lockedEntitySchema).default({}),
+      agents: z.record(z.string(), lockedEntitySchema).default({}),
+      mcp: z.record(z.string(), lockedEntitySchema).default({}),
+      hooks: z.record(z.string(), lockedEntitySchema).default({}),
+      editors: z.record(z.string(), lockedEntitySchema).default({}),
+      aix: z.record(z.string(), lockedEntitySchema).default({}),
    })
    .strict();
 

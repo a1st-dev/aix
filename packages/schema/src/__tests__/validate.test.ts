@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateConfig, parseConfig } from '../validate.js';
+import { validateConfig, parseConfig, parseLocalConfig } from '../validate.js';
 import { aiJsonConfigSchema } from '../config.js';
 import { editorInputNames } from '../editors.js';
 
@@ -242,6 +242,20 @@ describe('parseConfig', () => {
       };
 
       expect(() => parseConfig(config)).toThrow();
+   });
+});
+
+describe('parseLocalConfig', () => {
+   it('keeps omitted settings absent so local overrides preserve inherited values', () => {
+      const localConfig = {
+         aix: { cache: { maxBackups: 3 } },
+         rules: { 'style-guide': { content: 'Use the local style guide.' } },
+         agents: { 'code-reviewer': { content: 'Review local changes.' } },
+      };
+
+      const parsed = parseLocalConfig(localConfig);
+
+      expect(parsed).toEqual(localConfig);
    });
 });
 

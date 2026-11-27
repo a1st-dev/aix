@@ -205,7 +205,7 @@ export type HookMatcher = z.infer<typeof hookMatcherSchema>;
  * Full hooks configuration - maps event types to arrays of matchers.
  */
 export const hooksSchema = z
-   .record(hookEventSchema, z.array(hookMatcherSchema))
+   .partialRecord(hookEventSchema, z.array(hookMatcherSchema))
    .describe('Hooks configuration for lifecycle events');
 
 export type HooksConfig = z.infer<typeof hooksSchema>;

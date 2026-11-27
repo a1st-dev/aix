@@ -3,10 +3,11 @@ import { gitSourceSchema, npmSourceSchema } from './rules.js';
 import { editorEnum } from './editors.js';
 import { mcpServerConfigSchema } from './mcp.js';
 
-export const agentModeSchema = z
+const agentMode = z
    .enum(['primary', 'subagent'])
-   .default('subagent')
    .describe('Whether the agent is a primary assistant or a delegated subagent');
+
+export const agentModeSchema = agentMode.default('subagent');
 
 export const agentPermissionValueSchema = z
    .enum(['allow', 'ask', 'deny'])
@@ -17,17 +18,17 @@ export const agentMcpServersSchema = z
    .describe('MCP servers available to this agent when the target editor supports per-agent MCP');
 
 export const agentEditorExtensionSchema = z
-   .record(editorEnum, z.record(z.unknown()))
+   .partialRecord(editorEnum, z.record(z.string(), z.unknown()))
    .describe('Editor-specific agent fields that aix preserves for round-tripping');
 
 export const agentObjectSchema = z
    .object({
       description: z.string().optional().describe('When this agent should be used'),
-      mode: agentModeSchema.optional(),
+      mode: agentMode.optional().meta({ default: 'subagent' }),
       model: z.string().optional().describe('Model alias or model ID for this agent'),
       tools: z.array(z.string()).optional().describe('Tool names or tool IDs available to this agent'),
       permissions: z
-         .record(agentPermissionValueSchema)
+         .record(z.string(), agentPermissionValueSchema)
          .optional()
          .describe('Portable capability permissions such as edit, bash, web, or write'),
       mcp: agentMcpServersSchema.optional(),
@@ -79,10 +80,10 @@ export const agentFrontmatterSchema = z
    .object({
       name: agentNameSchema.optional(),
       description: z.string().min(1).max(1024).optional(),
-      mode: agentModeSchema.optional(),
+      mode: agentMode.optional(),
       model: z.string().optional(),
       tools: z.union([z.array(z.string()), z.string()]).optional(),
-      permissions: z.record(agentPermissionValueSchema).optional(),
+      permissions: z.record(z.string(), agentPermissionValueSchema).optional(),
       mcp: agentMcpServersSchema.optional(),
       'mcp-servers': agentMcpServersSchema.optional(),
       editor: agentEditorExtensionSchema.optional(),

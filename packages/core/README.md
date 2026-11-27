@@ -9,7 +9,7 @@ A CLI or library can install its own skill, MCP server, rule, or prompt into the
 editors. No `ai.json` is involved and the user does not need `aix`.
 
 ```bash
-npm install @a1st/aix-core
+npm install @a1st/aix-core zod@^4
 ```
 
 ```js

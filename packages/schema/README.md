@@ -20,7 +20,7 @@ This package defines the structure and validation for `ai.json` files. It's used
 import {
    parseConfig, // Parse and validate a full ai.json config
    parseLocalConfig, // Parse config allowing local-only fields
-   aiJsonSchema, // Zod schema for ai.json
+   aiJsonConfigSchema, // Zod schema for ai.json
    type AiJsonConfig, // TypeScript type for validated config
 } from "@a1st/aix-schema";
 ```
@@ -38,7 +38,7 @@ The package exports `schema.json` for IDE integration:
 ## Installation
 
 ```bash
-npm install @a1st/aix-schema
+npm install @a1st/aix-schema zod@^4
 ```
 
 > **Note:** This package is primarily for internal use. Most users should install

@@ -53,5 +53,8 @@
       "p-map": "7.0.4",
       "pathe": "1.1.2",
       "tinyexec": "1.4.0"
+   },
+   "peerDependencies": {
+      "zod": "^4.0.0"
    }
 }

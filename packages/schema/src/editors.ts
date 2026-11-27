@@ -7,19 +7,19 @@ const baseEditorConfigSchema = z.object({
 });
 
 export const windsurfConfigSchema = baseEditorConfigSchema.extend({
-   cascadeSettings: z.record(z.unknown()).optional().describe('Windsurf Cascade settings'),
+   cascadeSettings: z.record(z.string(), z.unknown()).optional().describe('Windsurf Cascade settings'),
 });
 
 export const cursorConfigSchema = baseEditorConfigSchema.extend({
-   aiSettings: z.record(z.unknown()).optional().describe('Cursor AI settings'),
+   aiSettings: z.record(z.string(), z.unknown()).optional().describe('Cursor AI settings'),
 });
 
 export const claudeCodeConfigSchema = baseEditorConfigSchema.extend({
-   permissions: z.record(z.unknown()).optional().describe('Claude Code permissions'),
+   permissions: z.record(z.string(), z.unknown()).optional().describe('Claude Code permissions'),
 });
 
 export const antigravityConfigSchema = baseEditorConfigSchema.extend({
-   antigravitySettings: z.record(z.unknown()).optional().describe('Antigravity settings'),
+   antigravitySettings: z.record(z.string(), z.unknown()).optional().describe('Antigravity settings'),
 });
 
 /** Every editor aix installs to, under the name aix uses for it. */

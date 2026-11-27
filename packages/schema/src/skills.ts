@@ -13,7 +13,7 @@ export const skillNameSchema = z
 
 export const skillConfigSchema = z.object({
    enabled: z.boolean().default(true).describe('Whether skill is active'),
-   config: z.record(z.unknown()).optional().describe('Skill-specific configuration passed to SKILL.md'),
+   config: z.record(z.string(), z.unknown()).optional().describe('Skill-specific configuration passed to SKILL.md'),
 });
 
 export const skillRefSchema = z
@@ -22,7 +22,7 @@ export const skillRefSchema = z
       z.object({
          source: sourceRefSchema.describe('Where to load the skill from'),
          enabled: z.boolean().default(true).describe('Whether skill is active'),
-         config: z.record(z.unknown()).optional().describe('Skill-specific configuration'),
+         config: z.record(z.string(), z.unknown()).optional().describe('Skill-specific configuration'),
       }),
    ])
    .describe('Skill reference (Agent Skills spec compliant)');

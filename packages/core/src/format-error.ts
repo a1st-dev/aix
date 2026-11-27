@@ -96,7 +96,11 @@ function formatTypeError(expected: string, input: unknown, path: readonly Proper
    const actualValue = getValueAtPath(input, path),
          receivedStr = formatReceivedValue(actualValue);
 
-   return `Expected ${expected}, received ${receivedStr}`;
+   return `Expected ${formatExpectedType(expected)}, received ${receivedStr}`;
+}
+
+function formatExpectedType(expected: string): string {
+   return expected === 'record' ? 'object' : expected;
 }
 
 function formatValueError(expected: unknown | readonly unknown[], input: unknown, path: readonly PropertyKey[]): string {
@@ -169,7 +173,7 @@ function getExpectedUnionValue(unionIssues: readonly ZodIssueLike[]): string | u
 
    for (const issue of unionIssues) {
       if (issue.code === 'invalid_type' && typeof issue.expected === 'string') {
-         expectedParts.add(issue.expected);
+         expectedParts.add(formatExpectedType(issue.expected));
          continue;
       }
 

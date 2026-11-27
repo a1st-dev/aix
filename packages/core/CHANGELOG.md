@@ -24,6 +24,10 @@ version may appear here with no changes to this package.
 
 - Support fail-closed Claude Code and Grok hooks and the Claude Code inline skill shell event
 
+### Changed
+
+- Require Zod 4 as a peer dependency for library consumers.
+
 ### Fixed
 
 - Use the current Copilot CLI user config directory and respect `COPILOT_HOME`, while keeping

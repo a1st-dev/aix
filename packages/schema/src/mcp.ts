@@ -14,7 +14,7 @@ export const envVarSchema = z
 export const stdioConfigSchema = z.object({
    command: z.string().describe('Command to execute'),
    args: z.array(z.string()).optional().describe('Command arguments'),
-   env: z.record(envVarSchema).optional().describe('Environment variables'),
+   env: z.record(z.string(), envVarSchema).optional().describe('Environment variables'),
    cwd: z.string().optional().describe('Working directory'),
    shell: z.boolean().optional().describe('Run in shell'),
 });
@@ -25,7 +25,7 @@ export const stdioConfigSchema = z.object({
  */
 export const httpConfigSchema = z.object({
    url: z.string().url().describe('MCP endpoint URL (Streamable HTTP)'),
-   headers: z.record(envVarSchema).optional().describe('HTTP headers'),
+   headers: z.record(z.string(), envVarSchema).optional().describe('HTTP headers'),
    timeout: z.number().positive().optional().describe('Connection timeout (ms)'),
    validateOrigin: z.boolean().optional().describe('Validate Origin header (security)'),
 });
@@ -96,7 +96,7 @@ const mcpServerOptionsSchema = z.object({
 export const mcpServerConfigStdioSchema = mcpServerOptionsSchema.extend({
    command: z.string().describe('Command to execute'),
    args: z.array(z.string()).optional().describe('Command arguments'),
-   env: z.record(envVarSchema).optional().describe('Environment variables'),
+   env: z.record(z.string(), envVarSchema).optional().describe('Environment variables'),
    cwd: z.string().optional().describe('Working directory'),
    shell: z.boolean().optional().describe('Run in shell'),
 });
@@ -111,7 +111,7 @@ export const mcpServerConfigHttpSchema = mcpServerOptionsSchema.extend({
       }).optional(),
    }).optional(),
    url: z.string().url().describe('MCP endpoint URL (Streamable HTTP)'),
-   headers: z.record(envVarSchema).optional().describe('HTTP headers'),
+   headers: z.record(z.string(), envVarSchema).optional().describe('HTTP headers'),
    timeout: z.number().positive().optional().describe('Connection timeout (ms)'),
    validateOrigin: z.boolean().optional().describe('Validate Origin header (security)'),
 });
