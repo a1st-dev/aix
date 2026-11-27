@@ -1,11 +1,11 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { Icon } from 'astro-icon/components';
 import SectionHeading from '../../../components/SectionHeading.astro';
 import {
    editorSupportProfiles,
    getEditorById,
    getMigrationRoute,
-   getMigrationTitle,
    indexableMigrationPairs,
 } from '../../../lib/editor-support';
 import { getMigrationFromSection, migrationGuidesPage } from '../../../lib/editor-pages';
@@ -33,10 +33,13 @@ const featuredMigrationPairs = indexableMigrationPairs.map(({ from, to }) => ({
    </p>
 
    <SectionHeading heading={sections.featured} />
-   <ul class="aix-columns">
+   <ul class="migrationIndex-featured aix-layout" role="list">
       {featuredMigrationPairs.map(({ from, to }) => (
          <li>
-            <a href={getMigrationRoute(from.id, to.id)}>{getMigrationTitle(from, to)}</a>
+            <a href={getMigrationRoute(from.id, to.id)}>
+               <span>{from.name} to {to.name}</span>
+               <Icon name="lucide:arrow-right" aria-hidden="true" />
+            </a>
          </li>
       ))}
    </ul>
@@ -59,3 +62,39 @@ const featuredMigrationPairs = indexableMigrationPairs.map(({ from, to }) => ({
    ))}
 
 </StarlightPage>
+
+<style lang="scss">
+   :global(.sl-markdown-content) .migrationIndex-featured {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+      gap: 0 1.5rem;
+      max-inline-size: none;
+      padding-inline-start: 0;
+      border-block-start: 1px solid var(--sl-color-hairline-light);
+      list-style: none;
+
+      a {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         gap: 0.65rem;
+         padding: 0.65rem 0.25rem;
+         border-block-end: 1px solid var(--sl-color-hairline-light);
+         color: var(--sl-color-white);
+         font-weight: 600;
+         text-decoration: none;
+      }
+
+      svg {
+         flex: none;
+         color: var(--sl-color-accent);
+      }
+
+      @media (hover: hover) {
+         a:hover {
+            background: var(--aix-accent-ghost);
+            color: var(--sl-color-text-accent);
+         }
+      }
+   }
+</style>

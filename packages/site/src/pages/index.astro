@@ -1,6 +1,7 @@
 ---
 import { SEO } from 'astro-seo';
 import { Icon } from 'astro-icon/components';
+import CodeBlock from '../components/CodeBlock.astro';
 import TerminalBlock from '../components/TerminalBlock.astro';
 import EditorGrid from '../components/EditorGrid.astro';
 import FeatureCard from '../components/FeatureCard.astro';
@@ -21,6 +22,13 @@ const siteUrl = 'https://aix.a1st.dev';
 const ogImageUrl = `${siteUrl}/og/index.png`;
 const repositoryUrl = 'https://github.com/a1st-dev/aix';
 const docsHref = '/getting-started/introduction/';
+const docsShortcuts = [
+  { label: 'Quick start', href: '/getting-started/quick-start/' },
+  { label: 'ai.json reference', href: '/configuration/ai-json-reference/' },
+  { label: 'Use aix as a library', href: '/getting-started/use-as-a-library/' },
+  { label: 'Supported editors', href: '/editors/supported-editors/' },
+  { label: 'Migration guides', href: '/editors/migrations/' },
+];
 
 // Where a default, user-scope install puts MCP servers for each editor.
 const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
@@ -172,25 +180,29 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
       <!-- Features -->
       <section class="section features-section" aria-labelledby="features-title">
         <div class="section__inner">
-          <h2 class="section__eyebrow" id="features-title">Features</h2>
+          <h2 class="section__title" id="features-title">What you can do with aix</h2>
           <div class="features-section__cards">
             <FeatureCard
               label="aix install"
-              title="Write once. Install everywhere."
-              description="aix turns ai.json into the format each editor reads and writes it where that editor looks. It installs to your user-level editor config by default, or into the repository when you ask for project scope."
+              title="Install one config across editors"
+              description="Write ai.json once. aix translates it into each editor’s native format and installs it for your user account or the current project."
               language="bash"
               code="aix install"
-              delay={0.2}
+              exampleLabel="Terminal"
+              href="/cli/install/"
+              linkLabel="Install a config"
             >
-              <p class="install-targets__note">User-level MCP server paths</p>
-              <dl class="install-targets">
-                {mcpInstallTargets.map((target) => (
-                  <div class="install-targets__row">
-                    <dt>{target.name}</dt>
-                    <dd><code>{target.path}</code></dd>
-                  </div>
-                ))}
-              </dl>
+              <details class="install-targets">
+                <summary>User-level MCP server paths</summary>
+                <dl>
+                  {mcpInstallTargets.map((target) => (
+                    <div class="install-targets__row">
+                      <dt>{target.name}</dt>
+                      <dd><code>{target.path}</code></dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
             </FeatureCard>
 
             <FeatureCard
@@ -204,8 +216,9 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
     "testing": { "path": "./rules/testing.md" }
   }
 }`}
-              reverse
-              delay={0.4}
+              exampleLabel="ai.json"
+              href="/configuration/config-inheritance/"
+              linkLabel="Extend a config"
             />
 
             <FeatureCard
@@ -218,7 +231,9 @@ aix search
 
 # Or start from a query
 aix search playwright --type mcp`}
-              delay={0.6}
+              exampleLabel="Terminal"
+              href="/cli/search/"
+              linkLabel="Search from the terminal"
             />
 
             <FeatureCard
@@ -226,7 +241,10 @@ aix search playwright --type mcp`}
               title="Ship your tool's skill with your tool."
               description="Publishing a CLI or a library? Call the aix library from your setup command to install your skill or MCP server into every AI editor your user has. Your users do not need aix."
               language="js"
-              code={`import { installItem } from '@a1st/aix-core';
+              code={`import { fileURLToPath } from 'node:url';
+import { installItem } from '@a1st/aix-core';
+
+const skillDir = fileURLToPath(new URL('./skills/my-cli', import.meta.url));
 
 await installItem({
   section: 'skills',
@@ -236,8 +254,7 @@ await installItem({
 });`}
               href="/getting-started/use-as-a-library/"
               linkLabel="Use aix as a library"
-              reverse
-              delay={0.8}
+              exampleLabel="setup.mjs"
             />
           </div>
         </div>
@@ -246,40 +263,34 @@ await installItem({
       <!-- How it works -->
       <section class="section how-section" aria-labelledby="how-title">
         <div class="section__inner">
-          <h2 class="section__title" id="how-title">Three commands.</h2>
-          <ol class="how-section__steps">
-            <li class="how-step reveal">
-              <span class="how-step__number" aria-hidden="true">1</span>
-              <div class="how-step__content">
-                <h3 class="how-step__title">Initialize</h3>
-                <p class="how-step__desc">
-                  Create an <code>ai.json</code>, or import the config an editor
-                  already has with <code>--from claude-code</code>.
-                </p>
-                <code class="how-step__cmd">aix init</code>
-              </div>
+          <h2 class="section__title" id="how-title">Set up your project</h2>
+          <ol class="how-section__steps" role="list">
+            <li class="how-step">
+              <span class="how-step__number" aria-hidden="true">01</span>
+              <h3 class="how-step__title">Initialize</h3>
+              <p class="how-step__desc">
+                Create an <code>ai.json</code>, or import the config an editor
+                already has with <code>--from claude-code</code>.
+              </p>
+              <div class="how-step__cmd"><CodeBlock code="aix init" language="bash" /></div>
             </li>
-            <li class="how-step reveal">
-              <span class="how-step__number" aria-hidden="true">2</span>
-              <div class="how-step__content">
-                <h3 class="how-step__title">Configure</h3>
-                <p class="how-step__desc">
-                  Save skills, rules, prompts, and MCP servers to <code>ai.json</code>
-                  from files, GitHub, or npm.
-                </p>
-                <code class="how-step__cmd">aix add skill ./skills/review --save</code>
-              </div>
+            <li class="how-step">
+              <span class="how-step__number" aria-hidden="true">02</span>
+              <h3 class="how-step__title">Configure</h3>
+              <p class="how-step__desc">
+                Save skills, rules, prompts, and MCP servers to <code>ai.json</code>
+                from files, GitHub, or npm.
+              </p>
+              <div class="how-step__cmd"><CodeBlock code="aix add skill ./skills/review --save" language="bash" /></div>
             </li>
-            <li class="how-step reveal">
-              <span class="how-step__number" aria-hidden="true">3</span>
-              <div class="how-step__content">
-                <h3 class="how-step__title">Install</h3>
-                <p class="how-step__desc">
-                  Write your config to every detected editor. Run it again
-                  whenever you change <code>ai.json</code>.
-                </p>
-                <code class="how-step__cmd">aix install</code>
-              </div>
+            <li class="how-step">
+              <span class="how-step__number" aria-hidden="true">03</span>
+              <h3 class="how-step__title">Install</h3>
+              <p class="how-step__desc">
+                Apply your config to your selected editors. Run it again
+                whenever you change <code>ai.json</code>.
+              </p>
+              <div class="how-step__cmd"><CodeBlock code="aix install" language="bash" /></div>
             </li>
           </ol>
         </div>
@@ -288,23 +299,25 @@ await installItem({
       <!-- CTA -->
       <section class="section cta-section" aria-labelledby="cta-title">
         <div class="section__inner">
-          <h2 class="cta-section__title" id="cta-title">Get started</h2>
-          <div class="cta-section__install">
-            <code>npm install -g @a1st/aix</code>
-          </div>
-          <div class="cta-section__links">
-            <a href={docsHref} class="hero__cta">Read the docs</a>
-            <a href={repositoryUrl} class="hero__cta hero__cta--secondary" rel="noopener noreferrer">
-              View on GitHub →
-            </a>
+          <div>
+            <h2 class="cta-section__title" id="cta-title">Get started</h2>
+            <div class="cta-section__install">
+              <CodeBlock code="npm install -g @a1st/aix" language="bash" />
+            </div>
+            <div class="cta-section__links">
+              <a href={docsHref} class="hero__cta">Read the docs</a>
+              <a href={repositoryUrl} class="hero__cta hero__cta--secondary" rel="noopener noreferrer">
+                View on GitHub →
+              </a>
+            </div>
           </div>
           <nav class="cta-section__guide-links" aria-label="Documentation shortcuts">
-            <ul>
-              <li><a href="/getting-started/quick-start/">Quick start</a></li>
-              <li><a href="/configuration/ai-json-reference/">ai.json reference</a></li>
-              <li><a href="/getting-started/use-as-a-library/">Use aix as a library</a></li>
-              <li><a href="/editors/supported-editors/">Supported editors</a></li>
-              <li><a href="/editors/migrations/">Migration guides</a></li>
+            <ul role="list">
+              {docsShortcuts.map(({ href, label }) => (
+                <li>
+                  <a {href}>{label}<Icon name="lucide:arrow-right" aria-hidden="true" /></a>
+                </li>
+              ))}
             </ul>
           </nav>
         </div>

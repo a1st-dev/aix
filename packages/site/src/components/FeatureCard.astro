@@ -1,119 +1,130 @@
 ---
-/**
- * Feature description beside a highlighted code example, with optional output below.
- */
 import type { ComponentProps } from 'astro/types';
+import { Icon } from 'astro-icon/components';
 import CodeBlock from './CodeBlock.astro';
 
 interface Props {
-  label: string;
-  title: string;
-  description: string;
-  code: string;
-  language: ComponentProps<typeof CodeBlock>['language'];
-  /** Where the link under the description goes. Needs `linkLabel`. */
-  href?: string;
-  linkLabel?: string;
-  reverse?: boolean;
-  delay?: number;
+   label: string;
+   title: string;
+   description: string;
+   code: string;
+   language: ComponentProps<typeof CodeBlock>['language'];
+   exampleLabel: string;
+   href: string;
+   linkLabel: string;
 }
 
-const {
-  label,
-  title,
-  description,
-  code,
-  language,
-  href,
-  linkLabel,
-  reverse = false,
-  delay = 0,
-} = Astro.props;
-
+const { label, title, description, code, language, exampleLabel, href, linkLabel } = Astro.props;
 ---
 
-<div
-  class:list={["feature-card", "reveal", { "feature-card--reverse": reverse }]}
-  style={`--reveal-delay: ${delay}s`}
->
-  <div class="feature-card__text">
-    <span class="feature-card__label">{label}</span>
-    <h3 class="feature-card__title">{title}</h3>
-    <p class="feature-card__desc">{description}</p>
-    {href && linkLabel && <a class="feature-card__link" href={href}>{linkLabel} →</a>}
-  </div>
-  <div class="feature-card__code">
-    <CodeBlock {code} {language} />
-    <slot />
-  </div>
+<div class="featureCard">
+   <div class="featureCard-text">
+      <p class="aix-eyebrow featureCard-label">{label}</p>
+      <h3 class="featureCard-title">{title}</h3>
+      <p class="featureCard-description">{description}</p>
+      <a class="featureCard-link" {href}>
+         {linkLabel}
+         <Icon name="lucide:arrow-up-right" aria-hidden="true" />
+      </a>
+   </div>
+   <figure class="featureCard-example">
+      <figcaption>
+         <Icon name={language === 'bash' ? 'lucide:terminal' : 'lucide:file-code'} aria-hidden="true" />
+         {exampleLabel}
+      </figcaption>
+      <CodeBlock {code} {language} />
+      <slot />
+   </figure>
 </div>
 
 <style lang="scss">
-  /* Text and code sit side by side when both fit and stack when they do not. */
-  .feature-card {
-    --reveal-distance: 1.25rem;
+   .featureCard {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: start;
+      gap: 1.25rem clamp(1.5rem, 4vw, 3rem);
+      padding-block: clamp(1.5rem, 4vw, 2.5rem);
+      border-block-end: 1px solid var(--sl-color-hairline-light);
 
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem 2.5rem;
-    align-items: center;
-    padding-block: 2.5rem;
-  }
-  .feature-card--reverse {
-    flex-direction: row-reverse;
-  }
-  .feature-card__text {
-    display: flex;
-    flex: 1 1 14rem;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-  .feature-card__label {
-    font-family: var(--sl-font-system-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--sl-color-accent);
-  }
-  .feature-card__title {
-    font-family: var(--aix-font-display);
-    font-size: 1.65rem;
-    font-weight: 600;
-    color: var(--sl-color-white);
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-    margin: 0;
-  }
-  .feature-card__desc {
-    font-family: var(--sl-font);
-    font-size: 0.95rem;
-    line-height: 1.65;
-    color: var(--aix-text-muted);
-    margin: 0;
-  }
-  .feature-card__link {
-    align-self: flex-start;
-    font-family: var(--sl-font);
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--sl-color-accent);
-    text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
-    text-underline-offset: 0.2em;
-  }
-  .feature-card__link:hover {
-    text-decoration-color: currentColor;
-  }
-  .feature-card__code {
-    flex: 3 1 30rem;
-    min-inline-size: 0;
-    background: var(--aix-surface-deep);
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 10px;
-    padding: 1.2rem 1.4rem;
-    font-family: var(--sl-font-system-mono);
-    font-size: 0.8rem;
-    line-height: 1.7;
-    color: var(--sl-color-gray-2);
-  }
+      &-text,
+      &-example {
+         min-inline-size: 0;
+      }
+
+      &-text {
+         flex: 1 1 14rem;
+      }
+
+      &-label {
+         margin-block-end: 0.4rem;
+         color: var(--sl-color-accent);
+         font-family: var(--sl-font-system-mono);
+      }
+
+      &-title {
+         margin-block-end: 0.45rem;
+         font-family: var(--aix-font-display);
+         font-size: clamp(1.7rem, 3vw, 2.15rem);
+         font-weight: 700;
+         line-height: 1.06;
+         letter-spacing: -0.02em;
+         text-wrap: balance;
+      }
+
+      &-description {
+         max-inline-size: 55ch;
+         color: var(--sl-color-gray-2);
+         font-size: 0.95rem;
+      }
+
+      &-link {
+         display: inline-flex;
+         align-items: center;
+         gap: 0.25rem;
+         margin-block-start: 0.8rem;
+         color: var(--sl-color-accent);
+         font-size: 0.9rem;
+         font-weight: 600;
+         text-decoration: underline;
+         text-underline-offset: 0.2em;
+
+         svg {
+            flex: none;
+         }
+
+         @media (hover: hover) {
+            &:hover {
+               color: var(--sl-color-white);
+            }
+         }
+      }
+
+      &-example {
+         flex: 2 1 22rem;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 0.65rem;
+         background: var(--aix-surface-deep);
+
+         figcaption {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.55rem 1rem;
+            border-block-end: 1px solid var(--sl-color-hairline-light);
+            border-radius: 0.65rem 0.65rem 0 0;
+            background: var(--aix-surface-sunken);
+            color: var(--sl-color-gray-2);
+            font-family: var(--sl-font-system-mono);
+            font-size: 0.78rem;
+
+            svg {
+               color: var(--sl-color-accent);
+            }
+         }
+
+         :global(pre) {
+            padding: 0.9rem 1rem;
+         }
+      }
+   }
 </style>
