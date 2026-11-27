@@ -7,6 +7,12 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Added
+
+- Add `aix update` for global npm and Homebrew formula installations. Interactive
+  root help shows a brief notice for new versions. Set `checkForUpdates` to `false`
+  to turn off automatic checks.
+
 ## [0.10.1] - 2026-11-26
 
 ### Fixed

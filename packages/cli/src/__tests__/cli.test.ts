@@ -31,6 +31,18 @@ describe('aix CLI', () => {
       expect(stdout).toMatch(/\d+\.\d+\.\d+/);
    });
 
+   it('stores the update preference outside the project and requires consent when disabled', async () => {
+      const initial = await runCli(['config', 'get', 'checkForUpdates', '--json']),
+            changed = await runCli(['config', 'set', 'checkForUpdates', 'false', '--json']),
+            disabled = await runCli(['config', 'get', 'checkForUpdates', '--json']),
+            refused = await runCli(['update', '--check', '--json']);
+
+      expect(JSON.parse(initial.stdout)).toEqual({ key: 'checkForUpdates', value: true });
+      expect(changed.error).toBeUndefined();
+      expect(JSON.parse(disabled.stdout)).toEqual({ key: 'checkForUpdates', value: false });
+      expect(refused.error?.message).toContain('Pass --yes to check once');
+   });
+
    it('suggests similar commands for unknown commands', async () => {
       const { error } = await runCli(['validat']);
 

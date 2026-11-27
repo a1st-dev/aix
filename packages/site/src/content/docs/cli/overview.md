@@ -26,6 +26,7 @@ subcommands separates them with a space, as in `aix add skill` or `aix list mcp`
 | [`aix cache clear`](/cli/cache/)                                        | Delete the files aix downloaded.                                  |
 | [`aix backups`](/cli/backups/)                                          | List the backups aix made.                                        |
 | [`aix backups restore`](/cli/backups/#aix-backups-restore)              | Copy a backup over the file it was taken from.                    |
+| [`aix update`](/getting-started/installation/#update)                   | Update aix through npm or Homebrew.                               |
 | [`aix autocomplete`](/getting-started/installation/#shell-autocomplete) | Print the steps to set up shell completion.                       |
 
 `init --from`, `sync`, and `install` sound similar, but they solve different problems:
@@ -37,7 +38,7 @@ subcommands separates them with a space, as in `aix add skill` or `aix list mcp`
 
 ## Global flags
 
-Every command accepts these flags:
+Commands that work with project or editor configuration share these flags:
 
 | Flag                     | Description                                                                                                 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
@@ -91,6 +92,7 @@ command fails and names the flag to pass instead:
 - `aix install` asks which editors to use when it detects several. Pass `--target`, or list
   the editors in `ai.json`.
 - `aix remove` and `aix backups restore` ask for confirmation. Pass `--yes`.
+- `aix update` asks before checking when `checkForUpdates` is off. Pass `--yes` to check once.
 - `aix add mcp <name>` asks which registry server to use when several match. Pass the full
   name of the one you want, or `--command` or `--url` to define the server yourself.
 

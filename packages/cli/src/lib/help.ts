@@ -1,6 +1,13 @@
 import { Command, Help, Interfaces } from '@oclif/core';
 
 export default class CustomHelp extends Help {
+   protected override async showRootHelp(): Promise<void> {
+      const { showUpdateNotice } = await import('./update-notice.js');
+
+      await showUpdateNotice(this.config);
+      await super.showRootHelp();
+   }
+
    /** oclif stores ids with colons. Show them the way they are typed. */
    private formatCommandId(id: string): string {
       return id.replaceAll(':', this.config.topicSeparator);

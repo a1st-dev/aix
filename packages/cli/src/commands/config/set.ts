@@ -2,6 +2,7 @@ import { Args } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
 import { updateConfig } from '@a1st/aix-core';
 import { getLockableConfigPath, refreshLockfileAfterRemoval } from '../../lib/lockfile-helper.js';
+import { CHECK_FOR_UPDATES_KEY, setCheckForUpdates } from '../../lib/update-settings.js';
 
 export default class ConfigSet extends BaseCommand<typeof ConfigSet> {
    static override description = 'Set a configuration value';
@@ -24,7 +25,6 @@ export default class ConfigSet extends BaseCommand<typeof ConfigSet> {
 
    async run(): Promise<void> {
       const { args } = await this.parse(ConfigSet);
-      const loaded = await this.requireConfig();
 
       // Parse value as JSON if it looks like JSON, otherwise use as string
       let parsedValue: unknown;
@@ -35,24 +35,33 @@ export default class ConfigSet extends BaseCommand<typeof ConfigSet> {
          parsedValue = args.value;
       }
 
-      // Alias top-level cache.* to aix.cache.* so cache retention settings persist
-      const targetKey = args.key === 'cache' || args.key.startsWith('cache.')
-         ? `aix.${args.key}`
-         : args.key;
+      if (args.key === CHECK_FOR_UPDATES_KEY) {
+         if (typeof parsedValue !== 'boolean') {
+            this.error('checkForUpdates must be true or false.');
+         }
+
+         await setCheckForUpdates(parsedValue);
+      } else {
+         await this.setProjectConfigValue(args.key, parsedValue);
+      }
+
+      this.output.success(`Set ${args.key}`);
+      this.output.json({ key: args.key, value: parsedValue });
+   }
+
+   private async setProjectConfigValue(key: string, value: unknown): Promise<void> {
+      const loaded = await this.requireConfig(),
+            targetKey = key === 'cache' || key.startsWith('cache.')
+               ? `aix.${key}`
+               : key;
 
       await updateConfig(loaded.path, (config) => {
-         return this.setNestedValue(config, targetKey, parsedValue);
+         return this.setNestedValue(config, targetKey, value);
       });
 
       const lockableConfigPath = getLockableConfigPath(loaded);
 
       await refreshLockfileAfterRemoval(undefined, lockableConfigPath, this.output);
-
-      this.output.success(`Set ${args.key}`);
-
-      if (this.flags.json) {
-         this.output.json({ key: args.key, value: parsedValue });
-      }
    }
 
    private setNestedValue<T extends Record<string, unknown>>(obj: T, path: string, value: unknown): T {

@@ -2,14 +2,13 @@
 sidebar:
    order: 10
 title: aix config
-description: Show which config files are in use, and read or set values in ai.json.
+description: Show which config files are in use, read or set values in ai.json, and manage update checks.
 ---
 
 Reads and edits values in `ai.json` by dot-notation key, such as `mcp.github.env`.
 
-All three commands need an `ai.json`. They use the one in the working directory or a parent
-directory, or the file named by `--config`. Without one they fail and tell you to run
-`aix init`.
+For project configuration, these commands use the `ai.json` in the working directory or
+a parent directory, or the file named by `--config`.
 
 ## Commands
 
@@ -69,3 +68,16 @@ aix config set editors '["cursor","claude-code"]'
 `aix config get` and `aix config set` accept `cache.<name>` as a short form of
 `aix.cache.<name>`. `aix config set cache.maxCacheAgeDays 14` writes
 `aix.cache.maxCacheAgeDays`.
+
+## Update checks
+
+`checkForUpdates` is a user setting and defaults to `true`. Read or change it from any
+directory:
+
+```bash
+aix config get checkForUpdates
+aix config set checkForUpdates false
+```
+
+aix saves this preference in `~/.aix/settings.json`. See
+[Update aix](/getting-started/installation/#update) for one-time checks.

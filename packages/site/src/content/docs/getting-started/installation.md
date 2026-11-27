@@ -38,12 +38,26 @@ supported shells are bash, zsh, and PowerShell.
 
 ## Update
 
-aix is distributed through npm, so update it the way you installed it:
+Run this to update a global npm or Homebrew formula installation of aix:
 
 ```bash
-npm install -g @a1st/aix@latest
+aix update
 ```
 
+`aix update --check` checks for a new version without installing it. The command uses
+the package manager that owns the running copy of aix.
+
+Interactive root help can show a brief update notice. To turn off automatic checks:
+
+```bash
+aix config set checkForUpdates false
+```
+
+With automatic checks off, `aix update` asks whether to check once. Pass
+`aix update --yes` to check and install any available update without the prompt.
+To turn automatic checks back on, run `aix config set checkForUpdates true`.
+
+You can also update a global npm install directly with `npm install -g @a1st/aix@latest`.
 `aix version` prints the version you have.
 
 ## What's next

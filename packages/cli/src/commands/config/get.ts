@@ -1,5 +1,6 @@
 import { Args } from '@oclif/core';
 import { BaseCommand } from '../../base-command.js';
+import { CHECK_FOR_UPDATES_KEY, getCheckForUpdates } from '../../lib/update-settings.js';
 
 export default class ConfigGet extends BaseCommand<typeof ConfigGet> {
    static override description = 'Get a configuration value';
@@ -18,14 +19,10 @@ export default class ConfigGet extends BaseCommand<typeof ConfigGet> {
    };
 
    async run(): Promise<void> {
-      const { args } = await this.parse(ConfigGet);
-      const loaded = await this.requireConfig();
-
-      let value = this.getNestedValue(loaded.config, args.key);
-
-      if (value === undefined && (args.key === 'cache' || args.key.startsWith('cache.'))) {
-         value = this.getNestedValue(loaded.config, `aix.${args.key}`);
-      }
+      const { args } = await this.parse(ConfigGet),
+            value = args.key === CHECK_FOR_UPDATES_KEY
+               ? await getCheckForUpdates()
+               : await this.getProjectConfigValue(args.key);
 
       if (value === undefined) {
          this.error(`Key "${args.key}" not found`);
@@ -41,6 +38,17 @@ export default class ConfigGet extends BaseCommand<typeof ConfigGet> {
       } else {
          this.output.log(String(value));
       }
+   }
+
+   private async getProjectConfigValue(key: string): Promise<unknown> {
+      const { config } = await this.requireConfig(),
+            value = this.getNestedValue(config, key);
+
+      if (value === undefined && (key === 'cache' || key.startsWith('cache.'))) {
+         return this.getNestedValue(config, `aix.${key}`);
+      }
+
+      return value;
    }
 
    private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
