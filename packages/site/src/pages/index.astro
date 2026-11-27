@@ -139,10 +139,10 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
           <div class="hero__terminal">
             <TerminalBlock
               lines={[
-                "$ npm install -g @a1st/aix",
-                "$ aix init",
-                "$ aix add skill obra/superpowers/skills/brainstorming --save",
-                "$ aix install",
+                "npm install -g @a1st/aix",
+                "aix init",
+                "aix add skill obra/superpowers/skills/brainstorming --save",
+                "aix install",
               ]}
             />
           </div>
@@ -160,10 +160,10 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
       <!-- Comparison -->
       <section class="section comparison-section" aria-labelledby="comparison-title">
         <div class="section__inner">
-          <h2 class="section__title" id="comparison-title">Stop wrangling config files.</h2>
+          <h2 class="section__title" id="comparison-title">One skill, three editors</h2>
           <p class="section__desc">
-            Define your skills and rules once in <code>ai.json</code>. aix
-            writes the native config files for {supportedEditorsText}.
+            Here’s how a team can share a code review skill across Cursor, Claude Code,
+            and GitHub Copilot.
           </p>
           <ComparisonStrip />
         </div>
@@ -178,15 +178,16 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
               label="aix install"
               title="Write once. Install everywhere."
               description="aix turns ai.json into the format each editor reads and writes it where that editor looks. It installs to your user-level editor config by default, or into the repository when you ask for project scope."
+              language="bash"
+              code="aix install"
               delay={0.2}
             >
-              <p>$ aix install</p>
-              <p class="install-targets__note"># MCP servers, for example, go to:</p>
+              <p class="install-targets__note">User-level MCP server paths</p>
               <dl class="install-targets">
                 {mcpInstallTargets.map((target) => (
                   <div class="install-targets__row">
                     <dt>{target.name}</dt>
-                    <dd>{target.path}</dd>
+                    <dd><code>{target.path}</code></dd>
                   </div>
                 ))}
               </dl>
@@ -211,11 +212,12 @@ const mcpInstallTargets = editorSupportProfiles.map((profile) => ({
               label="aix search"
               title="Find skills and MCP servers."
               description="Search the skills.sh library and the official MCP Registry from the terminal. Browse the results and install the one you pick."
+              language="bash"
               code={`# Open the interactive browser
-$ aix search
+aix search
 
 # Or start from a query
-$ aix search playwright --type mcp`}
+aix search playwright --type mcp`}
               delay={0.6}
             />
 
@@ -223,6 +225,7 @@ $ aix search playwright --type mcp`}
               label="@a1st/aix-core"
               title="Ship your tool's skill with your tool."
               description="Publishing a CLI or a library? Call the aix library from your setup command to install your skill or MCP server into every AI editor your user has. Your users do not need aix."
+              language="js"
               code={`import { installItem } from '@a1st/aix-core';
 
 await installItem({

@@ -1,8 +1,9 @@
 ---
 /**
  * Terminal-style code block with window chrome and syntax coloring.
- * Usage: <TerminalBlock title="Terminal" lines={["$ npm install -g @a1st/aix", "$ aix install"]} />
  */
+import CodeBlock from './CodeBlock.astro';
+
 interface Props {
   title?: string;
   lines: string[];
@@ -19,24 +20,11 @@ const { title = 'Terminal', lines } = Astro.props;
     <span class="terminal-title">{title}</span>
   </div>
   <div class="terminal-body">
-    {lines.map((line) => (
-      <div class="terminal-line">
-        {line.startsWith("$") ? (
-          <>
-            <span class="terminal-prompt">$</span>
-            <span class="terminal-cmd">{line.slice(2)}</span>
-          </>
-        ) : line.startsWith("#") ? (
-          <span class="terminal-comment">{line}</span>
-        ) : (
-          <span class="terminal-output">{line}</span>
-        )}
-      </div>
-    ))}
+    <CodeBlock code={lines.join('\n')} language="bash" />
   </div>
 </div>
 
-<style>
+<style lang="scss">
   .terminal-block {
     background: var(--aix-surface-deep);
     border: 1px solid var(--sl-color-gray-5);
@@ -82,27 +70,5 @@ const { title = 'Terminal', lines } = Astro.props;
   }
   .terminal-body {
     padding: 16px 20px 20px;
-  }
-  /* A flex row keeps a wrapped command aligned after the prompt, not under it. */
-  .terminal-line {
-    display: flex;
-    gap: 8px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .terminal-prompt {
-    color: var(--sl-color-accent);
-    user-select: none;
-  }
-  .terminal-cmd {
-    min-inline-size: 0;
-    color: var(--sl-color-white);
-  }
-  .terminal-output {
-    color: var(--sl-color-gray-2);
-  }
-  .terminal-comment {
-    color: var(--aix-text-muted);
-    font-style: italic;
   }
 </style>

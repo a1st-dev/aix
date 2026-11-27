@@ -1,0 +1,35 @@
+---
+import { Code } from 'astro:components';
+
+interface Props {
+   code: string;
+   language: 'bash' | 'json' | 'js';
+}
+
+const { code, language } = Astro.props;
+const themes = { light: 'github-light-high-contrast', dark: 'github-dark' } as const;
+---
+
+<Code class="aixCodeBlock" code={code} lang={language} {themes} defaultColor={false} wrap />
+
+<style lang="scss" is:global>
+   .aixCodeBlock {
+      font: 0.825rem / 1.65 var(--sl-font-system-mono);
+      overflow-wrap: anywhere;
+
+      // Shiki's shell comments need more contrast on the warm code surfaces.
+      &,
+      span {
+         color: color-mix(in srgb, var(--shiki-dark) 85%, var(--sl-color-gray-1));
+         font-style: var(--shiki-dark-font-style, normal);
+         font-weight: var(--shiki-dark-font-weight, inherit);
+      }
+
+      :root[data-theme="light"] &,
+      :root[data-theme="light"] & span {
+         color: color-mix(in srgb, var(--shiki-light) 85%, var(--sl-color-gray-1));
+         font-style: var(--shiki-light-font-style, normal);
+         font-weight: var(--shiki-light-font-weight, inherit);
+      }
+   }
+</style>

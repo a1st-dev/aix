@@ -1,127 +1,191 @@
 ---
 import { Icon } from 'astro-icon/components';
+import CodeBlock from './CodeBlock.astro';
+import { editorIconNames, getEditorById } from '../lib/editor-support';
 
-/**
- * Before and after lists showing several per-editor config files replaced by one.
- */
-const REVEAL_START_SECONDS = 0.2,
-      REVEAL_STAGGER_SECONDS = 0.06;
+const skillName = 'review',
+      skillPath = `./skills/${skillName}`,
+      editors = [ 'cursor', 'claude-code', 'copilot' ] as const;
 
-const beforeFiles = [
-  '.cursor/rules',
-  '.github/copilot-instructions.md',
-  '.windsurf/rules',
-  '.claude/CLAUDE.md',
-  '.zed/settings.json',
-  'AGENTS.md',
-];
+const editorSkillPaths = editors.map((editor) => {
+   const { name, features } = getEditorById(editor),
+         { path } = features.skills.project;
+
+   if (!path) {
+      throw new Error(`Missing project skill path for ${name}`);
+   }
+
+   return {
+      name,
+      icon: editorIconNames[editor],
+      path: `${path.replace('{name}', skillName)}SKILL.md`,
+   };
+});
+
+const sharedConfig = JSON.stringify({
+   scope: 'project',
+   editors,
+   skills: { [skillName]: skillPath },
+}, null, 2);
 ---
 
-<div class="comparison-strip-container">
-  <div class="comparison-strip reveal">
-    <div class="comparison-strip__before">
-      <p class="comparison-strip__heading">Before</p>
-      <ul class="comparison-strip__files">
-        {beforeFiles.map((f, i) => (
-          <li
-            class="comparison-strip__file comparison-strip__file--old reveal"
-            style={`--reveal-delay: ${REVEAL_START_SECONDS + i * REVEAL_STAGGER_SECONDS}s`}
-          >
-            {f}
-          </li>
-        ))}
-      </ul>
-    </div>
+<div class="comparison">
+   <div class="comparison-panels">
+      <div class="comparison-panel">
+         <p class="comparison-label">Before aix</p>
+         <h3 class="comparison-title">Edit a copy for each editor</h3>
+         <ul class="comparison-paths">
+            {editorSkillPaths.map(({ name, icon, path }) => (
+               <li>
+                  <Icon name={icon} aria-hidden="true" />
+                  <div>
+                     <span>{name}</span>
+                     <code>{path}</code>
+                  </div>
+               </li>
+            ))}
+         </ul>
+      </div>
 
-    <div class="comparison-strip__arrow" aria-hidden="true">
-      <Icon name="lucide:arrow-right" />
-    </div>
-
-    <div class="comparison-strip__after">
-      <p class="comparison-strip__heading">After</p>
-      <ul class="comparison-strip__files">
-        <li class="comparison-strip__file comparison-strip__file--new">ai.json</li>
-      </ul>
-    </div>
-  </div>
+      <div class="comparison-panel comparison-panel--shared">
+         <p class="comparison-label">With aix</p>
+         <h3 class="comparison-title">Edit one shared skill</h3>
+         <figure class="comparison-config">
+            <figcaption>
+               <Icon name="lucide:file-json" aria-hidden="true" />
+               <code>ai.json</code>
+            </figcaption>
+            <CodeBlock code={sharedConfig} language="json" />
+         </figure>
+         <p class="comparison-instruction">
+            Edit <code>skills/review/SKILL.md</code>, then run <code>aix install</code>
+            to update the copies your editors use.
+         </p>
+      </div>
+   </div>
 </div>
 
-<style>
-  .comparison-strip-container {
-    container-type: inline-size;
-    max-width: 760px;
-    margin-inline: auto;
-  }
-  .comparison-strip {
-    --reveal-distance: 0.5rem;
+<style lang="scss">
+   .comparison {
+      container-type: inline-size;
 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.2rem;
-    padding: 2.5rem 1.5rem;
-    background: var(--aix-surface-sunken);
-    border: 1px solid var(--sl-color-hairline-shade);
-    border-radius: 12px;
-  }
-  .comparison-strip__heading {
-    font-family: var(--sl-font-system-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--aix-text-muted);
-    margin-block-end: 0.6rem;
-    text-align: center;
-  }
-  .comparison-strip__files {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: center;
-    list-style: none;
-  }
-  .comparison-strip__file {
-    --reveal-distance: 0.25rem;
+      &-panels {
+         display: grid;
+         overflow: hidden;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 0.75rem;
+         background: var(--sl-color-bg);
+      }
 
-    font-family: var(--sl-font-system-mono);
-    font-size: 0.72rem;
-    padding: 3px 10px;
-    border-radius: 4px;
-    overflow-wrap: anywhere;
-  }
-  /* The strike-through is what marks these as replaced; the color only reinforces it. */
-  .comparison-strip__file--old {
-    background: var(--aix-error-subtle);
-    color: var(--aix-error);
-    border: 1px solid var(--aix-error-border);
-    text-decoration: line-through;
-    text-decoration-color: var(--aix-error-muted);
-  }
-  .comparison-strip__file--new {
-    background: var(--aix-success-subtle);
-    color: var(--aix-success);
-    border: 1px solid var(--aix-success-border);
-    font-size: 0.95rem;
-    font-weight: 600;
-    padding: 8px 20px;
-  }
-  .comparison-strip__arrow {
-    flex-shrink: 0;
-    width: 40px;
-    height: 24px;
-    color: var(--sl-color-accent);
-    rotate: 90deg;
-  }
+      &-panel {
+         min-inline-size: 0;
+         padding: clamp(1rem, 4cqi, 1.75rem);
 
-  /* Wide enough for both lists side by side: point the arrow across. */
-  @container (min-width: 34rem) {
-    .comparison-strip {
-      flex-direction: row;
-      gap: 2rem;
-    }
-    .comparison-strip__arrow {
-      rotate: none;
-    }
-  }
+         &--shared {
+            border-block-start: 1px solid var(--sl-color-hairline-light);
+            background: color-mix(in oklab, var(--sl-color-bg) 64%, var(--sl-color-accent-low));
+         }
+      }
+
+      &-label {
+         margin-block-end: 0.45rem;
+         color: var(--aix-text-muted);
+         font-family: var(--sl-font-system-mono);
+         font-size: 0.72rem;
+         font-weight: 600;
+         letter-spacing: 0.08em;
+         text-transform: uppercase;
+      }
+
+      &-panel--shared &-label {
+         color: var(--sl-color-accent);
+      }
+
+      &-title {
+         margin-block-end: 1.15rem;
+         color: var(--sl-color-white);
+         font-family: var(--aix-font-display);
+         font-size: 1.75rem;
+         font-weight: 700;
+         line-height: 1.08;
+      }
+
+      &-paths {
+         border-block-start: 1px solid var(--sl-color-hairline-light);
+         list-style: none;
+
+         li {
+            display: grid;
+            grid-template-columns: 1.15rem minmax(0, 1fr);
+            align-items: start;
+            gap: 0.7rem;
+            padding-block: 0.7rem;
+            border-block-end: 1px solid var(--sl-color-hairline-light);
+            color: var(--sl-color-white);
+            font-size: 0.9rem;
+            font-weight: 600;
+         }
+
+         svg {
+            inline-size: 1rem;
+            block-size: 1rem;
+            margin-block-start: 0.23rem;
+            color: var(--aix-text-muted);
+         }
+
+         code {
+            display: block;
+            margin-block-start: 0.15rem;
+            color: var(--sl-color-gray-2);
+            font-size: 0.78rem;
+            font-weight: 400;
+            overflow-wrap: anywhere;
+         }
+      }
+
+      &-config {
+         overflow: hidden;
+         border: 1px solid var(--sl-color-hairline-light);
+         border-radius: 0.5rem;
+         background: var(--aix-surface-deep);
+
+         figcaption {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.5rem 0.85rem;
+            border-block-end: 1px solid var(--sl-color-hairline-light);
+            background: var(--aix-surface-sunken);
+            color: var(--sl-color-accent);
+            font-size: 0.8rem;
+         }
+
+         :global(pre) {
+            padding: 0.8rem 0.85rem;
+         }
+      }
+
+      &-instruction {
+         margin-block-start: 0.85rem;
+         color: var(--sl-color-gray-2);
+         font-size: 0.9rem;
+         overflow-wrap: anywhere;
+
+         code {
+            color: var(--sl-color-accent);
+            font-size: 0.89em;
+         }
+      }
+   }
+
+   @container (min-width: 42rem) {
+      .comparison-panels {
+         grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+      }
+
+      .comparison-panel--shared {
+         border-block-start: 0;
+         border-inline-start: 1px solid var(--sl-color-hairline-light);
+      }
+   }
 </style>

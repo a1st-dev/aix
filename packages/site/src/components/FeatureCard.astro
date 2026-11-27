@@ -1,14 +1,16 @@
 ---
 /**
- * Feature description beside a code panel. Pass `code` for a plain or JSON snippet, or
- * fill the default slot to lay the panel out yourself.
+ * Feature description beside a highlighted code example, with optional output below.
  */
+import type { ComponentProps } from 'astro/types';
+import CodeBlock from './CodeBlock.astro';
+
 interface Props {
   label: string;
   title: string;
   description: string;
-  code?: string;
-  language?: 'json' | 'text';
+  code: string;
+  language: ComponentProps<typeof CodeBlock>['language'];
   /** Where the link under the description goes. Needs `linkLabel`. */
   href?: string;
   linkLabel?: string;
@@ -21,42 +23,13 @@ const {
   title,
   description,
   code,
-  language = 'text',
+  language,
   href,
   linkLabel,
   reverse = false,
   delay = 0,
 } = Astro.props;
 
-const highlightJson = (input: string) => {
-  const escaped = input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  const tokens: string[] = [];
-  const withCommentTokens = escaped.replace(/(^|\s)(\/\/.*)$/gm, (_match, lead, comment) => {
-    const token = `__TOKEN_${tokens.length}__`;
-    tokens.push(`${lead}<span class="code-token code-token--comment">${comment}</span>`);
-    return token;
-  });
-
-  const withStringTokens = withCommentTokens.replace(/"(\\.|[^"\\])*"/g, (match, _content, offset) => {
-    const rest = withCommentTokens.slice(offset + match.length);
-    const isKey = /^\s*:/.test(rest);
-    const token = `__TOKEN_${tokens.length}__`;
-    tokens.push(
-      `<span class="code-token ${isKey ? 'code-token--key' : 'code-token--string'}">${match}</span>`
-    );
-    return token;
-  });
-
-  const withLiterals = withStringTokens
-    .replace(/\b(true|false|null)\b/g, '<span class="code-token code-token--literal">$1</span>')
-    .replace(/\b-?\d+(?:\.\d+)?\b/g, '<span class="code-token code-token--number">$&</span>');
-
-  return withLiterals.replace(/__TOKEN_(\d+)__/g, (_match, index) => tokens[Number(index)]);
-};
 ---
 
 <div
@@ -70,17 +43,12 @@ const highlightJson = (input: string) => {
     {href && linkLabel && <a class="feature-card__link" href={href}>{linkLabel} →</a>}
   </div>
   <div class="feature-card__code">
-    <slot>
-      {language === "json" ? (
-        <pre><code set:html={highlightJson(code ?? '')}></code></pre>
-      ) : (
-        <pre><code>{code}</code></pre>
-      )}
-    </slot>
+    <CodeBlock {code} {language} />
+    <slot />
   </div>
 </div>
 
-<style>
+<style lang="scss">
   /* Text and code sit side by side when both fit and stack when they do not. */
   .feature-card {
     --reveal-distance: 1.25rem;
@@ -147,28 +115,5 @@ const highlightJson = (input: string) => {
     font-size: 0.8rem;
     line-height: 1.7;
     color: var(--sl-color-gray-2);
-  }
-  /* Long lines wrap, so the panel never has to scroll or clip. */
-  .feature-card__code pre {
-    margin: 0;
-    font: inherit;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-  .feature-card__code .code-token--comment {
-    color: var(--aix-text-muted);
-    font-style: italic;
-  }
-  .feature-card__code .code-token--key {
-    color: var(--sl-color-accent);
-  }
-  .feature-card__code .code-token--string {
-    color: var(--aix-code-string);
-  }
-  .feature-card__code .code-token--number {
-    color: var(--aix-code-number);
-  }
-  .feature-card__code .code-token--literal {
-    color: var(--aix-code-literal);
   }
 </style>

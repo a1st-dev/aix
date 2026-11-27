@@ -357,8 +357,12 @@ a {
    overflow-wrap: anywhere;
 }
 .install-targets__note {
+   padding-block-start: 0.75rem;
+   border-block-start: 1px solid var(--sl-color-hairline-light);
+   margin-block-start: 0.75rem;
    color: var(--aix-text-muted);
-   font-style: italic;
+   font-family: var(--sl-font);
+   font-weight: 600;
 }
 
 /* ---------- How Section ---------- */
