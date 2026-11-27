@@ -14,31 +14,35 @@ npm install @a1st/aix-core
 
 ```js
 import { fileURLToPath } from "node:url";
-import { detectEditors, installItem, removeItem } from "@a1st/aix-core";
+import { detectEditors, installSkill, removeSkill } from "@a1st/aix-core";
 
-const skill = { section: "skills", name: "my-cli", scope: "user" },
-   editors = await detectEditors(process.cwd());
+const skill = { name: "my-cli", scope: "user" },
+   detected = await detectEditors();
 
-// Copies the skill to ~/.aix/skills/my-cli and links it into each editor's skills directory.
-const { results } = await installItem({
+// Use displayName in a picker and pass the selected IDs to the installer.
+const { results } = await installSkill({
    ...skill,
-   value: { path: fileURLToPath(new URL("../skills/my-cli", import.meta.url)) },
-   editors,
+   source: { path: fileURLToPath(new URL("../skills/my-cli", import.meta.url)) },
+   editors: detected.map(({ id }) => id),
 });
 
 for (const result of results) {
-   console.log(result.editor, result.success ? "installed" : result.errors.join(", "));
+   console.log(result.editor, result.changes, result.errors);
 }
 
-// Later: deletes only what installItem created.
-await removeItem(skill);
+// Later, remove the skill from its recorded editors.
+await removeSkill(skill);
 ```
 
-`section` is a section of `ai.json` (`skills`, `mcp`, `rules`, `prompts`, `agents`, `hooks`,
-`plugins`, `marketplaces`) and `value` is what `ai.json` would have under `name`. aix backs up
-every file before it changes it. See
-[Use aix as a library](https://aix.a1st.dev/getting-started/use-as-a-library/) for a
-setup prompt, subcommands, the options, and bundling notes.
+`detectEditors()` checks user config and data paths and returns objects such as
+`{ id: "claude-code", displayName: "Claude Code" }`. Use
+`detectEditors(projectRoot, { projectOnly: true })` to check project config, or
+`getAvailableEditors()` to list every supported editor.
+
+Named installers include `installMcpServer`, `installRule`, and `installPrompt`. Use
+`installItem({ type, name, config, scope, editors })` when you choose the item type at
+runtime. See [Use aix as a library](https://aix.a1st.dev/getting-started/use-as-a-library/)
+for the full API and a setup prompt that lets users choose editors.
 
 ## Other exports
 

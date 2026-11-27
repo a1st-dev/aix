@@ -674,30 +674,33 @@ export default class Install extends BaseCommand<typeof Install> {
          return resolveConfiguredEditors(configEditors);
       }
 
-      const detected = await detectEditors(projectRoot);
+      const detected = await detectEditors(),
+            detectedIDs = detected.map(({ id }) => {
+               return id;
+            });
 
       if (detected.length === 0) {
          this.error('No editors detected, so nothing was installed. Pass --target <editor>, or list editors under "editors" in ai.json.');
       }
       if (detected.length === 1) {
-         this.output.info(`Detected editor: ${detected[0]}`);
-         return detected;
+         this.output.info(`Detected editor: ${detectedIDs[0]}`);
+         return detectedIDs;
       }
 
       assertInteractive(
          this.error.bind(this),
-         `Several editors were detected (${detected.join(', ')}). Pass --target for each one to install to, or list them under "editors" in ai.json.`,
+         `Several editors were detected (${detectedIDs.join(', ')}). Pass --target for each one to install to, or list them under "editors" in ai.json.`,
       );
 
       const previousEditors = (await listConfigInstallEditors({ source: configSource, scope: targetScope, projectRoot }))
                .filter((editor) => {
-                  return detected.includes(editor);
+                  return detectedIDs.includes(editor);
                }),
-            preselectedEditors = previousEditors.length > 0 ? previousEditors : detected,
+            preselectedEditors = previousEditors.length > 0 ? previousEditors : detectedIDs,
             selectedEditors = await checkbox<EditorName>({
                message: 'Multiple editors detected. Which ones should aix install to?',
-               choices: detected.map((editor) => {
-                  return { name: editor, value: editor, checked: preselectedEditors.includes(editor) };
+               choices: detected.map(({ id, displayName }) => {
+                  return { name: displayName, value: id, checked: preselectedEditors.includes(id) };
                }),
                required: true,
             });

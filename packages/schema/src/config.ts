@@ -25,6 +25,7 @@ export const aiJsonConfigSchema = configMetaSchema.extend({
 });
 
 export type AiJsonConfig = z.infer<typeof aiJsonConfigSchema>;
+export type AiJsonConfigInput = z.input<typeof aiJsonConfigSchema>;
 
 /**
  * Schema for ai.local.json - same as aiJsonConfigSchema but without extends.

@@ -138,16 +138,12 @@ describe('Editor Adapters', () => {
    });
 
    describe('detectEditors', () => {
-      it('detects globally installed editors', async () => {
-         // detectEditors now checks for global IDE installations (e.g., ~/Library/Application Support/Windsurf)
-         // This test verifies the function runs without error - actual detection depends on what's installed
-         const detected = await detectEditors(testDir);
+      it('returns the ID and display name for an editor detected in the user directory', async () => {
+         await mkdir(join(nodeRuntimeAdapter.os.homedir(), '.claude'), { recursive: true });
 
-         expect(Array.isArray(detected)).toBe(true);
-         // All detected editors should be valid editor names
-         for (const editor of detected) {
-            expect(getAvailableEditors()).toContain(editor);
-         }
+         const detected = await detectEditors();
+
+         expect(detected).toContainEqual({ id: 'claude-code', displayName: 'Claude Code' });
       });
    });
 

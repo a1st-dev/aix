@@ -88,6 +88,11 @@ export type EditorAliasName = (typeof editorAliasNames)[number];
 
 export type EditorInputName = EditorName | EditorAliasName;
 
+export interface DetectedEditor {
+   readonly id: EditorName;
+   readonly displayName: string;
+}
+
 export function normalizeEditorName(editor: string): EditorName {
    switch (editor.toLowerCase()) {
       case 'windsurf':

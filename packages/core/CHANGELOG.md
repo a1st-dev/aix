@@ -9,6 +9,12 @@ version may appear here with no changes to this package.
 
 ### Added
 
+- Add named installers and removers such as `installSkill` and `removeMcpServer`. Use
+  `type` and `config` with `installItem`, and `type` with `removeItem`. Existing calls
+  using `section` and `value` still work.
+- Allow `detectEditors()` to check for editors without a project path. It now returns
+  `{ id, displayName }` objects. Pass the selected IDs to the installer's `editors` option.
+
 - Register local Antigravity bundles at user scope without unpacking the plugin
 - Import Antigravity CLI skills from its additional Gemini and shared Agent Skills directories
 

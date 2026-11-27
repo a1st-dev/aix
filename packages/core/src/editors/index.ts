@@ -1,4 +1,5 @@
 export type {
+   DetectedEditor,
    EditorName,
    EditorAliasName,
    EditorInputName,

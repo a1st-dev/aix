@@ -62,9 +62,11 @@ export async function resolveRemovalEditors(
  */
 async function detectEditorsForRemoval(projectRoot: string): Promise<EditorName[]> {
    const [ global, project ] = await Promise.all([
-      detectEditors(projectRoot),
+      detectEditors(),
       detectEditors(projectRoot, { projectOnly: true }),
    ]);
 
-   return normalizeEditorNames([ ...global, ...project ]);
+   return [ ...global, ...project ].map(({ id }) => {
+      return id;
+   });
 }

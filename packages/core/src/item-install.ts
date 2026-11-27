@@ -1,28 +1,98 @@
-import { createEmptyConfig, parseConfig, type AiJsonConfig, type ConfigScope } from '@a1st/aix-schema';
+import { createEmptyConfig, parseConfig, type AiJsonConfig, type AiJsonConfigInput, type ConfigScope, type HookEvent } from '@a1st/aix-schema';
 import { detectEditors, installToEditor } from './editors/install.js';
 import { normalizeEditorNames, type ApplyResult, type EditorName } from './editors/types.js';
 import { getRuntimeAdapter } from './runtime/index.js';
 import { getInstalledItem, readState, trackInstall, trackRemoval } from './state/tracker.js';
 import type { StateSection } from './state/types.js';
 
-export interface InstallItemOptions {
-   /** The `ai.json` section the item belongs to. */
-   readonly section: StateSection;
-   /** The key the item has in its section. For `hooks`, the hook event. */
-   readonly name: string;
-   /** What `ai.json` would have under that key, such as `{ path: '/abs/skill-dir' }` for a skill. */
-   readonly value: unknown;
+const itemSections = {
+   skill: 'skills',
+   mcp: 'mcp',
+   rule: 'rules',
+   prompt: 'prompts',
+   agent: 'agents',
+   hook: 'hooks',
+   plugin: 'plugins',
+   marketplace: 'marketplaces',
+} as const satisfies Record<string, StateSection>;
+
+export type InstallableItemType = keyof typeof itemSections;
+
+type ItemEntries<Type extends InstallableItemType> = NonNullable<AiJsonConfigInput[(typeof itemSections)[Type]]>;
+type ItemConfig<Type extends InstallableItemType> = ItemEntries<Type>[keyof ItemEntries<Type>];
+
+export interface ItemTargetOptions {
    /** `user` writes editor config under the home directory, `project` under `projectRoot`. */
    readonly scope: ConfigScope;
    /** Defaults to the current working directory. */
    readonly projectRoot?: string;
-   /** Editor names or aliases. Defaults to the editors detected on this machine. */
+   /** Editor names or aliases. An empty list selects no editors. */
    readonly editors?: readonly string[];
    /** Report the file changes without writing anything. */
    readonly dryRun?: boolean;
 }
 
-export type RemoveItemOptions = Omit<InstallItemOptions, 'value'>;
+interface NamedItemOptions extends ItemTargetOptions {
+   readonly name: string;
+}
+
+export type RemoveItemOptions = {
+   [Type in InstallableItemType]: ItemTargetOptions & {
+      readonly type: Type;
+      /** The installed name, or the lifecycle event for a hook. */
+      readonly name: Type extends 'hook' ? HookEvent : string;
+   };
+}[InstallableItemType];
+
+export type InstallItemOptions = {
+   [Type in InstallableItemType]: Extract<RemoveItemOptions, { type: Type }> & {
+      readonly config: ItemConfig<Type>;
+   };
+}[InstallableItemType];
+
+interface LegacyRemoveItemOptions extends NamedItemOptions {
+   readonly section: StateSection;
+}
+
+interface LegacyInstallItemOptions extends LegacyRemoveItemOptions {
+   readonly value: unknown;
+}
+
+export interface InstallSkillOptions extends NamedItemOptions {
+   readonly source: Extract<ItemConfig<'skill'>, { source: unknown }>['source'];
+}
+
+export interface InstallMcpServerOptions extends NamedItemOptions {
+   readonly server: ItemConfig<'mcp'>;
+}
+
+export interface InstallRuleOptions extends NamedItemOptions {
+   readonly rule: ItemConfig<'rule'>;
+}
+
+export interface InstallPromptOptions extends NamedItemOptions {
+   readonly prompt: ItemConfig<'prompt'>;
+}
+
+export interface InstallAgentOptions extends NamedItemOptions {
+   readonly agent: ItemConfig<'agent'>;
+}
+
+interface HookOptions extends ItemTargetOptions {
+   readonly event: HookEvent;
+}
+
+export interface InstallHookOptions extends HookOptions {
+   readonly matchers: ItemConfig<'hook'>;
+}
+
+export interface InstallPluginOptions extends NamedItemOptions {
+   readonly plugin: ItemConfig<'plugin'>;
+}
+
+export interface InstallMarketplaceOptions extends NamedItemOptions {
+   readonly marketplace: ItemConfig<'marketplace'>;
+}
 
 export interface ItemInstallResult {
    /** The editors that were processed. Empty when none was named, detected, or recorded. */
@@ -31,9 +101,21 @@ export interface ItemInstallResult {
    readonly results: ApplyResult[];
 }
 
-interface ApplyItemOptions extends RemoveItemOptions {
+interface ApplyItemOptions extends LegacyRemoveItemOptions {
    readonly config: AiJsonConfig;
    readonly editors: readonly EditorName[];
+}
+
+function getItemSection(options: RemoveItemOptions | LegacyRemoveItemOptions): StateSection {
+   if ('section' in options) {
+      return options.section;
+   }
+
+   if (!Object.hasOwn(itemSections, options.type)) {
+      throw new Error(`Unknown installable item type: ${options.type}`);
+   }
+
+   return itemSections[options.type];
 }
 
 function createItemConfig(section: StateSection, entries: Record<string, unknown>): AiJsonConfig {
@@ -84,15 +166,20 @@ function listSucceededEditors(results: readonly ApplyResult[]): EditorName[] {
       });
 }
 
-/**
- * Install one item (a skill, an MCP server, a rule, ...) into editors without an `ai.json`.
- * The install is recorded, so `removeItem` and `aix list` know about it.
- */
-export async function installItem(options: InstallItemOptions): Promise<ItemInstallResult> {
-   const { section, name, value, scope, dryRun } = options,
+export function installItem(options: LegacyInstallItemOptions): Promise<ItemInstallResult>;
+/** Install one item directly into editors. By default, installs into the detected editors. */
+export function installItem(options: InstallItemOptions): Promise<ItemInstallResult>;
+export async function installItem(options: InstallItemOptions | LegacyInstallItemOptions): Promise<ItemInstallResult> {
+   const { name, scope, dryRun } = options,
+         section = getItemSection(options),
+         value = 'type' in options ? options.config : options.value,
          projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
          config = createItemConfig(section, { [name]: value }),
-         editors = options.editors ? normalizeEditorNames(options.editors) : await detectEditors(projectRoot),
+         editors = options.editors
+            ? normalizeEditorNames(options.editors)
+            : (await detectEditors()).map(({ id }) => {
+               return id;
+            }),
          installed = await applyItemConfig({ section, name, scope, projectRoot, dryRun, config, editors }),
          succeededEditors = listSucceededEditors(installed.results);
 
@@ -103,13 +190,12 @@ export async function installItem(options: InstallItemOptions): Promise<ItemInst
    return installed;
 }
 
-/**
- * Remove an item that `installItem` (or `aix add` without `--save`) installed. Only what that
- * install created is deleted: an item of the same name that the user wrote, or that another
- * `ai.json` installed, stays.
- */
-export async function removeItem(options: RemoveItemOptions): Promise<ItemInstallResult> {
-   const { section, name, scope, dryRun } = options,
+export function removeItem(options: LegacyRemoveItemOptions): Promise<ItemInstallResult>;
+/** Remove the files and config entries managed by a direct install. Defaults to the recorded editors. */
+export function removeItem(options: RemoveItemOptions): Promise<ItemInstallResult>;
+export async function removeItem(options: RemoveItemOptions | LegacyRemoveItemOptions): Promise<ItemInstallResult> {
+   const { name, scope, dryRun } = options,
+         section = getItemSection(options),
          projectRoot = options.projectRoot ?? getRuntimeAdapter().process.cwd(),
          recordedEditors = getInstalledItem(await readState(scope, projectRoot), section, name)?.editors ?? [],
          editors = normalizeEditorNames(options.editors ?? recordedEditors),
@@ -122,4 +208,68 @@ export async function removeItem(options: RemoveItemOptions): Promise<ItemInstal
    }
 
    return removed;
+}
+
+export function installSkill({ source, ...target }: InstallSkillOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'skill', config: source });
+}
+
+export function removeSkill(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'skill' });
+}
+
+export function installMcpServer({ server, ...target }: InstallMcpServerOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'mcp', config: server });
+}
+
+export function removeMcpServer(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'mcp' });
+}
+
+export function installRule({ rule, ...target }: InstallRuleOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'rule', config: rule });
+}
+
+export function removeRule(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'rule' });
+}
+
+export function installPrompt({ prompt, ...target }: InstallPromptOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'prompt', config: prompt });
+}
+
+export function removePrompt(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'prompt' });
+}
+
+export function installAgent({ agent, ...target }: InstallAgentOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'agent', config: agent });
+}
+
+export function removeAgent(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'agent' });
+}
+
+export function installHook({ event, matchers, ...target }: InstallHookOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'hook', name: event, config: matchers });
+}
+
+export function removeHook({ event, ...target }: HookOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...target, type: 'hook', name: event });
+}
+
+export function installPlugin({ plugin, ...target }: InstallPluginOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'plugin', config: plugin });
+}
+
+export function removePlugin(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'plugin' });
+}
+
+export function installMarketplace({ marketplace, ...target }: InstallMarketplaceOptions): Promise<ItemInstallResult> {
+   return installItem({ ...target, type: 'marketplace', config: marketplace });
+}
+
+export function removeMarketplace(options: NamedItemOptions): Promise<ItemInstallResult> {
+   return removeItem({ ...options, type: 'marketplace' });
 }

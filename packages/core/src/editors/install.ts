@@ -1,9 +1,9 @@
 import pMap from 'p-map';
 import { join, resolve } from 'pathe';
 import type { AiJsonConfig } from '@a1st/aix-schema';
-import type { EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
+import type { DetectedEditor, EditorAdapter, EditorName, ApplyOptions, ApplyResult, GlobalChangesInfo, FileChange } from './types.js';
 import { stringifyTOML } from 'confbox';
-import { parseJsonc, modifyJsonc } from '@a1st/aix-schema';
+import { getEditorSupportProfile, parseJsonc, modifyJsonc } from '@a1st/aix-schema';
 import { isRecord } from '../type-guards.js';
 import { planInstallReceipt } from './install-receipts.js';
 import { applyFileChanges, getFileChangeAction } from './apply-file-changes.js';
@@ -121,28 +121,35 @@ async function isEditorConfiguredInProject(editor: EditorName, projectRoot: stri
 }
 
 /**
- * Detect which editors are available. By default, checks for editors installed globally on the
- * system. If `projectOnly` is true, only returns editors that have existing config directories in
- * the project.
+ * Detect editors by their user config or data paths. With `projectOnly`, checks for
+ * editor config in `projectRoot`, which defaults to the current working directory.
  */
 export async function detectEditors(
-   projectRoot: string,
+   projectRoot?: string,
    options: { projectOnly?: boolean } = {},
-): Promise<EditorName[]> {
+): Promise<DetectedEditor[]> {
    if (!options.projectOnly) {
       assertGlobalHomeAccess('detecting globally installed editors');
    }
 
    const editors = getAvailableEditors(),
          checkFn = options.projectOnly
-            ? (editor: EditorName) => isEditorConfiguredInProject(editor, projectRoot)
+            ? (editor: EditorName) => isEditorConfiguredInProject(editor, projectRoot ?? getRuntimeAdapter().process.cwd())
             : isEditorInstalledGlobally;
 
-   const results = await pMap(editors, async (editor) => ({ editor, detected: await checkFn(editor) }), {
+   const results = await pMap(editors, async (id) => {
+      return { id, detected: await checkFn(id) };
+   }, {
       concurrency: 3,
    });
 
-   return results.filter((r) => r.detected).map((r) => r.editor);
+   return results
+      .filter(({ detected }) => {
+         return detected;
+      })
+      .map(({ id }) => {
+         return { id, displayName: getEditorSupportProfile(id).name };
+      });
 }
 
 /**
@@ -427,7 +434,9 @@ export async function install(
    projectRoot: string,
    options?: ApplyOptions & { editors?: readonly string[] },
 ): Promise<ApplyResult[]> {
-   const editors = options?.editors ?? (await detectEditors(projectRoot));
+   const editors = options?.editors ?? (await detectEditors(projectRoot)).map(({ id }) => {
+      return id;
+   });
 
    // If no editors detected and none specified, install to all
    const targetEditors = editors.length > 0 ? editors : getAvailableEditors();

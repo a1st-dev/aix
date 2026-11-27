@@ -264,7 +264,9 @@ export async function removeMcp(options: { configPath: string; name: string }): 
       const loaded = await loadConfig(configPath),
             projectRoot = dirname(configPath),
             configuredEditors = loaded?.config.editors ? Object.keys(normalizeEditors(loaded.config.editors)) : [],
-            editors = configuredEditors.length > 0 ? configuredEditors : await detectEditors(projectRoot);
+            editors = configuredEditors.length > 0 ? configuredEditors : (await detectEditors()).map(({ id }) => {
+               return id;
+            });
 
       await updateConfig(configPath, (config) => {
          const { [name]: _, ...remainingMcp } = config.mcp ?? {};

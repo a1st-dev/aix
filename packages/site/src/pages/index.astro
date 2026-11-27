@@ -239,18 +239,19 @@ aix search playwright --type mcp`}
             <FeatureCard
               label="@a1st/aix-core"
               title="Ship your tool's skill with your tool."
-              description="Publishing a CLI or a library? Call the aix library from your setup command to install your skill or MCP server into every AI editor your user has. Your users do not need aix."
+              description="Detect the user's AI editors during setup, ask which to configure, and install your skill or MCP server directly from your own tool."
               language="js"
               code={`import { fileURLToPath } from 'node:url';
-import { installItem } from '@a1st/aix-core';
+import { detectEditors, installSkill } from '@a1st/aix-core';
 
+const detected = await detectEditors();
 const skillDir = fileURLToPath(new URL('./skills/my-cli', import.meta.url));
 
-await installItem({
-  section: 'skills',
+await installSkill({
   name: 'my-cli',
-  value: { path: skillDir },
+  source: { path: skillDir },
   scope: 'user',
+  editors: detected.map(({ id }) => id),
 });`}
               href="/getting-started/use-as-a-library/"
               linkLabel="Use aix as a library"

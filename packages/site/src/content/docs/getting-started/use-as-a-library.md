@@ -14,7 +14,27 @@ itself. `@a1st/aix-core` is the library the `aix` command is built on. Your user
 npm install @a1st/aix-core
 ```
 
-The package is ESM-only and needs Node.js 20.19, or 22.12 and later.
+The package is ESM-only and needs Node.js 20.19 or later in the 20.x series, or Node.js
+22.12 and later.
+
+## Detect editors and let users choose
+
+`detectEditors()` checks each supported editor's user config and data paths and returns
+a `Promise<DetectedEditor[]>`. Each match has an `id` and a `displayName`:
+
+```json
+[
+   { "id": "claude-code", "displayName": "Claude Code" },
+   { "id": "cursor", "displayName": "Cursor" }
+]
+```
+
+Show `displayName` in your picker and pass the selected IDs to the installer. An empty selection
+(`editors: []`) skips installation. Omitting `editors` installs into every detected editor.
+
+Use `detectEditors(projectRoot, { projectOnly: true })` to find editors that already
+have config in a project. Use `getAvailableEditors()` to list every editor aix supports,
+for example when offering manual selection for an editor that has never been opened.
 
 ## Install a skill that ships with your CLI
 
@@ -30,151 +50,159 @@ my-cli/
     └── agent-skill.js
 ```
 
-`installItem` copies the skill to `~/.aix/skills/my-cli` and links it into the skills
-directory of each editor:
+`installSkill` copies the directory to `~/.aix/skills/my-cli` and links it into the skills
+directory of each selected editor. Reinstall after an upgrade to update the copy.
 
 ```js
 // src/agent-skill.js
 import { fileURLToPath } from "node:url";
-import { detectEditors, installItem, removeItem } from "@a1st/aix-core";
+import { installSkill, removeSkill } from "@a1st/aix-core";
 
-const skill = { section: "skills", name: "my-cli", scope: "user" },
-   skillDir = fileURLToPath(new URL("../skills/my-cli", import.meta.url));
+const skill = { name: "my-cli", scope: "user" },
+   path = fileURLToPath(new URL("../skills/my-cli", import.meta.url));
 
-export function listDetectedEditors() {
-   return detectEditors(process.cwd());
+export function installMyCliSkill(editors) {
+   return installSkill({ ...skill, source: { path }, editors });
 }
 
-export function installSkill(editors) {
-   return installItem({ ...skill, value: { path: skillDir }, editors });
-}
-
-export function removeSkill() {
-   return removeItem(skill);
+export function removeMyCliSkill() {
+   return removeSkill(skill);
 }
 ```
 
 ### Ask during setup
 
-This setup step asks before it writes anything, and says where the skill went:
-
 ```js
 import { createInterface } from "node:readline/promises";
-import { installSkill, listDetectedEditors } from "./agent-skill.js";
+import { detectEditors } from "@a1st/aix-core";
+import { installMyCliSkill } from "./agent-skill.js";
 
 export async function offerAgentSkill() {
-   const editors = await listDetectedEditors();
+   if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      return;
+   }
 
-   if (editors.length === 0 || !process.stdin.isTTY) {
+   const detected = await detectEditors();
+
+   if (detected.length === 0) {
+      console.log("No AI editor was detected.");
       return;
    }
 
    const prompt = createInterface({ input: process.stdin, output: process.stdout }),
-      answer = await prompt.question(`Install the my-cli skill for ${editors.join(", ")}? [Y/n] `);
+      editors = [];
 
-   prompt.close();
+   try {
+      for (const { id, displayName } of detected) {
+         const answer = await prompt.question(
+            `Install the my-cli skill for ${displayName}? [y/N] `,
+         );
 
-   if (answer.trim().toLowerCase().startsWith("n")) {
+         if (/^y(es)?$/i.test(answer.trim())) {
+            editors.push(id);
+         }
+      }
+   } finally {
+      prompt.close();
+   }
+
+   if (editors.length === 0) {
       return;
    }
 
-   const { results } = await installSkill(editors);
+   const { results } = await installMyCliSkill(editors);
 
    for (const result of results) {
-      console.log(
-         result.success
-            ? `Installed for ${result.editor}`
-            : `${result.editor}: ${result.errors.join(", ")}`,
-      );
+      if (!result.success) {
+         console.error(`${result.editor}: ${result.errors.join(", ")}`);
+      } else if (result.unsupportedFeatures?.skills || result.targetScopeLimitations?.skills) {
+         console.log(`Skipped ${result.editor}: user-scope skills are unavailable.`);
+      } else {
+         console.log(`Installed for ${result.editor}.`);
+      }
    }
 }
 ```
 
-### Add subcommands
+Call `installMyCliSkill()` from an explicit install subcommand to target all detected
+editors, or pass editor names from flags. Call `removeMyCliSkill()` from a remove
+subcommand to remove the skill from its recorded editors. To defer loading aix until
+a subcommand needs it, use `await import("@a1st/aix-core")` inside the command.
 
-The same two functions work as `my-cli skill install` and `my-cli skill remove`. Running
-the install again after an upgrade replaces the copy with the new version of the skill.
+## Install other items
 
 ```js
-import { installSkill, listDetectedEditors, removeSkill } from "./agent-skill.js";
+import { installMcpServer, installRule } from "@a1st/aix-core";
 
-export async function runSkillCommand(action) {
-   const { results } =
-      action === "remove" ? await removeSkill() : await installSkill(await listDetectedEditors());
+await installMcpServer({
+   name: "my-cli",
+   server: { command: "npx", args: ["-y", "my-cli", "mcp"] },
+   scope: "user",
+});
 
-   if (results.length === 0) {
-      console.log(action === "remove" ? "The skill is not installed." : "No AI editor was found.");
-   }
-
-   for (const result of results) {
-      console.log(`${result.editor}: ${result.success ? "done" : result.errors.join(", ")}`);
-   }
-
-   process.exitCode = results.every((result) => result.success) ? 0 : 1;
-}
+await installRule({
+   name: "my-cli",
+   rule: { description: "Using my-cli", content: "Run `my-cli check` before committing." },
+   scope: "project",
+   editors: ["cursor"],
+});
 ```
 
-To keep your CLI's startup time unchanged, load the library only in the commands that use
-it: `const { installItem } = await import('@a1st/aix-core')`.
+| Install              | Remove              | Item-specific options                                                                      |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| `installSkill`       | `removeSkill`       | `source` accepts a local directory, Git source, or npm reference.                          |
+| `installMcpServer`   | `removeMcpServer`   | `server` accepts a command and arguments, or an HTTP URL with optional headers.            |
+| `installRule`        | `removeRule`        | `rule` accepts inline content or a source reference.                                       |
+| `installPrompt`      | `removePrompt`      | `prompt` accepts inline content or a source reference.                                     |
+| `installAgent`       | `removeAgent`       | `agent` accepts an agent definition or a source reference.                                 |
+| `installHook`        | `removeHook`        | Use `event` in place of `name`. On install, pass the list of matcher groups as `matchers`. |
+| `installPlugin`      | `removePlugin`      | `plugin` accepts a plugin definition, source reference, or enabled flag.                   |
+| `installMarketplace` | `removeMarketplace` | `marketplace` accepts the catalog source or a marketplace definition.                      |
 
-## Install other config
+A Git skill source can be `{ git: "https://github.com/me/my-cli", path: "skills/my-cli" }`.
+See the [configuration reference](/configuration/ai-json-reference/) for the fields
+accepted by each kind of item.
 
-`section` is a section of `ai.json`, `name` is the key in that section, and `value` is what
-`ai.json` would have under that key. Every form in the
-[ai.json reference](/configuration/ai-json-reference/) works.
+### Install items by type
+
+Use `installItem({ type, name, config, scope, editors })` when your tool chooses the
+item type at runtime. The supported types are `skill`, `mcp`, `rule`, `prompt`, `agent`,
+`hook`, `plugin`, and `marketplace`. For example:
 
 ```js
 import { installItem } from "@a1st/aix-core";
 
-// An MCP server
 await installItem({
-   section: "mcp",
+   type: "skill",
    name: "my-cli",
-   value: { command: "npx", args: ["-y", "my-cli", "mcp"] },
+   config: { path: "./skills/my-cli" },
    scope: "user",
-});
-
-// A rule, from text or from a file
-await installItem({
-   section: "rules",
-   name: "my-cli",
-   value: { description: "Using my-cli", content: "Run `my-cli check` before committing." },
-   scope: "project",
+   editors: ["claude-code"],
 });
 ```
 
-A skill `value` can also be a git source, such as
-`{ git: 'https://github.com/me/my-cli', path: 'skills/my-cli' }`. aix downloads it at install
-time.
+Use `removeItem({ type, name, scope, editors })` to remove the item. For hooks, pass the
+lifecycle event as `name` and the matcher groups as `config` on install.
 
-## Options
+## Shared options and results
 
-`installItem(options)` and `removeItem(options)` take the same options. `removeItem` has no
-`value`.
+| Option        | Description                                                                                                                         |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | The installed item's name. The named hook functions take `event` instead.                                                           |
+| `scope`       | Required. Use `"user"` for home-directory config or `"project"` for project-local config.                                           |
+| `projectRoot` | Defaults to the current working directory. Relative item paths resolve from here.                                                   |
+| `editors`     | [Editor names](/editors/supported-editors/) or aliases. Installs default to detected editors. Removals default to recorded editors. |
+| `dryRun`      | Return planned file changes without applying them.                                                                                  |
 
-| Option        | Type                    | Description                                                                                                                                                  |
-| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `section`     | string                  | `skills`, `mcp`, `rules`, `prompts`, `agents`, `hooks`, `plugins`, or `marketplaces`.                                                                        |
-| `name`        | string                  | The item's key in its section. For `hooks`, the hook event, with the list of matchers as `value`.                                                            |
-| `value`       | object or string        | The item, in the form `ai.json` uses. An invalid value throws before anything is written.                                                                    |
-| `scope`       | `'user'` or `'project'` | `user` writes under the home directory, for every project. `project` writes into `projectRoot`. See [User scope and project scope](/concepts/scopes/).       |
-| `projectRoot` | string                  | Defaults to the current working directory. Relative paths in `value` are resolved from here.                                                                 |
-| `editors`     | string[]                | [Editor names](/editors/supported-editors/). `installItem` defaults to the detected editors. `removeItem` defaults to the editors the item was installed to. |
-| `dryRun`      | boolean                 | Return the planned file changes without writing.                                                                                                             |
+Install and remove functions return `{ editors, results }`, with one result per processed
+editor. Each result includes `success`, `errors`, and `changes`. File changes have a
+`path` and an `action` of `create`, `update`, `delete`, or `unchanged`. An editor
+failure is reported in its result and processing continues with the other editors.
+Invalid item config or editor names throw before installation.
 
-Both return `{ editors, results }`. `editors` is empty when there was nothing to do: no
-editor was detected, or the item was never installed. `results` has one entry per editor:
-
-- `success` and `errors`: whether the editor's files were written, and why not. A failure in
-  one editor does not stop the others, and the functions do not throw for it.
-- `changes`: every file with its `path` and `action` (`create`, `update`, `delete`, or
-  `unchanged`).
-- `unsupportedFeatures` and `targetScopeLimitations`: set when the editor cannot take the
-  item at all, or not at the requested scope. For example, some editors have no user-level
-  rules. `success` is still `true` in that case, so check these when you report the outcome.
-
-`detectEditors(projectRoot)` returns the editors installed on the machine, and
-`getAvailableEditors()` returns every editor aix supports.
+Check `unsupportedFeatures`, `targetScopeLimitations`, and `globalChanges?.skipped`
+before reporting an install as complete. An editor can skip an item and still return
+`success: true`.
 
 ## What aix does to the user's files
 
@@ -202,7 +230,7 @@ node ./bin/my-cli.js skill install
 ## Dependencies and bundling
 
 `@a1st/aix-core` installs 17 other packages, about 4 MB on disk. The packages that download
-git sources and npm packages are loaded only when a `value` needs them.
+git sources and npm packages are loaded only when an item needs them.
 
 If you bundle your tool into one file, the simplest setup leaves `@a1st/aix-core` out of the
 bundle as a normal dependency. It can be bundled: an esbuild bundle of the code above is
