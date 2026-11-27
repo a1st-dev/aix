@@ -44,7 +44,7 @@
       "jsonc-parser": "3.3.1"
    },
    "devDependencies": {
-      "@poppinss/ts-exec": "1.4.1"
+      "@poppinss/ts-exec": "1.5.2"
    },
    "peerDependencies": {
       "zod": "^4.0.0"
