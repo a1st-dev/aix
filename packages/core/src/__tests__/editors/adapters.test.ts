@@ -56,6 +56,10 @@ const createFrontmatterRuleContent = (body: string): string => [
    body,
 ].join('\n');
 
+const getSkillFilePath = (dir: string): string => {
+   return join(dir, 'SKILL.md');
+};
+
 describe('Editor Adapters', () => {
    let testDir: string;
    let originalHome: string | undefined;
@@ -432,25 +436,22 @@ describe('Editor Adapters', () => {
       });
 
       describe('a skill whose name is already taken in the editor', () => {
-         const config = createConfig({ skills: { pdf: './skills/pdf' } }),
-               skillFile = (dir: string): string => {
-                  return join(dir, 'SKILL.md');
-               };
+         const config = createConfig({ skills: { pdf: './skills/pdf' } });
 
          beforeEach(async () => {
             await mkdir(join(testDir, 'skills', 'pdf'), { recursive: true });
-            await writeFile(skillFile(join(testDir, 'skills', 'pdf')), '---\nname: pdf\ndescription: From ai.json\n---\nFROM CONFIG\n');
+            await writeFile(getSkillFilePath(join(testDir, 'skills', 'pdf')), '---\nname: pdf\ndescription: From ai.json\n---\nFROM CONFIG\n');
          });
 
          it('refuses to replace a directory that aix did not create', async () => {
             const handWritten = join(testDir, '.claude', 'skills', 'pdf');
 
             await mkdir(handWritten, { recursive: true });
-            await writeFile(skillFile(handWritten), 'HAND WRITTEN');
+            await writeFile(getSkillFilePath(handWritten), 'HAND WRITTEN');
 
             await expect(installToEditor('claude-code', config, testDir, { scopes: ['skills'] }))
                .rejects.toThrow('already exists and was not created by aix');
-            expect(await readFile(skillFile(handWritten), 'utf-8')).toStrictEqual('HAND WRITTEN');
+            expect(await readFile(getSkillFilePath(handWritten), 'utf-8')).toStrictEqual('HAND WRITTEN');
          });
 
          it('replaces the link from its own earlier install', async () => {
@@ -459,7 +460,7 @@ describe('Editor Adapters', () => {
             const result = await installToEditor('claude-code', config, testDir, { scopes: ['skills'] });
 
             expect(result.errors).toEqual([]);
-            expect(await readFile(skillFile(join(testDir, '.claude', 'skills', 'pdf')), 'utf-8')).toContain('FROM CONFIG');
+            expect(await readFile(getSkillFilePath(join(testDir, '.claude', 'skills', 'pdf')), 'utf-8')).toContain('FROM CONFIG');
          });
       });
 
@@ -2823,10 +2824,10 @@ Release instructions.
    });
 });
 
-describe('extractGlobDirectoryPrefix', () => {
-   const rule = (activation: Record<string, unknown>) =>
-      ({ content: '', activation }) as Parameters<typeof extractGlobDirectoryPrefix>[0];
+const rule = (activation: Record<string, unknown>) =>
+   ({ content: '', activation }) as Parameters<typeof extractGlobDirectoryPrefix>[0];
 
+describe('extractGlobDirectoryPrefix', () => {
    it('returns empty string for always-activation rules', () => {
       expect(extractGlobDirectoryPrefix(rule({ type: 'always' }))).toBe('');
    });

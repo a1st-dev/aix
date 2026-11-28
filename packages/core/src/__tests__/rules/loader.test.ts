@@ -8,6 +8,12 @@ import { safeRm } from '../../fs/safe-rm.js';
 
 const testDir = join(tmpdir(), 'aix-test-rules-loader');
 
+async function loadRuleFile(fileContent: string, rule: Partial<RuleObject> = {}): Promise<LoadedRule> {
+   await writeFile(join(testDir, 'rule.md'), fileContent, 'utf-8');
+
+   return loadRule('file-rule', { path: './rule.md', ...rule }, join(testDir, 'ai.json'));
+}
+
 describe('loadRule', () => {
    beforeEach(async () => {
       await safeRm(testDir, { force: true });
@@ -50,12 +56,6 @@ describe('loadRule', () => {
 
    describe('activation of a rule file with frontmatter', () => {
       const MANUAL_RULE = '---\ntrigger: manual\n---\n\nOnly on request.';
-
-      async function loadRuleFile(fileContent: string, rule: Partial<RuleObject> = {}): Promise<LoadedRule> {
-         await writeFile(join(testDir, 'rule.md'), fileContent, 'utf-8');
-
-         return loadRule('file-rule', { path: './rule.md', ...rule }, join(testDir, 'ai.json'));
-      }
 
       it('lets an explicit "always" in ai.json override the frontmatter', async () => {
          const result = await loadRuleFile(MANUAL_RULE, { activation: 'always' });

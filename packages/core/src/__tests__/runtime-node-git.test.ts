@@ -24,16 +24,16 @@ vi.mock('giget', () => {
    };
 });
 
+async function download(template: string): Promise<RecordedDownload | undefined> {
+   vi.stubEnv('GIGET_AUTH', 'secret-token');
+   giget.downloads.length = 0;
+
+   await nodeRuntimeAdapter.git.downloadTemplate(template, { dir: '/unused' });
+
+   return giget.downloads[0];
+}
+
 describe('node runtime adapter git downloads', () => {
-   async function download(template: string): Promise<RecordedDownload | undefined> {
-      vi.stubEnv('GIGET_AUTH', 'secret-token');
-      giget.downloads.length = 0;
-
-      await nodeRuntimeAdapter.git.downloadTemplate(template, { dir: '/unused' });
-
-      return giget.downloads[0];
-   }
-
    it.each([ 'github:org/repo#main', 'gitlab:org/repo', 'org/repo' ])('lets the git host token through for %s', async (template) => {
       const recorded = await download(template);
 

@@ -10,34 +10,34 @@ function createTestDir(): string {
    return join(tmpdir(), `aix-add-helper-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 }
 
+async function writeConfig(testDir: string): Promise<string> {
+   const configPath = join(testDir, 'ai.json');
+
+   await mkdir(testDir, { recursive: true });
+   await writeFile(
+      configPath,
+      JSON.stringify(
+         {
+            $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
+            skills: {},
+            mcp: {},
+            rules: {},
+            prompts: {},
+         },
+         null,
+         2,
+      ),
+   );
+
+   return configPath;
+}
+
 describe('addSkill helper', () => {
    const testDirs: string[] = [];
 
    afterEach(async () => {
       await Promise.all(testDirs.splice(0).map((dir) => safeRm(dir, { force: true })));
    });
-
-   async function writeConfig(testDir: string): Promise<string> {
-      const configPath = join(testDir, 'ai.json');
-
-      await mkdir(testDir, { recursive: true });
-      await writeFile(
-         configPath,
-         JSON.stringify(
-            {
-               $schema: 'https://x.a1st.dev/schemas/v1/ai.json',
-               skills: {},
-               mcp: {},
-               rules: {},
-               prompts: {},
-            },
-            null,
-            2,
-         ),
-      );
-
-      return configPath;
-   }
 
    // `aix search` installs a chosen result through this helper, so the git shape a search
    // result carries has to land in ai.json intact.

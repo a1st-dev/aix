@@ -16,6 +16,12 @@ import { nodeRuntimeAdapter, withRuntimeAdapter, type RuntimeAdapter } from '../
 // Use a temp directory to avoid finding ai.json in parent directories
 const testDir = join(tmpdir(), 'aix-test-loader');
 
+async function getLoadError(options: Parameters<typeof loadConfig>[0]): Promise<unknown> {
+   return loadConfig(options).catch((error: unknown) => {
+      return error;
+   });
+}
+
 describe('loadConfig', () => {
    beforeEach(async () => {
       await safeRm(testDir, { force: true });
@@ -73,12 +79,6 @@ describe('loadConfig', () => {
    });
 
    describe('validation errors', () => {
-      async function getLoadError(options: Parameters<typeof loadConfig>[0]): Promise<unknown> {
-         return loadConfig(options).catch((error: unknown) => {
-            return error;
-         });
-      }
-
       it('reports the received value for a wrong-typed field in a discovered config', async () => {
          await writeFile(join(testDir, 'ai.json'), JSON.stringify({ skills: 'not-an-object' }), 'utf-8');
 

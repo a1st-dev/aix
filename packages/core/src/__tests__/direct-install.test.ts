@@ -204,20 +204,20 @@ describe('direct install config resolution', () => {
       ]);
    });
 
+   async function resolveMcpFile(content: unknown, name?: string): Promise<Record<string, unknown>> {
+      await writeFile(join(testDir, 'servers.json'), JSON.stringify(content), 'utf-8');
+
+      const result = await resolveDirectInstallConfig({
+         type: 'mcp',
+         source: './servers.json',
+         name,
+         cwd: testDir,
+      });
+
+      return result.config.mcp;
+   }
+
    describe('MCP config files', () => {
-      async function resolveMcpFile(content: unknown, name?: string): Promise<Record<string, unknown>> {
-         await writeFile(join(testDir, 'servers.json'), JSON.stringify(content), 'utf-8');
-
-         const result = await resolveDirectInstallConfig({
-            type: 'mcp',
-            source: './servers.json',
-            name,
-            cwd: testDir,
-         });
-
-         return result.config.mcp;
-      }
-
       it('uses the only server in an mcpServers file without needing its name', async () => {
          const mcp = await resolveMcpFile({ mcpServers: { docs: { command: 'npx docs-mcp' } } });
 

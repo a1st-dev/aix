@@ -157,19 +157,19 @@ function createResponse(overrides: Partial<RuntimeFetchResponse>): RuntimeFetchR
    };
 }
 
+function fetchWith(fetch: RuntimeNetworkAdapter['fetch'], timeoutMs?: number): Promise<string> {
+   const adapter: RuntimeAdapter = {
+      ...nodeRuntimeAdapter,
+      network: { ...nodeRuntimeAdapter.network, fetch },
+   };
+
+   return withRuntimeAdapter(adapter, () => {
+      return fetchWithTimeout('https://example.com/rules.md', timeoutMs);
+   });
+}
+
 describe('fetchWithTimeout', () => {
    const TIMEOUT_MS = 20;
-
-   function fetchWith(fetch: RuntimeNetworkAdapter['fetch'], timeoutMs?: number): Promise<string> {
-      const adapter: RuntimeAdapter = {
-         ...nodeRuntimeAdapter,
-         network: { ...nodeRuntimeAdapter.network, fetch },
-      };
-
-      return withRuntimeAdapter(adapter, () => {
-         return fetchWithTimeout('https://example.com/rules.md', timeoutMs);
-      });
-   }
 
    it('returns the response body', async () => {
       const body = await fetchWith(async () => {
