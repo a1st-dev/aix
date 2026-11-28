@@ -14,8 +14,8 @@ itself. `@a1st/aix-core` is the library the `aix` command is built on. Your user
 npm install @a1st/aix-core zod@^4
 ```
 
-The package uses Zod 4 as a peer dependency. It is ESM-only and needs Node.js 20.19 or
-later in the 20.x series, or Node.js 22.12 and later.
+The package uses Zod 4 as a peer dependency. It is ESM-only and needs Node.js 22.13
+or later.
 
 ## Detect editors and let users choose
 

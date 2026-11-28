@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Box, useApp, useStdout } from 'ink';
+import { Box, useApp, useWindowSize } from 'ink';
 import { SearchInput } from './SearchInput.js';
 import { ResultsList } from './ResultsList.js';
 import { DetailsPanel } from './DetailsPanel.js';
@@ -13,8 +13,7 @@ import type { SearchType } from '../../../lib/search/types.js';
 import { normalizeSkillName } from '../../../lib/skill-source.js';
 
 const MIN_WIDTH_FOR_SPLIT = 80,
-      MIN_WIDTH_FOR_DETAILS = 40,
-      DEFAULT_COLUMNS = 80;
+      MIN_WIDTH_FOR_DETAILS = 40;
 
 export function SearchApp({
    initialQuery = '',
@@ -26,9 +25,8 @@ export function SearchApp({
    alreadyInstalled = new Set(),
 }: SearchUIProps): React.ReactElement {
    const { exit } = useApp();
-   const { stdout } = useStdout();
-   const columns = stdout?.columns ?? DEFAULT_COLUMNS,
-         isSplitLayout = columns >= MIN_WIDTH_FOR_SPLIT,
+   const { columns } = useWindowSize();
+   const isSplitLayout = columns >= MIN_WIDTH_FOR_SPLIT,
          showStackedDetails = !isSplitLayout && columns >= MIN_WIDTH_FOR_DETAILS;
 
    const { query, setQuery, results, loading, error, retry } = useSearch({

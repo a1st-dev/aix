@@ -36,6 +36,9 @@
       "test:watch": "node ../../scripts/test-runner.mjs"
    },
    "dependencies": {
-      "p-map": "7.0.4"
+      "p-map": "7.1.1"
+   },
+   "engines": {
+      "node": ">=22.13.0"
    }
 }

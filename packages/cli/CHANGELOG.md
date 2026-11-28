@@ -7,6 +7,11 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Require Node.js 22.13 or later. Node.js 20 reached end of life in April
+  2026, and the updated dependencies no longer support it.
+
 ## [0.11.0] - 2026-11-27
 
 ### Added

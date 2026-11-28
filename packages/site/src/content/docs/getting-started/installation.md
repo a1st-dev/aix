@@ -10,7 +10,7 @@ aix is a command-line tool distributed on npm as `@a1st/aix`. Install it globall
 
 ## Requirements
 
-- **Node.js** ≥ 20.19.0 or ≥ 22.12.0
+- **Node.js** ≥ 22.13.0
 - **npm** ≥ 10.0.0
 
 ## Install

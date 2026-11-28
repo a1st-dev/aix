@@ -38,6 +38,9 @@ const llmsEditorPages = [
 
 export default defineConfig({
    site: 'https://aix.a1st.dev',
+   // The templates rely on line breaks between text and inline elements rendering as
+   // spaces, which the default JSX whitespace rules remove.
+   compressHTML: true,
    adapter: vercel(),
    integrations: [
       icon(),
