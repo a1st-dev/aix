@@ -8,6 +8,9 @@
       },
       "test": {
          "dependsOn": ["^build"]
+      },
+      "@a1st/aix#test": {
+         "dependsOn": ["build"]
       }
    },
    "globalDependencies": ["scripts/test-runner.mjs", "scripts/test-setup.ts", "vitest.config.ts"],
