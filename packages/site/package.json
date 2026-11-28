@@ -11,7 +11,6 @@
       "preview": "astro preview"
    },
    "dependencies": {
-      "@4hse/astro-llms-txt": "1.0.5",
       "@a1st/aix-schema": "*",
       "@astrojs/sitemap": "3.7.6",
       "@astrojs/starlight": "0.43.2",
@@ -25,11 +24,21 @@
       "astro-icon": "1.2.0",
       "astro-og-canvas": "0.13.3",
       "astro-seo": "1.2.0",
+      "hast-util-select": "6.0.4",
+      "hast-util-to-string": "3.0.1",
+      "rehype-parse": "9.0.1",
+      "rehype-remark": "10.0.1",
+      "remark-gfm": "4.0.1",
+      "remark-stringify": "11.0.0",
       "sharp": "0.35.5",
+      "unified": "11.0.5",
+      "unist-util-remove": "4.0.0",
       "yaml": "2.9.1"
    },
    "devDependencies": {
       "@astrojs/check": "0.9.12",
+      "@types/hast": "3.0.5",
+      "@types/unist": "3.0.3",
       "sass": "1.108.2"
    }
 }
