@@ -7,6 +7,11 @@ version may appear here with no changes to this package.
 
 ## [Unreleased]
 
+### Fixed
+
+- Ctrl+C in `aix search` now exits like Esc: it lists what you installed and exits
+  with status 0, instead of exiting with status 13 and a Node.js warning.
+
 ### Changed
 
 - **Breaking:** Require Node.js 22.13 or later. Node.js 20 reached end of life in April

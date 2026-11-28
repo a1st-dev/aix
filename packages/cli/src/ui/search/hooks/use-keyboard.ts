@@ -47,6 +47,11 @@ export function useKeyboard(options: UseKeyboardOptions): void {
    } = options;
 
    useInput((input, key) => {
+      if (key.ctrl && input === 'c') {
+         handleExit();
+         return;
+      }
+
       // Block input while installing or uninstalling
       if (installingItem || uninstallingItem) {
          return;

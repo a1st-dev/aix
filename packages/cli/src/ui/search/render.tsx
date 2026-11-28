@@ -10,26 +10,25 @@ export interface RenderSearchUIResult {
 }
 
 export async function renderSearchUI(options: RenderSearchUIOptions): Promise<RenderSearchUIResult> {
-   return new Promise((resolve, reject) => {
-      try {
-         const { unmount, waitUntilExit } = render(
-            <SearchApp
-               {...options}
-               onExit={(installedItems) => {
-                  unmount();
-                  resolve({ installedItems });
-               }}
-            />,
-            {
-               // Explicitly use process.stdin/stdout to avoid any oclif interference
-               stdin: process.stdin,
-               stdout: process.stdout,
-            },
-         );
+   let installedItems: InstallItem[] = [];
 
-         waitUntilExit().catch(reject);
-      } catch (error) {
-         reject(error);
-      }
-   });
+   const { waitUntilExit } = render(
+      <SearchApp
+         {...options}
+         onExit={(items) => {
+            installedItems = items;
+         }}
+      />,
+      {
+         // Explicitly use process.stdin/stdout to avoid any oclif interference
+         stdin: process.stdin,
+         stdout: process.stdout,
+         // The UI handles Ctrl+C like Esc, so the command can still list what was installed
+         exitOnCtrlC: false,
+      },
+   );
+
+   await waitUntilExit();
+
+   return { installedItems };
 }
